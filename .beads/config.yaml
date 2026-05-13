@@ -1,0 +1,6 @@
+repos:
+  primary: "."
+  additional:
+    - "/Users/giridharanvasudevan/.beads-planning"
+
+export.auto: false

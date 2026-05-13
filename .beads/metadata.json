@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "epr_register_enrol_management_tests",
+  "project_id": "c6ad97c3-83d5-4767-a755-66087b37f1a4"
+}
