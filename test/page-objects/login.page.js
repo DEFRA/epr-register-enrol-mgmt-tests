@@ -6,7 +6,9 @@ class LoginPage extends Page {
     await this.open('/auth/regulator/login')
     await $(`input[name="role"][value="${role}"]`).click()
     await $('button=Log in').click()
-    await browser.waitUntil(async () => new URL(await browser.getUrl()).pathname === '/')
+    await browser.waitUntil(
+      async () => new URL(await browser.getUrl()).pathname === '/'
+    )
   }
 
   async logout() {

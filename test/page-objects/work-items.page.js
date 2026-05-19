@@ -4,7 +4,9 @@ import { Page } from 'page-objects/page.js'
 class WorkItemsPage extends Page {
   async goto() {
     await this.open('/work-items')
-    await expect($('[data-testid="app-heading-title"]')).toHaveText('Work items')
+    await expect($('[data-testid="app-heading-title"]')).toHaveText(
+      'Work items'
+    )
   }
 
   async clickCreateWorkItem() {

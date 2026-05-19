@@ -23,7 +23,7 @@ describe('Assign user journey', () => {
       siteAddressTown: 'Manchester',
       siteAddressPostcode: 'M1 1AA',
       material: 'glass',
-      tonnageBand: '0-500',
+      tonnageBand: '0-500'
     })
 
     // ── Create work item 2 (will be progressed through stages) ────────────────
@@ -35,7 +35,7 @@ describe('Assign user journey', () => {
       siteAddressTown: 'Bristol',
       siteAddressPostcode: 'BS1 2BB',
       material: 'plastic',
-      tonnageBand: '500-5000',
+      tonnageBand: '500-5000'
     })
 
     // ── Assign work item 1 to the standard user ───────────────────────────────
@@ -49,19 +49,28 @@ describe('Assign user journey', () => {
     await detail.assertState('Submitted')
 
     await detail.assertTaskStatus('verify-organisation-details', 'Not started')
-    await detail.assertTaskStatus('confirm-application-completeness', 'Not started')
+    await detail.assertTaskStatus(
+      'confirm-application-completeness',
+      'Not started'
+    )
 
     await detail.setTaskStatus('verify-organisation-details', 'InProgress')
     await detail.setTaskStatus('confirm-application-completeness', 'InProgress')
 
     await detail.assertTaskStatus('verify-organisation-details', 'In progress')
-    await detail.assertTaskStatus('confirm-application-completeness', 'In progress')
+    await detail.assertTaskStatus(
+      'confirm-application-completeness',
+      'In progress'
+    )
 
     await detail.setTaskStatus('verify-organisation-details', 'Completed')
     await detail.setTaskStatus('confirm-application-completeness', 'Completed')
 
     await detail.assertTaskStatus('verify-organisation-details', 'Completed')
-    await detail.assertTaskStatus('confirm-application-completeness', 'Completed')
+    await detail.assertTaskStatus(
+      'confirm-application-completeness',
+      'Completed'
+    )
 
     await login.logout()
   })
@@ -86,29 +95,44 @@ describe('Standard user journey', () => {
     await detail.assertState('Submitted')
 
     await detail.assertTaskStatus('verify-organisation-details', 'Not started')
-    await detail.assertTaskStatus('confirm-application-completeness', 'Not started')
+    await detail.assertTaskStatus(
+      'confirm-application-completeness',
+      'Not started'
+    )
 
     await detail.setTaskStatus('verify-organisation-details', 'InProgress')
     await detail.setTaskStatus('confirm-application-completeness', 'InProgress')
 
     await detail.assertTaskStatus('verify-organisation-details', 'In progress')
-    await detail.assertTaskStatus('confirm-application-completeness', 'In progress')
+    await detail.assertTaskStatus(
+      'confirm-application-completeness',
+      'In progress'
+    )
 
     await detail.setTaskStatus('verify-organisation-details', 'Completed')
     await detail.setTaskStatus('confirm-application-completeness', 'Completed')
 
     await detail.assertTaskStatus('verify-organisation-details', 'Completed')
-    await detail.assertTaskStatus('confirm-application-completeness', 'Completed')
+    await detail.assertTaskStatus(
+      'confirm-application-completeness',
+      'Completed'
+    )
 
     // ── Select Duly Made ──────────────────────────────────────────────────────
     await detail.dulyMake()
     await detail.assertState('duly-made')
 
-    await detail.assertTaskStatus('confirm-registration-fee-paid', 'Not started')
+    await detail.assertTaskStatus(
+      'confirm-registration-fee-paid',
+      'Not started'
+    )
 
     await detail.setTaskStatus('confirm-registration-fee-paid', 'InProgress')
 
-    await detail.assertTaskStatus('confirm-registration-fee-paid', 'In progress')
+    await detail.assertTaskStatus(
+      'confirm-registration-fee-paid',
+      'In progress'
+    )
 
     await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
 

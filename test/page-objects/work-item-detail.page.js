@@ -4,7 +4,9 @@ import { Page } from 'page-objects/page.js'
 class WorkItemDetailPage extends Page {
   async assertState(expectedState) {
     await expect(
-      $(`//*[contains(@class,"govuk-summary-list__value") and contains(.,"${expectedState}")]`)
+      $(
+        `//*[contains(@class,"govuk-summary-list__value") and contains(.,"${expectedState}")]`
+      )
     ).toBeDisplayed()
   }
 
@@ -15,12 +17,17 @@ class WorkItemDetailPage extends Page {
 
   async assertAssignedTo(displayName) {
     await expect(
-      $(`//*[contains(@class,"govuk-summary-list__value") and contains(.,"${displayName}")]`)
+      $(
+        `//*[contains(@class,"govuk-summary-list__value") and contains(.,"${displayName}")]`
+      )
     ).toBeDisplayed()
   }
 
   async setTaskStatus(task, status) {
-    await $(`[data-testid="task-status-select-${task}"]`).selectByAttribute('value', status)
+    await $(`[data-testid="task-status-select-${task}"]`).selectByAttribute(
+      'value',
+      status
+    )
     await $(`[data-testid="set-task-status-${task}"]`).click()
   }
 
