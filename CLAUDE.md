@@ -1,6 +1,6 @@
-# Project Instructions for AI Agents
+# CLAUDE.md
 
-This file provides instructions and context for AI coding agents working on this project.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
 ## Beads Issue Tracker
@@ -52,18 +52,43 @@ bd close <id>         # Complete work
 
 ## Build & Test
 
-_Add your build and test commands here_
-
 ```bash
-# Example:
-# npm install
-# npm test
+npm install
+
+npm test                             # Run all tests (headless Chrome)
+npm run test:local                   # Run against localhost:5001 in headed mode
+npm run test:report                  # Generate and open Allure report
+```
+
+Single spec:
+```bash
+npx wdio run wdio.conf.js --spec tests/journey.spec.js
 ```
 
 ## Architecture Overview
 
-_Add a brief overview of your project architecture_
+E2E test suite for the EPR Register Enrolment Management application using **WebdriverIO + Mocha** (ESM, plain JavaScript). Mirrors the structure of the sibling repo `epr-register-enrol-fe-tests`.
+
+```
+tests/
+├── page-objects/   # POM classes extending Page (one file per page/component)
+│   ├── Page.js               — base class with open(path)
+│   ├── LoginPage.js
+│   ├── WorkItemsPage.js
+│   └── WorkItemDetailPage.js
+└── journey.spec.js           — Mocha describe/it journey tests
+wdio.conf.js
+```
+
+Environment config (resolved in order):
+1. `BASE_URL` env var
+2. `https://epr-register-enrol-backend.${ENVIRONMENT}.cdp-int.defra.cloud`
+3. `http://localhost:5001` (fallback)
 
 ## Conventions & Patterns
 
-_Add your project-specific conventions here_
+- **Locators:** prefer `data-testid` attributes (`$('[data-testid="..."]')`); fall back to text selectors (`$('button=Log in')`) or XPath
+- **Page objects:** extend `Page`, export a singleton instance (`export default new XxxPage()`), expose actions as `async` methods
+- **Globals:** import `browser`, `$`, `$$`, `expect` explicitly from `@wdio/globals`
+- **Journey flow:** tests follow the worklist lifecycle — New → In Progress → Completed
+- **Custom E2E skill:** invoke `/case-managment-e2e-tests` to auto-generate journey specs from the Beads backlog

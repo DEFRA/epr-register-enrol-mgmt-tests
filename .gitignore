@@ -3,3 +3,10 @@
 .dolt/
 *.db
 .beads-credential-key
+
+node_modules/
+allure-results/
+allure-report/
+playwright-report/
+test-results/
+FAILED

@@ -1,0 +1,21 @@
+{
+  "name": "epr-register-enrol-management-tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "wdio run wdio.conf.js",
+    "test:local": "BASE_URL=http://localhost:5001 HEADED=true wdio run wdio.conf.js",
+    "test:report": "allure generate allure-results --clean && allure open"
+  },
+  "devDependencies": {
+    "@wdio/allure-reporter": "^8.0.0",
+    "@wdio/cli": "^8.0.0",
+    "@wdio/globals": "^8.0.0",
+    "@wdio/local-runner": "^8.0.0",
+    "@wdio/mocha-framework": "^8.0.0",
+    "@wdio/spec-reporter": "^8.0.0",
+    "chromedriver": "^148.0.3",
+    "wdio-chromedriver-service": "^8.1.1"
+  }
+}
