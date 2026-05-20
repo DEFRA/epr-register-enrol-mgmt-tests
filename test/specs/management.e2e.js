@@ -48,6 +48,9 @@ describe('Assign user journey', () => {
 
     await detail.assertState('Submitted')
 
+    // Task controls live on the /tasks sub-page
+    await detail.gotoTasks()
+
     await detail.assertTaskStatus('verify-organisation-details', 'Not started')
     await detail.assertTaskStatus(
       'confirm-application-completeness',
@@ -94,6 +97,9 @@ describe('Standard user journey', () => {
     await workItems.openWorkItem(assignedWorkItemId)
     await detail.assertState('Submitted')
 
+    // Task controls live on the /tasks sub-page
+    await detail.gotoTasks()
+
     await detail.assertTaskStatus('verify-organisation-details', 'Not started')
     await detail.assertTaskStatus(
       'confirm-application-completeness',
@@ -119,8 +125,13 @@ describe('Standard user journey', () => {
     )
 
     // ── Select Duly Made ──────────────────────────────────────────────────────
+    // dulyMake action lives on the detail page — navigate back first
+    await detail.gotoDetail()
     await detail.dulyMake()
     await detail.assertState('duly-made')
+
+    // Task controls live on the /tasks sub-page
+    await detail.gotoTasks()
 
     await detail.assertTaskStatus(
       'confirm-registration-fee-paid',
