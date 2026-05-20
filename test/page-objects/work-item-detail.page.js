@@ -1,4 +1,4 @@
-import { $, expect } from '@wdio/globals'
+import { $, browser, expect } from '@wdio/globals'
 import { Page } from 'page-objects/page.js'
 
 class WorkItemDetailPage extends Page {
@@ -21,6 +21,25 @@ class WorkItemDetailPage extends Page {
         `//*[contains(@class,"govuk-summary-list__value") and contains(.,"${displayName}")]`
       )
     ).toBeDisplayed()
+  }
+
+  /**
+   * Navigate from the work item detail page to the tasks sub-page.
+   * Task status controls live at /work-items/{id}/tasks, not on the
+   * detail page itself.
+   */
+  async gotoTasks() {
+    await $('[data-testid="work-item-tasks-link"]').click()
+  }
+
+  /**
+   * Navigate from the tasks sub-page back to the work item detail page.
+   * Extracts the work item id from the current URL.
+   */
+  async gotoDetail() {
+    const url = await browser.getUrl()
+    const match = url.match(/\/work-items\/([^/]+)/)
+    await this.open(`/work-items/${match[1]}`)
   }
 
   async setTaskStatus(task, status) {
