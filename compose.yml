@@ -39,7 +39,7 @@ services:
 
   ################################################################################
   floci:
-    image: hectorvent/floci:latest-aws
+    image: hectorvent/floci:1.5.5-aws
     environment:
       - FLOCI_DEFAULT_REGION=eu-west-2
     env_file:
