@@ -48,6 +48,16 @@ class WorkItemDetailPage extends Page {
       status
     )
     await $(`[data-testid="set-task-status-${task}"]`).click()
+    // Wait for the PRG redirect to land back on the tasks page.  When the
+    // full suite runs concurrently the default page-load wait can return
+    // before the redirect has fully settled, so we poll the URL explicitly.
+    await browser.waitUntil(
+      async () => /\/work-items\/[^/]+\/tasks$/.test(await browser.getUrl()),
+      {
+        timeout: 10000,
+        timeoutMsg: `Expected tasks page URL after setting "${task}" to "${status}"`
+      }
+    )
   }
 
   async assertTaskStatus(task, expectedText) {
@@ -58,6 +68,63 @@ class WorkItemDetailPage extends Page {
 
   async dulyMake() {
     await $('[data-testid="action-duly-make"]').click()
+  }
+
+  /**
+   * Trigger any work item action by its actionId (RA-133). The action
+   * buttons are rendered with `data-testid="action-<actionId>"` so this
+   * works for `payment-received`, `submit-for-decision`, `approve`, etc.
+   */
+  async triggerAction(actionId) {
+    await $(`[data-testid="action-${actionId}"]`).click()
+  }
+
+  /**
+   * Submit the approval interstitial form (RA-133).  After
+   * triggerAction('approve') the browser is on the GET confirmation
+   * page at /work-items/re-accreditation/{id}/approve.  This method
+   * clicks the "Approve determination" submit button and waits for the
+   * POST-redirect-GET back to the detail page.
+   */
+  async submitApproval() {
+    await $('[data-testid="approval-submit"]').click()
+    await browser.waitUntil(
+      async () => !/\/approve$/.test(await browser.getUrl()),
+      {
+        timeout: 10000,
+        timeoutMsg:
+          'Expected redirect away from approval interstitial after submitting approval'
+      }
+    )
+  }
+
+  /**
+   * Assert that the re-accreditation approval confirmation panel
+   * (RA-133) is displayed and exposes the generated accreditation id.
+   * Returns the accreditation id text so callers can assert on its
+   * format.
+   */
+  async assertApprovalPanelVisible() {
+    await expect(
+      $('[data-testid="re-accreditation-approval-panel"]')
+    ).toBeDisplayed()
+    await expect(
+      $('[data-testid="re-accreditation-approval-panel-id"]')
+    ).toBeDisplayed()
+  }
+
+  async getAccreditationId() {
+    return $('[data-testid="re-accreditation-approval-panel-id"]').getText()
+  }
+
+  async getAccreditationStartDate() {
+    return $(
+      '[data-testid="re-accreditation-accreditation-start-date"]'
+    ).getText()
+  }
+
+  async getAccreditationYear() {
+    return $('[data-testid="re-accreditation-accreditation-year"]').getText()
   }
 
   async addNote(text) {

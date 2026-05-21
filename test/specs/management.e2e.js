@@ -128,7 +128,7 @@ describe('Standard user journey', () => {
     // dulyMake action lives on the detail page — navigate back first
     await detail.gotoDetail()
     await detail.dulyMake()
-    await detail.assertState('duly-made')
+    await detail.assertState('Duly made')
 
     // Task controls live on the /tasks sub-page
     await detail.gotoTasks()
