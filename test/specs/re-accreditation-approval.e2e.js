@@ -45,14 +45,14 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await detail.setTaskStatus('confirm-application-completeness', 'Completed')
     await detail.gotoDetail()
     await detail.triggerAction('duly-make')
-    await detail.assertState('duly-made')
+    await detail.assertState('Duly made')
 
     // Duly made -> Assessment in progress
     await detail.gotoTasks()
     await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
     await detail.gotoDetail()
     await detail.triggerAction('payment-received')
-    await detail.assertState('assessment-in-progress')
+    await detail.assertState('Assessment in progress')
 
     // Assessment in progress -> Awaiting decision
     await detail.gotoTasks()
@@ -61,7 +61,7 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await detail.setTaskStatus('assess-financial-capacity', 'Completed')
     await detail.gotoDetail()
     await detail.triggerAction('submit-for-decision')
-    await detail.assertState('awaiting-decision')
+    await detail.assertState('Awaiting decision')
 
     await login.logout()
   })
