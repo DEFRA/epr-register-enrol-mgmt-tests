@@ -39,11 +39,9 @@ services:
 
   ################################################################################
   floci:
-    image: localstack/localstack:3.2.0
+    image: hectorvent/floci:latest-aws
     environment:
-      - LOCALSTACK_HOST=127.0.0.1
-      - SERVICES=s3,sqs,sns,dynamodb
-      - LS_LOG=WARN
+      - FLOCI_DEFAULT_REGION=eu-west-2
     env_file:
       - ./docker/config/defaults.env
     healthcheck:
