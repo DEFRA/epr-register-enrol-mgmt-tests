@@ -63,7 +63,7 @@ services:
       retries: 5
 
   ################################################################################
-  enrol-registration-management-be:
+  epr-register-enrol-management-be:
     image: defradigital/epr-register-enrol-management-be:${MANAGEMENT_BE:-latest}
     env_file:
       - ./docker/config/defaults.env
@@ -80,7 +80,7 @@ services:
       retries: 5
 
   ################################################################################
-  enrol-registration-management-fe:
+  epr-register-enrol-management-fe:
     image: defradigital/epr-register-enrol-management-fe:${MANAGEMENT_FE:-latest}
     env_file:
       - ./docker/config/defaults.env
@@ -88,7 +88,7 @@ services:
     environment:
       - PORT=3000
     depends_on:
-      enrol-registration-management-be:
+      epr-register-enrol-management-be:
         condition: service_healthy
       redis:
         condition: service_healthy
