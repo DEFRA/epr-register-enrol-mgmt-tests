@@ -79,7 +79,7 @@ runs:
       run: |
         MANAGEMENT_FE=${{ steps.docker-management-fe.outputs.image }} \
         MANAGEMENT_BE=${{ inputs.management-be }} \
-        docker compose up --wait-timeout 300 -d --quiet-pull
+        docker compose up --wait --wait-timeout 300 -d --quiet-pull
 
     - name: Start docker compose (default images)
       if: steps.management-fe-branch.outputs.exists != 'true'
@@ -87,11 +87,7 @@ runs:
       run: |
         MANAGEMENT_FE=${{ inputs.management-fe }} \
         MANAGEMENT_BE=${{ inputs.management-be }} \
-        docker compose up --wait-timeout 300 -d --quiet-pull
-
-    - name: Wait for management-fe to be ready
-      shell: bash
-      run: timeout 180 bash -c 'until curl -sf http://localhost:3000/health; do sleep 5; done'
+        docker compose up --wait --wait-timeout 300 -d --quiet-pull
 
     - name: Run the tests
       shell: bash
