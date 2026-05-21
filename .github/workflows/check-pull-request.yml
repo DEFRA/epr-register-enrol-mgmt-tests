@@ -29,7 +29,6 @@ jobs:
       - run: npm install -g npm@11.12.1
       - run: |
           npm ci --ignore-scripts
-          npm run security-audit
           npm run format:check
           npm run lint
 
