@@ -36,6 +36,17 @@ Install application dependencies:
 npm install
 ```
 
+### Git hooks
+
+A `pre-commit` hook runs a security audit, format checks and linting before
+allowing a commit. Enable it once per clone:
+
+```bash
+npm run setup:husky
+```
+
+Bypass in an emergency with `git commit --no-verify`.
+
 ### Running local tests
 
 Start application you are testing on the url specified in `baseUrl` [wdio.local.conf.js](wdio.local.conf.js)
