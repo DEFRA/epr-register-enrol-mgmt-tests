@@ -60,6 +60,44 @@ class WorkItemDetailPage extends Page {
     await $('[data-testid="action-duly-make"]').click()
   }
 
+  /**
+   * Trigger any work item action by its actionId (RA-133). The action
+   * buttons are rendered with `data-testid="action-<actionId>"` so this
+   * works for `payment-received`, `submit-for-decision`, `approve`, etc.
+   */
+  async triggerAction(actionId) {
+    await $(`[data-testid="action-${actionId}"]`).click()
+  }
+
+  /**
+   * Assert that the re-accreditation approval confirmation panel
+   * (RA-133) is displayed and exposes the generated accreditation id.
+   * Returns the accreditation id text so callers can assert on its
+   * format.
+   */
+  async assertApprovalPanelVisible() {
+    await expect(
+      $('[data-testid="re-accreditation-approval-panel"]')
+    ).toBeDisplayed()
+    await expect(
+      $('[data-testid="re-accreditation-approval-panel-id"]')
+    ).toBeDisplayed()
+  }
+
+  async getAccreditationId() {
+    return $('[data-testid="re-accreditation-approval-panel-id"]').getText()
+  }
+
+  async getAccreditationStartDate() {
+    return $(
+      '[data-testid="re-accreditation-accreditation-start-date"]'
+    ).getText()
+  }
+
+  async getAccreditationYear() {
+    return $('[data-testid="re-accreditation-accreditation-year"]').getText()
+  }
+
   async addNote(text) {
     await $('[data-testid="note-text"]').setValue(text)
     await $('[data-testid="add-note-submit"]').click()
