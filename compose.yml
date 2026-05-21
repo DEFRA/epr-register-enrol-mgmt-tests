@@ -3,18 +3,18 @@
 # This template provides comparable infrastructure to the real environment.
 #   - mongodb
 #   - redis
-#   - localstack (s3, sqs, sns)
+#   - floci (s3, sqs, sns - LocalStack-compatible)
 #
-# Both mongo and localstack have init scripts included for setting up resources
+# Both mongo and floci have init scripts included for setting up resources
 # on startup. These scripts are in docker/scripts.
 #
 # It also includes a selenium-chrome container for running the browser headless.
 #
-# The services being tested can either be started up here using the latest
-# builds from dockerhub.
-# In the example each service has a .env config file in docker/config/
+# The services being tested are started up here using Docker images from
+# DockerHub (or built from source when a matching branch exists).
+# Each service has a .env config file in docker/config/.
 # Services can reference each other by their container names.
-# e.g. http://cdp-example-node-backend:3001/
+# e.g. http://case-management-backend:8085/
 #
 ################################################################################
 services:
@@ -36,8 +36,9 @@ services:
       interval: 5s
       start_period: 5s
       retries: 3
+
   ################################################################################
-  localstack:
+  floci:
     image: localstack/localstack:3.2.0
     environment:
       - LOCALSTACK_HOST=127.0.0.1
@@ -45,8 +46,6 @@ services:
       - LS_LOG=WARN
     env_file:
       - ./docker/config/defaults.env
-    volumes:
-      - ./docker/scripts/localstack:/etc/localstack/init/ready.d
     healthcheck:
       test: ['CMD', 'curl', 'localhost:4566']
       interval: 5s
@@ -63,44 +62,41 @@ services:
       start_period: 2s
       retries: 5
 
-################################################################################
-#
-# Add the services you want to test below.
-#
-################################################################################
-#  cdp-example-node-frontend:
-#    image: defradigital/cdp-example-node-frontend:${CDP_EXAMPLE_NODE_FRONTEND:-latest}
-#    env_file:
-#      - ./docker/config/defaults.env
-#      - ./docker/config/example-frontend.env
-#    environment:
-#      - PORT=3000
-#    depends_on:
-#      cdp-example-node-backend:
-#        condition: service_started
-#      redis:
-#        condition: service_healthy
-#    ports:
-#      - 3000:3000
-#    healthcheck:
-#      test: ["CMD", "curl", "http://localhost:3000/health"]
-#      interval: 3s
-#      start_period: 2s
-#      retries: 3
+  ################################################################################
+  case-management-backend:
+    image: defradigital/epr-register-enrol-management-be:${MANAGEMENT_BE:-latest}
+    env_file:
+      - ./docker/config/defaults.env
+      - ./docker/config/management-be.env
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      floci:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8085/health']
+      interval: 5s
+      start_period: 10s
+      retries: 5
 
-################################################################################
-# cdp-example-node-backend:
-#   image: defradigital/cdp-example-node-backend:${CDP_EXAMPLE_NODE_BACKEND:-latest}
-#   env_file:
-#     - ./docker/config/defaults.env
-#     - ./docker/config/example-backend.env
-#   environment:
-#     - PORT=3001
-#   depends_on:
-#     mongodb:
-#       condition: service_healthy
-#   healthcheck:
-#     test: ["CMD", "curl", "http://localhost:3001/health"]
-#     interval: 3s
-#     start_period: 2s
-#     retries: 3
+  ################################################################################
+  case-management-frontend:
+    image: defradigital/epr-register-enrol-management-fe:${MANAGEMENT_FE:-latest}
+    env_file:
+      - ./docker/config/defaults.env
+      - ./docker/config/management-fe.env
+    environment:
+      - PORT=3000
+    depends_on:
+      case-management-backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - 3000:3000
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
+      interval: 5s
+      start_period: 10s
+      retries: 5
+

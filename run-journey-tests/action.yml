@@ -1,56 +1,127 @@
 name: Run Journey Tests on GitHub
 
 inputs:
-  example-node-backend:
+  management-fe:
+    description: management-fe image tag (commit hash) to use
     required: false
     type: string
-  example-node-frontend:
+  management-be:
+    description: management-be image tag (commit hash) to use
     required: false
+    type: string
+  branch:
+    description: Branch in this repo to use when not a PR
+    required: false
+    default: main
+    type: string
+  journey-test-pr:
+    description: Is this action being run from a PR in this repo?
+    required: false
+    default: 'false'
     type: string
 
 runs:
   using: 'composite'
   steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository if not called by Journey Test PR
+      if: inputs.journey-test-pr == 'false'
+      uses: actions/checkout@v6
       with:
-        repository: DEFRA/cdp-node-journey-test-suite-template
+        repository: DEFRA/epr-register-enrol-mgmt-tests
+        ref: ${{ inputs.branch }}
 
-    - name: Docker Login
-      uses: DEFRA/cdp-build-action/docker-login@main
-
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 20
-        cache: npm
-    - name: Setup the tests
-      run: npm i
-      shell: bash
-    - name: Start docker compose
+    - name: Check for matching management-fe branch
+      if: inputs.journey-test-pr != 'false'
+      id: management-fe-branch
       shell: bash
       run: |
-        CDP_EXAMPLE_NODE_FRONTEND=${{inputs.example-node-frontend}} \
-        CDP_EXAMPLE_NODE_BACKEND=${{inputs.example-node-backend}} \
+        BRANCH="${{ github.head_ref }}"
+        if git ls-remote --heads https://github.com/DEFRA/epr-register-enrol-management-fe.git "$BRANCH" | grep -q .; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "ref=main" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Checkout management-fe if matching branch exists
+      if: inputs.journey-test-pr != 'false' && steps.management-fe-branch.outputs.exists == 'true'
+      uses: actions/checkout@v6
+      with:
+        repository: DEFRA/epr-register-enrol-management-fe
+        ref: ${{ steps.management-fe-branch.outputs.ref }}
+        path: epr-register-enrol-management-fe
+
+    - name: Build management-fe Docker image from source
+      if: inputs.journey-test-pr != 'false' && steps.management-fe-branch.outputs.exists == 'true'
+      id: docker-management-fe
+      shell: bash
+      run: |
+        cd epr-register-enrol-management-fe
+        MANAGEMENT_FE_SHA=$(git rev-parse --short HEAD)
+        IMAGE_TAG="defradigital/epr-register-enrol-management-fe:${MANAGEMENT_FE_SHA}"
+        docker build -t $IMAGE_TAG .
+        echo "image=$MANAGEMENT_FE_SHA" >> $GITHUB_OUTPUT
+
+    - uses: actions/setup-node@v6
+      with:
+        node-version-file: .nvmrc
+        cache: npm
+    - run: npm install -g npm@11.12.1
+      shell: bash
+    - name: Install test dependencies
+      run: npm ci
+      shell: bash
+
+    - name: Start docker compose (with matching management-fe branch)
+      if: inputs.journey-test-pr != 'false' && steps.management-fe-branch.outputs.exists == 'true'
+      shell: bash
+      run: |
+        MANAGEMENT_FE=${{ steps.docker-management-fe.outputs.image }} \
+        MANAGEMENT_BE=${{ inputs.management-be }} \
         docker compose up --wait-timeout 300 -d --quiet-pull
+
+    - name: Start docker compose (default images)
+      if: steps.management-fe-branch.outputs.exists != 'true'
+      shell: bash
+      run: |
+        MANAGEMENT_FE=${{ inputs.management-fe }} \
+        MANAGEMENT_BE=${{ inputs.management-be }} \
+        docker compose up --wait-timeout 300 -d --quiet-pull
+
+    - name: Wait for management-fe to be ready
+      shell: bash
+      run: timeout 180 bash -c 'until curl -sf http://localhost:3000/health; do sleep 5; done'
+
     - name: Run the tests
       shell: bash
       run: |
         npm run test:github
         npm run report
-    - name: debug
+
+    - name: Collect logs
       if: always()
+      shell: bash
       run: |
         docker compose logs > logs.txt
         docker ps
-      shell: bash
+
     - name: Upload allure report
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: allure-report
         path: ./allure-report
+
     - name: Upload docker compose logs
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: docker-compose-logs
         path: ./logs.txt
+
+    - name: Check for test failures
+      if: always()
+      shell: bash
+      run: if [ -f "FAILED" ]; then exit 1; fi
+

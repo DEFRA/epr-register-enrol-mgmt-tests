@@ -3,34 +3,53 @@ name: Check Pull Request
 on:
   pull_request:
     branches:
-      - main
+      - '*'
     types:
       - opened
-      - edited
       - reopened
       - synchronize
-      - ready_for_review
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: true
 
 jobs:
-  cdp-workflows:
+  pr-validator:
     name: Run Pull Request Checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - name: Test code and Create Test Coverage Reports
-        uses: actions/setup-node@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: npm
-      - run: npm ci
-      - run: npm run format:check
-      - run: npm run lint
+      - run: npm install -g npm@11.12.1
+      - run: |
+          npm ci --ignore-scripts
+          npm run security-audit
+          npm run format:check
+          npm run lint
 
-# Uncomment this to run the tests in your test suite
-#  tests:
-#    name: Run Journey Tests
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: DEFRA/cdp-node-journey-test-suite-template/run-journey-tests@main
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      - name: Build Docker image
+        run: docker build .
+
+  tests:
+    name: Run Journey Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout journey-tests repo
+        uses: actions/checkout@v6
+      - name: Run journey tests
+        uses: ./run-journey-tests
+        with:
+          branch: ${{ github.head_ref }}
+          journey-test-pr: true
