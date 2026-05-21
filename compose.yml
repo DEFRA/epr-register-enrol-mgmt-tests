@@ -44,11 +44,6 @@ services:
       - FLOCI_DEFAULT_REGION=eu-west-2
     env_file:
       - ./docker/config/defaults.env
-    healthcheck:
-      test: ['CMD', 'curl', 'localhost:4566']
-      interval: 5s
-      start_period: 5s
-      retries: 3
 
   ################################################################################
   redis:
@@ -70,7 +65,7 @@ services:
       mongodb:
         condition: service_healthy
       floci:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:8085/health']
       interval: 5s
