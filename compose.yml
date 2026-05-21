@@ -49,8 +49,9 @@ services:
   redis:
     image: redis:7
     restart: always
+    command: redis-server --requirepass E2eTestRedisPassword
     healthcheck:
-      test: ['CMD', 'redis-cli', 'PING']
+      test: ['CMD', 'redis-cli', '-a', 'E2eTestRedisPassword', '--no-auth-warning', 'PING']
       interval: 5s
       start_period: 2s
       retries: 5
