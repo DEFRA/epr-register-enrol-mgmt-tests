@@ -72,8 +72,10 @@ export const config = {
             args: [
               '--no-sandbox',
               '--disable-infobars',
+              '--headless',
               '--disable-gpu',
-              '--window-size=1920,1080'
+              '--window-size=1920,1080',
+              '--disable-dev-shm-usage'
             ]
           }
         }
@@ -325,7 +327,6 @@ export const config = {
           return reject(reportError)
         }
 
-        allure(['open'])
         resolve()
       })
     })
