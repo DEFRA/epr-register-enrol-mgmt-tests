@@ -52,8 +52,7 @@ class WorkItemDetailPage extends Page {
     // full suite runs concurrently the default page-load wait can return
     // before the redirect has fully settled, so we poll the URL explicitly.
     await browser.waitUntil(
-      async () =>
-        /\/work-items\/[^/]+\/tasks$/.test(await browser.getUrl()),
+      async () => /\/work-items\/[^/]+\/tasks$/.test(await browser.getUrl()),
       {
         timeout: 10000,
         timeoutMsg: `Expected tasks page URL after setting "${task}" to "${status}"`
@@ -90,11 +89,11 @@ class WorkItemDetailPage extends Page {
   async submitApproval() {
     await $('[data-testid="approval-submit"]').click()
     await browser.waitUntil(
-      async () =>
-        !/\/approve$/.test(await browser.getUrl()),
+      async () => !/\/approve$/.test(await browser.getUrl()),
       {
         timeout: 10000,
-        timeoutMsg: 'Expected redirect away from approval interstitial after submitting approval'
+        timeoutMsg:
+          'Expected redirect away from approval interstitial after submitting approval'
       }
     )
   }
