@@ -48,6 +48,17 @@ class WorkItemDetailPage extends Page {
       status
     )
     await $(`[data-testid="set-task-status-${task}"]`).click()
+    // Wait for the PRG redirect to land back on the tasks page.  When the
+    // full suite runs concurrently the default page-load wait can return
+    // before the redirect has fully settled, so we poll the URL explicitly.
+    await browser.waitUntil(
+      async () =>
+        /\/work-items\/[^/]+\/tasks$/.test(await browser.getUrl()),
+      {
+        timeout: 10000,
+        timeoutMsg: `Expected tasks page URL after setting "${task}" to "${status}"`
+      }
+    )
   }
 
   async assertTaskStatus(task, expectedText) {
@@ -67,6 +78,25 @@ class WorkItemDetailPage extends Page {
    */
   async triggerAction(actionId) {
     await $(`[data-testid="action-${actionId}"]`).click()
+  }
+
+  /**
+   * Submit the approval interstitial form (RA-133).  After
+   * triggerAction('approve') the browser is on the GET confirmation
+   * page at /work-items/re-accreditation/{id}/approve.  This method
+   * clicks the "Approve determination" submit button and waits for the
+   * POST-redirect-GET back to the detail page.
+   */
+  async submitApproval() {
+    await $('[data-testid="approval-submit"]').click()
+    await browser.waitUntil(
+      async () =>
+        !/\/approve$/.test(await browser.getUrl()),
+      {
+        timeout: 10000,
+        timeoutMsg: 'Expected redirect away from approval interstitial after submitting approval'
+      }
+    )
   }
 
   /**

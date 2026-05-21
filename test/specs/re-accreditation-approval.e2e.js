@@ -76,6 +76,7 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await detail.setTaskStatus('record-decision-rationale', 'Completed')
     await detail.gotoDetail()
     await detail.triggerAction('approve')
+    await detail.submitApproval()
 
     await detail.assertState('Approved')
     await detail.assertApprovalPanelVisible()
