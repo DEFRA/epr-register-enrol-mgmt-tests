@@ -18,7 +18,19 @@ class WorkItemsPage extends Page {
 
   async createWorkItem(opts) {
     await this.clickCreateWorkItem()
-    await $('#field-applicationReference').setValue(opts.applicationReference)
+    // RA-172: applicationReference is auto-generated and read-only; we
+    // simply read whatever the server rendered so callers can use it
+    // for later assertions if needed.
+    const applicationReference = await $(
+      '#field-applicationReference'
+    ).getValue()
+    // RA-172: email field is pre-filled with test@defra.gov.uk. Callers
+    // may override via opts.email; otherwise we leave the default value
+    // in place.
+    if (opts.email !== undefined) {
+      const emailInput = await $('#field-email')
+      await emailInput.setValue(opts.email)
+    }
     await $('#field-organisationName').setValue(opts.organisationName)
     await $('#field-siteAddress-line1').setValue(opts.siteAddressLine1)
     if (opts.siteAddressLine2 !== undefined) {
@@ -31,7 +43,8 @@ class WorkItemsPage extends Page {
     await $('[data-testid="create-work-item-submit"]').click()
     await expect($('[data-testid="work-item-success-banner"]')).toBeDisplayed()
     const url = await browser.getUrl()
-    return url.split('/').pop()
+    const id = url.split('/').pop()
+    return { id, applicationReference }
   }
 
   async openWorkItem(id) {

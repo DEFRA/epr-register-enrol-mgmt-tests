@@ -26,15 +26,16 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
   it('creates a re-accreditation and drives it to awaiting-decision', async () => {
     await login.loginAs('assign')
     await workItems.goto()
-    workItemId = await workItems.createWorkItem({
-      applicationReference: 'RA-133-APPROVE-01',
-      organisationName: 'Coastal Materials Group',
-      siteAddressLine1: '1 Approval Street',
-      siteAddressTown: 'Cardiff',
-      siteAddressPostcode: 'CF1 1AA',
-      material: 'plastic',
-      tonnageBand: '500-5000'
-    })
+    workItemId = (
+      await workItems.createWorkItem({
+        organisationName: 'Coastal Materials Group',
+        siteAddressLine1: '1 Approval Street',
+        siteAddressTown: 'Cardiff',
+        siteAddressPostcode: 'CF1 1AA',
+        material: 'plastic',
+        tonnageBand: '500-5000'
+      })
+    ).id
 
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Submitted')

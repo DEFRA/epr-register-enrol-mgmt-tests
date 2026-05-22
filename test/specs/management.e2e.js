@@ -16,27 +16,25 @@ describe('Assign user journey', () => {
 
     // ── Create work item 1 (will be assigned to standard user) ─────────────────
     await workItems.goto()
-    assignedWorkItemId = await workItems.createWorkItem({
-      applicationReference: 'RA-TEST-ASSIGN-01',
+    ;({ id: assignedWorkItemId } = await workItems.createWorkItem({
       organisationName: 'Alpha Recycling Ltd',
       siteAddressLine1: '10 Assign Street',
       siteAddressTown: 'Manchester',
       siteAddressPostcode: 'M1 1AA',
       material: 'glass',
       tonnageBand: '0-500'
-    })
+    }))
 
     // ── Create work item 2 (will be progressed through stages) ────────────────
     await workItems.goto()
-    progressedWorkItemId = await workItems.createWorkItem({
-      applicationReference: 'RA-TEST-PROGRESS-02',
+    ;({ id: progressedWorkItemId } = await workItems.createWorkItem({
       organisationName: 'Beta Packaging Co',
       siteAddressLine1: '22 Progress Lane',
       siteAddressTown: 'Bristol',
       siteAddressPostcode: 'BS1 2BB',
       material: 'plastic',
       tonnageBand: '500-5000'
-    })
+    }))
 
     // ── Assign work item 1 to the standard user ───────────────────────────────
     await workItems.openWorkItem(assignedWorkItemId)
