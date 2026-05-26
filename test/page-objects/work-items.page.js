@@ -25,11 +25,11 @@ class WorkItemsPage extends Page {
       '#field-applicationReference'
     ).getValue()
     // RA-172: email field is pre-filled with test@defra.gov.uk. Callers
-    // may override via opts.email; otherwise we leave the default value
+    // may override via opts.operatorEmail; otherwise we leave the default value
     // in place.
-    if (opts.email !== undefined) {
-      const emailInput = await $('#field-email')
-      await emailInput.setValue(opts.email)
+    if (opts.operatorEmail !== undefined) {
+      const operatorEmailInput = await $('#field-operatorEmail')
+      await operatorEmailInput.setValue(opts.operatorEmail)
     }
     await $('#field-organisationName').setValue(opts.organisationName)
     await $('#field-siteAddress-line1').setValue(opts.siteAddressLine1)

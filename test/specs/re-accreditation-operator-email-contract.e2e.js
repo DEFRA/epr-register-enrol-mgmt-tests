@@ -1,0 +1,126 @@
+import { browser, $, expect } from '@wdio/globals'
+import login from 'page-objects/login.page.js'
+import workItems from 'page-objects/work-items.page.js'
+
+/**
+ * Frontend/Backend Contract Test: operatorEmail field (RA-172, RA-123)
+ *
+ * This test verifies the contract between the management-fe (form submission)
+ * and management-be (payload deserialization) to ensure the operatorEmail
+ * field is correctly passed from the frontend form to the backend and
+ * eventually reaches the ReAccreditationNotificationHook for email sending.
+ *
+ * Acceptance criteria:
+ * 1. The form submits operatorEmail in the payload (not email)
+ * 2. The backend accepts the operatorEmail field
+ * 3. The work item is created successfully
+ * 4. The audit log shows a notification-sent entry with the correct recipient
+ *
+ * This prevents regressions like RA-172-notification-skipped where the field
+ * name mismatch caused emails to be skipped during notification processing.
+ */
+describe('RA-172/RA-123 contract: operatorEmail field in re-accreditation submission', () => {
+  before(async () => {
+    await login.loginAs('assign')
+  })
+
+  after(async () => {
+    await login.logout()
+  })
+
+  it('submits operatorEmail field with work item creation and receives notification-sent audit entry', async () => {
+    // Test data: use a distinct email so we can verify it in the audit log
+    const testOperatorEmail = 'contract-test@defra.gov.uk'
+    const organisationName = 'Contract Test Organisation'
+
+    await workItems.goto()
+    await workItems.clickCreateWorkItem()
+
+    // RA-172: capture the auto-generated reference for later lookup
+    const applicationReference = await $(
+      '#field-applicationReference'
+    ).getValue()
+    expect(applicationReference).toMatch(/^RA-\d{9}$/)
+
+    // Override the seeded email with our distinct test value
+    const operatorEmailInput = await $('#field-operatorEmail')
+    await operatorEmailInput.setValue(testOperatorEmail)
+
+    // Complete the form with test data
+    await $('#field-organisationName').setValue(organisationName)
+    await $('#field-siteAddress-line1').setValue('123 Contract Lane')
+    await $('#field-siteAddress-town').setValue('London')
+    await $('#field-siteAddress-postcode').setValue('SW1A 1AA')
+    await $('#field-material').selectByAttribute('value', 'plastic')
+    await $('#field-tonnageBand').selectByAttribute('value', '5000-plus')
+    await $('[data-testid="create-work-item-submit"]').click()
+
+    // Success: work item created and redirect occurred
+    await expect($('[data-testid="work-item-success-banner"]')).toBeDisplayed()
+
+    // Extract the work item ID from the URL
+    const url = await browser.getUrl()
+    const workItemId = url.split('/').pop()
+    expect(workItemId).toBeTruthy()
+
+    // Navigate to the audit log to verify notification-sent entry
+    await $('[data-testid="work-item-audit-log-tab"]').click()
+    await expect(
+      $('[data-testid="audit-log-container"]')
+    ).toBeDisplayed()
+
+    // Look for a notification-sent audit entry (RA-123 sends on submission)
+    // The entry should include:
+    // - action: "notification-sent"
+    // - recipient: testOperatorEmail
+    const auditLog = await $(
+      '[data-testid="audit-log-entries"]'
+    ).getText()
+    expect(auditLog).toContain('notification-sent')
+    expect(auditLog).toContain(testOperatorEmail)
+
+    // Sanity check: no notification-skipped entries, which would indicate
+    // the field name mismatch bug (RA-172-notification-skipped)
+    expect(auditLog).not.toContain('notification-skipped')
+  })
+
+  it('uses default test@defra.gov.uk email when not overridden, and receives notification-sent entry', async () => {
+    // This test verifies the happy path where the form's default email is used
+    // and the backend correctly deserializes it as operatorEmail
+    const defaultTestEmail = 'test@defra.gov.uk'
+
+    await workItems.goto()
+    await workItems.clickCreateWorkItem()
+
+    // Do NOT override the operatorEmail; leave the pre-filled default (RA-172)
+    const operatorEmailInput = await $('#field-operatorEmail')
+    const emailValue = await operatorEmailInput.getValue()
+    expect(emailValue).toBe(defaultTestEmail)
+
+    // Complete the form
+    await $('#field-organisationName').setValue('Default Email Test')
+    await $('#field-siteAddress-line1').setValue('456 Default Road')
+    await $('#field-siteAddress-town').setValue('Manchester')
+    await $('#field-siteAddress-postcode').setValue('M1 1AE')
+    await $('#field-material').selectByAttribute('value', 'glass')
+    await $('#field-tonnageBand').selectByAttribute('value', '0-500')
+    await $('[data-testid="create-work-item-submit"]').click()
+
+    // Success
+    await expect($('[data-testid="work-item-success-banner"]')).toBeDisplayed()
+    const url = await browser.getUrl()
+    const workItemId = url.split('/').pop()
+
+    // Verify audit log includes notification-sent with the default email
+    await $('[data-testid="work-item-audit-log-tab"]').click()
+    await expect(
+      $('[data-testid="audit-log-container"]')
+    ).toBeDisplayed()
+
+    const auditLog = await $(
+      '[data-testid="audit-log-entries"]'
+    ).getText()
+    expect(auditLog).toContain('notification-sent')
+    expect(auditLog).toContain(defaultTestEmail)
+  })
+})

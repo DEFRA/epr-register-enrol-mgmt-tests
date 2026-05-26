@@ -1,4 +1,5 @@
 import allure from 'allure-commandline'
+import { fetch } from 'undici'
 
 const debug = process.env.DEBUG
 const oneMinute = 60 * 1000
@@ -188,7 +189,39 @@ export const config = {
    * @param {object} config wdio configuration object
    * @param {Array.<Object>} capabilities list of capabilities details
    */
-  // onPrepare: function (config, capabilities) {},
+  async onPrepare() {
+    const maxWaitMs = 120_000
+    const pollIntervalMs = 2_000
+    const endpoints = [
+      { name: 'management-be', url: 'http://localhost:8085/health/ready' },
+      { name: 'management-fe', url: 'http://localhost:5001/health' }
+    ]
+
+    for (const { name, url } of endpoints) {
+      const deadline = Date.now() + maxWaitMs
+      let ready = false
+      process.stdout.write(`Waiting for ${name} at ${url} …\n`)
+      while (!ready) {
+        try {
+          const res = await fetch(url, { signal: AbortSignal.timeout(3_000) })
+          if (res.ok) {
+            ready = true
+            process.stdout.write(`✓ ${name} ready\n`)
+          }
+        } catch {
+          // still starting up — swallow and retry
+        }
+        if (!ready) {
+          if (Date.now() >= deadline) {
+            throw new Error(
+              `${name} not ready at ${url} after ${maxWaitMs / 1000}s — is Docker running?`
+            )
+          }
+          await new Promise((resolve) => setTimeout(resolve, pollIntervalMs))
+        }
+      }
+    }
+  },
   /**
    * Gets executed before a worker process is spawned and can be used to initialise specific service
    * for that worker as well as modify runtime environments in an async fashion.
