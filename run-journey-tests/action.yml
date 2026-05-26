@@ -1,56 +1,168 @@
 name: Run Journey Tests on GitHub
+description: Run epr-register-enrol management journey tests
 
 inputs:
-  example-node-backend:
+  management-be:
+    description: Image tag of epr-register-enrol-management-be to test against
     required: false
-    type: string
-  example-node-frontend:
+    default: ''
+  management-fe:
+    description: Image tag of epr-register-enrol-management-fe to test against
     required: false
-    type: string
+    default: ''
+  branch:
+    description: Branch of this repo to check out
+    default: main
 
 runs:
   using: 'composite'
   steps:
-    - uses: actions/checkout@v4
+    - name: Checkout journey tests
+      uses: actions/checkout@v6
       with:
-        repository: DEFRA/cdp-node-journey-test-suite-template
+        repository: DEFRA/epr-register-enrol-mgmt-tests
+        ref: ${{ inputs.branch }}
 
-    - name: Docker Login
-      uses: DEFRA/cdp-build-action/docker-login@main
-
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 20
-        cache: npm
-    - name: Setup the tests
-      run: npm i
+    # If no management-fe image was supplied, check whether the calling PR's
+    # branch also exists in management-fe and build from source if so.
+    - name: Check for matching management-fe branch
+      if: inputs.management-fe == ''
+      id: fe-branch
       shell: bash
+      run: |
+        BRANCH="${{ github.head_ref }}"
+        if [ -n "$BRANCH" ] && git ls-remote --heads https://github.com/DEFRA/epr-register-enrol-management-fe.git "$BRANCH" | grep -q .; then
+          echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "exists=true" >> "$GITHUB_OUTPUT"
+          echo "::notice::Found matching management-fe branch: $BRANCH, building from source"
+        else
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+          echo "::notice::No matching management-fe branch, using latest published image"
+        fi
+
+    - name: Checkout matching management-fe branch
+      if: inputs.management-fe == '' && steps.fe-branch.outputs.exists == 'true'
+      uses: actions/checkout@v6
+      with:
+        repository: DEFRA/epr-register-enrol-management-fe
+        ref: ${{ steps.fe-branch.outputs.ref }}
+        path: epr-register-enrol-management-fe
+
+    - name: Build management-fe image from matching branch
+      if: inputs.management-fe == '' && steps.fe-branch.outputs.exists == 'true'
+      id: fe-image
+      shell: bash
+      run: |
+        cd epr-register-enrol-management-fe
+        SHA=$(git rev-parse --short HEAD)
+        docker build -t defradigital/epr-register-enrol-management-fe:${SHA} .
+        echo "image=${SHA}" >> "$GITHUB_OUTPUT"
+
+    # If no management-be image was supplied, check whether the calling PR's
+    # branch also exists in management-be and build from source if so.
+    - name: Check for matching management-be branch
+      if: inputs.management-be == ''
+      id: be-branch
+      shell: bash
+      run: |
+        BRANCH="${{ github.head_ref }}"
+        if [ -n "$BRANCH" ] && git ls-remote --heads https://github.com/DEFRA/epr-register-enrol-management-be.git "$BRANCH" | grep -q .; then
+          echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "exists=true" >> "$GITHUB_OUTPUT"
+          echo "::notice::Found matching management-be branch: $BRANCH, building from source"
+        else
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+          echo "::notice::No matching management-be branch, using latest published image"
+        fi
+
+    - name: Checkout matching management-be branch
+      if: inputs.management-be == '' && steps.be-branch.outputs.exists == 'true'
+      uses: actions/checkout@v6
+      with:
+        repository: DEFRA/epr-register-enrol-management-be
+        ref: ${{ steps.be-branch.outputs.ref }}
+        path: epr-register-enrol-management-be
+
+    - name: Build management-be image from matching branch
+      if: inputs.management-be == '' && steps.be-branch.outputs.exists == 'true'
+      id: be-image
+      shell: bash
+      run: |
+        cd epr-register-enrol-management-be
+        SHA=$(git rev-parse --short HEAD)
+        docker build -t defradigital/epr-register-enrol-management-be:${SHA} .
+        echo "image=${SHA}" >> "$GITHUB_OUTPUT"
+
+    # Resolve final image tags: caller input > branch-matched build > latest
+    - name: Resolve image tags
+      id: tags
+      shell: bash
+      run: |
+        BE_TAG="${{ inputs.management-be }}"
+        if [ -z "$BE_TAG" ]; then BE_TAG="${{ steps.be-image.outputs.image }}"; fi
+        if [ -z "$BE_TAG" ]; then BE_TAG="latest"; fi
+
+        FE_TAG="${{ inputs.management-fe }}"
+        if [ -z "$FE_TAG" ]; then FE_TAG="${{ steps.fe-image.outputs.image }}"; fi
+        if [ -z "$FE_TAG" ]; then FE_TAG="latest"; fi
+
+        echo "be=$BE_TAG" >> "$GITHUB_OUTPUT"
+        echo "fe=$FE_TAG" >> "$GITHUB_OUTPUT"
+        echo "::notice::Using management-be=$BE_TAG, management-fe=$FE_TAG"
+
+    - uses: actions/setup-node@v5
+      with:
+        node-version-file: .nvmrc
+        cache: npm
+
+    - name: Install
+      run: npm ci
+      shell: bash
+
     - name: Start docker compose
       shell: bash
       run: |
-        CDP_EXAMPLE_NODE_FRONTEND=${{inputs.example-node-frontend}} \
-        CDP_EXAMPLE_NODE_BACKEND=${{inputs.example-node-backend}} \
+        EPR_REGISTER_ENROL_MANAGEMENT_BE=${{ steps.tags.outputs.be }} \
+        EPR_REGISTER_ENROL_MANAGEMENT_FE=${{ steps.tags.outputs.fe }} \
         docker compose up --wait-timeout 300 -d --quiet-pull
+
+    - name: Wait for services to be ready
+      shell: bash
+      run: |
+        echo "Waiting for case-management-frontend to be ready..."
+        timeout 180 bash -c 'until curl -fsS http://localhost:3000/health; do sleep 5; done'
+
     - name: Run the tests
       shell: bash
       run: |
         npm run test:github
         npm run report
-    - name: debug
+
+    - name: Capture docker compose logs
       if: always()
+      shell: bash
       run: |
         docker compose logs > logs.txt
         docker ps
-      shell: bash
+
     - name: Upload allure report
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: allure-report
         path: ./allure-report
+
     - name: Upload docker compose logs
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: docker-compose-logs
         path: ./logs.txt
+
+    - name: Fail this step if FAILED file exists
+      if: always()
+      shell: bash
+      run: |
+        if [ -f "FAILED" ]; then
+          exit 1
+        fi
