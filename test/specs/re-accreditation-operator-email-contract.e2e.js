@@ -65,17 +65,13 @@ describe('RA-172/RA-123 contract: operatorEmail field in re-accreditation submis
 
     // Navigate to the audit log to verify notification-sent entry
     await $('[data-testid="work-item-audit-log-tab"]').click()
-    await expect(
-      $('[data-testid="audit-log-container"]')
-    ).toBeDisplayed()
+    await expect($('[data-testid="audit-log-container"]')).toBeDisplayed()
 
     // Look for a notification-sent audit entry (RA-123 sends on submission)
     // The entry should include:
     // - action: "notification-sent"
     // - recipient: testOperatorEmail
-    const auditLog = await $(
-      '[data-testid="audit-log-entries"]'
-    ).getText()
+    const auditLog = await $('[data-testid="audit-log-entries"]').getText()
     expect(auditLog).toContain('notification-sent')
     expect(auditLog).toContain(testOperatorEmail)
 
@@ -113,13 +109,9 @@ describe('RA-172/RA-123 contract: operatorEmail field in re-accreditation submis
 
     // Verify audit log includes notification-sent with the default email
     await $('[data-testid="work-item-audit-log-tab"]').click()
-    await expect(
-      $('[data-testid="audit-log-container"]')
-    ).toBeDisplayed()
+    await expect($('[data-testid="audit-log-container"]')).toBeDisplayed()
 
-    const auditLog = await $(
-      '[data-testid="audit-log-entries"]'
-    ).getText()
+    const auditLog = await $('[data-testid="audit-log-entries"]').getText()
     expect(auditLog).toContain('notification-sent')
     expect(auditLog).toContain(defaultTestEmail)
   })
