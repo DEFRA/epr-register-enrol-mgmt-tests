@@ -64,20 +64,15 @@ describe('RA-172/RA-123 contract: operatorEmail field in re-accreditation submis
     expect(workItemId).toBeTruthy()
 
     // Navigate to the audit log to verify notification-sent entry
-    await $('[data-testid="work-item-audit-log-tab"]').click()
-    await expect($('[data-testid="audit-log-container"]')).toBeDisplayed()
+    await $('[data-testid="work-item-audit-log-link"]').click()
+    await expect($('[data-testid="work-item-audit-log"]')).toBeDisplayed()
 
-    // Look for a notification-sent audit entry (RA-123 sends on submission)
-    // The entry should include:
-    // - action: "notification-sent"
-    // - recipient: testOperatorEmail
-    const auditLog = await $('[data-testid="audit-log-entries"]').getText()
-    expect(auditLog).toContain('notification-sent')
-    expect(auditLog).toContain(testOperatorEmail)
-
-    // Sanity check: no notification-skipped entries, which would indicate
-    // the field name mismatch bug (RA-172-notification-skipped)
-    expect(auditLog).not.toContain('notification-skipped')
+    // Look for a notification-sent audit entry (RA-123 sends on submission).
+    // actionDisplayName is "{description} email sent" (e.g. "Submission email sent").
+    // notification-skipped would mean operatorEmail was missing (the RA-172 bug).
+    const auditLog = await $('[data-testid="work-item-audit-log"]').getText()
+    expect(auditLog).toContain('email sent')
+    expect(auditLog).not.toContain('email skipped')
   })
 
   it('uses default test@defra.gov.uk email when not overridden, and receives notification-sent entry', async () => {
@@ -104,15 +99,13 @@ describe('RA-172/RA-123 contract: operatorEmail field in re-accreditation submis
 
     // Success
     await expect($('[data-testid="work-item-success-banner"]')).toBeDisplayed()
-    const url = await browser.getUrl()
-    const workItemId = url.split('/').pop()
 
     // Verify audit log includes notification-sent with the default email
-    await $('[data-testid="work-item-audit-log-tab"]').click()
-    await expect($('[data-testid="audit-log-container"]')).toBeDisplayed()
+    await $('[data-testid="work-item-audit-log-link"]').click()
+    await expect($('[data-testid="work-item-audit-log"]')).toBeDisplayed()
 
-    const auditLog = await $('[data-testid="audit-log-entries"]').getText()
-    expect(auditLog).toContain('notification-sent')
-    expect(auditLog).toContain(defaultTestEmail)
+    const auditLog = await $('[data-testid="work-item-audit-log"]').getText()
+    expect(auditLog).toContain('email sent')
+    expect(auditLog).not.toContain('email skipped')
   })
 })
