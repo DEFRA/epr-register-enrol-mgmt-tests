@@ -3,7 +3,7 @@ import login from 'page-objects/login.page.js'
 import workItems from 'page-objects/work-items.page.js'
 
 /**
- * Frontend/Backend Contract Test: operatorEmail field (RA-172, RA-123)
+ * Frontend/Backend Contract Test: operatorEmail field (RA-123)
  *
  * This test verifies the contract between the management-fe (form submission)
  * and management-be (payload deserialization) to ensure the operatorEmail
@@ -16,10 +16,10 @@ import workItems from 'page-objects/work-items.page.js'
  * 3. The work item is created successfully
  * 4. The audit log shows a notification-sent entry with the correct recipient
  *
- * This prevents regressions like RA-172-notification-skipped where the field
- * name mismatch caused emails to be skipped during notification processing.
+ * This prevents regressions where a field name mismatch caused emails to be
+ * skipped during notification processing.
  */
-describe('RA-172/RA-123 contract: operatorEmail field in re-accreditation submission', () => {
+describe('RA-123 contract: operatorEmail field in re-accreditation submission', () => {
   before(async () => {
     await login.loginAs('assign')
   })
@@ -36,7 +36,7 @@ describe('RA-172/RA-123 contract: operatorEmail field in re-accreditation submis
     await workItems.goto()
     await workItems.clickCreateWorkItem()
 
-    // RA-172: capture the auto-generated reference for later lookup
+    // Capture the auto-generated reference for later lookup
     const applicationReference = await $(
       '#field-applicationReference'
     ).getValue()
@@ -69,7 +69,7 @@ describe('RA-172/RA-123 contract: operatorEmail field in re-accreditation submis
 
     // Look for a notification-sent audit entry (RA-123 sends on submission).
     // actionDisplayName is "{description} email sent" (e.g. "Submission email sent").
-    // notification-skipped would mean operatorEmail was missing (the RA-172 bug).
+    // notification-skipped would mean operatorEmail was missing (field name mismatch bug).
     const auditLog = await $('[data-testid="work-item-audit-log"]').getText()
     expect(auditLog).toContain('email sent')
     expect(auditLog).not.toContain('email skipped')
@@ -83,7 +83,7 @@ describe('RA-172/RA-123 contract: operatorEmail field in re-accreditation submis
     await workItems.goto()
     await workItems.clickCreateWorkItem()
 
-    // Do NOT override the operatorEmail; leave the pre-filled default (RA-172)
+    // Do NOT override the operatorEmail; leave the pre-filled default
     const operatorEmailInput = await $('#field-operatorEmail')
     const emailValue = await operatorEmailInput.getValue()
     expect(emailValue).toBe(defaultTestEmail)

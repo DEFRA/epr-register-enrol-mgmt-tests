@@ -3,7 +3,7 @@ import login from 'page-objects/login.page.js'
 import workItems from 'page-objects/work-items.page.js'
 
 /**
- * RA-172 — Create work item page improvements.
+ * RA-123 — Create work item page improvements.
  *
  * Acceptance criteria exercised here:
  *   • Application reference is auto-generated on page load.
@@ -16,10 +16,10 @@ import workItems from 'page-objects/work-items.page.js'
  *
  * The full happy-path submission is covered by the existing
  * `management.e2e.js` journey (which reads the auto-generated reference
- * via the page object after RA-172); this spec focuses on field-level
- * behaviour and the negative validation path.
+ * via the page object); this spec focuses on field-level behaviour and
+ * the negative validation path.
  */
-describe('RA-172 create work item: application reference + email fields', () => {
+describe('RA-123 create work item: application reference + email fields', () => {
   before(async () => {
     await login.loginAs('assign')
   })
