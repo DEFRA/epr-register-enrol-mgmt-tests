@@ -18,18 +18,18 @@ class WorkItemsPage extends Page {
 
   async createWorkItem(opts) {
     await this.clickCreateWorkItem()
-    // RA-172: applicationReference is auto-generated and read-only; we
+    // applicationReference is auto-generated and read-only; we
     // simply read whatever the server rendered so callers can use it
     // for later assertions if needed.
     const applicationReference = await $(
       '#field-applicationReference'
     ).getValue()
-    // RA-172: email field is pre-filled with test@defra.gov.uk. Callers
-    // may override via opts.email; otherwise we leave the default value
+    // Email field is pre-filled with test@defra.gov.uk. Callers
+    // may override via opts.operatorEmail; otherwise we leave the default value
     // in place.
-    if (opts.email !== undefined) {
-      const emailInput = await $('#field-email')
-      await emailInput.setValue(opts.email)
+    if (opts.operatorEmail !== undefined) {
+      const operatorEmailInput = await $('#field-operatorEmail')
+      await operatorEmailInput.setValue(opts.operatorEmail)
     }
     await $('#field-organisationName').setValue(opts.organisationName)
     await $('#field-siteAddress-line1').setValue(opts.siteAddressLine1)

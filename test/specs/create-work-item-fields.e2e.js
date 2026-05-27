@@ -3,7 +3,7 @@ import login from 'page-objects/login.page.js'
 import workItems from 'page-objects/work-items.page.js'
 
 /**
- * RA-172 — Create work item page improvements.
+ * RA-123 — Create work item page improvements.
  *
  * Acceptance criteria exercised here:
  *   • Application reference is auto-generated on page load.
@@ -16,10 +16,10 @@ import workItems from 'page-objects/work-items.page.js'
  *
  * The full happy-path submission is covered by the existing
  * `management.e2e.js` journey (which reads the auto-generated reference
- * via the page object after RA-172); this spec focuses on field-level
- * behaviour and the negative validation path.
+ * via the page object); this spec focuses on field-level behaviour and
+ * the negative validation path.
  */
-describe('RA-172 create work item: application reference + email fields', () => {
+describe('RA-123 create work item: application reference + email fields', () => {
   before(async () => {
     await login.loginAs('assign')
   })
@@ -28,7 +28,7 @@ describe('RA-172 create work item: application reference + email fields', () => 
     await login.logout()
   })
 
-  it('auto-generates a read-only application reference and seeds the default email', async () => {
+  it('auto-generates a read-only application reference and seeds the default operatorEmail', async () => {
     await workItems.goto()
     await workItems.clickCreateWorkItem()
 
@@ -42,8 +42,8 @@ describe('RA-172 create work item: application reference + email fields', () => 
     const readOnlyAttr = await refInput.getAttribute('readonly')
     expect(readOnlyAttr).not.toBeNull()
 
-    const emailInput = await $('#field-email')
-    expect(await emailInput.getValue()).toBe('test@defra.gov.uk')
+    const operatorEmailInput = await $('#field-operatorEmail')
+    expect(await operatorEmailInput.getValue()).toBe('test@defra.gov.uk')
   })
 
   it('regenerates the application reference on each visit to the form', async () => {
@@ -62,13 +62,13 @@ describe('RA-172 create work item: application reference + email fields', () => 
     expect(first).not.toBe(second)
   })
 
-  it('rejects an invalid email address with an inline error', async () => {
+  it('rejects an invalid operatorEmail address with an inline error', async () => {
     await workItems.goto()
     await workItems.clickCreateWorkItem()
 
     // Replace the seeded default with something obviously bad.
-    const emailInput = await $('#field-email')
-    await emailInput.setValue('not-an-email')
+    const operatorEmailInput = await $('#field-operatorEmail')
+    await operatorEmailInput.setValue('not-an-email')
 
     await $('#field-organisationName').setValue('RA-172 Test Co')
     await $('#field-siteAddress-line1').setValue('1 Validation Way')
