@@ -47,9 +47,9 @@ describe('RA-153 — self-assign: standard user takes an unassigned work item', 
     await expect(
       $('[data-testid="assignment-caller-is-assignee"]')
     ).toBeDisplayed()
-    await expect(
-      $('[data-testid="assignment-caller-is-assignee"]')
-    ).toHaveText(expect.stringContaining('This work item is assigned to you.'))
+    await expect($('[data-testid="assignment-caller-is-assignee"]')).toHaveText(
+      expect.stringContaining('This work item is assigned to you.')
+    )
   })
 
   it('shows the standard user as assignee in the work item summary', async () => {
