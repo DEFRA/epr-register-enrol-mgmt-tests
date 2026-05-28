@@ -43,7 +43,7 @@ describe('RA-123 contract: operatorEmail field in re-accreditation submission', 
     expect(applicationReference).toMatch(/^RA-\d{9}$/)
 
     // Override the seeded email with our distinct test value
-    const operatorEmailInput = await $('#field-email')
+    const operatorEmailInput = await $('#field-operatorEmail')
     await operatorEmailInput.setValue(testOperatorEmail)
 
     // Complete the form with test data
@@ -84,7 +84,7 @@ describe('RA-123 contract: operatorEmail field in re-accreditation submission', 
     await workItems.clickCreateWorkItem()
 
     // Do NOT override the operatorEmail; leave the pre-filled default
-    const operatorEmailInput = await $('#field-email')
+    const operatorEmailInput = await $('#field-operatorEmail')
     const emailValue = await operatorEmailInput.getValue()
     expect(emailValue).toBe(defaultTestEmail)
 
