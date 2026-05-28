@@ -2,20 +2,17 @@ import { $, browser, expect } from '@wdio/globals'
 import { Page } from 'page-objects/page.js'
 
 /**
- * RA-131 — SLA extend two-step wizard.
+ * RA-131 — SLA extend.
  *
- * The flow has three URLs:
- *   1. GET  /work-items/{id}/sla/extend          — input page (form)
- *   2. POST /work-items/{id}/sla/extend          — validate and render
- *                                                  the confirmation page
- *   3. POST /work-items/{id}/sla/extend/confirm  — apply the change and
- *                                                  redirect back to the
- *                                                  work item with a flash
- *                                                  banner.
+ * Single-step flow:
+ *   1. GET  /work-items/{id}/sla/extend  — input page (form)
+ *   2. POST /work-items/{id}/sla/extend  — apply via the backend and
+ *                                          redirect back to the work
+ *                                          item with a flash banner.
  *
- * Cancel from either step returns to the detail page without changes.
- * Inputs and buttons are tagged with stable data-testids — see the
- * matching .njk templates.
+ * Cancel from the input page returns to the detail page without
+ * changes. Inputs and buttons are tagged with stable data-testids —
+ * see the matching .njk template.
  */
 class SlaExtendPage extends Page {
   async gotoFor(workItemId) {
@@ -42,24 +39,6 @@ class SlaExtendPage extends Page {
 
   async assertOnInputPage() {
     await expect($('[data-testid="sla-extend-form"]')).toBeDisplayed()
-  }
-
-  async assertOnConfirmPage() {
-    await expect($('[data-testid="sla-extend-confirm-form"]')).toBeDisplayed()
-  }
-
-  async assertConfirmSummaryHas(text) {
-    await expect($('[data-testid="sla-extend-confirm-summary"]')).toHaveText(
-      expect.stringContaining(text)
-    )
-  }
-
-  async confirm() {
-    await $('[data-testid="sla-extend-confirm-submit"]').click()
-  }
-
-  async cancelFromConfirmPage() {
-    await $('[data-testid="sla-extend-confirm-cancel"]').click()
   }
 
   async assertErrorSummaryDisplayed() {

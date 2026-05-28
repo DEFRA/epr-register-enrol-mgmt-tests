@@ -5,22 +5,23 @@ import detail from 'page-objects/work-item-detail.page.js'
 import slaExtend from 'page-objects/sla-extend.page.js'
 
 /**
- * RA-131 — Extend SLA two-step wizard.
+ * RA-131 — Extend SLA.
  *
- * Replaces the original modal-based design (blocked by CSP / RA-94
- * "no browser JS on work-item pages") with a server-rendered wizard:
+ * Single-step flow: team leader fills in the reason + number of days,
+ * submits, and lands back on the work item with a success banner. The
+ * page replaces a CSP-blocked modal (RA-94 forbids browser JS on
+ * work-item pages).
  *
- *   1. /sla/extend                 — input page
- *   2. /sla/extend (POST)          — confirmation page
- *   3. /sla/extend/confirm (POST)  — apply the change and redirect
+ *   - GET  /work-items/{id}/sla/extend  — input page
+ *   - POST /work-items/{id}/sla/extend  — apply and redirect to detail
  *
  * These e2e tests drive a re-accreditation work item to the
- * "Assessment in progress" state (which is the only state from which
- * the "Extend SLA" action is available per re-accreditation/module.js)
- * and then exercise every branch of the wizard, including role-gating
- * (team leader only), validation, cancel, and the happy path.
+ * "Assessment in progress" state (the only state where the
+ * "Extend SLA" action is available per re-accreditation/module.js)
+ * and then exercise role-gating, validation, cancel, and the happy
+ * path.
  */
-describe('RA-131 Extend SLA wizard', () => {
+describe('RA-131 Extend SLA', () => {
   let workItemId
 
   before(async () => {
@@ -144,7 +145,7 @@ describe('RA-131 Extend SLA wizard', () => {
     })
   })
 
-  describe('confirmation page', () => {
+  describe('happy path', () => {
     before(async () => {
       await login.loginAs('team-leader')
     })
@@ -153,49 +154,17 @@ describe('RA-131 Extend SLA wizard', () => {
       await login.logout()
     })
 
-    it('renders the projected extension and reason for review', async () => {
+    it('submitting valid input applies the extension and surfaces a banner on the work item', async () => {
       await slaExtend.gotoFor(workItemId)
       await slaExtend.fillForm({
         reason: 'Operator providing additional evidence',
         additionalDays: 7
       })
       await slaExtend.submitForm()
-
-      await slaExtend.assertOnConfirmPage()
-      await slaExtend.assertConfirmSummaryHas('7 days')
-      await slaExtend.assertConfirmSummaryHas(
-        'Operator providing additional evidence'
-      )
-    })
-
-    it('cancel from the confirmation page returns to the work item with no changes', async () => {
-      await slaExtend.gotoFor(workItemId)
-      await slaExtend.fillForm({
-        reason: 'Will cancel before confirming',
-        additionalDays: 3
-      })
-      await slaExtend.submitForm()
-      await slaExtend.assertOnConfirmPage()
-      await slaExtend.cancelFromConfirmPage()
-      await slaExtend.waitForDetailUrl(workItemId)
-      await expect(
-        $('[data-testid="work-item-flash-banner"]')
-      ).not.toBeDisplayed()
-    })
-
-    it('confirming applies the extension and surfaces a notification banner on the work item', async () => {
-      await slaExtend.gotoFor(workItemId)
-      await slaExtend.fillForm({
-        reason: 'Operator providing additional evidence (final)',
-        additionalDays: 5
-      })
-      await slaExtend.submitForm()
-      await slaExtend.assertOnConfirmPage()
-      await slaExtend.confirm()
       await slaExtend.waitForDetailUrl(workItemId)
 
       // Whether the backend extends the SLA or returns an actionable
-      // error (e.g. work item has no SLA clock yet), the wizard PRGs
+      // error (e.g. work item has no SLA clock yet), the controller PRGs
       // back to the work item with a flash banner — never silently.
       await expect($('[data-testid="work-item-flash-banner"]')).toBeDisplayed()
     })
