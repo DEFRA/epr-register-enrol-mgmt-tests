@@ -42,7 +42,7 @@ describe('RA-123 create work item: application reference + email fields', () => 
     const readOnlyAttr = await refInput.getAttribute('readonly')
     expect(readOnlyAttr).not.toBeNull()
 
-    const operatorEmailInput = await $('#field-operatorEmail')
+    const operatorEmailInput = await $('#field-email')
     expect(await operatorEmailInput.getValue()).toBe('test@defra.gov.uk')
   })
 
@@ -67,7 +67,7 @@ describe('RA-123 create work item: application reference + email fields', () => 
     await workItems.clickCreateWorkItem()
 
     // Replace the seeded default with something obviously bad.
-    const operatorEmailInput = await $('#field-operatorEmail')
+    const operatorEmailInput = await $('#field-email')
     await operatorEmailInput.setValue('not-an-email')
 
     await $('#field-organisationName').setValue('RA-172 Test Co')

@@ -96,7 +96,7 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     expect(startDate.length).toBeGreaterThan(0)
     expect(startDate).not.toEqual(expect.stringContaining('—'))
 
-    await login.logout()
+    // await login.logout()
   })
 
   it('re-approving an already-approved work item is idempotent (panel still shows the same id)', async () => {

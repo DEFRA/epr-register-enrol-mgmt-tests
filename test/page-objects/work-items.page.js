@@ -28,7 +28,7 @@ class WorkItemsPage extends Page {
     // may override via opts.operatorEmail; otherwise we leave the default value
     // in place.
     if (opts.operatorEmail !== undefined) {
-      const operatorEmailInput = await $('#field-operatorEmail')
+      const operatorEmailInput = await $('#field-email')
       await operatorEmailInput.setValue(opts.operatorEmail)
     }
     await $('#field-organisationName').setValue(opts.organisationName)
