@@ -28,8 +28,7 @@ class WorkItemsPage extends Page {
     // may override via opts.operatorEmail; otherwise we leave the default value
     // in place.
     if (opts.operatorEmail !== undefined) {
-      const operatorEmailInput = await $('#field-email')
-      await operatorEmailInput.setValue(opts.operatorEmail)
+      await $('#field-email').setValue(opts.operatorEmail)
     }
     await $('#field-organisationName').setValue(opts.organisationName)
     await $('#field-siteAddress-line1').setValue(opts.siteAddressLine1)
@@ -57,6 +56,11 @@ class WorkItemsPage extends Page {
 
   workItemStateTag(id) {
     return $(`[data-testid="work-item-state-tag-${id}"]`)
+  }
+
+  async filterByNation(nation) {
+    await $(`input[name="nation"][value="${nation}"]`).click()
+    await $('[data-testid="work-items-filter-apply"]').click()
   }
 }
 
