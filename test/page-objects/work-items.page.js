@@ -62,6 +62,27 @@ class WorkItemsPage extends Page {
     await $(`input[name="nation"][value="${nation}"]`).click()
     await $('[data-testid="work-items-filter-apply"]').click()
   }
+
+  async getTableHeaderTexts() {
+    const table = $('[data-testid="work-items-table"]')
+    const headers = await table.$$('.govuk-table__header')
+    return Promise.all(headers.map((h) => h.getText()))
+  }
+
+  workItemRow(id) {
+    return $(`//*[@data-testid="work-item-link-${id}"]/ancestor::tr`)
+  }
+
+  async getFilterLegendTexts() {
+    const form = $('[data-testid="work-items-filter-form"]')
+    const legends = await form.$$('legend')
+    return Promise.all(legends.map((l) => l.getText()))
+  }
+
+  async getRegulatorOptionTexts() {
+    const labels = await $$('//input[@name="nation"]/../label')
+    return Promise.all(labels.map((l) => l.getText()))
+  }
 }
 
 export default new WorkItemsPage()
