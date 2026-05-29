@@ -58,6 +58,11 @@ class WorkItemsPage extends Page {
   workItemStateTag(id) {
     return $(`[data-testid="work-item-state-tag-${id}"]`)
   }
+
+  async filterByNation(nation) {
+    await $(`input[name="nation"][value="${nation}"]`).click()
+    await $('[data-testid="work-items-filter-apply"]').click()
+  }
 }
 
 export default new WorkItemsPage()
