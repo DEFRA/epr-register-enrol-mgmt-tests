@@ -148,7 +148,9 @@ class WorkItemDetailPage extends Page {
 
   async assertOperatorEmail(email) {
     await expect(
-      $(`//*[contains(@class,"govuk-summary-list__value") and contains(.,"${email}")]`)
+      $(
+        `//*[contains(@class,"govuk-summary-list__value") and contains(.,"${email}")]`
+      )
     ).toBeDisplayed()
   }
 }
