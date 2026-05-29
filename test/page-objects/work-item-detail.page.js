@@ -133,7 +133,7 @@ class WorkItemDetailPage extends Page {
   }
 
   async gotoAudit() {
-    await $('[data-testid="work-item-audit-link"]').click()
+    await $('[data-testid="work-item-audit-log-link"]').click()
     await browser.waitUntil(
       async () => /\/work-items\/[^/]+\/audit$/.test(await browser.getUrl()),
       { timeoutMsg: 'Expected audit log URL after clicking audit link' }
