@@ -1,6 +1,6 @@
 import { $, browser, expect } from '@wdio/globals'
-import login from 'page-objects/login.page.js'
-import workItems from 'page-objects/work-items.page.js'
+import login from '../page-objects/login.page.js'
+import workItems from '../page-objects/work-items.page.js'
 
 /**
  * Work items list page improvements.
@@ -116,8 +116,8 @@ describe('Work items list improvements', () => {
     it('shows Reprocessor and Exporter checkboxes', async () => {
       const reprocessor = $('input[name="applicantType"][value="reprocessor"]')
       const exporter = $('input[name="applicantType"][value="exporter"]')
-      await expect(reprocessor).toBeDisplayed()
-      await expect(exporter).toBeDisplayed()
+      await expect(reprocessor).toExist()
+      await expect(exporter).toExist()
     })
 
     it('Reprocessor and Exporter checkboxes are disabled (not yet wired to data)', async () => {

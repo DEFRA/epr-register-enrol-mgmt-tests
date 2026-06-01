@@ -5,7 +5,7 @@ const debug = process.env.DEBUG
 const oneMinute = 60 * 1000
 const oneHour = 60 * 60 * 1000
 
-const execArgv = ['--loader', 'esm-module-alias/loader']
+const execArgv = []
 
 if (debug) {
   execArgv.push('--inspect')

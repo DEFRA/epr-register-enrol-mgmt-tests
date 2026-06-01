@@ -1,9 +1,9 @@
 import { $, browser, expect } from '@wdio/globals'
-import login from 'page-objects/login.page.js'
-import workItems from 'page-objects/work-items.page.js'
-import detail from 'page-objects/work-item-detail.page.js'
-import slaExtend from 'page-objects/sla-extend.page.js'
-import slaOverride from 'page-objects/sla-override.page.js'
+import login from '../page-objects/login.page.js'
+import workItems from '../page-objects/work-items.page.js'
+import detail from '../page-objects/work-item-detail.page.js'
+import slaExtend from '../page-objects/sla-extend.page.js'
+import slaOverride from '../page-objects/sla-override.page.js'
 
 /**
  * RA-131 — Extend SLA.

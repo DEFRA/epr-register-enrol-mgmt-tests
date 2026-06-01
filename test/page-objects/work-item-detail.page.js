@@ -1,5 +1,5 @@
 import { $, browser, expect } from '@wdio/globals'
-import { Page } from 'page-objects/page.js'
+import { Page } from './page.js'
 
 class WorkItemDetailPage extends Page {
   async assertState(expectedState) {
