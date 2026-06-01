@@ -1,6 +1,20 @@
 import { $, $$, browser, expect } from '@wdio/globals'
 import { Page } from 'page-objects/page.js'
 
+/**
+ * Build an XPath 1.0 string literal that safely encodes a JS string,
+ * including values that contain single quotes, double quotes or both.
+ * XPath 1.0 has no escape syntax so mixed-quote strings have to be
+ * stitched together with concat().
+ */
+function toXPathString(value) {
+  const s = String(value)
+  if (!s.includes("'")) return `'${s}'`
+  if (!s.includes('"')) return `"${s}"`
+  const parts = s.split("'").map((p) => `'${p}'`)
+  return `concat(${parts.join(`, "'", `)})`
+}
+
 class WorkItemDetailPage extends Page {
   async assertState(expectedState) {
     await expect(
@@ -182,11 +196,17 @@ class WorkItemDetailPage extends Page {
    * contains the given substring. RA-186 surfaces the submission
    * payload inside the submitted entry's disclosure rather than as a
    * stand-alone panel on the detail page.
+   *
+   * Scoped to the <li data-action="work-item-submitted"> so the
+   * assertion cannot pass against a Payload row on a different entry.
+   * The substring is XPath-escaped via toXPathString so values that
+   * include quotes do not corrupt the locator.
    */
   async assertSubmittedAuditPayloadContains(substring) {
+    const needle = toXPathString(substring)
     await expect(
       $(
-        `//*[@data-testid="work-item-audit-log"]//dt[normalize-space(.)="Payload"]/following-sibling::dd[contains(.,"${substring}")]`
+        `//*[@data-testid="work-item-audit-log"]//li[@data-action="work-item-submitted"]//dt[normalize-space(.)="Payload"]/following-sibling::dd[contains(.,${needle})]`
       )
     ).toBeDisplayed()
   }
