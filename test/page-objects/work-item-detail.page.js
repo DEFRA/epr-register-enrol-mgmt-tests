@@ -226,6 +226,34 @@ class WorkItemDetailPage extends Page {
       )
     ).toBeDisplayed()
   }
+
+  // RA-187 — assert the summary table at the top of the audit log
+  // renders the expected column headings and the work item's envelope
+  // details on its single row.
+  async assertAuditSummaryTable({ id, type, state, assignedTo }) {
+    const table = await $('[data-testid="work-item-audit-summary-table"]')
+    await expect(table).toBeDisplayed()
+    for (const heading of [
+      'Org ID',
+      'Type',
+      'State',
+      'Submitted at',
+      'Submitted by',
+      'Last modified',
+      'Assigned to'
+    ]) {
+      await expect(
+        await table.$(`.//th[normalize-space(.)=${toXPathString(heading)}]`)
+      ).toBeDisplayed()
+    }
+    for (const value of [id, type, state, assignedTo]) {
+      await expect(
+        await table.$(
+          `.//td[contains(normalize-space(.),${toXPathString(value)})]`
+        )
+      ).toBeDisplayed()
+    }
+  }
 }
 
 export default new WorkItemDetailPage()
