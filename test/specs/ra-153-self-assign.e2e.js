@@ -1,7 +1,7 @@
 import { $, expect } from '@wdio/globals'
-import login from 'page-objects/login.page.js'
-import workItems from 'page-objects/work-items.page.js'
-import detail from 'page-objects/work-item-detail.page.js'
+import login from '../page-objects/login.page.js'
+import workItems from '../page-objects/work-items.page.js'
+import detail from '../page-objects/work-item-detail.page.js'
 
 /**
  * RA-153 — 403 when self-assigning a work item.

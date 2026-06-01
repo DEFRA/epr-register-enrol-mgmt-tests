@@ -1,6 +1,6 @@
 import { browser, $, expect } from '@wdio/globals'
-import login from 'page-objects/login.page.js'
-import workItems from 'page-objects/work-items.page.js'
+import login from '../page-objects/login.page.js'
+import workItems from '../page-objects/work-items.page.js'
 
 /**
  * RA-123 — Create work item page improvements.

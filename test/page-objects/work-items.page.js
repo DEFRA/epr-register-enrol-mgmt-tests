@@ -1,5 +1,5 @@
 import { browser, $, expect } from '@wdio/globals'
-import { Page } from 'page-objects/page.js'
+import { Page } from './page.js'
 
 class WorkItemsPage extends Page {
   async goto() {
@@ -61,6 +61,27 @@ class WorkItemsPage extends Page {
   async filterByNation(nation) {
     await $(`input[name="nation"][value="${nation}"]`).click()
     await $('[data-testid="work-items-filter-apply"]').click()
+  }
+
+  async getTableHeaderTexts() {
+    const table = await $('[data-testid="work-items-table"]')
+    const headers = await table.$$('.govuk-table__header')
+    return Promise.all([...headers].map((h) => h.getText()))
+  }
+
+  workItemRow(id) {
+    return $(`//*[@data-testid="work-item-link-${id}"]/ancestor::tr`)
+  }
+
+  async getFilterLegendTexts() {
+    const form = await $('[data-testid="work-items-filter-form"]')
+    const legends = await form.$$('legend')
+    return Promise.all([...legends].map((l) => l.getText()))
+  }
+
+  async getRegulatorOptionTexts() {
+    const labels = await $$('//input[@name="nation"]/../label')
+    return Promise.all([...labels].map((l) => l.getText()))
   }
 }
 
