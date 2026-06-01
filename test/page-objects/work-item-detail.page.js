@@ -1,4 +1,4 @@
-import { $, browser, expect } from '@wdio/globals'
+import { $, $$, browser, expect } from '@wdio/globals'
 import { Page } from 'page-objects/page.js'
 
 class WorkItemDetailPage extends Page {
@@ -144,6 +144,59 @@ class WorkItemDetailPage extends Page {
     await expect(
       $(`//*[@data-testid="work-item-audit-log"]//*[contains(.,"${action}")]`)
     ).toBeDisplayed()
+  }
+
+  /**
+   * Assert the detail page no longer surfaces the payload pre block or
+   * the template version summary row. RA-186 moved the payload into the
+   * submitted audit log entry and removed template version from the
+   * envelope summary.
+   */
+  async assertNoPayloadOrTemplateVersionOnDetail() {
+    await expect($('[data-testid="work-item-payload"]')).not.toBeExisting()
+    await expect(
+      $(
+        '//*[contains(@class,"govuk-summary-list__key") and normalize-space(.)="Template version"]'
+      )
+    ).not.toBeExisting()
+  }
+
+  /**
+   * Expand every "Show details" disclosure on the audit log page so
+   * subsequent assertions can match content rendered inside them.
+   */
+  async expandAllAuditEntryDetails() {
+    const disclosures = await $$(
+      '[data-testid="work-item-audit-entry-details"]'
+    )
+    for (const disclosure of disclosures) {
+      const isOpen = await disclosure.getAttribute('open')
+      if (isOpen === null) {
+        await disclosure.$('.govuk-details__summary').click()
+      }
+    }
+  }
+
+  /**
+   * Assert the Payload row on the work-item-submitted audit entry
+   * contains the given substring. RA-186 surfaces the submission
+   * payload inside the submitted entry's disclosure rather than as a
+   * stand-alone panel on the detail page.
+   */
+  async assertSubmittedAuditPayloadContains(substring) {
+    await expect(
+      $(
+        `//*[@data-testid="work-item-audit-log"]//dt[normalize-space(.)="Payload"]/following-sibling::dd[contains(.,"${substring}")]`
+      )
+    ).toBeDisplayed()
+  }
+
+  async assertNoTemplateVersionOnAuditLog() {
+    await expect(
+      $(
+        '//*[@data-testid="work-item-audit-log"]//dt[normalize-space(.)="Template version"]'
+      )
+    ).not.toBeExisting()
   }
 
   async assertOperatorEmail(email) {
