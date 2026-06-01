@@ -1,5 +1,19 @@
-import { $, browser, expect } from '@wdio/globals'
+import { $, $$, browser, expect } from '@wdio/globals'
 import { Page } from 'page-objects/page.js'
+
+/**
+ * Build an XPath 1.0 string literal that safely encodes a JS string,
+ * including values that contain single quotes, double quotes or both.
+ * XPath 1.0 has no escape syntax so mixed-quote strings have to be
+ * stitched together with concat().
+ */
+function toXPathString(value) {
+  const s = String(value)
+  if (!s.includes("'")) return `'${s}'`
+  if (!s.includes('"')) return `"${s}"`
+  const parts = s.split("'").map((p) => `'${p}'`)
+  return `concat(${parts.join(`, "'", `)})`
+}
 
 class WorkItemDetailPage extends Page {
   async assertState(expectedState) {
@@ -144,6 +158,65 @@ class WorkItemDetailPage extends Page {
     await expect(
       $(`//*[@data-testid="work-item-audit-log"]//*[contains(.,"${action}")]`)
     ).toBeDisplayed()
+  }
+
+  /**
+   * Assert the detail page no longer surfaces the payload pre block or
+   * the template version summary row. RA-186 moved the payload into the
+   * submitted audit log entry and removed template version from the
+   * envelope summary.
+   */
+  async assertNoPayloadOrTemplateVersionOnDetail() {
+    await expect($('[data-testid="work-item-payload"]')).not.toBeExisting()
+    await expect(
+      $(
+        '//*[contains(@class,"govuk-summary-list__key") and normalize-space(.)="Template version"]'
+      )
+    ).not.toBeExisting()
+  }
+
+  /**
+   * Expand every "Show details" disclosure on the audit log page so
+   * subsequent assertions can match content rendered inside them.
+   */
+  async expandAllAuditEntryDetails() {
+    const disclosures = await $$(
+      '[data-testid="work-item-audit-entry-details"]'
+    )
+    for (const disclosure of disclosures) {
+      const isOpen = await disclosure.getAttribute('open')
+      if (isOpen === null) {
+        await disclosure.$('.govuk-details__summary').click()
+      }
+    }
+  }
+
+  /**
+   * Assert the Payload row on the work-item-submitted audit entry
+   * contains the given substring. RA-186 surfaces the submission
+   * payload inside the submitted entry's disclosure rather than as a
+   * stand-alone panel on the detail page.
+   *
+   * Scoped to the <li data-action="work-item-submitted"> so the
+   * assertion cannot pass against a Payload row on a different entry.
+   * The substring is XPath-escaped via toXPathString so values that
+   * include quotes do not corrupt the locator.
+   */
+  async assertSubmittedAuditPayloadContains(substring) {
+    const needle = toXPathString(substring)
+    await expect(
+      $(
+        `//*[@data-testid="work-item-audit-log"]//li[@data-action="work-item-submitted"]//dt[normalize-space(.)="Payload"]/following-sibling::dd[contains(.,${needle})]`
+      )
+    ).toBeDisplayed()
+  }
+
+  async assertNoTemplateVersionOnAuditLog() {
+    await expect(
+      $(
+        '//*[@data-testid="work-item-audit-log"]//dt[normalize-space(.)="Template version"]'
+      )
+    ).not.toBeExisting()
   }
 
   async assertOperatorEmail(email) {
