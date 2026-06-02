@@ -1,4 +1,4 @@
-import { browser, expect } from '@wdio/globals'
+import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
@@ -19,19 +19,17 @@ import detail from '../page-objects/work-item-detail.page.js'
  *   Assigned to  — assignee name or "Unassigned"
  */
 describe('Audit log — work item snapshot fields', () => {
-  let workItemId
-
   before(async () => {
     await login.loginAs('assign')
     await workItems.goto()
-    ;({ id: workItemId } = await workItems.createWorkItem({
+    await workItems.createWorkItem({
       organisationName: 'Snapshot Test Ltd',
       siteAddressLine1: '1 Audit Road',
       siteAddressTown: 'Manchester',
       siteAddressPostcode: 'M1 1AA',
       material: 'glass',
       tonnageBand: '0-500'
-    }))
+    })
     await detail.gotoAudit()
   })
 
