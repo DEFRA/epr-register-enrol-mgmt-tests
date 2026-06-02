@@ -112,9 +112,7 @@ describe('Audit log — work item snapshot fields', () => {
         '[data-testid="work-item-audit-entry-details"]'
       )
       for (const disclosure of allDisclosures) {
-        await expect(
-          disclosure.$('dt=Assigned to')
-        ).toExist()
+        await expect(disclosure.$('dt=Assigned to')).toExist()
       }
     })
   })
