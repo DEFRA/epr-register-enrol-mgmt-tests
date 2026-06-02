@@ -1,5 +1,5 @@
 import { $, $$, browser, expect } from '@wdio/globals'
-import { Page } from 'page-objects/page.js'
+import { Page } from './page.js'
 
 /**
  * Build an XPath 1.0 string literal that safely encodes a JS string,
