@@ -1,7 +1,6 @@
 import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
-import detail from '../page-objects/work-item-detail.page.js'
 
 /**
  * Work items list — search filters.
@@ -164,8 +163,7 @@ describe('Work items list — search filters', () => {
 
     it('clicking the application ref link opens the work item detail', async () => {
       await workItems.workItemLink(workItemId).click()
-      await detail.gotoDetail()
-      await expect($('[data-testid="work-item-detail"]')).toExist()
+      await expect($('[data-testid="work-item-summary"]')).toExist()
     })
   })
 })
