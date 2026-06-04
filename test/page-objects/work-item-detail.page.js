@@ -16,6 +16,39 @@ function toXPathString(value) {
 }
 
 class WorkItemDetailPage extends Page {
+  /**
+   * Read the page caption text (RA-196). The caption now shows the
+   * user-facing application reference rather than the internal id.
+   */
+  async getCaption() {
+    return $('[data-testid="app-heading-caption"]').getText()
+  }
+
+  /**
+   * Read a summary list row value by its key label (RA-196). Returns the
+   * trimmed text of the value cell whose preceding key cell matches
+   * `key` exactly.
+   */
+  async getSummaryValueByKey(key) {
+    const value = $(
+      `//*[contains(@class,"govuk-summary-list__key") and normalize-space(.)=${toXPathString(
+        key
+      )}]/following-sibling::*[contains(@class,"govuk-summary-list__value")]`
+    )
+    return value.getText()
+  }
+
+  /**
+   * Whether a summary list row with the given key label exists (RA-196).
+   */
+  async hasSummaryKey(key) {
+    return $(
+      `//*[contains(@class,"govuk-summary-list__key") and normalize-space(.)=${toXPathString(
+        key
+      )}]`
+    ).isExisting()
+  }
+
   async assertState(expectedState) {
     await expect(
       $(
