@@ -63,6 +63,37 @@ class WorkItemsPage extends Page {
     await $('[data-testid="work-items-filter-apply"]').click()
   }
 
+  async searchByOrgId(value) {
+    await $('[data-testid="work-items-filter-org-id"]').setValue(value)
+    await $('[data-testid="work-items-filter-apply"]').click()
+  }
+
+  async searchByRegistrationId(value) {
+    await $('[data-testid="work-items-filter-registration-id"]').setValue(value)
+    await $('[data-testid="work-items-filter-apply"]').click()
+  }
+
+  async searchByOrgName(value) {
+    await $('[data-testid="work-items-filter-org-name"]').setValue(value)
+    await $('[data-testid="work-items-filter-apply"]').click()
+  }
+
+  async clearSearch() {
+    await $('[data-testid="work-items-filter-clear"]').click()
+  }
+
+  async getWorkItemCount() {
+    const summary = await $('[data-testid="work-items-summary"]').getText()
+    const match = summary.match(/\((\d+) work item/)
+    return match ? parseInt(match[1], 10) : 0
+  }
+
+  async workItemOrgNameCell(id) {
+    const row = await this.workItemRow(id)
+    const cells = await row.$$('td')
+    return cells[3]
+  }
+
   async getTableHeaderTexts() {
     const table = await $('[data-testid="work-items-table"]')
     const headers = await table.$$('.govuk-table__header')
