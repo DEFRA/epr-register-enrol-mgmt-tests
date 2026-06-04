@@ -63,6 +63,38 @@ runs:
         docker build -t $IMAGE_TAG .
         echo "image=$MANAGEMENT_FE_SHA" >> "$GITHUB_OUTPUT"
 
+    - name: Check for matching management-be branch
+      if: inputs.journey-test-pr != 'false'
+      id: management-be-branch
+      shell: bash
+      run: |
+        BRANCH="${{ github.head_ref }}"
+        if git ls-remote --heads https://github.com/DEFRA/epr-register-enrol-management-be.git "$BRANCH" | grep -q .; then
+          echo "exists=true" >> "$GITHUB_OUTPUT"
+          echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+        else
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Checkout management-be if matching branch exists
+      if: inputs.journey-test-pr != 'false' && steps.management-be-branch.outputs.exists == 'true'
+      uses: actions/checkout@v6
+      with:
+        repository: DEFRA/epr-register-enrol-management-be
+        ref: ${{ steps.management-be-branch.outputs.ref }}
+        path: epr-register-enrol-management-be
+
+    - name: Build management-be Docker image from source
+      if: inputs.journey-test-pr != 'false' && steps.management-be-branch.outputs.exists == 'true'
+      id: docker-management-be
+      shell: bash
+      run: |
+        cd epr-register-enrol-management-be
+        MANAGEMENT_BE_SHA=$(git rev-parse --short HEAD)
+        IMAGE_TAG="defradigital/epr-register-enrol-management-be:${MANAGEMENT_BE_SHA}"
+        docker build -t $IMAGE_TAG .
+        echo "image=$MANAGEMENT_BE_SHA" >> "$GITHUB_OUTPUT"
+
     - uses: actions/setup-node@v6
       with:
         node-version-file: .nvmrc
@@ -73,12 +105,12 @@ runs:
       run: npm ci
       shell: bash
 
-    - name: Start docker compose (with matching management-fe branch)
+    - name: Start docker compose (with matching branches)
       if: inputs.journey-test-pr != 'false' && steps.management-fe-branch.outputs.exists == 'true'
       shell: bash
       run: |
         MANAGEMENT_FE=${{ steps.docker-management-fe.outputs.image }} \
-        MANAGEMENT_BE=${{ inputs.management-be }} \
+        MANAGEMENT_BE=${{ steps.docker-management-be.outputs.image || inputs.management-be }} \
         docker compose up --wait --wait-timeout 300 -d --quiet-pull
 
     - name: Start docker compose (default images)
