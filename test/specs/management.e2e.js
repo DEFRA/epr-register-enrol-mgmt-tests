@@ -10,9 +10,11 @@ describe('Assign user journey', () => {
   it('create two work items, assign one, progress the other through all stages', async () => {
     await login.loginAs('assign')
     expect(new URL(await browser.getUrl()).pathname).toBe('/')
-    await expect($('.govuk-header__service-name')).toHaveText(
-      expect.stringContaining('EPR Register Case Management')
-    )
+    // The service name moved from the header to the service navigation
+    // component in govuk-frontend v6, so accept either rendering.
+    await expect(
+      $('.govuk-header__service-name, .govuk-service-navigation__service-name')
+    ).toHaveText(expect.stringContaining('EPR Register Case Management'))
 
     // ── Create work item 1 (will be assigned to standard user) ─────────────────
     await workItems.goto()
