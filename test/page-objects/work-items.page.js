@@ -18,12 +18,9 @@ class WorkItemsPage extends Page {
 
   async createWorkItem(opts) {
     await this.clickCreateWorkItem()
-    // applicationReference is auto-generated and read-only; we
-    // simply read whatever the server rendered so callers can use it
-    // for later assertions if needed.
-    const applicationReference = await $(
-      '#field-applicationReference'
-    ).getValue()
+    // The application reference is no longer entered on the form — the
+    // case management backend generates it on submission. Callers read
+    // it back from the success banner after the work item is created.
     // Email field is pre-filled with test@defra.gov.uk. Callers
     // may override via opts.operatorEmail; otherwise we leave the default value
     // in place.
@@ -40,7 +37,22 @@ class WorkItemsPage extends Page {
     await $('#field-material').selectByAttribute('value', opts.material)
     await $('#field-tonnageBand').selectByAttribute('value', opts.tonnageBand)
     await $('[data-testid="create-work-item-submit"]').click()
-    await expect($('[data-testid="work-item-success-banner"]')).toBeDisplayed()
+    const banner = await $('[data-testid="work-item-success-banner"]')
+    await expect(banner).toBeDisplayed()
+    // The banner renders "Reference: RA-<9 digits>" — pull the
+    // server-generated reference out of it for later assertions. Fail
+    // loudly if it is absent so callers get a clear diagnostic rather
+    // than a confusing "null did not match" assertion downstream. The
+    // \b anchor stops a malformed longer run of digits being silently
+    // truncated to a valid-looking 9-digit reference.
+    const bannerText = await banner.getText()
+    const match = bannerText.match(/RA-\d{9}\b/)
+    if (!match) {
+      throw new Error(
+        `success banner had no RA-<9 digit> reference: "${bannerText}"`
+      )
+    }
+    const applicationReference = match[0]
     const url = await browser.getUrl()
     const id = url.split('/').pop()
     return { id, applicationReference }
