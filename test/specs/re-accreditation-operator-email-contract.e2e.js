@@ -56,7 +56,7 @@ describe('RA-123 contract: operatorEmail field in re-accreditation submission', 
     // RA-219: the reference is generated server-side and surfaced on the
     // success banner — confirm it has the expected RA-<9 digits> shape.
     const applicationReference = (await successBanner.getText()).match(
-      /RA-\d{9}/
+      /RA-\d{9}\b/
     )?.[0]
     expect(applicationReference).toMatch(/^RA-\d{9}$/)
 
