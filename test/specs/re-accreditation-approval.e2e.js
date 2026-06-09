@@ -82,6 +82,10 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await detail.assertState('Approved')
     await detail.assertApprovalPanelVisible()
 
+    // RA-177. The "Accreditation issued" success panel and its metadata
+    // must render above the generic envelope attributes summary.
+    await detail.assertApprovalPanelAboveSummary()
+
     const accreditationId = await detail.getAccreditationId()
     // Backend ID format: ACC-YYYY-<material initial>-<8 chars>.
     // We used "plastic" as the material so the third segment must be P.
