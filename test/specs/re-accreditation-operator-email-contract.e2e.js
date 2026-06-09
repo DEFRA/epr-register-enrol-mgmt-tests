@@ -36,12 +36,6 @@ describe('RA-123 contract: operatorEmail field in re-accreditation submission', 
     await workItems.goto()
     await workItems.clickCreateWorkItem()
 
-    // Capture the auto-generated reference for later lookup
-    const applicationReference = await $(
-      '#field-applicationReference'
-    ).getValue()
-    expect(applicationReference).toMatch(/^RA-\d{9}$/)
-
     // Override the seeded email with our distinct test value
     const operatorEmailInput = await $('#field-operatorEmail')
     await operatorEmailInput.setValue(testOperatorEmail)
@@ -56,7 +50,15 @@ describe('RA-123 contract: operatorEmail field in re-accreditation submission', 
     await $('[data-testid="create-work-item-submit"]').click()
 
     // Success: work item created and redirect occurred
-    await expect($('[data-testid="work-item-success-banner"]')).toBeDisplayed()
+    const successBanner = await $('[data-testid="work-item-success-banner"]')
+    await expect(successBanner).toBeDisplayed()
+
+    // RA-219: the reference is generated server-side and surfaced on the
+    // success banner — confirm it has the expected RA-<9 digits> shape.
+    const applicationReference = (await successBanner.getText()).match(
+      /RA-\d{9}/
+    )?.[0]
+    expect(applicationReference).toMatch(/^RA-\d{9}$/)
 
     // Extract the work item ID from the URL
     const url = await browser.getUrl()
