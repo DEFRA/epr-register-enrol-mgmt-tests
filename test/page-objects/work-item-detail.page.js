@@ -174,6 +174,31 @@ class WorkItemDetailPage extends Page {
     return $('[data-testid="re-accreditation-accreditation-year"]').getText()
   }
 
+  /**
+   * Assert that the re-accreditation "Accreditation issued" success panel
+   * (RA-177) renders ABOVE the generic envelope attributes summary in DOM
+   * order, with the accreditation metadata between them. Uses an XPath
+   * `following::` axis so the assertion is about document order, not
+   * pixel position.
+   */
+  async assertApprovalPanelAboveSummary() {
+    // The envelope summary must appear somewhere after the approval panel.
+    await expect(
+      $(
+        '//*[@data-testid="re-accreditation-approval-panel"]' +
+          '/following::*[@data-testid="work-item-summary"]'
+      )
+    ).toExist()
+    // The decision metadata must sit between the panel and the summary.
+    await expect(
+      $(
+        '//*[@data-testid="re-accreditation-approval-panel"]' +
+          '/following::*[@data-testid="re-accreditation-decision-metadata"]' +
+          '/following::*[@data-testid="work-item-summary"]'
+      )
+    ).toExist()
+  }
+
   async addNote(text) {
     await $('[data-testid="note-text"]').setValue(text)
     await $('[data-testid="add-note-submit"]').click()
