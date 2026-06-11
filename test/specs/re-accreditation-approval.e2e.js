@@ -81,6 +81,10 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await detail.assertState('Approved')
     await detail.assertApprovalPanelVisible()
 
+    // RA-177. The "Accreditation issued" success panel and its metadata
+    // must render above the generic envelope attributes summary.
+    await detail.assertApprovalPanelAboveSummary()
+
     const accreditationId = await detail.getAccreditationId()
     // Backend ID format: ACC-YYYY-<material initial>-<8 chars>.
     // We used "plastic" as the material so the third segment must be P.
@@ -94,6 +98,13 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     const startDate = await detail.getAccreditationStartDate()
     expect(startDate.length).toBeGreaterThan(0)
     expect(startDate).not.toEqual(expect.stringContaining('—'))
+    // RA-176: the start date must render as a GDS-formatted date
+    // ("1 January 2027"), not the literal "[object Object]" that a
+    // mis-serialised DateOnly previously produced.
+    expect(startDate).not.toEqual(expect.stringContaining('[object Object]'))
+    expect(startDate).toMatch(/^\d{1,2} [A-Z][a-z]+ \d{4}$/)
+    // The formatted start date year must agree with the issued year.
+    expect(startDate.endsWith(year)).toBe(true)
 
     await login.logout()
   })
