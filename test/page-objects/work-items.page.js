@@ -18,12 +18,6 @@ class WorkItemsPage extends Page {
 
   async createWorkItem(opts) {
     await this.clickCreateWorkItem()
-    // applicationReference is auto-generated and read-only; we
-    // simply read whatever the server rendered so callers can use it
-    // for later assertions if needed.
-    const applicationReference = await $(
-      '#field-applicationReference'
-    ).getValue()
     // Email field is pre-filled with test@defra.gov.uk. Callers
     // may override via opts.operatorEmail; otherwise we leave the default value
     // in place.
@@ -43,6 +37,12 @@ class WorkItemsPage extends Page {
     await expect($('[data-testid="work-item-success-banner"]')).toBeDisplayed()
     const url = await browser.getUrl()
     const id = url.split('/').pop()
+    // RA-219: applicationReference is now generated server-side and ignored
+    // if submitted by the client. Read the canonical value from the detail
+    // page caption ("Work item RA-XXXXXXXXX") so callers always have the
+    // reference that the backend actually stored.
+    const caption = await $('[data-testid="app-heading-caption"]').getText()
+    const applicationReference = caption.replace(/^Work item\s+/, '').trim()
     return { id, applicationReference }
   }
 
