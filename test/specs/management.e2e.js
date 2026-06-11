@@ -124,10 +124,9 @@ describe('Standard user journey', () => {
       'Completed'
     )
 
-    // ── Select Duly Made ──────────────────────────────────────────────────────
-    // dulyMake action lives on the detail page — navigate back first
+    // Completing the last submitted-state task auto-transitions the item to
+    // Duly made — no separate action button click needed.
     await detail.gotoDetail()
-    await detail.dulyMake()
     await detail.assertState('Duly made')
 
     // Task controls live on the /tasks sub-page

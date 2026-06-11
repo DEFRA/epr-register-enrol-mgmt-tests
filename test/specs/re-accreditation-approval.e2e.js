@@ -11,7 +11,7 @@ import detail from '../page-objects/work-item-detail.page.js'
  *   1. Assign user creates a re-accreditation work item (state =
  *      Submitted).
  *   2. Tasks for each state are completed and the work item is
- *      progressed (duly-make -> payment-received -> submit-for-
+ *      progressed (auto-duly-made -> payment-received -> submit-for-
  *      decision) up to the Awaiting decision state.
  *   3. The decision-maker logs in, completes the awaiting-decision
  *      task and approves the work item.
@@ -40,12 +40,11 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Submitted')
 
-    // Submitted -> Duly made
+    // Submitted -> Duly made (auto-transition fires when last submitted task completes)
     await detail.gotoTasks()
     await detail.setTaskStatus('verify-organisation-details', 'Completed')
     await detail.setTaskStatus('confirm-application-completeness', 'Completed')
     await detail.gotoDetail()
-    await detail.triggerAction('duly-make')
     await detail.assertState('Duly made')
 
     // Duly made -> Assessment in progress
