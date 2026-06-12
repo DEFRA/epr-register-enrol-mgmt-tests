@@ -41,12 +41,11 @@ describe('RA-203 Approval sends operator decision notification', () => {
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Submitted')
 
-    // Submitted -> Duly made
+    // Submitted -> Duly made (auto-transition fires when last submitted task completes)
     await detail.gotoTasks()
     await detail.setTaskStatus('verify-organisation-details', 'Completed')
     await detail.setTaskStatus('confirm-application-completeness', 'Completed')
     await detail.gotoDetail()
-    await detail.triggerAction('duly-make')
     await detail.assertState('Duly made')
 
     // Duly made -> Assessment in progress
