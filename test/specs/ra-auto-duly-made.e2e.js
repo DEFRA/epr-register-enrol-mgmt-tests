@@ -73,7 +73,10 @@ describe('Auto duly-made and SLA clock start', () => {
       await workItems.openWorkItem(workItemId)
       await detail.gotoTasks()
       await detail.setTaskStatus('verify-organisation-details', 'Completed')
-      await detail.setTaskStatus('confirm-application-completeness', 'Completed')
+      await detail.setTaskStatus(
+        'confirm-application-completeness',
+        'Completed'
+      )
       // ReAccreditationDulyMadeHook fires on last task completion —
       // no action button click required.
       await detail.gotoDetail()
