@@ -127,6 +127,14 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * Type into the optional decision-note textarea on the approval
+   * interstitial (RA-132 / RA-203).
+   */
+  async setDecisionNote(text) {
+    await $('[data-testid="approval-decision-note"]').setValue(text)
+  }
+
+  /**
    * Submit the approval interstitial form (RA-133).  After
    * triggerAction('approve') the browser is on the GET confirmation
    * page at /work-items/re-accreditation/{id}/approve.  This method
