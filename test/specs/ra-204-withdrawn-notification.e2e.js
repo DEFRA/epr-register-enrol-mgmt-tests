@@ -96,6 +96,13 @@ describe('RA-204 Withdrawal notification', () => {
 
       await detail.gotoAudit()
       await detail.assertAuditEntry('Application withdrawn email sent')
+
+      // The no-note path is the one most likely to regress the
+      // recipient/skip logic, so guard it too: the send must not have been
+      // skipped (missing operator email) or failed.
+      const auditLog = await $('[data-testid="work-item-audit-log"]').getText()
+      expect(auditLog).not.toContain('Application withdrawn email skipped')
+      expect(auditLog).not.toContain('Application withdrawn email failed')
     })
   })
 })
