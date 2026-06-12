@@ -55,12 +55,6 @@ class WorkItemsPage extends Page {
     const applicationReference = match[0]
     const url = await browser.getUrl()
     const id = url.split('/').pop()
-    // RA-219: applicationReference is now generated server-side and ignored
-    // if submitted by the client. Read the canonical value from the detail
-    // page caption ("Work item RA-XXXXXXXXX") so callers always have the
-    // reference that the backend actually stored.
-    const caption = await $('[data-testid="app-heading-caption"]').getText()
-    const applicationReference = caption.replace(/^Work item\s+/, '').trim()
     return { id, applicationReference }
   }
 
