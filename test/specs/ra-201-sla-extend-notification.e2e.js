@@ -1,4 +1,3 @@
-import { $, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
@@ -80,7 +79,7 @@ describe('RA-201 Extend SLA sends operator notification', () => {
     await slaExtend.waitForDetailUrl(workItemId)
 
     // The extend succeeded (clock present) so a success banner shows.
-    await expect($('[data-testid="work-item-flash-banner"]')).toBeDisplayed()
+    await detail.assertFlashBanner()
 
     // The notification hook fired and the send succeeded, so the audit
     // log carries the "SLA extended email sent" entry — proving the
