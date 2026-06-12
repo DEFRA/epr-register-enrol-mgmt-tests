@@ -48,6 +48,7 @@ describe('RA-201 Extend SLA sends operator notification', () => {
     await detail.setTaskStatus('verify-organisation-details', 'Completed')
     await detail.setTaskStatus('confirm-application-completeness', 'Completed')
     await detail.gotoDetail()
+    await detail.triggerAction('duly-make')
     await detail.assertState('Duly made')
 
     // Duly made -> Assessment in progress. payment-received stamps the

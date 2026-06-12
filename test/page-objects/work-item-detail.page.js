@@ -215,6 +215,15 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * Assert the post-redirect flash banner is shown on the detail page
+   * (e.g. after an SLA extend/override). Kept here so specs don't reach
+   * for the inline selector.
+   */
+  async assertFlashBanner() {
+    await expect($('[data-testid="work-item-flash-banner"]')).toBeDisplayed()
+  }
+
+  /**
    * Assert the detail page no longer surfaces the payload pre block or
    * the template version summary row. RA-186 moved the payload into the
    * submitted audit log entry and removed template version from the
