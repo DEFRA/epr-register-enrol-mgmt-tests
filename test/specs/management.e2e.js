@@ -67,13 +67,9 @@ describe('Assign user journey', () => {
     )
 
     await detail.setTaskStatus('verify-organisation-details', 'Completed')
+    // Completing the last submitted task auto-transitions to Duly made —
+    // the tasks page immediately shows duly-made tasks after this POST.
     await detail.setTaskStatus('confirm-application-completeness', 'Completed')
-
-    await detail.assertTaskStatus('verify-organisation-details', 'Completed')
-    await detail.assertTaskStatus(
-      'confirm-application-completeness',
-      'Completed'
-    )
 
     await login.logout()
   })
@@ -116,18 +112,12 @@ describe('Standard user journey', () => {
     )
 
     await detail.setTaskStatus('verify-organisation-details', 'Completed')
+    // Completing the last submitted task fires ReAccreditationDulyMadeHook,
+    // which auto-transitions to Duly made. The tasks page immediately flips
+    // to showing duly-made tasks — no further action needed.
     await detail.setTaskStatus('confirm-application-completeness', 'Completed')
 
-    await detail.assertTaskStatus('verify-organisation-details', 'Completed')
-    await detail.assertTaskStatus(
-      'confirm-application-completeness',
-      'Completed'
-    )
-
-    // ── Select Duly Made ──────────────────────────────────────────────────────
-    // dulyMake action lives on the detail page — navigate back first
     await detail.gotoDetail()
-    await detail.dulyMake()
     await detail.assertState('Duly made')
 
     // Task controls live on the /tasks sub-page

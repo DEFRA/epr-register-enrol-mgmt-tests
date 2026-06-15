@@ -113,10 +113,6 @@ class WorkItemDetailPage extends Page {
     )
   }
 
-  async dulyMake() {
-    await $('[data-testid="action-duly-make"]').click()
-  }
-
   /**
    * Trigger any work item action by its actionId (RA-133). The action
    * buttons are rendered with `data-testid="action-<actionId>"` so this
