@@ -46,12 +46,11 @@ describe('RA-131 Extend SLA', () => {
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Submitted')
 
-    // Submitted -> Duly made
+    // Submitted -> Duly made (auto-transition on last submitted task completion)
     await detail.gotoTasks()
     await detail.setTaskStatus('verify-organisation-details', 'Completed')
     await detail.setTaskStatus('confirm-application-completeness', 'Completed')
     await detail.gotoDetail()
-    await detail.triggerAction('duly-make')
     await detail.assertState('Duly made')
 
     // Duly made -> Assessment in progress (sla-extend becomes available)
@@ -205,12 +204,11 @@ describe('RA-131 Override SLA', () => {
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Submitted')
 
-    // Submitted -> Duly made
+    // Submitted -> Duly made (auto-transition on last submitted task completion)
     await detail.gotoTasks()
     await detail.setTaskStatus('verify-organisation-details', 'Completed')
     await detail.setTaskStatus('confirm-application-completeness', 'Completed')
     await detail.gotoDetail()
-    await detail.triggerAction('duly-make')
     await detail.assertState('Duly made')
 
     // Duly made -> Assessment in progress (sla-override becomes available)
