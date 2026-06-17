@@ -1,4 +1,4 @@
-import { browser, $, expect } from '@wdio/globals'
+import { $, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 
 describe('RA-220 — Defra rebrand: header, service navigation, and footer', () => {
