@@ -34,18 +34,22 @@ describe('RA-220 — Defra rebrand: header, service navigation, and footer', () 
 
   describe('Service navigation', () => {
     it('displays the service name', async () => {
-      await expect(
-        $('.govuk-service-navigation__service-name')
-      ).toHaveText(expect.stringContaining('EPR Register Case Management'))
+      await expect($('.govuk-service-navigation__service-name')).toHaveText(
+        expect.stringContaining('EPR Register Case Management')
+      )
     })
 
     it('has a white background', async () => {
-      const bg = await $('.govuk-service-navigation').getCSSProperty('background-color')
+      const bg = await $('.govuk-service-navigation').getCSSProperty(
+        'background-color'
+      )
       expect(bg.parsed.hex).toBe('#ffffff')
     })
 
     it('has a Defra green bottom border', async () => {
-      const color = await $('.govuk-service-navigation').getCSSProperty('border-bottom-color')
+      const color = await $('.govuk-service-navigation').getCSSProperty(
+        'border-bottom-color'
+      )
       expect(color.parsed.hex).toBe('#00a33b')
     })
   })
