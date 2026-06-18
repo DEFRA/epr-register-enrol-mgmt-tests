@@ -36,7 +36,7 @@ describe('RA-201 Extend SLA sends operator notification', () => {
         siteAddressPostcode: 'SW1A 1AA',
         material: 'plastic',
         tonnageBand: '0-500',
-        operatorEmail: 'operator@sla-notify-test.example'
+        operatorEmail: 'test@defra.gov.uk'
       })
     ).id
 
