@@ -105,20 +105,16 @@ runs:
       run: npm ci
       shell: bash
 
-    - name: Start docker compose (with matching branches)
-      if: inputs.journey-test-pr != 'false' && steps.management-fe-branch.outputs.exists == 'true'
+    - name: Start docker compose
       shell: bash
+      # Select each service image independently: prefer the image built from a
+      # matching PR branch (management-fe / management-be), otherwise fall back
+      # to the supplied/default image. This honours a matching management-be
+      # branch even when there is no matching management-fe branch (e.g. a
+      # backend-only change), which the previous fe-gated branching missed.
       run: |
-        MANAGEMENT_FE=${{ steps.docker-management-fe.outputs.image }} \
+        MANAGEMENT_FE=${{ steps.docker-management-fe.outputs.image || inputs.management-fe }} \
         MANAGEMENT_BE=${{ steps.docker-management-be.outputs.image || inputs.management-be }} \
-        docker compose up --wait --wait-timeout 300 -d --quiet-pull
-
-    - name: Start docker compose (default images)
-      if: steps.management-fe-branch.outputs.exists != 'true'
-      shell: bash
-      run: |
-        MANAGEMENT_FE=${{ inputs.management-fe }} \
-        MANAGEMENT_BE=${{ inputs.management-be }} \
         docker compose up --wait --wait-timeout 300 -d --quiet-pull
 
     - name: Run the tests

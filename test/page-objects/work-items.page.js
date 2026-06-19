@@ -94,6 +94,24 @@ class WorkItemsPage extends Page {
     await $('[data-testid="work-items-filter-clear"]').click()
   }
 
+  /**
+   * RA-224. Reveal archived (terminal-state) work items by enabling the
+   * "Show archived" filter alongside an org-name search, then apply. The
+   * org-name search keeps the result set bounded so presence assertions
+   * stay pagination-safe even when the archived view holds unrelated
+   * items created by other specs.
+   */
+  async searchArchivedByOrgName(value) {
+    const includeArchived = await $(
+      '[data-testid="work-items-filter-include-archived"]'
+    )
+    if (!(await includeArchived.isSelected())) {
+      await includeArchived.click()
+    }
+    await $('[data-testid="work-items-filter-org-name"]').setValue(value)
+    await $('[data-testid="work-items-filter-apply"]').click()
+  }
+
   async getWorkItemCount() {
     const summary = await $('[data-testid="work-items-summary"]').getText()
     const match = summary.match(/\((\d+) work item/)
