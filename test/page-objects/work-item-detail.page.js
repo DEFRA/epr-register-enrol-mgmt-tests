@@ -203,6 +203,31 @@ class WorkItemDetailPage extends Page {
     ).toExist()
   }
 
+  /**
+   * Assert the read-only "Outcome" panel that replaces the generic action
+   * panel once a re-accreditation reaches a terminal state (RA-132). The
+   * paragraph explains no further decision actions are available and a
+   * govuk tag shows the terminal state. See re-accreditation/detail-v1.njk.
+   */
+  async assertReadOnlyOutcomePanel(expectedStateText) {
+    await expect(
+      $('[data-testid="re-accreditation-readonly-actions"]')
+    ).toBeDisplayed()
+    await expect($('[data-testid="re-accreditation-state-tag"]')).toHaveText(
+      expect.stringContaining(expectedStateText)
+    )
+  }
+
+  /**
+   * Assert the generic decision action buttons are no longer offered on a
+   * terminal work item — the read-only outcome panel suppresses them so a
+   * user cannot click an action the backend would only reject.
+   */
+  async assertNoDecisionActions() {
+    await expect($('[data-testid="action-approve"]')).not.toBeExisting()
+    await expect($('[data-testid="action-reject"]')).not.toBeExisting()
+  }
+
   async addNote(text) {
     await $('[data-testid="note-text"]').setValue(text)
     await $('[data-testid="add-note-submit"]').click()
