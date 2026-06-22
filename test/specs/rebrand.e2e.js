@@ -1,4 +1,4 @@
-import { $, expect } from '@wdio/globals'
+import { $, browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 
 describe('RA-220 — Defra rebrand: header, service navigation, and footer', () => {
@@ -51,6 +51,30 @@ describe('RA-220 — Defra rebrand: header, service navigation, and footer', () 
         'border-bottom-color'
       )
       expect(color.parsed.hex).toBe('#00a33b')
+    })
+  })
+
+  describe('Service navigation links', () => {
+    it('nav links are black', async () => {
+      const link = await $('.govuk-service-navigation__link')
+      const color = await link.getCSSProperty('color')
+      expect(color.parsed.hex).toBe('#0b0c0c')
+    })
+  })
+
+  describe('Page background', () => {
+    it('page content wrapper has grey background', async () => {
+      const bg = await $('.app-main-background').getCSSProperty(
+        'background-color'
+      )
+      expect(bg.parsed.hex).toBe('#f5f5f5')
+    })
+
+    it('grey background covers breadcrumb area on pages with breadcrumbs', async () => {
+      await browser.url('/work-items')
+      const wrapperTop = await $('.app-main-background').getLocation('y')
+      const breadcrumbTop = await $('.govuk-breadcrumbs').getLocation('y')
+      expect(breadcrumbTop).toBeGreaterThanOrEqual(wrapperTop)
     })
   })
 
