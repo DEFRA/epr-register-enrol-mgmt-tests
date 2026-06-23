@@ -62,10 +62,33 @@ class WorkItemDetailPage extends Page {
     await $('[data-testid="assign-submit"]').click()
   }
 
+  /**
+   * Clear the assignee via the Unassign form (assign-role only). The
+   * button only renders once an item is assigned, so callers must have
+   * assigned first.
+   */
+  async unassign() {
+    await $('[data-testid="unassign-submit"]').click()
+  }
+
   async assertAssignedTo(displayName) {
     await expect(
       $(
         `//*[contains(@class,"govuk-summary-list__value") and contains(.,"${displayName}")]`
+      )
+    ).toBeDisplayed()
+  }
+
+  /**
+   * Assert the envelope summary "Assigned to" row reads "Unassigned"
+   * (the literal rendered when no assignee is set). Scoped to the row
+   * whose key is exactly "Assigned to" so it cannot pass against an
+   * unrelated value cell.
+   */
+  async assertUnassigned() {
+    await expect(
+      $(
+        '//*[contains(@class,"govuk-summary-list__key") and normalize-space(.)="Assigned to"]/following-sibling::*[contains(@class,"govuk-summary-list__value") and contains(.,"Unassigned")]'
       )
     ).toBeDisplayed()
   }
