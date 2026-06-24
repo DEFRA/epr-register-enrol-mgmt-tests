@@ -53,7 +53,9 @@ describe('Application details page — re-accreditation', () => {
     })
 
     it('link href points to the application-details page for this work item', async () => {
-      const href = await $('[data-testid="view-application-details-link"]').getAttribute('href')
+      const href = await $(
+        '[data-testid="view-application-details-link"]'
+      ).getAttribute('href')
       expect(href).toContain(`/work-items/${workItemId}/application-details`)
     })
 
@@ -91,12 +93,15 @@ describe('Application details page — re-accreditation', () => {
     })
 
     it('shows the application reference', async () => {
-      const value = await applicationDetails.getSummaryValueByKey('Application reference')
+      const value = await applicationDetails.getSummaryValueByKey(
+        'Application reference'
+      )
       expect(value).toBe(applicationReference)
     })
 
     it('shows the organisation name', async () => {
-      const value = await applicationDetails.getSummaryValueByKey('Organisation name')
+      const value =
+        await applicationDetails.getSummaryValueByKey('Organisation name')
       expect(value).toBe('App Details Test Ltd')
     })
   })
@@ -123,7 +128,9 @@ describe('Application details page — re-accreditation', () => {
     })
 
     it('does not show the authorisers table when no authorisers are recorded', async () => {
-      await expect($('[data-testid="app-details-authorisers"]')).not.toBeExisting()
+      await expect(
+        $('[data-testid="app-details-authorisers"]')
+      ).not.toBeExisting()
     })
   })
 
@@ -138,7 +145,9 @@ describe('Application details page — re-accreditation', () => {
     })
 
     it('does not show the business plan summary list when no data is present', async () => {
-      await expect($('[data-testid="app-details-business-plan"]')).not.toBeExisting()
+      await expect(
+        $('[data-testid="app-details-business-plan"]')
+      ).not.toBeExisting()
     })
   })
 
@@ -153,7 +162,9 @@ describe('Application details page — re-accreditation', () => {
     })
 
     it('does not show the sampling files table when no files are present', async () => {
-      await expect($('[data-testid="app-details-sampling-files"]')).not.toBeExisting()
+      await expect(
+        $('[data-testid="app-details-sampling-files"]')
+      ).not.toBeExisting()
     })
   })
 
@@ -208,7 +219,9 @@ describe('Application details page — full operator payload', () => {
   })
 
   it('planned tonnage band shows "—" when not set by the operator', async () => {
-    const value = await applicationDetails.getSummaryValueByKey('Planned tonnage band')
+    const value = await applicationDetails.getSummaryValueByKey(
+      'Planned tonnage band'
+    )
     expect(value).toBe('—')
   })
 })
