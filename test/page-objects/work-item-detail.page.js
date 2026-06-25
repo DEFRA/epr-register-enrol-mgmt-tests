@@ -313,6 +313,49 @@ class WorkItemDetailPage extends Page {
     ).not.toBeExisting()
   }
 
+  /**
+   * Whether the re-accreditation "Approve" CTA is rendered on the detail
+   * page (epr-81p). The CTA only renders when the item is in the eligible
+   * state AND the caller is the assignee OR holds the decision-maker role,
+   * so this is the selector the role-gating specs assert presence/absence
+   * against.
+   */
+  async hasApproveCta() {
+    return $('[data-testid="re-accreditation-approve-cta"]').isExisting()
+  }
+
+  /**
+   * POST a form to `path` from the current page using a CSRF crumb scraped
+   * from the page, returning the HTTP status (epr-81p).
+   *
+   * Scope-protected endpoints (assign/unassign, gated by requireAssign)
+   * render no control at all for an unauthorised user, so the only way to
+   * exercise their 403 from the browser is a direct same-origin submission.
+   * The crumb is read from a hidden input on the current page so the
+   * request clears CSRF — meaning a 403 can only come from the Hapi auth
+   * scope check, not from a missing/invalid crumb. `redirect: 'manual'`
+   * keeps a would-be success (302) from being followed, so a regression
+   * that drops the gate surfaces as a non-403 status rather than passing.
+   */
+  async postFormStatus(path, fields = {}) {
+    const crumb = await $('input[name="crumb"]').getValue()
+    const body = new URLSearchParams({ ...fields, crumb }).toString()
+    return browser.execute(
+      async (p, b) => {
+        const res = await fetch(p, {
+          method: 'POST',
+          headers: { 'content-type': 'application/x-www-form-urlencoded' },
+          body: b,
+          credentials: 'include',
+          redirect: 'manual'
+        })
+        return res.status
+      },
+      path,
+      body
+    )
+  }
+
   async assertOperatorEmail(email) {
     await expect(
       $(
