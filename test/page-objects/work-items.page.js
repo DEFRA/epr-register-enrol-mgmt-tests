@@ -144,6 +144,95 @@ class WorkItemsPage extends Page {
     const labels = await $$('//input[@name="nation"]/../label')
     return Promise.all([...labels].map((l) => l.getText()))
   }
+
+  // ── Checkbox/radio filters + pagination (epr-lpy2) ───────────────────────── //
+
+  filterForm() {
+    return $('[data-testid="work-items-filter-form"]')
+  }
+
+  applyFilters() {
+    return $('[data-testid="work-items-filter-apply"]').click()
+  }
+
+  async checkType(value) {
+    await $(`input[name="typeId"][value="${value}"]`).click()
+  }
+
+  async checkState(value) {
+    await $(`input[name="stateId"][value="${value}"]`).click()
+  }
+
+  async checkRegulator(nation) {
+    await $(`input[name="nation"][value="${nation}"]`).click()
+  }
+
+  async setAssignmentMode(mode) {
+    await $(`input[name="assigneeMode"][value="${mode}"]`).click()
+  }
+
+  async selectSpecificUser(userId) {
+    await $('input[name="assigneeMode"][value="user"]').click()
+    await $(
+      '[data-testid="work-items-filter-assignee-user"]'
+    ).selectByAttribute('value', userId)
+  }
+
+  /** Read the value of the first <option> in the specific-user select. */
+  async firstAssignableUserId() {
+    const options = await $$(
+      '[data-testid="work-items-filter-assignee-user"] option'
+    )
+    for (const option of options) {
+      const value = await option.getAttribute('value')
+      if (value) {
+        return value
+      }
+    }
+    return null
+  }
+
+  clearFilters() {
+    return $('[data-testid="work-items-filter-clear"]').click()
+  }
+
+  clearFiltersLink() {
+    return $('[data-testid="work-items-filter-clear"]')
+  }
+
+  getSummaryText() {
+    return $('[data-testid="work-items-summary"]').getText()
+  }
+
+  pagination() {
+    return $('.govuk-pagination')
+  }
+
+  async hasPagination() {
+    return (await this.pagination().isExisting())
+      ? await this.pagination().isDisplayed()
+      : false
+  }
+
+  /** All page-link hrefs inside the GOV.UK pagination component. */
+  async paginationHrefs() {
+    const links = await $$('.govuk-pagination__link')
+    return Promise.all([...links].map((l) => l.getAttribute('href')))
+  }
+
+  nextPageLink() {
+    return $('.govuk-pagination__next .govuk-pagination__link')
+  }
+
+  async gotoNextPage() {
+    await this.nextPageLink().click()
+  }
+
+  /** Number of work-item rows currently rendered in the list table. */
+  async getRowCount() {
+    const rows = await $$('[data-testid="work-items-table"] tbody tr')
+    return rows.length
+  }
 }
 
 export default new WorkItemsPage()
