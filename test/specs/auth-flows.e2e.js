@@ -4,7 +4,7 @@ import LoginPage from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 
 /**
- * epr-uxt4 — Auth flows (logout + stub role/nation selection).
+ * Auth flows (logout + stub role/nation selection).
  *
  * Login-to-home is already covered by home.e2e.js. This spec covers the
  * remaining auth surface:
@@ -14,7 +14,7 @@ import workItems from '../page-objects/work-items.page.js'
  *      selected role + nation, lands on home authenticated, and produces
  *      the expected role-based UI on a work item detail page.
  */
-describe('epr-uxt4 — auth flows', () => {
+describe('Auth flows', () => {
   describe('logout', () => {
     before(async () => {
       await LoginPage.loginAs('standard')
@@ -48,7 +48,7 @@ describe('epr-uxt4 — auth flows', () => {
 
       await workItems.goto()
       const { id } = await workItems.createWorkItem({
-        organisationName: 'EPR-UXT4 Standard England Ltd',
+        organisationName: 'Standard England Ltd',
         siteAddressLine1: '1 Standard Street',
         siteAddressTown: 'London',
         siteAddressPostcode: 'SW1A 1AA',
@@ -71,7 +71,7 @@ describe('epr-uxt4 — auth flows', () => {
 
       await workItems.goto()
       const { id } = await workItems.createWorkItem({
-        organisationName: 'EPR-UXT4 Assign Wales Ltd',
+        organisationName: 'Assign Wales Ltd',
         siteAddressLine1: '2 Assign Street',
         siteAddressTown: 'Cardiff',
         siteAddressPostcode: 'CF10 1AA',
