@@ -1,4 +1,4 @@
-import { $$, browser, expect } from '@wdio/globals'
+import { $, $$, browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 
@@ -204,20 +204,23 @@ describe('Work items list — filters and pagination', () => {
 
     it('defaults the list to the user nation on a fresh visit', async () => {
       await browser.url('/work-items')
-      await browser.waitUntil(
-        async () => (await browser.getUrl()).includes('nation=Scotland'),
-        {
-          timeout: 10000,
-          timeoutMsg:
-            'expected the single-nation user list to default to nation=Scotland'
-        }
-      )
-      expect(await browser.getUrl()).toContain('nation=Scotland')
+      // RA-125 applies the single-nation default server-side: the URL is not
+      // rewritten, so the observable signal is the pre-ticked regulator box
+      // (Scotland -> SEPA) and the regulator line in the filter summary.
+      expect(
+        await $('input[name="nation"][value="Scotland"]').isSelected()
+      ).toBe(true)
+      expect(await workItems.getSummaryText()).toContain('SEPA')
     })
 
     it('suppresses the nation default when filtersApplied=1 is present', async () => {
       await browser.url('/work-items?filtersApplied=1')
-      expect(await browser.getUrl()).not.toContain('nation=Scotland')
+      // Explicit form submission with no nation ticked must NOT fall back to
+      // the role-based default (RA-125).
+      expect(
+        await $('input[name="nation"][value="Scotland"]').isSelected()
+      ).toBe(false)
+      expect(await workItems.getSummaryText()).not.toContain('SEPA')
     })
   })
 })
