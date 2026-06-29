@@ -3,7 +3,7 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 
 /**
- * Task status lifecycle (epr-c2k).
+ * Task status lifecycle.
  *
  * Existing specs only ever drive tasks straight to Completed. This spec
  * exercises the full status lifecycle for a single task — In progress →
@@ -20,7 +20,7 @@ import detail from '../page-objects/work-item-detail.page.js'
  * Completed is necessarily the final transition; the status tag itself
  * renders for tasks in every state, including Completed.
  */
-describe('Task status lifecycle (epr-c2k)', () => {
+describe('Task status lifecycle', () => {
   let workItemId
 
   before(async () => {
