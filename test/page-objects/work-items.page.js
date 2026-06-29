@@ -145,7 +145,7 @@ class WorkItemsPage extends Page {
     return Promise.all([...labels].map((l) => l.getText()))
   }
 
-  // ── Checkbox/radio filters + pagination (epr-lpy2) ───────────────────────── //
+  // ── Checkbox/radio filters + pagination ──────────────────────────────────── //
 
   filterForm() {
     return $('[data-testid="work-items-filter-form"]')

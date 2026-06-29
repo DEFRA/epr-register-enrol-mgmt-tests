@@ -3,7 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 
 /**
- * Work items list — checkbox/radio filters + pagination mechanics (epr-lpy2).
+ * Work items list — checkbox/radio filters + pagination mechanics.
  *
  * Search inputs are covered elsewhere (work-items-search.e2e.js); this spec
  * exercises the parts that were not covered:
