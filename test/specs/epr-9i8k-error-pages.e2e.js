@@ -24,10 +24,13 @@ describe('epr-9i8k — error pages', () => {
   let workItemId
 
   before(async () => {
-    // The create link only renders for the 'assign' role (matching the
-    // passing sibling specs create-work-item-fields / assign-reassign-unassign).
-    // 'standard' cannot create, so the before-all seeding must use 'assign'.
+    // Seed a work item to operate on, mirroring the passing sibling specs
+    // (assign-reassign-unassign / create-work-item-fields): log in as the
+    // 'assign' role, then land on the work-items list before creating — the
+    // create link lives on /work-items, not the post-login home page, so
+    // createWorkItem() must be preceded by goto().
     await login.loginAs('assign')
+    await workItems.goto()
     ;({ id: workItemId } = await workItems.createWorkItem({
       organisationName: 'Error Page Test Ltd',
       siteAddressLine1: '1 Error Street',
