@@ -4,7 +4,7 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 
 /**
- * epr-9i8k — error pages.
+ * Error pages.
  *
  * Covers the work-item error states that previously had no explicit e2e
  * assertions:
@@ -20,7 +20,7 @@ import detail from '../page-objects/work-item-detail.page.js'
  * transport failure, which this e2e environment cannot do without bespoke
  * infra, so it is skipped rather than faked.
  */
-describe('epr-9i8k — error pages', () => {
+describe('Error pages', () => {
   let workItemId
 
   before(async () => {
@@ -66,7 +66,7 @@ describe('epr-9i8k — error pages', () => {
     // The tasks form hardcodes returnTo to the whitelisted
     // "/work-items/{id}/tasks" path, so a successful status change must
     // PRG-redirect back to the tasks page.
-    await detail.setTaskStatus('check-eligibility', 'InProgress')
+    await detail.setTaskStatus('verify-organisation-details', 'InProgress')
 
     await browser.waitUntil(
       async () =>
@@ -88,7 +88,7 @@ describe('epr-9i8k — error pages', () => {
     // (successRedirect) must reject this and fall back to the detail page.
     await browser.execute(() => {
       const select = document.querySelector(
-        '[data-testid="task-status-select-check-eligibility"]'
+        '[data-testid="task-status-select-verify-organisation-details"]'
       )
       const form = select && select.closest('form')
       const returnTo = form && form.querySelector('input[name="returnTo"]')
@@ -99,9 +99,11 @@ describe('epr-9i8k — error pages', () => {
     })
 
     await $(
-      '[data-testid="task-status-select-check-eligibility"]'
+      '[data-testid="task-status-select-verify-organisation-details"]'
     ).selectByAttribute('value', 'Blocked')
-    await $('[data-testid="set-task-status-check-eligibility"]').click()
+    await $(
+      '[data-testid="set-task-status-verify-organisation-details"]'
+    ).click()
 
     await browser.waitUntil(
       async () =>
