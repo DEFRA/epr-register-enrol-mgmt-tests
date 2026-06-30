@@ -305,6 +305,59 @@ class WorkItemDetailPage extends Page {
     ).toBeDisplayed()
   }
 
+  /**
+   * The audit-log entries for a given backend `action` (RA-234). The
+   * audit-log template stamps `data-action="{{ entry.action }}"` on every
+   * `<li>`, so this scopes assertions to e.g. `notification-sent` /
+   * `notification-failed` entries without matching unrelated rows.
+   */
+  auditEntriesForAction(action) {
+    return $$(
+      `//*[@data-testid="work-item-audit-log"]//li[@data-action=${toXPathString(
+        action
+      )}]`
+    )
+  }
+
+  /**
+   * Assert a notification audit entry for `action` surfaces a detail row
+   * whose key is exactly `key` and whose value contains `valueSubstring`
+   * (RA-234). The notification detail rows (Recipient, Notification type,
+   * Reference, Reason, Error) live inside the entry's "Show details"
+   * disclosure, so callers must `expandAllAuditEntryDetails()` first.
+   *
+   * Scoped to the `<li data-action="...">` so a row on a different entry
+   * cannot satisfy the assertion; both the key and the value substring are
+   * XPath-escaped so quoted emails/refs cannot corrupt the locator.
+   */
+  async assertNotificationDetailRow(action, key, valueSubstring) {
+    const entry = toXPathString(action)
+    const dt = toXPathString(key)
+    const needle = toXPathString(valueSubstring)
+    await expect(
+      $(
+        `//*[@data-testid="work-item-audit-log"]//li[@data-action=${entry}]` +
+          `//dt[normalize-space(.)=${dt}]/following-sibling::dd[contains(.,${needle})]`
+      )
+    ).toBeDisplayed()
+  }
+
+  /**
+   * Assert that a failed-notification audit entry renders with the
+   * visually-distinct error styling RA-234 introduced: the failure CSS
+   * class `app-audit-entry--failure` (a red left border) on the entry and
+   * the red GOV.UK "Failed" tag inside it.
+   */
+  async assertNotificationFailureStyling() {
+    const failureEntry = $(
+      '//*[@data-testid="work-item-audit-log"]//li[contains(@class,"app-audit-entry--failure")]'
+    )
+    await expect(failureEntry).toBeDisplayed()
+    await expect(
+      failureEntry.$('.//*[contains(@class,"govuk-tag--red")]')
+    ).toHaveText('Failed')
+  }
+
   async assertNoTemplateVersionOnAuditLog() {
     await expect(
       $(
