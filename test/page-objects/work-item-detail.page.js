@@ -320,6 +320,22 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * The `notification-sent` audit entries whose "Notification type" detail row
+   * matches `template` (e.g. "OfficerAssignment"). Lets a caller assert that a
+   * specific template did NOT send, without counting unrelated sends such as
+   * the operator SubmissionConfirmation email that fires on submit. Callers
+   * must `expandAllAuditEntryDetails()` first so the detail rows are present.
+   */
+  notificationSentEntriesForTemplate(template) {
+    return $$(
+      `//*[@data-testid="work-item-audit-log"]//li[@data-action="notification-sent"]` +
+        `[.//dt[normalize-space(.)="Notification type"]/following-sibling::dd[contains(.,${toXPathString(
+          template
+        )})]]`
+    )
+  }
+
+  /**
    * Assert a notification audit entry for `action` surfaces a detail row
    * whose key is exactly `key` and whose value contains `valueSubstring`
    * (RA-234). The notification detail rows (Recipient, Notification type,

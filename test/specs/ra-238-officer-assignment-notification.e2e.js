@@ -193,10 +193,14 @@ describe('RA-238 officer-assignment notification outcomes', () => {
       )
       expect(skippedEntries.length).toBeGreaterThan(0)
 
-      // No send to a regulator mailbox happened for the unconfigured nation.
-      const sentEntries =
-        await detail.auditEntriesForAction('notification-sent')
-      expect(sentEntries.length).toBe(0)
+      // No OfficerAssignment (regulator) send happened for the unconfigured
+      // nation. The operator SubmissionConfirmation email that fires on submit
+      // is a separate notification-sent entry, so we scope the "no send" check
+      // to the OfficerAssignment template rather than counting all sends.
+      const regulatorSends = await detail.notificationSentEntriesForTemplate(
+        OFFICER_ASSIGNMENT_TEMPLATE
+      )
+      expect(regulatorSends.length).toBe(0)
     })
 
     it('gives the reason "missing-regulator-mailbox" on the skipped entry', async () => {
