@@ -50,6 +50,18 @@ class ApplicationDetailsPage extends Page {
     return $('[data-testid="app-details-sampling-files-none"]').isExisting()
   }
 
+  async isPriorYearSectionShown() {
+    return $('[data-testid="app-details-prior-year-heading"]').isExisting()
+  }
+
+  async isPriorYearAuthorisersTableShown() {
+    return $('[data-testid="app-details-prior-year-authorisers"]').isExisting()
+  }
+
+  async isPriorYearBusinessPlanShown() {
+    return $('[data-testid="app-details-prior-year-business-plan"]').isExisting()
+  }
+
   async getAuthorisersTableText() {
     return $('[data-testid="app-details-authorisers"]').getText()
   }
