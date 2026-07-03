@@ -59,7 +59,9 @@ class ApplicationDetailsPage extends Page {
   }
 
   async isPriorYearBusinessPlanShown() {
-    return $('[data-testid="app-details-prior-year-business-plan"]').isExisting()
+    return $(
+      '[data-testid="app-details-prior-year-business-plan"]'
+    ).isExisting()
   }
 
   async getAuthorisersTableText() {
