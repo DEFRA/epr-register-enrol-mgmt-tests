@@ -1,4 +1,4 @@
-import { expect } from '@wdio/globals'
+import { browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
@@ -39,15 +39,28 @@ describe('RA-223 — Registration ID shown on the work item detail page', () => 
     before(async () => {
       await workItems.goto()
       await workItems.searchByOrgName('Belfast Fibres Co')
-      await workItems.openFirstListedWorkItem()
+      // Wait for the filtered list to settle before reading it — applying any
+      // filter is a GET that redirects with filtersApplied=1, so the pre-filter
+      // rows must not be acted on.
+      await browser.waitUntil(
+        async () => (await browser.getUrl()).includes('filtersApplied=1'),
+        { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
+      )
     })
 
-    it('renders a "Registration ID" summary row', async () => {
-      const hasRow = await detail.hasSummaryKey('Registration ID')
-      expect(hasRow).toBe(true)
+    it('narrows the list to exactly the seeded item', async () => {
+      // Fail loudly and specifically if the seed data or default list filters
+      // change: 0 rows means the seeded "Belfast Fibres Co" item is absent or
+      // archived; >1 means the org name is no longer unique. Either way the
+      // "open the first row" step below would otherwise assert against the
+      // wrong item with an opaque timeout.
+      const rowCount = await workItems.getRowCount()
+      expect(rowCount).toBe(1)
     })
 
     it('shows the operator EPR registration id from the payload', async () => {
+      await workItems.openFirstListedWorkItem()
+      expect(await detail.hasSummaryKey('Registration ID')).toBe(true)
       const value = await detail.getSummaryValueByKey('Registration ID')
       expect(value).toBe('reg-008')
     })
