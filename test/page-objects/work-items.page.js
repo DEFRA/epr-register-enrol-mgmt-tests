@@ -72,6 +72,9 @@ class WorkItemsPage extends Page {
     const link = await $('[data-testid^="work-item-link-"]')
     await link.waitForClickable()
     await link.click()
+    // Wait for the detail page to render so callers can read the summary list
+    // without racing a slow navigation.
+    await $('[data-testid="work-item-summary"]').waitForDisplayed()
   }
 
   workItemLink(id) {

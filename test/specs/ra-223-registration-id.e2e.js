@@ -46,21 +46,19 @@ describe('RA-223 — Registration ID shown on the work item detail page', () => 
         async () => (await browser.getUrl()).includes('filtersApplied=1'),
         { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
       )
+      // Hard gate before opening a row: the search must resolve to exactly the
+      // one seeded item. 0 rows means the seeded "Belfast Fibres Co" item is
+      // absent or archived; >1 means the org name is no longer unique. Failing
+      // here stops us opening the wrong row with an opaque timeout downstream.
+      expect(await workItems.getRowCount()).toBe(1)
+      await workItems.openFirstListedWorkItem()
     })
 
-    it('narrows the list to exactly the seeded item', async () => {
-      // Fail loudly and specifically if the seed data or default list filters
-      // change: 0 rows means the seeded "Belfast Fibres Co" item is absent or
-      // archived; >1 means the org name is no longer unique. Either way the
-      // "open the first row" step below would otherwise assert against the
-      // wrong item with an opaque timeout.
-      const rowCount = await workItems.getRowCount()
-      expect(rowCount).toBe(1)
+    it('renders a "Registration ID" summary row', async () => {
+      expect(await detail.hasSummaryKey('Registration ID')).toBe(true)
     })
 
     it('shows the operator EPR registration id from the payload', async () => {
-      await workItems.openFirstListedWorkItem()
-      expect(await detail.hasSummaryKey('Registration ID')).toBe(true)
       const value = await detail.getSummaryValueByKey('Registration ID')
       expect(value).toBe('reg-008')
     })
