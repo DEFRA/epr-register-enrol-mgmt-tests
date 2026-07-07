@@ -62,6 +62,21 @@ class WorkItemsPage extends Page {
     await this.open(`/work-items/${id}`)
   }
 
+  /**
+   * Open the first work item currently listed by clicking its row link.
+   * Used to reach a backend-seeded item whose id is not known to the test —
+   * pair it with a bounding search (e.g. searchByOrgName) so exactly one row
+   * is present and the "first" row is unambiguous.
+   */
+  async openFirstListedWorkItem() {
+    const link = await $('[data-testid^="work-item-link-"]')
+    await link.waitForClickable()
+    await link.click()
+    // Wait for the detail page to render so callers can read the summary list
+    // without racing a slow navigation.
+    await $('[data-testid="work-item-summary"]').waitForDisplayed()
+  }
+
   workItemLink(id) {
     return $(`[data-testid="work-item-link-${id}"]`)
   }
