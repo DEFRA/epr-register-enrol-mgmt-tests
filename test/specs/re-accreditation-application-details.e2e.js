@@ -112,7 +112,6 @@ describe('Application details page — re-accreditation', () => {
       const value =
         await applicationDetails.getSummaryValueByKey('Site address')
       expect(value).toBe('1 Details Lane, Leeds')
-      expect(value).not.toContain('[object Object]')
     })
 
     it('shows the site postcode from the nested address', async () => {
