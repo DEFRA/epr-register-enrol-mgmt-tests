@@ -29,8 +29,14 @@ class WorkItemsPage extends Page {
     }
     await $('#field-organisationName').setValue(opts.organisationName)
     await $('#field-siteAddress-line1').setValue(opts.siteAddressLine1)
+    // The create form pre-fills line 2 with example text, so an empty
+    // string means "clear the field" rather than "leave the default".
     if (opts.siteAddressLine2 !== undefined) {
-      await $('#field-siteAddress-line2').setValue(opts.siteAddressLine2)
+      const line2 = await $('#field-siteAddress-line2')
+      await line2.clearValue()
+      if (opts.siteAddressLine2 !== '') {
+        await line2.setValue(opts.siteAddressLine2)
+      }
     }
     await $('#field-siteAddress-town').setValue(opts.siteAddressTown)
     await $('#field-siteAddress-postcode').setValue(opts.siteAddressPostcode)
