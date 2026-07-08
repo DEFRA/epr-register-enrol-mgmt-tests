@@ -27,7 +27,6 @@ import slaExtend from '../page-objects/sla-extend.page.js'
  */
 describe('RA-248 lifecycle email reference is the application reference', () => {
   let workItemId
-  let applicationReference
 
   const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -72,21 +71,25 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
     await login.logout()
   })
 
-  it('shows the operator-facing reference as RA-######### and never the internal Guid', async () => {
+  it('surfaces the RA-######### application reference and still fires the extend-SLA notification', async () => {
     await login.loginAs('team-leader')
     await workItems.openWorkItem(workItemId)
 
-    applicationReference = (await detail.getCaption()).trim()
+    // The detail-page caption reads "Work item RA-#########" (RA-196); the
+    // bare reference after the "Work item " prefix is the exact value the
+    // lifecycle emails now put in the ((reference)) placeholder. It must be
+    // the human application reference, not the internal work-item Guid.
+    const applicationReference = (await detail.getCaption())
+      .replace(/^Work item\s+/, '')
+      .trim()
 
-    // This caption is the exact value the lifecycle emails now put in the
-    // ((reference)) placeholder. It must be the human application reference,
-    // not the internal work-item Guid.
     expect(applicationReference).toMatch(/^RA-\d{9}$/)
     expect(applicationReference).not.toMatch(UUID_RE)
     expect(applicationReference).not.toBe(workItemId)
-  })
 
-  it('still fires the extend-SLA notification end-to-end', async () => {
+    // Extend the SLA. The notification-sent audit path is the same one
+    // production uses; its presence proves the extend wires through to a
+    // notification whose reference is now the application reference above.
     await slaExtend.gotoFor(workItemId)
     await slaExtend.fillForm({
       reason: 'Operator providing additional evidence',
@@ -97,9 +100,6 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
 
     await detail.assertFlashBanner()
 
-    // The notification-sent audit path is the same one production uses; its
-    // presence proves the extend wires through to a notification whose
-    // reference is now the application reference asserted above.
     await detail.gotoAudit()
     await detail.assertAuditEntry('SLA extended email sent')
   })
