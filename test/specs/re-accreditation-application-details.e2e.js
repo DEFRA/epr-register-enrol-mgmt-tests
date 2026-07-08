@@ -28,6 +28,9 @@ describe('Application details page — re-accreditation', () => {
       {
         organisationName: 'App Details Test Ltd',
         siteAddressLine1: '1 Details Lane',
+        // Clear the form's pre-filled example line 2 so this item exercises
+        // the empty-line2 path (the line must be dropped from the address).
+        siteAddressLine2: '',
         siteAddressTown: 'Leeds',
         siteAddressPostcode: 'LS1 1AB',
         material: 'paper',
