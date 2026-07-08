@@ -103,6 +103,55 @@ describe('Application details page — re-accreditation', () => {
         await applicationDetails.getSummaryValueByKey('Organisation name')
       expect(value).toBe('App Details Test Ltd')
     })
+
+    // RA-245: the work item is created with a nested siteAddress object
+    // { line1, town, postcode }. Previously the page rendered the object as
+    // the literal "[object Object]" and left the postcode blank. It must now
+    // show the formatted address lines and the nested postcode.
+    it('shows the site address formatted from the nested address (not "[object Object]")', async () => {
+      const value =
+        await applicationDetails.getSummaryValueByKey('Site address')
+      expect(value).toBe('1 Details Lane, Leeds')
+      expect(value).not.toContain('[object Object]')
+    })
+
+    it('shows the site postcode from the nested address', async () => {
+      const value =
+        await applicationDetails.getSummaryValueByKey('Site postcode')
+      expect(value).toBe('LS1 1AB')
+    })
+  })
+
+  // RA-245: a second address line, when supplied, is included between line 1
+  // and the town so the whole address renders on the page.
+  describe('overview section — site address with a second line', () => {
+    let secondWorkItemId
+
+    before(async () => {
+      await workItems.goto()
+      ;({ id: secondWorkItemId } = await workItems.createWorkItem({
+        organisationName: 'Two Line Address Ltd',
+        siteAddressLine1: '2 Second Street',
+        siteAddressLine2: 'Unit 4',
+        siteAddressTown: 'Sheffield',
+        siteAddressPostcode: 'S1 2HE',
+        material: 'paper',
+        tonnageBand: '500-5000'
+      }))
+      await applicationDetails.open(secondWorkItemId)
+    })
+
+    it('includes the second address line in the formatted site address', async () => {
+      const value =
+        await applicationDetails.getSummaryValueByKey('Site address')
+      expect(value).toBe('2 Second Street, Unit 4, Sheffield')
+    })
+
+    it('shows the site postcode', async () => {
+      const value =
+        await applicationDetails.getSummaryValueByKey('Site postcode')
+      expect(value).toBe('S1 2HE')
+    })
   })
 
   describe('declaration section', () => {
