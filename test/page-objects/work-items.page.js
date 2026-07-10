@@ -111,6 +111,17 @@ class WorkItemsPage extends Page {
     await $('[data-testid="work-items-filter-apply"]').click()
   }
 
+  /**
+   * Reads the work item id out of the first result row's link testid.
+   * Used for seeded items whose id is not known up front (unlike items
+   * created via createWorkItem, which return their id directly).
+   */
+  async firstResultWorkItemId() {
+    const link = await $('[data-testid^="work-item-link-"]')
+    const testId = await link.getAttribute('data-testid')
+    return testId.replace('work-item-link-', '')
+  }
+
   async clearSearch() {
     await $('[data-testid="work-items-filter-clear"]').click()
   }
