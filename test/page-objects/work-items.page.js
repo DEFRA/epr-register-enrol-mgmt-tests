@@ -45,17 +45,16 @@ class WorkItemsPage extends Page {
     await $('[data-testid="create-work-item-submit"]').click()
     const banner = await $('[data-testid="work-item-success-banner"]')
     await expect(banner).toBeDisplayed()
-    // The banner renders "Reference: RA-<9 digits>" — pull the
+    // The banner renders "Reference: APP..." (RA-318: APP + year + agency +
+    // orgId + postcode suffix + material prefix, max 18 chars) — pull the
     // server-generated reference out of it for later assertions. Fail
     // loudly if it is absent so callers get a clear diagnostic rather
-    // than a confusing "null did not match" assertion downstream. The
-    // \b anchor stops a malformed longer run of digits being silently
-    // truncated to a valid-looking 9-digit reference.
+    // than a confusing "null did not match" assertion downstream.
     const bannerText = await banner.getText()
-    const match = bannerText.match(/RA-\d{9}\b/)
+    const match = bannerText.match(/APP[A-Z0-9]+\b/)
     if (!match) {
       throw new Error(
-        `success banner had no RA-<9 digit> reference: "${bannerText}"`
+        `success banner had no APP-prefixed reference: "${bannerText}"`
       )
     }
     const applicationReference = match[0]

@@ -53,12 +53,12 @@ describe('RA-123 contract: operatorEmail field in re-accreditation submission', 
     const successBanner = await $('[data-testid="work-item-success-banner"]')
     await expect(successBanner).toBeDisplayed()
 
-    // RA-219: the reference is generated server-side and surfaced on the
-    // success banner — confirm it has the expected RA-<9 digits> shape.
+    // RA-219 / RA-318: the reference is generated server-side and surfaced
+    // on the success banner — confirm it has the expected APP-prefixed shape.
     const applicationReference = (await successBanner.getText()).match(
-      /RA-\d{9}\b/
+      /APP[A-Z0-9]+\b/
     )?.[0]
-    expect(applicationReference).toMatch(/^RA-\d{9}$/)
+    expect(applicationReference).toMatch(/^APP[A-Z0-9]+$/)
 
     // Extract the work item ID from the URL
     const url = await browser.getUrl()
