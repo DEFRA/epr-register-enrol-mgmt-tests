@@ -7,7 +7,7 @@ import withdraw from '../page-objects/withdraw.page.js'
 /**
  * RA-235 — E2E: audit-log notification rendering.
  *
- * Counterpart to management-fe PR #99 (RA-234), which makes the audit-log
+ * Counterpart to management-fe PR #100 (RA-234), which makes the audit-log
  * page render the regulator-notification audit actions
  * (`notification-sent` / `notification-skipped` / `notification-failed`)
  * with their structured detail rows (Recipient, Notification type,
@@ -119,7 +119,7 @@ describe('RA-235 audit-log notification rendering', () => {
      * the task explicitly forbids faking the outcome.
      *
      * The failure RENDERING is already covered by the management-fe unit
-     * tests for audit-log.js / audit-log.njk on PR #99 (isFailure → the
+     * tests for audit-log.js / audit-log.njk on PR #100 (isFailure → the
      * "Failed" tag + failure class). This pending test marks the e2e gap
      * so it is visible in the report rather than silently absent; unskip it
      * once the harness can inject a failed send (tracked under RA-227).

@@ -320,19 +320,31 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * The `notification-sent` audit entries whose "Notification type" detail row
-   * matches `template` (e.g. "OfficerAssignment"). Lets a caller assert that a
-   * specific template did NOT send, without counting unrelated sends such as
-   * the operator SubmissionConfirmation email that fires on submit. Callers
-   * must `expandAllAuditEntryDetails()` first so the detail rows are present.
+   * The audit entries for `action` whose "Notification type" detail row matches
+   * `template` (e.g. "OfficerAssignment"). A work item carries several
+   * notifications sharing one action — submit alone records both the operator
+   * SubmissionConfirmation and the RA-240 RegulatorSubmission — so counting by
+   * action conflates them; count by template to pin an assertion to the
+   * notification actually under test. Callers must
+   * `expandAllAuditEntryDetails()` first so the detail rows are present.
    */
-  notificationSentEntriesForTemplate(template) {
+  notificationEntriesForTemplate(action, template) {
     return $$(
-      `//*[@data-testid="work-item-audit-log"]//li[@data-action="notification-sent"]` +
+      `//*[@data-testid="work-item-audit-log"]//li[@data-action=${toXPathString(
+        action
+      )}]` +
         `[.//dt[normalize-space(.)="Notification type"]/following-sibling::dd[contains(.,${toXPathString(
           template
         )})]]`
     )
+  }
+
+  /**
+   * The `notification-sent` entries for `template`. Lets a caller assert that a
+   * specific template did NOT send, without counting unrelated sends.
+   */
+  notificationSentEntriesForTemplate(template) {
+    return this.notificationEntriesForTemplate('notification-sent', template)
   }
 
   /**
@@ -345,6 +357,13 @@ class WorkItemDetailPage extends Page {
    * Scoped to the `<li data-action="...">` so a row on a different entry
    * cannot satisfy the assertion; both the key and the value substring are
    * XPath-escaped so quoted emails/refs cannot corrupt the locator.
+   *
+   * A work item usually carries several notifications sharing one action —
+   * submit alone records both the operator SubmissionConfirmation and the
+   * regulator RegulatorSubmission as `notification-sent`. Where the assertion
+   * is about one specific template, use
+   * `assertNotificationDetailRowForTemplate` instead so a row belonging to a
+   * different template cannot satisfy it.
    */
   async assertNotificationDetailRow(action, key, valueSubstring) {
     const entry = toXPathString(action)
@@ -353,6 +372,33 @@ class WorkItemDetailPage extends Page {
     await expect(
       $(
         `//*[@data-testid="work-item-audit-log"]//li[@data-action=${entry}]` +
+          `//dt[normalize-space(.)=${dt}]/following-sibling::dd[contains(.,${needle})]`
+      )
+    ).toBeDisplayed()
+  }
+
+  /**
+   * As `assertNotificationDetailRow`, but additionally scoped to the audit
+   * entry whose "Notification type" row is `template`. Required whenever the
+   * asserted value is not unique to the template under test — e.g. the England
+   * regulator mailbox is the recipient of both RegulatorSubmission (fired on
+   * submit) and OfficerAssignment, so an unscoped Recipient assertion would
+   * pass on the submit entry alone and could never fail.
+   */
+  async assertNotificationDetailRowForTemplate(
+    action,
+    template,
+    key,
+    valueSubstring
+  ) {
+    const entry = toXPathString(action)
+    const tpl = toXPathString(template)
+    const dt = toXPathString(key)
+    const needle = toXPathString(valueSubstring)
+    await expect(
+      $(
+        `//*[@data-testid="work-item-audit-log"]//li[@data-action=${entry}]` +
+          `[.//dt[normalize-space(.)="Notification type"]/following-sibling::dd[contains(.,${tpl})]]` +
           `//dt[normalize-space(.)=${dt}]/following-sibling::dd[contains(.,${needle})]`
       )
     ).toBeDisplayed()
