@@ -27,7 +27,7 @@ describe('RA-188 Withdraw confirmation', () => {
           organisationName: 'Withdraw With Note Ltd',
           siteAddressLine1: '1 Withdraw Way',
           siteAddressTown: 'London',
-          siteAddressPostcode: 'SW1A 1AA',
+          siteAddressPostcode: 'SW1A 1AJ',
           material: 'plastic',
           tonnageBand: '0-500'
         })
@@ -94,7 +94,7 @@ describe('RA-188 Withdraw confirmation', () => {
           organisationName: 'Withdraw Without Note Ltd',
           siteAddressLine1: '2 Withdraw Way',
           siteAddressTown: 'London',
-          siteAddressPostcode: 'SW1A 1AA',
+          siteAddressPostcode: 'SW1A 1AL',
           material: 'plastic',
           tonnageBand: '0-500'
         })
@@ -126,7 +126,7 @@ describe('RA-188 Withdraw confirmation', () => {
           organisationName: 'Withdraw Stale Link Ltd',
           siteAddressLine1: '3 Withdraw Way',
           siteAddressTown: 'London',
-          siteAddressPostcode: 'SW1A 1AA',
+          siteAddressPostcode: 'SW1A 1AN',
           material: 'plastic',
           tonnageBand: '0-500'
         })

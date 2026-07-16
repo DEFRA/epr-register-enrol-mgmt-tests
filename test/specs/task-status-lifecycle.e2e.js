@@ -31,7 +31,7 @@ describe('Task status lifecycle', () => {
         organisationName: `Task Status Lifecycle ${Date.now()}`,
         siteAddressLine1: '1 Lifecycle Street',
         siteAddressTown: 'London',
-        siteAddressPostcode: 'SW1A 1AA',
+        siteAddressPostcode: 'SW1A 1AW',
         material: 'plastic',
         tonnageBand: '0-500'
       })

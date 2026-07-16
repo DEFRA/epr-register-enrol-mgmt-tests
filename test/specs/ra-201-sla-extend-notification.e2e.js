@@ -33,7 +33,7 @@ describe('RA-201 Extend SLA sends operator notification', () => {
         organisationName: 'SLA Notify Test Ltd',
         siteAddressLine1: '3 Notification Way',
         siteAddressTown: 'London',
-        siteAddressPostcode: 'SW1A 1AA',
+        siteAddressPostcode: 'SW1A 1AP',
         material: 'plastic',
         tonnageBand: '0-500',
         operatorEmail: 'test@defra.gov.uk'

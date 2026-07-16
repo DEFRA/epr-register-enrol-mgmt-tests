@@ -34,7 +34,7 @@ describe('Auto duly-made and SLA clock start', () => {
         organisationName: `Auto Duly Made ${Date.now()}`,
         siteAddressLine1: '1 Auto Street',
         siteAddressTown: 'London',
-        siteAddressPostcode: 'SW1A 1AA',
+        siteAddressPostcode: 'SW1A 1AU',
         material: 'plastic',
         tonnageBand: '0-500'
       })

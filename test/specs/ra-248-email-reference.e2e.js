@@ -39,7 +39,7 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
         organisationName: 'Reference Number Test Ltd',
         siteAddressLine1: '248 Reference Road',
         siteAddressTown: 'London',
-        siteAddressPostcode: 'SW1A 1AA',
+        siteAddressPostcode: 'SW1A 1AT',
         material: 'plastic',
         tonnageBand: '0-500',
         operatorEmail: 'test@defra.gov.uk'
