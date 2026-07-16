@@ -54,11 +54,11 @@ describe('RA-123 contract: operatorEmail field in re-accreditation submission', 
     await expect(successBanner).toBeDisplayed()
 
     // RA-219 / RA-318: the reference is generated server-side and surfaced
-    // on the success banner — confirm it has the expected APP-prefixed shape.
+    // on the success banner — confirm it has the expected AP-prefixed shape.
     const applicationReference = (await successBanner.getText()).match(
-      /APP[A-Z0-9]+\b/
+      /AP[A-Z0-9]+\b/
     )?.[0]
-    expect(applicationReference).toMatch(/^APP[A-Z0-9]+$/)
+    expect(applicationReference).toMatch(/^AP[A-Z0-9]+$/)
 
     // Extract the work item ID from the URL
     const url = await browser.getUrl()

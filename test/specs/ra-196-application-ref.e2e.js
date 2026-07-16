@@ -7,7 +7,7 @@ import detail from '../page-objects/work-item-detail.page.js'
  * RA-196: Replace ID with Application Ref across pages.
  *
  * The management UI must show the user-facing application reference
- * (payload.applicationReference, RA-318 format: `APP` + year + agency +
+ * (payload.applicationReference, RA-318 format: `AP` + year + agency +
  * orgId + postcode suffix + material prefix) instead of the
  * internal work item id (a GUID) everywhere the identifier is shown as
  * visible text — the work items list link, the detail page caption and
@@ -37,7 +37,7 @@ describe('RA-196 — application reference shown instead of internal id', () => 
   })
 
   it('captures an application reference that is distinct from the internal id', () => {
-    expect(applicationReference).toMatch(/^APP[A-Z0-9]+$/)
+    expect(applicationReference).toMatch(/^AP[A-Z0-9]+$/)
     expect(applicationReference).not.toBe(createdId)
   })
 

@@ -45,16 +45,16 @@ class WorkItemsPage extends Page {
     await $('[data-testid="create-work-item-submit"]').click()
     const banner = await $('[data-testid="work-item-success-banner"]')
     await expect(banner).toBeDisplayed()
-    // The banner renders "Reference: APP..." (RA-318: APP + year + agency +
+    // The banner renders "Reference: AP..." (RA-318: AP + year + agency +
     // orgId + postcode suffix + material prefix, max 18 chars) — pull the
     // server-generated reference out of it for later assertions. Fail
     // loudly if it is absent so callers get a clear diagnostic rather
     // than a confusing "null did not match" assertion downstream.
     const bannerText = await banner.getText()
-    const match = bannerText.match(/APP[A-Z0-9]+\b/)
+    const match = bannerText.match(/AP[A-Z0-9]+\b/)
     if (!match) {
       throw new Error(
-        `success banner had no APP-prefixed reference: "${bannerText}"`
+        `success banner had no AP-prefixed reference: "${bannerText}"`
       )
     }
     const applicationReference = match[0]
