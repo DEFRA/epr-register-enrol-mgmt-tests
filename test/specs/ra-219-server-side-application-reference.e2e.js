@@ -30,7 +30,7 @@ describe('RA-219 — server-generated application reference', () => {
       organisationName: 'Server Reference Recyclers Ltd',
       siteAddressLine1: '1 Server Way',
       siteAddressTown: 'Leeds',
-      siteAddressPostcode: 'LS1 1AA',
+      siteAddressPostcode: 'LS1 2AD',
       material: 'glass',
       tonnageBand: '0-500'
     }))
