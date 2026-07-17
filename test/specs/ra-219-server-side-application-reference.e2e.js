@@ -21,7 +21,7 @@ describe('RA-219 — server-generated application reference', () => {
   let applicationReference
 
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     // createWorkItem never enters a reference — it reads the
     // server-generated one back from the success banner.

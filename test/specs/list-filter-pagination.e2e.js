@@ -23,7 +23,7 @@ describe('Work items list — filters and pagination', () => {
   const orgName = `Filter Pagination Org ${Date.now()}`
 
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     ;({ id: createdId } = await workItems.createWorkItem({
       organisationName: orgName,
@@ -194,12 +194,12 @@ describe('Work items list — filters and pagination', () => {
   describe('nation auto-default for a single-nation user (RA-125)', () => {
     before(async () => {
       await login.logout()
-      await login.loginAs('assign', 'Scotland')
+      await login.login('Scotland')
     })
 
     after(async () => {
       await login.logout()
-      await login.loginAs('assign')
+      await login.login()
     })
 
     it('defaults the list to the user nation on a fresh visit', async () => {

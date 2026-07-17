@@ -8,13 +8,13 @@ import detail from '../page-objects/work-item-detail.page.js'
  * accreditation id, start date and year on the detail page.
  *
  * The journey:
- *   1. Assign user creates a re-accreditation work item (state =
+ *   1. A caseworker creates a re-accreditation work item (state =
  *      Submitted).
  *   2. Tasks for each state are completed and the work item is
  *      progressed (auto-duly-made -> payment-received -> submit-for-
  *      decision) up to the Awaiting decision state.
- *   3. The decision-maker logs in, completes the awaiting-decision
- *      task and approves the work item.
+ *   3. A caseworker completes the awaiting-decision task and approves
+ *      the work item (RA-323 — every caseworker holds the same role).
  *   4. The backend generates an `ACC-YYYY-M-XXXXXXXX` accreditation id
  *      and stamps a start date + year onto the payload. The frontend
  *      renders a govukPanel confirmation and a summary list with all
@@ -24,7 +24,7 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
   let workItemId
 
   it('creates a re-accreditation and drives it to awaiting-decision', async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
@@ -67,7 +67,7 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
   })
 
   it('approves the work item as the decision maker and renders the accreditation id, start date and year', async () => {
-    await login.loginAs('decision-maker')
+    await login.login()
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Awaiting decision')
 
@@ -110,7 +110,7 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
   })
 
   it('re-approving an already-approved work item is idempotent (panel still shows the same id)', async () => {
-    await login.loginAs('decision-maker')
+    await login.login()
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Approved')
     await detail.assertApprovalPanelVisible()

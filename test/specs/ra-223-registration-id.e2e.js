@@ -23,7 +23,7 @@ describe('RA-223 — Registration ID shown on the work item detail page', () => 
   before(async () => {
     // No nation → a multi-nation "see all" user, so the seeded item below is
     // visible regardless of which nation it was seeded into.
-    await login.loginAs('assign')
+    await login.login()
   })
 
   after(async () => {

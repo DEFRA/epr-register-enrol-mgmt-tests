@@ -26,7 +26,7 @@ describe('RA-201 Extend SLA sends operator notification', () => {
   let workItemId
 
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
@@ -67,7 +67,7 @@ describe('RA-201 Extend SLA sends operator notification', () => {
   })
 
   it('records an "SLA extended email sent" audit entry after a successful extend', async () => {
-    await login.loginAs('team-leader')
+    await login.login()
 
     await slaExtend.gotoFor(workItemId)
     await slaExtend.fillForm({

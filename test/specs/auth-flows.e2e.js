@@ -4,20 +4,23 @@ import LoginPage from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 
 /**
- * Auth flows (logout + stub role/nation selection).
+ * Auth flows (logout + stub nation selection).
  *
  * Login-to-work-items redirect is already covered by home.e2e.js
  * (RA-326 root redirect). This spec covers the remaining auth surface:
  *   1. /auth/logout clears the session and redirects to login, so a
  *      protected page (/work-items) bounces back to the Stub Login page.
- *   2. The stub login chooser (/auth/stub/login) builds a user from the
- *      selected role + nation, lands on the work items list authenticated,
- *      and produces the expected role-based UI on a work item detail page.
+ *   2. The stub login chooser (/auth/stub/login) builds a user with an
+ *      optional nation, lands on the work items list authenticated, and
+ *      produces the expected UI on a work item detail page. RA-323: every
+ *      caseworker holds the same role, so there is no role selection any
+ *      more — the assign-to-anyone picker and self-assign shortcut are
+ *      both always available.
  */
 describe('Auth flows', () => {
   describe('logout', () => {
     before(async () => {
-      await LoginPage.loginAs('standard')
+      await LoginPage.login()
     })
 
     it('lands authenticated on the work items list with a Sign out link', async () => {
@@ -35,13 +38,13 @@ describe('Auth flows', () => {
     })
   })
 
-  describe('stub role and nation selection', () => {
+  describe('stub nation selection', () => {
     afterEach(async () => {
       await LoginPage.logout()
     })
 
-    it('standard + England user lands on the work items list and can self-assign', async () => {
-      await LoginPage.loginAs('standard', 'England')
+    it('an England-scoped user lands on the work items list and sees both assignment affordances', async () => {
+      await LoginPage.login('England')
 
       await expect(browser).toHaveTitle('Work items', { containing: true })
       await expect($('a[href="/auth/logout"]')).toBeDisplayed()
@@ -57,14 +60,14 @@ describe('Auth flows', () => {
       })
       await workItems.openWorkItem(id)
 
-      // Standard role: self-assign control is shown, the assignee picker
-      // (assign-anyone) is not.
+      // RA-323: every caseworker sees both the self-assign shortcut and the
+      // assign-to-anyone picker on an unassigned item.
       await expect($('[data-testid="self-assign-submit"]')).toBeDisplayed()
-      await expect($('[data-testid="assign-select"]')).not.toBeExisting()
+      await expect($('[data-testid="assign-select"]')).toBeDisplayed()
     })
 
-    it('assign + Wales user sees the assignee picker on a work item', async () => {
-      await LoginPage.loginAs('assign', 'Wales')
+    it('a Wales-scoped user sees both assignment affordances on a work item', async () => {
+      await LoginPage.login('Wales')
 
       await expect(browser).toHaveTitle('Work items', { containing: true })
       await expect($('a[href="/auth/logout"]')).toBeDisplayed()
@@ -80,10 +83,9 @@ describe('Auth flows', () => {
       })
       await workItems.openWorkItem(id)
 
-      // Assign role: the assignee picker is shown, and self-assign is not.
       await expect($('[data-testid="assign-select"]')).toBeDisplayed()
       await expect($('[data-testid="assign-submit"]')).toBeDisplayed()
-      await expect($('[data-testid="self-assign-submit"]')).not.toBeExisting()
+      await expect($('[data-testid="self-assign-submit"]')).toBeDisplayed()
     })
   })
 })

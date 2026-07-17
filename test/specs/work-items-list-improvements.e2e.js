@@ -16,7 +16,7 @@ describe('Work items list improvements', () => {
   let createdId
 
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     ;({ id: createdId } = await workItems.createWorkItem({
       organisationName: 'Delta Recyclers Ltd',

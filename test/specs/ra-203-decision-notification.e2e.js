@@ -24,7 +24,7 @@ describe('RA-203 Approval sends operator decision notification', () => {
   let workItemId
 
   it('drives a re-accreditation to awaiting-decision', async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
@@ -68,7 +68,7 @@ describe('RA-203 Approval sends operator decision notification', () => {
   })
 
   it('records a "Decision recorded: approved email sent" audit entry after approval with a note', async () => {
-    await login.loginAs('decision-maker')
+    await login.login()
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Awaiting decision')
 

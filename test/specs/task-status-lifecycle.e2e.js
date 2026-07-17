@@ -24,7 +24,7 @@ describe('Task status lifecycle', () => {
   let workItemId
 
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
@@ -41,7 +41,7 @@ describe('Task status lifecycle', () => {
 
   describe('In progress → Blocked → Completed', () => {
     before(async () => {
-      await login.loginAs('assign')
+      await login.login()
     })
 
     after(async () => {

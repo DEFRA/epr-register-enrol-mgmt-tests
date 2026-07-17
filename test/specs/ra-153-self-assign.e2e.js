@@ -4,19 +4,23 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 
 /**
- * RA-153 — 403 when self-assigning a work item.
+ * RA-153 — self-assign quick action.
+ *
+ * RA-323: every caseworker holds the same role, so the self-assign
+ * shortcut is offered alongside the assign-to-anyone picker (not instead
+ * of it) on any unassigned work item.
  *
  * Journey:
- *   1. Login as a standard user
+ *   1. Login
  *   2. Create a work item
  *   3. Open the work item and take it (self-assign)
- *   4. Work item assignment should reflect the standard user
+ *   4. Work item assignment should reflect the caller
  */
-describe('RA-153 — self-assign: standard user takes an unassigned work item', () => {
+describe('RA-153 — self-assign: a caseworker takes an unassigned work item', () => {
   let workItemId
 
   before(async () => {
-    await login.loginAs('standard')
+    await login.login()
   })
 
   after(async () => {
@@ -36,24 +40,21 @@ describe('RA-153 — self-assign: standard user takes an unassigned work item', 
 
     await workItems.openWorkItem(workItemId)
 
-    // Newly created work item is unassigned — "Take this work item" must be visible
+    // Newly created work item is unassigned — "Take this work item" is
+    // shown alongside the assign-to-anyone picker.
     await expect($('[data-testid="self-assign-submit"]')).toBeDisplayed()
+    await expect($('[data-testid="assign-select"]')).toBeDisplayed()
 
     // Take the work item — this returned a 403 before RA-153 was fixed
     await $('[data-testid="self-assign-submit"]').click()
 
     // After PRG redirect, the detail page should confirm assignment to the
     // caller rather than showing a 403 or an unassigned state
-    await expect(
-      $('[data-testid="assignment-caller-is-assignee"]')
-    ).toBeDisplayed()
-    await expect($('[data-testid="assignment-caller-is-assignee"]')).toHaveText(
-      expect.stringContaining('This work item is assigned to you.')
-    )
+    await detail.assertAssignedTo('Stub Caseworker User')
   })
 
-  it('shows the standard user as assignee in the work item summary', async () => {
+  it('shows the caseworker as assignee in the work item summary', async () => {
     await workItems.openWorkItem(workItemId)
-    await detail.assertAssignedTo('Stub Standard User')
+    await detail.assertAssignedTo('Stub Caseworker User')
   })
 })

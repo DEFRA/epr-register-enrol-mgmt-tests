@@ -63,9 +63,8 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * Clear the assignee via the Unassign form (assign-role only). The
-   * button only renders once an item is assigned, so callers must have
-   * assigned first.
+   * Clear the assignee via the Unassign form. The button only renders
+   * once an item is assigned, so callers must have assigned first.
    */
   async unassign() {
     await $('[data-testid="unassign-submit"]').click()
