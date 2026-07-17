@@ -35,7 +35,7 @@ describe('RA-220 — Defra rebrand: header, service navigation, and footer', () 
   describe('Service navigation', () => {
     it('displays the service name', async () => {
       await expect($('.govuk-service-navigation__service-name')).toHaveText(
-        expect.stringContaining('EPR Register Case Management')
+        expect.stringContaining('Packaging waste applications')
       )
     })
 
@@ -71,7 +71,11 @@ describe('RA-220 — Defra rebrand: header, service navigation, and footer', () 
     })
 
     it('grey background covers breadcrumb area on pages with breadcrumbs', async () => {
-      await browser.url('/work-items')
+      // The work items list is the top of the hierarchy (RA-326 removed the
+      // Home page it used to sit under) and no longer renders a breadcrumb
+      // trail, so this needs a nested page — the create-work-item form
+      // always has a two-item "Work items > ..." trail.
+      await browser.url('/work-items/re-accreditation/new')
       const wrapperTop = await $('.app-main-background').getLocation('y')
       const breadcrumbTop = await $('.govuk-breadcrumbs').getLocation('y')
       expect(breadcrumbTop).toBeGreaterThanOrEqual(wrapperTop)

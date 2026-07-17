@@ -6,13 +6,13 @@ import workItems from '../page-objects/work-items.page.js'
 /**
  * Auth flows (logout + stub role/nation selection).
  *
- * Login-to-home is already covered by home.e2e.js. This spec covers the
- * remaining auth surface:
+ * Login-to-work-items redirect is already covered by home.e2e.js
+ * (RA-326 root redirect). This spec covers the remaining auth surface:
  *   1. /auth/logout clears the session and redirects to login, so a
  *      protected page (/work-items) bounces back to the Stub Login page.
  *   2. The stub login chooser (/auth/stub/login) builds a user from the
- *      selected role + nation, lands on home authenticated, and produces
- *      the expected role-based UI on a work item detail page.
+ *      selected role + nation, lands on the work items list authenticated,
+ *      and produces the expected role-based UI on a work item detail page.
  */
 describe('Auth flows', () => {
   describe('logout', () => {
@@ -20,8 +20,8 @@ describe('Auth flows', () => {
       await LoginPage.loginAs('standard')
     })
 
-    it('lands authenticated on home with a Sign out link', async () => {
-      await expect(browser).toHaveTitle('Home', { containing: true })
+    it('lands authenticated on the work items list with a Sign out link', async () => {
+      await expect(browser).toHaveTitle('Work items', { containing: true })
       await expect($('a[href="/auth/logout"]')).toBeDisplayed()
     })
 
@@ -40,10 +40,10 @@ describe('Auth flows', () => {
       await LoginPage.logout()
     })
 
-    it('standard + England user lands on home and can self-assign', async () => {
+    it('standard + England user lands on the work items list and can self-assign', async () => {
       await LoginPage.loginAs('standard', 'England')
 
-      await expect(browser).toHaveTitle('Home', { containing: true })
+      await expect(browser).toHaveTitle('Work items', { containing: true })
       await expect($('a[href="/auth/logout"]')).toBeDisplayed()
 
       await workItems.goto()
@@ -66,7 +66,7 @@ describe('Auth flows', () => {
     it('assign + Wales user sees the assignee picker on a work item', async () => {
       await LoginPage.loginAs('assign', 'Wales')
 
-      await expect(browser).toHaveTitle('Home', { containing: true })
+      await expect(browser).toHaveTitle('Work items', { containing: true })
       await expect($('a[href="/auth/logout"]')).toBeDisplayed()
 
       await workItems.goto()
