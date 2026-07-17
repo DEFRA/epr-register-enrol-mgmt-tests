@@ -17,7 +17,7 @@ class LoginPage extends Page {
     }
     await $('button=Log in').click()
     await browser.waitUntil(
-      async () => new URL(await browser.getUrl()).pathname === '/'
+      async () => new URL(await browser.getUrl()).pathname === '/work-items'
     )
   }
 
