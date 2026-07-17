@@ -22,7 +22,7 @@ describe('Assign user journey', () => {
       organisationName: 'Alpha Recycling Ltd',
       siteAddressLine1: '10 Assign Street',
       siteAddressTown: 'Manchester',
-      siteAddressPostcode: 'M1 1AA',
+      siteAddressPostcode: 'M1 2AC',
       material: 'glass',
       tonnageBand: '0-500'
     }))

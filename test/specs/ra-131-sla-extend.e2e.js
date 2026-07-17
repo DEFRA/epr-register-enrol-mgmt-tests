@@ -37,7 +37,7 @@ describe('RA-131 Extend SLA', () => {
         organisationName: 'SLA Extend Test Ltd',
         siteAddressLine1: '1 Deadline Street',
         siteAddressTown: 'London',
-        siteAddressPostcode: 'SW1A 1AA',
+        siteAddressPostcode: 'SW1A 1AF',
         material: 'plastic',
         tonnageBand: '0-500'
       })

@@ -310,7 +310,7 @@ describe('Application details page — full operator payload', () => {
       organisationName: 'Full Payload Test Org',
       siteAddressLine1: '99 Payload Road',
       siteAddressTown: 'Birmingham',
-      siteAddressPostcode: 'B1 1AA',
+      siteAddressPostcode: 'B1 2AG',
       material: 'glass',
       tonnageBand: '0-500'
     }))

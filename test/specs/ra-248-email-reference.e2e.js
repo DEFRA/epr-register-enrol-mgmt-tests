@@ -12,15 +12,15 @@ import slaExtend from '../page-objects/sla-extend.page.js'
  * put `workItem.Id` — a UUID like `9c6bb177-fb91-4d5a-9c80-8ebac1123943` —
  * into the GOV.UK Notify `((reference))` placeholder, so operators saw a
  * UUID under "Reference number". It must instead be the server-generated
- * application reference `payload.applicationReference` (format `RA-#########`,
- * RA-219).
+ * application reference `payload.applicationReference` (RA-318 format:
+ * `AP` + year + agency + orgId + postcode suffix + material prefix).
  *
  * The email body itself is not observable through the case-management UI —
  * in the e2e stack NOTIFY_API_KEY is absent so the NoOpNotifyClient stands
  * in and discards the personalisation. The value the email now uses IS
  * observable, though: it is exactly the application reference shown as the
  * work-item detail page caption (RA-196). This spec proves that reference
- * is the human `RA-#########` form (never a Guid) and that the extend-SLA
+ * is the human `AP`-prefixed form (never a Guid) and that the extend-SLA
  * notification journey still fires end-to-end. The management-be
  * ReAccreditation*HookTests / PaymentService tests assert the `((reference))`
  * personalisation now carries this same application reference.
@@ -39,7 +39,7 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
         organisationName: 'Reference Number Test Ltd',
         siteAddressLine1: '248 Reference Road',
         siteAddressTown: 'London',
-        siteAddressPostcode: 'SW1A 1AA',
+        siteAddressPostcode: 'SW1A 1AT',
         material: 'plastic',
         tonnageBand: '0-500',
         operatorEmail: 'test@defra.gov.uk'
@@ -71,11 +71,11 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
     await login.logout()
   })
 
-  it('surfaces the RA-######### application reference and still fires the extend-SLA notification', async () => {
+  it('surfaces the AP-prefixed application reference and still fires the extend-SLA notification', async () => {
     await login.loginAs('team-leader')
     await workItems.openWorkItem(workItemId)
 
-    // The detail-page caption reads "Work item RA-#########" (RA-196); the
+    // The detail-page caption reads "Work item AP..." (RA-196); the
     // bare reference after the "Work item " prefix is the exact value the
     // lifecycle emails now put in the ((reference)) placeholder. It must be
     // the human application reference, not the internal work-item Guid.
@@ -83,7 +83,7 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
       .replace(/^Work item\s+/, '')
       .trim()
 
-    expect(applicationReference).toMatch(/^RA-\d{9}$/)
+    expect(applicationReference).toMatch(/^AP[A-Z0-9]+$/)
     expect(applicationReference).not.toMatch(UUID_RE)
     expect(applicationReference).not.toBe(workItemId)
 

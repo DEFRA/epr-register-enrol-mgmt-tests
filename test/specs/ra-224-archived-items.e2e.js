@@ -32,7 +32,7 @@ async function driveToAwaitingDecision(suffix, material) {
     organisationName: `${token} ${suffix}`,
     siteAddressLine1: '1 Archive Street',
     siteAddressTown: 'York',
-    siteAddressPostcode: 'YO1 1AA',
+    siteAddressPostcode: 'YO1 2AE',
     material,
     tonnageBand: '0-500'
   })
@@ -80,7 +80,7 @@ describe('RA-224 all terminal states are archived', () => {
         organisationName: `${token} Withdrawn`,
         siteAddressLine1: '1 Archive Street',
         siteAddressTown: 'York',
-        siteAddressPostcode: 'YO1 1AA',
+        siteAddressPostcode: 'YO1 2AF',
         material: 'glass',
         tonnageBand: '0-500'
       })

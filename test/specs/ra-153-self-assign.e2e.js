@@ -29,7 +29,7 @@ describe('RA-153 — self-assign: standard user takes an unassigned work item', 
       organisationName: 'Self Assign Test Ltd',
       siteAddressLine1: '1 Take It Street',
       siteAddressTown: 'London',
-      siteAddressPostcode: 'SW1A 1AA',
+      siteAddressPostcode: 'SW1A 1AH',
       material: 'plastic',
       tonnageBand: '0-500'
     }))
