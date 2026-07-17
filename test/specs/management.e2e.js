@@ -40,8 +40,8 @@ describe('Assign user journey', () => {
 
     // ── Assign work item 1 to another caseworker ──────────────────────────────
     await workItems.openWorkItem(assignedWorkItemId)
-    await detail.assignTo('stub-caseworker-2')
-    await detail.assertAssignedTo('Stub Caseworker Two')
+    await detail.assignTo('stub-caseworker-1')
+    await detail.assertAssignedTo('Stub Caseworker One')
 
     // ── Progress work item 2 through stages ───────────────────────────────────
     await workItems.openWorkItem(progressedWorkItemId)

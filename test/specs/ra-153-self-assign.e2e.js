@@ -50,11 +50,11 @@ describe('RA-153 — self-assign: a caseworker takes an unassigned work item', (
 
     // After PRG redirect, the detail page should confirm assignment to the
     // caller rather than showing a 403 or an unassigned state
-    await detail.assertAssignedTo('Stub Caseworker User')
+    await detail.assertAssignedTo('Stub Caseworker One')
   })
 
   it('shows the caseworker as assignee in the work item summary', async () => {
     await workItems.openWorkItem(workItemId)
-    await detail.assertAssignedTo('Stub Caseworker User')
+    await detail.assertAssignedTo('Stub Caseworker One')
   })
 })
