@@ -305,6 +305,121 @@ class WorkItemDetailPage extends Page {
     ).toBeDisplayed()
   }
 
+  /**
+   * The audit-log entries for a given backend `action` (RA-234). The
+   * audit-log template stamps `data-action="{{ entry.action }}"` on every
+   * `<li>`, so this scopes assertions to e.g. `notification-sent` /
+   * `notification-failed` entries without matching unrelated rows.
+   */
+  auditEntriesForAction(action) {
+    return $$(
+      `//*[@data-testid="work-item-audit-log"]//li[@data-action=${toXPathString(
+        action
+      )}]`
+    )
+  }
+
+  /**
+   * The audit entries for `action` whose "Notification type" detail row matches
+   * `template` (e.g. "OfficerAssignment"). A work item carries several
+   * notifications sharing one action — submit alone records both the operator
+   * SubmissionConfirmation and the RA-240 RegulatorSubmission — so counting by
+   * action conflates them; count by template to pin an assertion to the
+   * notification actually under test. Callers must
+   * `expandAllAuditEntryDetails()` first so the detail rows are present.
+   */
+  notificationEntriesForTemplate(action, template) {
+    return $$(
+      `//*[@data-testid="work-item-audit-log"]//li[@data-action=${toXPathString(
+        action
+      )}]` +
+        `[.//dt[normalize-space(.)="Notification type"]/following-sibling::dd[contains(.,${toXPathString(
+          template
+        )})]]`
+    )
+  }
+
+  /**
+   * The `notification-sent` entries for `template`. Lets a caller assert that a
+   * specific template did NOT send, without counting unrelated sends.
+   */
+  notificationSentEntriesForTemplate(template) {
+    return this.notificationEntriesForTemplate('notification-sent', template)
+  }
+
+  /**
+   * Assert a notification audit entry for `action` surfaces a detail row
+   * whose key is exactly `key` and whose value contains `valueSubstring`
+   * (RA-234). The notification detail rows (Recipient, Notification type,
+   * Reference, Reason, Error) live inside the entry's "Show details"
+   * disclosure, so callers must `expandAllAuditEntryDetails()` first.
+   *
+   * Scoped to the `<li data-action="...">` so a row on a different entry
+   * cannot satisfy the assertion; both the key and the value substring are
+   * XPath-escaped so quoted emails/refs cannot corrupt the locator.
+   *
+   * A work item usually carries several notifications sharing one action —
+   * submit alone records both the operator SubmissionConfirmation and the
+   * regulator RegulatorSubmission as `notification-sent`. Where the assertion
+   * is about one specific template, use
+   * `assertNotificationDetailRowForTemplate` instead so a row belonging to a
+   * different template cannot satisfy it.
+   */
+  async assertNotificationDetailRow(action, key, valueSubstring) {
+    const entry = toXPathString(action)
+    const dt = toXPathString(key)
+    const needle = toXPathString(valueSubstring)
+    await expect(
+      $(
+        `//*[@data-testid="work-item-audit-log"]//li[@data-action=${entry}]` +
+          `//dt[normalize-space(.)=${dt}]/following-sibling::dd[contains(.,${needle})]`
+      )
+    ).toBeDisplayed()
+  }
+
+  /**
+   * As `assertNotificationDetailRow`, but additionally scoped to the audit
+   * entry whose "Notification type" row is `template`. Required whenever the
+   * asserted value is not unique to the template under test — e.g. the England
+   * regulator mailbox is the recipient of both RegulatorSubmission (fired on
+   * submit) and OfficerAssignment, so an unscoped Recipient assertion would
+   * pass on the submit entry alone and could never fail.
+   */
+  async assertNotificationDetailRowForTemplate(
+    action,
+    template,
+    key,
+    valueSubstring
+  ) {
+    const entry = toXPathString(action)
+    const tpl = toXPathString(template)
+    const dt = toXPathString(key)
+    const needle = toXPathString(valueSubstring)
+    await expect(
+      $(
+        `//*[@data-testid="work-item-audit-log"]//li[@data-action=${entry}]` +
+          `[.//dt[normalize-space(.)="Notification type"]/following-sibling::dd[contains(.,${tpl})]]` +
+          `//dt[normalize-space(.)=${dt}]/following-sibling::dd[contains(.,${needle})]`
+      )
+    ).toBeDisplayed()
+  }
+
+  /**
+   * Assert that a failed-notification audit entry renders with the
+   * visually-distinct error styling RA-234 introduced: the failure CSS
+   * class `app-audit-entry--failure` (a red left border) on the entry and
+   * the red GOV.UK "Failed" tag inside it.
+   */
+  async assertNotificationFailureStyling() {
+    const failureEntry = $(
+      '//*[@data-testid="work-item-audit-log"]//li[contains(@class,"app-audit-entry--failure")]'
+    )
+    await expect(failureEntry).toBeDisplayed()
+    await expect(
+      failureEntry.$('.//*[contains(@class,"govuk-tag--red")]')
+    ).toHaveText('Failed')
+  }
+
   async assertNoTemplateVersionOnAuditLog() {
     await expect(
       $(
