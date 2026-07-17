@@ -69,12 +69,19 @@ describe('RA-123 contract: operatorEmail field in re-accreditation submission', 
     await $('[data-testid="work-item-audit-log-link"]').click()
     await expect($('[data-testid="work-item-audit-log"]')).toBeDisplayed()
 
-    // Look for a notification-sent audit entry (RA-123 sends on submission).
-    // actionDisplayName is "{description} email sent" (e.g. "Submission email sent").
-    // notification-skipped would mean operatorEmail was missing (field name mismatch bug).
+    // Look for the operator-facing submission-confirmation audit entry
+    // (RA-123 sends on submission). Scoped to "Submission confirmation"
+    // specifically, not a blanket "email sent"/"email skipped" check —
+    // RA-227 added a separate regulator-submission notification that is
+    // expected to skip in dev/CI (RegulatorMailboxes intentionally blank
+    // in appsettings.Development.json, to avoid emailing real regulator
+    // mailboxes from a test run), which is unrelated to this contract.
+    // A "Submission confirmation email skipped" here would mean
+    // operatorEmail was missing (the field-name mismatch bug this test
+    // guards against).
     const auditLog = await $('[data-testid="work-item-audit-log"]').getText()
-    expect(auditLog).toContain('email sent')
-    expect(auditLog).not.toContain('email skipped')
+    expect(auditLog).toContain('Submission confirmation email sent')
+    expect(auditLog).not.toContain('Submission confirmation email skipped')
   })
 
   it('uses default test@defra.gov.uk email when not overridden, and receives notification-sent entry', async () => {
@@ -106,8 +113,10 @@ describe('RA-123 contract: operatorEmail field in re-accreditation submission', 
     await $('[data-testid="work-item-audit-log-link"]').click()
     await expect($('[data-testid="work-item-audit-log"]')).toBeDisplayed()
 
+    // See the previous test for why this is scoped to "Submission
+    // confirmation" rather than a blanket email sent/skipped check.
     const auditLog = await $('[data-testid="work-item-audit-log"]').getText()
-    expect(auditLog).toContain('email sent')
-    expect(auditLog).not.toContain('email skipped')
+    expect(auditLog).toContain('Submission confirmation email sent')
+    expect(auditLog).not.toContain('Submission confirmation email skipped')
   })
 })
