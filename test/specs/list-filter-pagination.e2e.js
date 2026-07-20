@@ -29,7 +29,7 @@ describe('Work items list — filters and pagination', () => {
       organisationName: orgName,
       siteAddressLine1: '1 Filter Street',
       siteAddressTown: 'Leeds',
-      siteAddressPostcode: 'LS1 1AA',
+      siteAddressPostcode: 'LS1 2AB',
       material: 'glass',
       tonnageBand: '0-500'
     }))

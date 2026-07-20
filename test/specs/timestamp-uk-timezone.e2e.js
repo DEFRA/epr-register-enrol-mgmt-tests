@@ -32,7 +32,7 @@ describe('RA-197 — timestamps display in UK local time (BST/GMT)', () => {
       organisationName: 'Timezone Test Ltd',
       siteAddressLine1: '1 Clock Lane',
       siteAddressTown: 'London',
-      siteAddressPostcode: 'SW1A 1AA',
+      siteAddressPostcode: 'SW1A 2AH',
       material: 'glass',
       tonnageBand: '0-500'
     })

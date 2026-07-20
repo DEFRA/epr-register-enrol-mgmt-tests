@@ -31,7 +31,7 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
         organisationName: 'Coastal Materials Group',
         siteAddressLine1: '1 Approval Street',
         siteAddressTown: 'Cardiff',
-        siteAddressPostcode: 'CF1 1AA',
+        siteAddressPostcode: 'CF1 2AK',
         material: 'plastic',
         tonnageBand: '500-5000'
       })

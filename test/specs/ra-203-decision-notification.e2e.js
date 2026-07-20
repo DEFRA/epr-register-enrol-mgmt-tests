@@ -31,7 +31,7 @@ describe('RA-203 Approval sends operator decision notification', () => {
         organisationName: 'Decision Notify Test Ltd',
         siteAddressLine1: '4 Decision Road',
         siteAddressTown: 'London',
-        siteAddressPostcode: 'SW1A 1AA',
+        siteAddressPostcode: 'SW1A 1AQ',
         material: 'plastic',
         tonnageBand: '0-500',
         operatorEmail: 'operator@decision-notify-test.example'

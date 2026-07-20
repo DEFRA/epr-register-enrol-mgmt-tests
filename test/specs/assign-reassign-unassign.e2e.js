@@ -36,7 +36,7 @@ describe('Assign / re-assign / unassign via the assign-to-anyone picker', () => 
       organisationName: 'Assign Picker Test Ltd',
       siteAddressLine1: '1 Assign Street',
       siteAddressTown: 'London',
-      siteAddressPostcode: 'SW1A 1AA',
+      siteAddressPostcode: 'SW1A 1AB',
       material: 'plastic',
       tonnageBand: '0-500'
     }))

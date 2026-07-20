@@ -29,7 +29,7 @@ describe('RA-131 SLA state tag on the detail page', () => {
         organisationName: 'SLA Tag Test Ltd',
         siteAddressLine1: '1 Tag Way',
         siteAddressTown: 'London',
-        siteAddressPostcode: 'SW1A 1AA',
+        siteAddressPostcode: 'SW1A 1AG',
         material: 'plastic',
         tonnageBand: '0-500'
       })

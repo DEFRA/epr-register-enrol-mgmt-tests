@@ -54,7 +54,7 @@ describe('Auth flows', () => {
         organisationName: 'Standard England Ltd',
         siteAddressLine1: '1 Standard Street',
         siteAddressTown: 'London',
-        siteAddressPostcode: 'SW1A 1AA',
+        siteAddressPostcode: 'SW1A 1AC',
         material: 'plastic',
         tonnageBand: '0-500'
       })

@@ -8,11 +8,12 @@ import detail from '../page-objects/work-item-detail.page.js'
  *
  * The client (BFF) no longer generates or submits an application
  * reference. The case management backend generates it on submission,
- * owning the `RA-<9 digits>` format and its uniqueness constraint. This
+ * owning the format (RA-318: `AP` + year + agency + orgId + postcode
+ * suffix + material prefix) and its uniqueness constraint. This
  * journey verifies the user-visible outcome:
  *   • A work item can be created without the user ever supplying a
  *     reference (the field is gone from the form).
- *   • The created work item carries a server-generated `RA-<9 digits>`
+ *   • The created work item carries a server-generated `AP`-prefixed
  *     reference, shown on the success banner and the detail page.
  *   • That server-generated reference is searchable.
  */
@@ -29,7 +30,7 @@ describe('RA-219 — server-generated application reference', () => {
       organisationName: 'Server Reference Recyclers Ltd',
       siteAddressLine1: '1 Server Way',
       siteAddressTown: 'Leeds',
-      siteAddressPostcode: 'LS1 1AA',
+      siteAddressPostcode: 'LS1 2AD',
       material: 'glass',
       tonnageBand: '0-500'
     }))
@@ -39,8 +40,8 @@ describe('RA-219 — server-generated application reference', () => {
     await login.logout()
   })
 
-  it('returns a server-generated RA reference even though the client supplied none', () => {
-    expect(applicationReference).toMatch(/^RA-\d{9}$/)
+  it('returns a server-generated reference even though the client supplied none', () => {
+    expect(applicationReference).toMatch(/^AP[A-Z0-9]+$/)
     expect(applicationReference).not.toBe(createdId)
   })
 

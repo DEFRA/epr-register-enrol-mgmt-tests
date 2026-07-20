@@ -34,7 +34,7 @@ describe('RA-204 Withdrawal notification', () => {
           organisationName: 'Withdraw Notify With Note Ltd',
           siteAddressLine1: '1 Notify Way',
           siteAddressTown: 'London',
-          siteAddressPostcode: 'SW1A 1AA',
+          siteAddressPostcode: 'SW1A 1AR',
           material: 'plastic',
           tonnageBand: '0-500'
         })
@@ -75,7 +75,7 @@ describe('RA-204 Withdrawal notification', () => {
           organisationName: 'Withdraw Notify No Note Ltd',
           siteAddressLine1: '2 Notify Way',
           siteAddressTown: 'London',
-          siteAddressPostcode: 'SW1A 1AA',
+          siteAddressPostcode: 'SW1A 1AS',
           material: 'plastic',
           tonnageBand: '0-500'
         })
