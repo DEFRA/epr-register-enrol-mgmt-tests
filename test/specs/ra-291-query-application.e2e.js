@@ -50,7 +50,7 @@ describe('RA-291 Query an application', () => {
     let workItemId
 
     before(async () => {
-      await login.loginAs('assign')
+      await login.login()
       workItemId = await createSubmittedWorkItem(
         uniqueOrg('Query Nav Ltd'),
         'SW1A 1QA'
@@ -99,7 +99,7 @@ describe('RA-291 Query an application', () => {
     let workItemId
 
     before(async () => {
-      await login.loginAs('assign')
+      await login.login()
       workItemId = await createSubmittedWorkItem(
         uniqueOrg('Query Sections Ltd'),
         'SW1A 1QB'
@@ -130,7 +130,7 @@ describe('RA-291 Query an application', () => {
     let workItemId
 
     before(async () => {
-      await login.loginAs('assign')
+      await login.login()
       workItemId = await createSubmittedWorkItem(
         uniqueOrg('Query Invalid Ltd'),
         'SW1A 1QC'
@@ -189,7 +189,7 @@ describe('RA-291 Query an application', () => {
     let workItemId
 
     before(async () => {
-      await login.loginAs('assign')
+      await login.login()
       workItemId = await createSubmittedWorkItem(
         uniqueOrg('Query Count Ltd'),
         'SW1A 1QD'
@@ -228,7 +228,7 @@ describe('RA-291 Query an application', () => {
     let workItemId
 
     before(async () => {
-      await login.loginAs('assign')
+      await login.login()
       workItemId = await createSubmittedWorkItem(
         uniqueOrg('Query Submit Ltd'),
         'SW1A 1QE'
@@ -258,11 +258,9 @@ describe('RA-291 Query an application', () => {
       // The query page promises "the application will also be assigned to
       // you" — the assignment is part of the query operation, so an
       // unassigned application becomes owned by whoever raised the query.
+      // RA-323: the stub login identity is the first caseworker.
       await workItems.openWorkItem(workItemId)
-      // Substring match: the stub login composes the display name from the
-      // role option label ("Stub Assign (can assign work items) User"), so
-      // anchoring on the full string would break if that label is reworded.
-      await detail.assertAssignedTo('Stub Assign')
+      await detail.assertAssignedTo('Stub Caseworker One')
     })
 
     it('records the query in the application history', async () => {
