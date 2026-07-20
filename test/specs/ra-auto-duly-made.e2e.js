@@ -27,7 +27,7 @@ describe('Auto duly-made and SLA clock start', () => {
   let workItemId
 
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
@@ -44,7 +44,7 @@ describe('Auto duly-made and SLA clock start', () => {
 
   describe('submitted state — no duly-make button', () => {
     before(async () => {
-      await login.loginAs('assign')
+      await login.login()
     })
 
     after(async () => {
@@ -62,7 +62,7 @@ describe('Auto duly-made and SLA clock start', () => {
 
   describe('auto-transition on last submitted task completion', () => {
     before(async () => {
-      await login.loginAs('assign')
+      await login.login()
     })
 
     after(async () => {
@@ -86,7 +86,7 @@ describe('Auto duly-made and SLA clock start', () => {
 
   describe('SLA clock in duly-made state', () => {
     before(async () => {
-      await login.loginAs('team-leader')
+      await login.login()
     })
 
     after(async () => {
@@ -116,7 +116,7 @@ describe('Auto duly-made and SLA clock start', () => {
 
   describe('SLA clock persists after payment-received', () => {
     before(async () => {
-      await login.loginAs('assign')
+      await login.login()
     })
 
     after(async () => {
@@ -135,7 +135,7 @@ describe('Auto duly-made and SLA clock start', () => {
 
   describe('SLA clock visible in assessment-in-progress', () => {
     before(async () => {
-      await login.loginAs('team-leader')
+      await login.login()
     })
 
     after(async () => {

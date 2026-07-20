@@ -8,23 +8,21 @@ import slaOverride from '../page-objects/sla-override.page.js'
  * RA-131 — SLA state tag on the work item detail page.
  *
  * The detail page shows an SLA status tag ("On track", "At risk",
- * "Breached") to team leaders once a clock is running. This spec
- * verifies each of the three states by using the SLA override flow
- * to manipulate the clock directly:
+ * "Breached") to any caseworker once a clock is running (RA-323 — every
+ * caseworker holds the same role). This spec verifies each of the three
+ * states by using the SLA override flow to manipulate the clock directly:
  *
  *   - OnTrack:  target=90 days, started now  → remaining=90 d > 14 d
  *   - AtRisk:   target=15 days, started 2 d ago → remaining=13 d ≤ 14 d
  *   - Breached: target=1 day,  started 2 d ago → remaining=-1 d ≤ 0
  *
- * The tag is only visible when canManageSla (team-leader role) AND
- * the backend exposes a slaState value, so all assertions run as the
- * team-leader stub user.
+ * The tag is only visible once the backend exposes a slaState value.
  */
 describe('RA-131 SLA state tag on the detail page', () => {
   let workItemId
 
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
@@ -53,75 +51,63 @@ describe('RA-131 SLA state tag on the detail page', () => {
     await detail.gotoDetail()
     await detail.triggerAction('payment-received')
     await detail.assertState('Assessment in progress')
-
-    await login.logout()
   })
 
   after(async () => {
     await login.logout()
   })
 
-  describe('as a team leader', () => {
-    before(async () => {
-      await login.loginAs('team-leader')
+  it('shows "On track" when more than 14 days remain on the SLA', async () => {
+    const startedAt = new Date().toISOString()
+    await slaOverride.gotoFor(workItemId)
+    await slaOverride.fillForm({
+      reason: 'Reset to on-track for tag test',
+      newTargetDays: 90,
+      newStartedAt: startedAt
     })
+    await slaOverride.submitForm()
+    await slaOverride.waitForDetailUrl(workItemId)
 
-    after(async () => {
-      await login.logout()
+    await expect($('[data-testid="sla-clock-info"]')).toHaveText(
+      expect.stringContaining('On track')
+    )
+  })
+
+  it('shows "At risk" when fewer than 14 days remain on the SLA', async () => {
+    // target=15 days, started 2 days ago → remaining = 13 days ≤ 14 → AtRisk
+    const twoDaysAgo = new Date(
+      Date.now() - 2 * 24 * 60 * 60 * 1000
+    ).toISOString()
+    await slaOverride.gotoFor(workItemId)
+    await slaOverride.fillForm({
+      reason: 'Drive into at-risk zone for tag test',
+      newTargetDays: 15,
+      newStartedAt: twoDaysAgo
     })
+    await slaOverride.submitForm()
+    await slaOverride.waitForDetailUrl(workItemId)
 
-    it('shows "On track" when more than 14 days remain on the SLA', async () => {
-      const startedAt = new Date().toISOString()
-      await slaOverride.gotoFor(workItemId)
-      await slaOverride.fillForm({
-        reason: 'Reset to on-track for tag test',
-        newTargetDays: 90,
-        newStartedAt: startedAt
-      })
-      await slaOverride.submitForm()
-      await slaOverride.waitForDetailUrl(workItemId)
+    await expect($('[data-testid="sla-clock-info"]')).toHaveText(
+      expect.stringContaining('At risk')
+    )
+  })
 
-      await expect($('[data-testid="sla-clock-info"]')).toHaveText(
-        expect.stringContaining('On track')
-      )
+  it('shows "Breached" when the SLA deadline has passed', async () => {
+    // target=1 day, started 2 days ago → remaining = -1 day ≤ 0 → Breached
+    const twoDaysAgo = new Date(
+      Date.now() - 2 * 24 * 60 * 60 * 1000
+    ).toISOString()
+    await slaOverride.gotoFor(workItemId)
+    await slaOverride.fillForm({
+      reason: 'Drive past deadline for tag test',
+      newTargetDays: 1,
+      newStartedAt: twoDaysAgo
     })
+    await slaOverride.submitForm()
+    await slaOverride.waitForDetailUrl(workItemId)
 
-    it('shows "At risk" when fewer than 14 days remain on the SLA', async () => {
-      // target=15 days, started 2 days ago → remaining = 13 days ≤ 14 → AtRisk
-      const twoDaysAgo = new Date(
-        Date.now() - 2 * 24 * 60 * 60 * 1000
-      ).toISOString()
-      await slaOverride.gotoFor(workItemId)
-      await slaOverride.fillForm({
-        reason: 'Drive into at-risk zone for tag test',
-        newTargetDays: 15,
-        newStartedAt: twoDaysAgo
-      })
-      await slaOverride.submitForm()
-      await slaOverride.waitForDetailUrl(workItemId)
-
-      await expect($('[data-testid="sla-clock-info"]')).toHaveText(
-        expect.stringContaining('At risk')
-      )
-    })
-
-    it('shows "Breached" when the SLA deadline has passed', async () => {
-      // target=1 day, started 2 days ago → remaining = -1 day ≤ 0 → Breached
-      const twoDaysAgo = new Date(
-        Date.now() - 2 * 24 * 60 * 60 * 1000
-      ).toISOString()
-      await slaOverride.gotoFor(workItemId)
-      await slaOverride.fillForm({
-        reason: 'Drive past deadline for tag test',
-        newTargetDays: 1,
-        newStartedAt: twoDaysAgo
-      })
-      await slaOverride.submitForm()
-      await slaOverride.waitForDetailUrl(workItemId)
-
-      await expect($('[data-testid="sla-clock-info"]')).toHaveText(
-        expect.stringContaining('Breached')
-      )
-    })
+    await expect($('[data-testid="sla-clock-info"]')).toHaveText(
+      expect.stringContaining('Breached')
+    )
   })
 })

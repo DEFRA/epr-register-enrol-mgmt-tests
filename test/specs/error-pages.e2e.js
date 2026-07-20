@@ -29,7 +29,7 @@ describe('Error pages', () => {
     // 'assign' role, then land on the work-items list before creating — the
     // create link lives on /work-items, not the post-login home page, so
     // createWorkItem() must be preceded by goto().
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     ;({ id: workItemId } = await workItems.createWorkItem({
       organisationName: 'Error Page Test Ltd',

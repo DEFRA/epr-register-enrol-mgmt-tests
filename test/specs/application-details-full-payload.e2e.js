@@ -22,7 +22,7 @@ describe('Application details page — full operator payload (seeded)', () => {
   let workItemId
 
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     await workItems.searchByOrgName('Full Payload Verification Ltd')
     workItemId = await workItems.firstResultWorkItemId()

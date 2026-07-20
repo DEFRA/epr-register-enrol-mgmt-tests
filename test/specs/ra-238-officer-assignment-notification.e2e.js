@@ -9,7 +9,7 @@ import detail from '../page-objects/work-item-detail.page.js'
  * Counterpart to the management-be / management-fe RA-227 work delivered on
  * the matching `feature/RA-227` branches. Part of epic RA-227.
  *
- * When an assign-role user assigns, re-assigns or unassigns an officer on a
+ * When a caseworker assigns, re-assigns or unassigns an officer on a
  * ReAccreditation work item, management-be fires a notification to the
  * regulator shared mailbox for the work item's nation (the "OfficerAssignment"
  * Notify template) and records the outcome as an audit entry — mirroring the
@@ -63,7 +63,7 @@ describe('RA-238 officer-assignment notification outcomes', () => {
     let workItemId
 
     before(async () => {
-      await login.loginAs('assign')
+      await login.login()
       await workItems.goto()
       // SW1A postcode → England, the only configured RegulatorMailboxes
       // nation, so the assignment send resolves a recipient and succeeds.
@@ -86,8 +86,8 @@ describe('RA-238 officer-assignment notification outcomes', () => {
     })
 
     it('records exactly one OfficerAssignment send when an officer is assigned', async () => {
-      await detail.assignTo('stub-standard-1')
-      await detail.assertAssignedTo('Stub Standard User')
+      await detail.assignTo('stub-caseworker-2')
+      await detail.assertAssignedTo('Stub Caseworker Two')
 
       await detail.gotoAudit()
       await detail.expandAllAuditEntryDetails()
@@ -134,8 +134,8 @@ describe('RA-238 officer-assignment notification outcomes', () => {
 
     it('records a second OfficerAssignment send when the officer is re-assigned', async () => {
       await workItems.openWorkItem(workItemId)
-      await detail.assignTo('stub-decision-maker-1')
-      await detail.assertAssignedTo('Stub Decision Maker')
+      await detail.assignTo('stub-caseworker-3')
+      await detail.assertAssignedTo('Stub Caseworker Three')
 
       await detail.gotoAudit()
       await detail.expandAllAuditEntryDetails()
@@ -177,7 +177,7 @@ describe('RA-238 officer-assignment notification outcomes', () => {
     let workItemId
 
     before(async () => {
-      await login.loginAs('assign')
+      await login.login()
       await workItems.goto()
       // An EH (Edinburgh) postcode routes to Nation.Scotland via the backend
       // NationResolver. Scotland has no configured RegulatorMailboxes address,
@@ -201,8 +201,8 @@ describe('RA-238 officer-assignment notification outcomes', () => {
     })
 
     it('still assigns the officer', async () => {
-      await detail.assignTo('stub-standard-1')
-      await detail.assertAssignedTo('Stub Standard User')
+      await detail.assignTo('stub-caseworker-2')
+      await detail.assertAssignedTo('Stub Caseworker Two')
     })
 
     it('records a notification-skipped entry rather than notification-sent', async () => {

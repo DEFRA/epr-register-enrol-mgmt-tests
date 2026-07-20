@@ -26,7 +26,7 @@ describe('RA-197 — timestamps display in UK local time (BST/GMT)', () => {
   let submittedAt
 
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     await workItems.createWorkItem({
       organisationName: 'Timezone Test Ltd',

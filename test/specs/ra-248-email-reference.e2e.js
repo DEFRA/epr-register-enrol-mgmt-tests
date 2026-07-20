@@ -32,7 +32,7 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
@@ -71,8 +71,8 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
     await login.logout()
   })
 
-  it('surfaces the AP-prefixed application reference and still fires the extend-SLA notification', async () => {
-    await login.loginAs('team-leader')
+  it('surfaces the RA-######### application reference and still fires the extend-SLA notification', async () => {
+    await login.login()
     await workItems.openWorkItem(workItemId)
 
     // The detail-page caption reads "Work item AP..." (RA-196); the

@@ -16,7 +16,7 @@ describe('Work items list — search filters', () => {
   const orgName = `Search Test Org ${Date.now()}`
 
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     ;({ id: workItemId, applicationReference } = await workItems.createWorkItem(
       {

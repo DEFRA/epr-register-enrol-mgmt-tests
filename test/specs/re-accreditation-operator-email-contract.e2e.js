@@ -21,7 +21,7 @@ import workItems from '../page-objects/work-items.page.js'
  */
 describe('RA-123 contract: operatorEmail field in re-accreditation submission', () => {
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
   })
 
   after(async () => {
