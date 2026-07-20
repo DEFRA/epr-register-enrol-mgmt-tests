@@ -20,7 +20,7 @@ import workItems from '../page-objects/work-items.page.js'
  */
 describe('create work item: application reference + email fields', () => {
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
   })
 
   after(async () => {

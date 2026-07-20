@@ -20,7 +20,7 @@ describe('RA-188 Withdraw confirmation', () => {
     let workItemId
 
     before(async () => {
-      await login.loginAs('assign')
+      await login.login()
       await workItems.goto()
       workItemId = (
         await workItems.createWorkItem({
@@ -87,7 +87,7 @@ describe('RA-188 Withdraw confirmation', () => {
     let workItemId
 
     before(async () => {
-      await login.loginAs('assign')
+      await login.login()
       await workItems.goto()
       workItemId = (
         await workItems.createWorkItem({
@@ -119,7 +119,7 @@ describe('RA-188 Withdraw confirmation', () => {
     let workItemId
 
     before(async () => {
-      await login.loginAs('assign')
+      await login.login()
       await workItems.goto()
       workItemId = (
         await workItems.createWorkItem({

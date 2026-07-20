@@ -16,7 +16,7 @@ describe('RA-186 — payload lives in the submitted audit entry', () => {
   const organisationName = 'Payload In Audit Log Ltd'
 
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
   })
 
   after(async () => {

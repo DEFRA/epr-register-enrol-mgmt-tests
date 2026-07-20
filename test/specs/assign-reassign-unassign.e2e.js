@@ -4,13 +4,14 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 
 /**
- * Assign / re-assign / unassign by an assign-role user (epr-fsn).
+ * Assign / re-assign / unassign (epr-fsn).
  *
- * RA-153 only covers self-assign by a standard user. The assign-role
- * picker paths (POST /work-items/{id}/assign and /unassign, gated by
- * requireAssign) had no coverage. This exercises the full lifecycle:
+ * RA-153 only covers the self-assign shortcut. The assign-to-anyone
+ * picker paths (POST /work-items/{id}/assign and /unassign — available to
+ * every caseworker per RA-323) had no coverage. This exercises the full
+ * lifecycle:
  *
- *   1. Login as the assign-role user
+ *   1. Login
  *   2. Create a work item — it starts Unassigned
  *   3. Assign it to another user via the assignee <select>
  *   4. Re-assign it to a different user via the same select
@@ -18,11 +19,11 @@ import detail from '../page-objects/work-item-detail.page.js'
  *
  * The envelope summary "Assigned to" row is asserted at each step.
  */
-describe('Assign / re-assign / unassign by an assign-role user', () => {
+describe('Assign / re-assign / unassign via the assign-to-anyone picker', () => {
   let workItemId
 
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
   })
 
   after(async () => {
@@ -42,24 +43,25 @@ describe('Assign / re-assign / unassign by an assign-role user', () => {
 
     await workItems.openWorkItem(workItemId)
 
-    // A freshly created item is unassigned and the assign picker is shown
-    // to the assign-role user. No unassign control yet.
+    // A freshly created item is unassigned; the assign picker and the
+    // self-assign shortcut are both shown, but there's no unassign
+    // control yet since nobody holds the item.
     await detail.assertUnassigned()
     await expect($('[data-testid="assign-select"]')).toBeDisplayed()
     await expect($('[data-testid="unassign-submit"]')).not.toBeExisting()
   })
 
   it('assigns the item to another user via the select', async () => {
-    await detail.assignTo('stub-standard-1')
-    await detail.assertAssignedTo('Stub Standard User')
+    await detail.assignTo('stub-caseworker-2')
+    await detail.assertAssignedTo('Stub Caseworker Two')
 
     // Once assigned, the unassign control appears alongside the picker.
     await expect($('[data-testid="unassign-submit"]')).toBeDisplayed()
   })
 
   it('re-assigns the item to a different user via the select', async () => {
-    await detail.assignTo('stub-decision-maker-1')
-    await detail.assertAssignedTo('Stub Decision Maker')
+    await detail.assignTo('stub-caseworker-3')
+    await detail.assertAssignedTo('Stub Caseworker Three')
   })
 
   it('unassigns the item via the unassign form', async () => {

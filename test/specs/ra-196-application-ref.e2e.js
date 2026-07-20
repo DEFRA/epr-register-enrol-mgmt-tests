@@ -20,7 +20,7 @@ describe('RA-196 — application reference shown instead of internal id', () => 
   let applicationReference
 
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     ;({ id: createdId, applicationReference } = await workItems.createWorkItem({
       organisationName: 'Reference Recyclers Ltd',

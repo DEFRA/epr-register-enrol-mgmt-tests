@@ -26,7 +26,7 @@ const token = `RA224Archive${Date.now()}`
  * decision-maker to approve or reject. Returns the work item id.
  */
 async function driveToAwaitingDecision(suffix, material) {
-  await login.loginAs('assign')
+  await login.login()
   await workItems.goto()
   const { id } = await workItems.createWorkItem({
     organisationName: `${token} ${suffix}`,
@@ -73,7 +73,7 @@ describe('RA-224 all terminal states are archived', () => {
   let withdrawnId
 
   it('drives a work item to the Withdrawn terminal state', async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     withdrawnId = (
       await workItems.createWorkItem({
@@ -99,7 +99,7 @@ describe('RA-224 all terminal states are archived', () => {
   it('drives a work item to the Rejected terminal state', async () => {
     rejectedId = await driveToAwaitingDecision('Rejected', 'paper')
 
-    await login.loginAs('decision-maker')
+    await login.login()
     await workItems.openWorkItem(rejectedId)
     await detail.assertState('Awaiting decision')
     await detail.gotoTasks()
@@ -114,7 +114,7 @@ describe('RA-224 all terminal states are archived', () => {
   it('drives a work item to the Approved terminal state', async () => {
     approvedId = await driveToAwaitingDecision('Approved', 'plastic')
 
-    await login.loginAs('decision-maker')
+    await login.login()
     await workItems.openWorkItem(approvedId)
     await detail.assertState('Awaiting decision')
     await detail.gotoTasks()
@@ -128,7 +128,7 @@ describe('RA-224 all terminal states are archived', () => {
   })
 
   it('hides every terminal-state item from the default worklist', async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
 
     // Searching the shared token without the archived filter must return
@@ -146,7 +146,7 @@ describe('RA-224 all terminal states are archived', () => {
   })
 
   it('reveals every terminal-state item under "Show archived" with its state tag', async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
 
     // Enabling "Show archived" alongside the org-name search must surface

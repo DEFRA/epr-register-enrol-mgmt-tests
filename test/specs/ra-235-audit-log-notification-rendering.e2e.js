@@ -35,7 +35,7 @@ describe('RA-235 audit-log notification rendering', () => {
     let workItemId
 
     before(async () => {
-      await login.loginAs('assign')
+      await login.login()
       await workItems.goto()
       // operatorEmail left at the seeded default (test@defra.gov.uk) so the
       // withdraw send succeeds rather than being skipped — that default is

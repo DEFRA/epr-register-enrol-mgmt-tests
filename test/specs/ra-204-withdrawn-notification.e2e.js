@@ -25,7 +25,7 @@ describe('RA-204 Withdrawal notification', () => {
     let workItemId
 
     before(async () => {
-      await login.loginAs('assign')
+      await login.login()
       await workItems.goto()
       // operatorEmail is left at the seeded default (test@defra.gov.uk)
       // so the notification is sent rather than skipped.
@@ -68,7 +68,7 @@ describe('RA-204 Withdrawal notification', () => {
     let workItemId
 
     before(async () => {
-      await login.loginAs('assign')
+      await login.login()
       await workItems.goto()
       workItemId = (
         await workItems.createWorkItem({

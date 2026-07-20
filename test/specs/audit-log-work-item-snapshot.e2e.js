@@ -20,7 +20,7 @@ import detail from '../page-objects/work-item-detail.page.js'
  */
 describe('Audit log — work item snapshot fields', () => {
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     await workItems.createWorkItem({
       organisationName: 'Snapshot Test Ltd',

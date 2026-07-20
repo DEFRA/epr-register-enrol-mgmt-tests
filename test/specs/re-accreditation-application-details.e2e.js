@@ -22,7 +22,7 @@ describe('Application details page — re-accreditation', () => {
   let applicationReference
 
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     ;({ id: workItemId, applicationReference } = await workItems.createWorkItem(
       {
@@ -244,7 +244,7 @@ describe('Application details page — prior year section', () => {
   let workItemId
 
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     ;({ id: workItemId } = await workItems.createWorkItem({
       organisationName: 'Prior Year Test Ltd',
@@ -304,7 +304,7 @@ describe('Application details page — full operator payload', () => {
   let workItemId
 
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     ;({ id: workItemId } = await workItems.createWorkItem({
       organisationName: 'Full Payload Test Org',

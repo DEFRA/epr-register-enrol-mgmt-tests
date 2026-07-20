@@ -1,4 +1,4 @@
-import { $, browser, expect } from '@wdio/globals'
+import { $, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
@@ -8,10 +8,10 @@ import slaOverride from '../page-objects/sla-override.page.js'
 /**
  * RA-131 — Extend SLA.
  *
- * Single-step flow: team leader fills in the reason + number of days,
- * submits, and lands back on the work item with a success banner. The
- * page replaces a CSP-blocked modal (RA-94 forbids browser JS on
- * work-item pages).
+ * Single-step flow: any caseworker (RA-323 — every caseworker holds the
+ * same role) fills in the reason + number of days, submits, and lands
+ * back on the work item with a success banner. The page replaces a
+ * CSP-blocked modal (RA-94 forbids browser JS on work-item pages).
  *
  *   - GET  /work-items/{id}/sla/extend  — input page
  *   - POST /work-items/{id}/sla/extend  — apply and redirect to detail
@@ -19,18 +19,13 @@ import slaOverride from '../page-objects/sla-override.page.js'
  * These e2e tests drive a re-accreditation work item to the
  * "Assessment in progress" state (the only state where the
  * "Extend SLA" action is available per re-accreditation/module.js)
- * and then exercise role-gating, validation, cancel, and the happy
- * path.
+ * and then exercise validation, cancel, and the happy path.
  */
 describe('RA-131 Extend SLA', () => {
   let workItemId
 
   before(async () => {
-    // The "assign" stub user has standard + assign roles but is not a
-    // team leader, so they can create the work item and progress it
-    // through tasks but cannot extend the SLA. That keeps the role
-    // boundary obvious in the spec.
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
@@ -67,32 +62,9 @@ describe('RA-131 Extend SLA', () => {
     await login.logout()
   })
 
-  describe('role gating', () => {
-    it('does NOT show the Extend SLA button to a standard user', async () => {
-      await login.loginAs('standard')
-      await workItems.openWorkItem(workItemId)
-      await expect($('[data-testid="action-sla-extend"]')).not.toBeDisplayed()
-      await login.logout()
-    })
-
-    it('returns 403 when a standard user requests /sla/extend directly', async () => {
-      await login.loginAs('standard')
-      await browser.url(`/work-items/${workItemId}/sla/extend`)
-      await expect($('h1')).toHaveText(expect.stringContaining('403'))
-      await login.logout()
-    })
-
-    it('does show the Extend SLA button to a team leader', async () => {
-      await login.loginAs('team-leader')
-      await workItems.openWorkItem(workItemId)
-      await expect($('[data-testid="action-sla-extend"]')).toBeDisplayed()
-      await login.logout()
-    })
-  })
-
   describe('input page', () => {
     before(async () => {
-      await login.loginAs('team-leader')
+      await login.login()
     })
 
     after(async () => {
@@ -147,7 +119,7 @@ describe('RA-131 Extend SLA', () => {
 
   describe('happy path', () => {
     before(async () => {
-      await login.loginAs('team-leader')
+      await login.login()
     })
 
     after(async () => {
@@ -174,7 +146,7 @@ describe('RA-131 Extend SLA', () => {
 /**
  * RA-131 — Override SLA.
  *
- * Single-step flow: team leader sets a new target duration (and
+ * Single-step flow: any caseworker sets a new target duration (and
  * optionally a new start date), submits, and lands back on the work
  * item with a success banner.
  *
@@ -188,7 +160,7 @@ describe('RA-131 Override SLA', () => {
   let workItemId
 
   before(async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
@@ -225,32 +197,9 @@ describe('RA-131 Override SLA', () => {
     await login.logout()
   })
 
-  describe('role gating', () => {
-    it('does NOT show the Override SLA button to a standard user', async () => {
-      await login.loginAs('standard')
-      await workItems.openWorkItem(workItemId)
-      await expect($('[data-testid="action-sla-override"]')).not.toBeDisplayed()
-      await login.logout()
-    })
-
-    it('returns 403 when a standard user requests /sla/override directly', async () => {
-      await login.loginAs('standard')
-      await browser.url(`/work-items/${workItemId}/sla/override`)
-      await expect($('h1')).toHaveText(expect.stringContaining('403'))
-      await login.logout()
-    })
-
-    it('shows the Override SLA button to a team leader', async () => {
-      await login.loginAs('team-leader')
-      await workItems.openWorkItem(workItemId)
-      await expect($('[data-testid="action-sla-override"]')).toBeDisplayed()
-      await login.logout()
-    })
-  })
-
   describe('input page', () => {
     before(async () => {
-      await login.loginAs('team-leader')
+      await login.login()
     })
 
     after(async () => {
@@ -293,7 +242,7 @@ describe('RA-131 Override SLA', () => {
 
   describe('happy path', () => {
     before(async () => {
-      await login.loginAs('team-leader')
+      await login.login()
     })
 
     after(async () => {

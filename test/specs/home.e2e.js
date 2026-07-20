@@ -9,7 +9,7 @@ import LoginPage from '../page-objects/login.page.js'
  */
 describe('Root redirect', () => {
   it('redirects an authenticated visitor from "/" to the work items list', async () => {
-    await LoginPage.loginAs('standard')
+    await LoginPage.login()
     await browser.url('/')
     await expect(browser).toHaveTitle('Work items', { containing: true })
     await expect(new URL(await browser.getUrl()).pathname).toBe('/work-items')
