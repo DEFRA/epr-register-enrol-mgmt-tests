@@ -20,14 +20,25 @@ import query, { QUERY_SECTIONS } from '../page-objects/query.page.js'
 
 const uniqueOrg = (label) => `${label} ${Date.now()}`
 
-const createSubmittedWorkItem = async (organisationName) => {
+/**
+ * Create a Submitted application to query.
+ *
+ * The postcode differs per caller on purpose. Work items created through
+ * the case management UI carry no operator organisation id, so
+ * ApplicationReferenceGenerator derives the reference from the site
+ * postcode and material alone — items sharing both exhaust its
+ * collision-retry budget and the submission fails. Giving each block its
+ * own postcode suffix keeps references distinct, both within a run and
+ * across repeated runs against the same database.
+ */
+const createSubmittedWorkItem = async (organisationName, postcode) => {
   await workItems.goto()
   return (
     await workItems.createWorkItem({
       organisationName,
       siteAddressLine1: '1 Query Street',
       siteAddressTown: 'London',
-      siteAddressPostcode: 'SW1A 1AA',
+      siteAddressPostcode: postcode,
       material: 'plastic',
       tonnageBand: '0-500'
     })
@@ -40,11 +51,26 @@ describe('RA-291 Query an application', () => {
 
     before(async () => {
       await login.loginAs('assign')
-      workItemId = await createSubmittedWorkItem(uniqueOrg('Query Nav Ltd'))
+      workItemId = await createSubmittedWorkItem(
+        uniqueOrg('Query Nav Ltd'),
+        'SW1A 1QA'
+      )
     })
 
     after(async () => {
       await login.logout()
+    })
+
+    it('still renders the re-accreditation detail template', async () => {
+      // Guard against template-version drift. The backend stamps its
+      // current TemplateVersion onto every new work item; if the frontend
+      // has not registered that version, the page silently falls back to
+      // the generic detail template and the re-accreditation view — the
+      // approve CTA, the custom actions panel — disappears with nothing
+      // failing. Adding a query transition bumps the version, so this
+      // needs asserting on a freshly created item.
+      await workItems.openWorkItem(workItemId)
+      await expect($('[data-testid="re-accreditation-detail"]')).toBeDisplayed()
     })
 
     it('offers a Query link on the application summary page', async () => {
@@ -75,7 +101,8 @@ describe('RA-291 Query an application', () => {
     before(async () => {
       await login.loginAs('assign')
       workItemId = await createSubmittedWorkItem(
-        uniqueOrg('Query Sections Ltd')
+        uniqueOrg('Query Sections Ltd'),
+        'SW1A 1QB'
       )
     })
 
@@ -104,7 +131,10 @@ describe('RA-291 Query an application', () => {
 
     before(async () => {
       await login.loginAs('assign')
-      workItemId = await createSubmittedWorkItem(uniqueOrg('Query Invalid Ltd'))
+      workItemId = await createSubmittedWorkItem(
+        uniqueOrg('Query Invalid Ltd'),
+        'SW1A 1QC'
+      )
     })
 
     after(async () => {
@@ -160,7 +190,10 @@ describe('RA-291 Query an application', () => {
 
     before(async () => {
       await login.loginAs('assign')
-      workItemId = await createSubmittedWorkItem(uniqueOrg('Query Count Ltd'))
+      workItemId = await createSubmittedWorkItem(
+        uniqueOrg('Query Count Ltd'),
+        'SW1A 1QD'
+      )
     })
 
     after(async () => {
@@ -196,7 +229,10 @@ describe('RA-291 Query an application', () => {
 
     before(async () => {
       await login.loginAs('assign')
-      workItemId = await createSubmittedWorkItem(uniqueOrg('Query Submit Ltd'))
+      workItemId = await createSubmittedWorkItem(
+        uniqueOrg('Query Submit Ltd'),
+        'SW1A 1QE'
+      )
     })
 
     after(async () => {
@@ -223,7 +259,10 @@ describe('RA-291 Query an application', () => {
       // you" — the assignment is part of the query operation, so an
       // unassigned application becomes owned by whoever raised the query.
       await workItems.openWorkItem(workItemId)
-      await detail.assertAssignedTo('Stub Assign User')
+      // Substring match: the stub login composes the display name from the
+      // role option label ("Stub Assign (can assign work items) User"), so
+      // anchoring on the full string would break if that label is reworded.
+      await detail.assertAssignedTo('Stub Assign')
     })
 
     it('records the query in the application history', async () => {

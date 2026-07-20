@@ -87,12 +87,18 @@ class QueryPage extends Page {
   }
 
   /**
-   * The character-count hint govuk-frontend renders alongside the textarea.
-   * Present server-side as static text; the client JS turns it into a live
-   * countdown once CharacterCount is initialised.
+   * The live "You have N words remaining" countdown.
+   *
+   * Deliberately NOT `#field-reason-info`. On init the CharacterCount
+   * component repurposes that element as the visually-hidden screen-reader
+   * description, leaving its server-rendered "You can enter up to 200
+   * words" text untouched, and inserts a *new*
+   * `div.govuk-character-count__status` to carry the visible count. Reading
+   * the `-info` element therefore reports the static fallback forever and
+   * silently misses a broken counter.
    */
   async characterCountMessage() {
-    return $('#field-reason-info').getText()
+    return $('.govuk-character-count__status').getText()
   }
 
   async waitForDetailUrl(workItemId) {
