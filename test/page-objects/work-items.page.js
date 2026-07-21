@@ -90,24 +90,45 @@ class WorkItemsPage extends Page {
     return $(`[data-testid="work-item-state-tag-${id}"]`)
   }
 
+  /**
+   * Click Apply and wait for the filtered page to actually load.
+   *
+   * Applying a filter is a full page navigation. Without this wait the
+   * caller races it and can read rows from the *unfiltered* list still on
+   * screen — which silently returns the wrong work item rather than
+   * failing, and gets worse the more items the suite has created. The
+   * server stamps filtersApplied=1 on the query string, so that is the
+   * signal the new page has arrived.
+   */
+  async applyFiltersAndWait() {
+    await $('[data-testid="work-items-filter-apply"]').click()
+    await browser.waitUntil(
+      async () => (await browser.getUrl()).includes('filtersApplied=1'),
+      {
+        timeout: 10000,
+        timeoutMsg: 'Expected the filters to be applied to the work items list'
+      }
+    )
+  }
+
   async filterByNation(nation) {
     await $(`input[name="nation"][value="${nation}"]`).click()
-    await $('[data-testid="work-items-filter-apply"]').click()
+    await this.applyFiltersAndWait()
   }
 
   async searchByOrgId(value) {
     await $('[data-testid="work-items-filter-org-id"]').setValue(value)
-    await $('[data-testid="work-items-filter-apply"]').click()
+    await this.applyFiltersAndWait()
   }
 
   async searchByRegistrationId(value) {
     await $('[data-testid="work-items-filter-registration-id"]').setValue(value)
-    await $('[data-testid="work-items-filter-apply"]').click()
+    await this.applyFiltersAndWait()
   }
 
   async searchByOrgName(value) {
     await $('[data-testid="work-items-filter-org-name"]').setValue(value)
-    await $('[data-testid="work-items-filter-apply"]').click()
+    await this.applyFiltersAndWait()
   }
 
   /**
@@ -140,7 +161,7 @@ class WorkItemsPage extends Page {
       await includeArchived.click()
     }
     await $('[data-testid="work-items-filter-org-name"]').setValue(value)
-    await $('[data-testid="work-items-filter-apply"]').click()
+    await this.applyFiltersAndWait()
   }
 
   async getWorkItemCount() {
@@ -183,7 +204,7 @@ class WorkItemsPage extends Page {
   }
 
   applyFilters() {
-    return $('[data-testid="work-items-filter-apply"]').click()
+    return this.applyFiltersAndWait()
   }
 
   async checkType(value) {
