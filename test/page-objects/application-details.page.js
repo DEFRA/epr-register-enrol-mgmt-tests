@@ -85,6 +85,27 @@ class ApplicationDetailsPage extends Page {
     return this.downloadSamplingFileLink().getAttribute('href')
   }
 
+  async getOverseasSiteName() {
+    return $('[data-testid="app-details-overseas-site-1-name"]').getText()
+  }
+
+  async getBesEvidenceFilesTableText() {
+    return $('[data-testid="app-details-bes-evidence-files-1"]').getText()
+  }
+
+  /** The download link for the first (only, in current fixtures) BES-evidence file. */
+  downloadBesEvidenceFileLink() {
+    return $('[data-testid="app-details-bes-file-download-1"]')
+  }
+
+  async isBesEvidenceFileDownloadShown() {
+    return this.downloadBesEvidenceFileLink().isExisting()
+  }
+
+  async getBesEvidenceFileDownloadHref() {
+    return this.downloadBesEvidenceFileLink().getAttribute('href')
+  }
+
   /**
    * Wait until the URL indicates we are on the application-details page for
    * any work item. Used after clicking the link from the detail page.
