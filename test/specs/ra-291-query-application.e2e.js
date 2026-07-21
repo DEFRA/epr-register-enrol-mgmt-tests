@@ -224,6 +224,10 @@ describe('RA-291 Query an application', () => {
     })
   })
 
+  // The `it`s in this block run in order and share one work item: the first
+  // submits the query, and the rest assert the resulting state (assignment,
+  // audit, affordance withdrawn, direct-visit guard). Keep them ordered —
+  // do not reorder or run one in isolation with `.only`.
   describe('AC05 — submitting the query', () => {
     let workItemId
 
@@ -266,7 +270,8 @@ describe('RA-291 Query an application', () => {
     it('records the query in the application history', async () => {
       await workItems.openWorkItem(workItemId)
       await detail.gotoAudit()
-      await detail.assertAuditEntry('Action applied')
+      // 'Action applied' is on every action entry; 'Application queried' is
+      // what actually pins the query, so assert only that.
       await detail.assertAuditEntry('Application queried')
     })
 

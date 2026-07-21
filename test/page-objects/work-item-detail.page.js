@@ -71,9 +71,11 @@ class WorkItemDetailPage extends Page {
   }
 
   async assertAssignedTo(displayName) {
+    // Scoped to the "Assigned to" row (mirroring assertUnassigned) so it
+    // can't pass on the name appearing in some other summary-list value.
     await expect(
       $(
-        `//*[contains(@class,"govuk-summary-list__value") and contains(.,"${displayName}")]`
+        `//*[contains(@class,"govuk-summary-list__key") and normalize-space(.)="Assigned to"]/following-sibling::*[contains(@class,"govuk-summary-list__value") and contains(.,"${displayName}")]`
       )
     ).toBeDisplayed()
   }
