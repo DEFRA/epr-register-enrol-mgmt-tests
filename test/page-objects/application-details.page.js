@@ -72,6 +72,19 @@ class ApplicationDetailsPage extends Page {
     return $('[data-testid="app-details-sampling-files"]').getText()
   }
 
+  /** The download link for the first (only, in current fixtures) sampling file. */
+  downloadSamplingFileLink() {
+    return $('[data-testid="app-details-sampling-file-download-1"]')
+  }
+
+  async isSamplingFileDownloadShown() {
+    return this.downloadSamplingFileLink().isExisting()
+  }
+
+  async getSamplingFileDownloadHref() {
+    return this.downloadSamplingFileLink().getAttribute('href')
+  }
+
   /**
    * Wait until the URL indicates we are on the application-details page for
    * any work item. Used after clicking the link from the detail page.
