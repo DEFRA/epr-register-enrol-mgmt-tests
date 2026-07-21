@@ -193,6 +193,16 @@ describe('Application details page — full operator payload (seeded)', () => {
       expect(text).toContain('sampling-plan.pdf')
       expect(text).toContain('Clean')
     })
+
+    it('shows a download link for the clean file', async () => {
+      expect(await applicationDetails.isSamplingFileDownloadShown()).toBe(true)
+    })
+
+    it('download link points at the file download route for this work item', async () => {
+      const href = await applicationDetails.getSamplingFileDownloadHref()
+      expect(href).toContain(`/work-items/${workItemId}/files/`)
+      expect(href).toContain('/download')
+    })
   })
 
   describe('link from detail page', () => {
