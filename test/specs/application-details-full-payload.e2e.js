@@ -9,14 +9,20 @@ import applicationDetails from '../page-objects/application-details.page.js'
  * The other re-accreditation e2e specs use work items created via the case
  * management "Create work item" form, which only populates a small subset
  * of fields (organisation name, site address, material, tonnage band). That
- * subset never exercises submittedBy, prns.authorisers, businessPlan or
- * samplingPlan.files — so a regression that drops one of those fields
- * between the operator payload and the Application details page would go
- * unnoticed by e2e coverage.
+ * subset never exercises submittedBy, prns.authorisers, businessPlan,
+ * samplingPlan.files or overseasSites.besEvidence — so a regression that
+ * drops one of those fields between the operator payload and the
+ * Application details page would go unnoticed by e2e coverage.
  *
  * This spec targets the "full-payload-verification" seed item
  * (ReAccreditationSeeder), the only work item carrying every field a real
  * operator submission can send, and asserts each one renders.
+ *
+ * RA-319 fast-follow: the "BES-evidence section" describe block below adds
+ * the e2e coverage flagged as missing in mgmt-tests#62 — management-fe#117
+ * added the BES-evidence UI with only unit tests, so this asserts the
+ * overseas-site download link renders and resolves the same way the
+ * sampling-plan one does.
  */
 describe('Application details page — full operator payload (seeded)', () => {
   let workItemId
@@ -202,6 +208,39 @@ describe('Application details page — full operator payload (seeded)', () => {
       const href = await applicationDetails.getSamplingFileDownloadHref()
       expect(href).toContain(`/work-items/${workItemId}/files/`)
       expect(href).toContain('/download')
+    })
+  })
+
+  describe('BES-evidence section (overseas sites)', () => {
+    it('shows the overseas site name', async () => {
+      expect(await applicationDetails.getOverseasSiteName()).toContain(
+        'Full Payload Verification Overseas Site'
+      )
+    })
+
+    it('shows the uploaded filename and clean scan status', async () => {
+      const text = await applicationDetails.getBesEvidenceFilesTableText()
+      expect(text).toContain('bes-evidence.pdf')
+      expect(text).toContain('Clean')
+    })
+
+    it('shows a download link for the clean file', async () => {
+      expect(await applicationDetails.isBesEvidenceFileDownloadShown()).toBe(
+        true
+      )
+    })
+
+    it('download link points at the file download route for this work item', async () => {
+      const href = await applicationDetails.getBesEvidenceFileDownloadHref()
+      expect(href).toContain(`/work-items/${workItemId}/files/`)
+      expect(href).toContain('/download')
+    })
+
+    it('download link resolves to the actual uploaded file', async () => {
+      const { status, contentType } =
+        await applicationDetails.fetchBesEvidenceFileDownloadResponse()
+      expect(status).toBe(200)
+      expect(contentType).toContain('application/pdf')
     })
   })
 
