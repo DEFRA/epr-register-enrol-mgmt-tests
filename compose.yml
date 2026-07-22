@@ -85,6 +85,14 @@ services:
         condition: service_healthy
       floci:
         condition: service_started
+    # MGT-4: published so the Node test process can call bespoke endpoints
+    # with no management-fe UI (e.g. resume-from-query) directly. A browser-side
+    # fetch from the management-fe origin hits management-be's deny-all CORS
+    # policy; calling from Node instead sidesteps CORS entirely rather than
+    # loosening that policy for the sake of tests. wdio.local.conf.js already
+    # assumes management-be is reachable at localhost:8085.
+    ports:
+      - 8085:8085
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:8085/health']
       interval: 5s
