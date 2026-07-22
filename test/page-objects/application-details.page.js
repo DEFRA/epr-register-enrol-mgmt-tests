@@ -107,6 +107,26 @@ class ApplicationDetailsPage extends Page {
   }
 
   /**
+   * Actually requests the BES-evidence download link from within the
+   * browser session (so the session cookie carries over and the request
+   * resolves against whatever host the current environment's baseUrl points
+   * at — docker network name in CI, localhost locally, the deployed host on
+   * BrowserStack) and reports back the response status and content type.
+   * Proves the link resolves to a real object, not just that the href is
+   * shaped correctly.
+   */
+  async fetchBesEvidenceFileDownloadResponse() {
+    const href = await this.getBesEvidenceFileDownloadHref()
+    return browser.execute(async (url) => {
+      const res = await fetch(url)
+      return {
+        status: res.status,
+        contentType: res.headers.get('content-type')
+      }
+    }, href)
+  }
+
+  /**
    * Wait until the URL indicates we are on the application-details page for
    * any work item. Used after clicking the link from the detail page.
    */

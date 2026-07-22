@@ -235,6 +235,13 @@ describe('Application details page — full operator payload (seeded)', () => {
       expect(href).toContain(`/work-items/${workItemId}/files/`)
       expect(href).toContain('/download')
     })
+
+    it('download link resolves to the actual uploaded file', async () => {
+      const { status, contentType } =
+        await applicationDetails.fetchBesEvidenceFileDownloadResponse()
+      expect(status).toBe(200)
+      expect(contentType).toContain('application/pdf')
+    })
   })
 
   describe('link from detail page', () => {

@@ -44,6 +44,11 @@ services:
       - FLOCI_DEFAULT_REGION=eu-west-2
     env_file:
       - ./docker/config/defaults.env
+    volumes:
+      # floci runs every script in this directory on startup (its equivalent
+      # of localstack's /docker-entrypoint-initaws.d) — matches the mount
+      # convention already used by management-be/-fe's compose/floci/start.d.
+      - ./docker/scripts/localstack:/etc/floci/init/start.d:ro
 
   ################################################################################
   redis:
