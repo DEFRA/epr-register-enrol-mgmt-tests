@@ -38,6 +38,14 @@ import {
  * instead, so CI will pull the published `latest` management-be image and
  * these specs will fail until MBE-1 merges (or the two branch names are
  * aligned).
+ *
+ * Since MGT-F1 (see mgt-f1-query-raise.e2e.js), this spec's "never-throw
+ * push hook" describe block below also depends on epr-register-enrol-
+ * backend's `feature/RA-338-query-resubmit-endpoint` branch (OBE-2) for the
+ * 404 its assertion relies on — run-journey-tests/action.yml has no
+ * branch-matching logic for that repo at all, so it always pulls `latest`
+ * regardless of this branch's name, and will only pick up OBE-2 once that
+ * branch merges to epr-register-enrol-backend's main.
  */
 
 const uniqueOrg = (label) => `${label} ${Date.now()}`
@@ -189,12 +197,14 @@ describe('MGT-4 — query resubmit / resume-from-query', () => {
   })
 
   describe('never-throw push hook — a failed operator-backend push does not block the query transition', () => {
-    // OperatorBackendApi:Url is not configured anywhere in this stack (see
-    // docker/config/management-be.env), so NullOperatorBackendPushAdapter is
-    // always selected and every push attempt fails with "OperatorBackendApi:Url
-    // is not configured." This exercises ReAccreditationQueryPushHook's
-    // documented "never throws" contract for free, with no environment
-    // changes needed.
+    // Since MGT-F1, OperatorBackendApi is enabled stack-wide (see
+    // docker/config/management-be.env) and HttpOperatorBackendPushAdapter is
+    // always selected — this work item is deliberately never seeded into
+    // epr-register-enrol-backend (see operator-backend-db.js /
+    // mgt-f1-query-raise.e2e.js, which does seed one), so the real adapter's
+    // push gets a genuine 404 back. This exercises
+    // ReAccreditationQueryPushHook's documented "never throws" contract
+    // against a real failure rather than the no-op adapter's synthetic one.
     let workItemId
 
     before(async () => {

@@ -36,6 +36,13 @@ services:
     image: mongo:6
     volumes:
       - ./docker/scripts/mongodb:/docker-entrypoint-initdb.d
+    # MGT-F1: published so the Node test process (which runs on the host/
+    # runner, not inside this compose network — see MANAGEMENT_BE_URL's own
+    # localhost default) can seed a linked application directly into
+    # epr-register-enrol-backend's collection, per the RA-311 fix doc's
+    # test-linkage decision.
+    ports:
+      - 27017:27017
     healthcheck:
       test: ['CMD', 'mongosh', '--eval', 'db.hello().ok']
       interval: 5s
@@ -95,6 +102,30 @@ services:
       - 8085:8085
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:8085/health']
+      interval: 5s
+      start_period: 10s
+      retries: 5
+
+  ################################################################################
+  epr-register-enrol-backend:
+    image: defradigital/epr-register-enrol-backend:${EPR_REGISTER_ENROL_BACKEND:-latest}
+    platform: linux/amd64
+    env_file:
+      - ./docker/config/defaults.env
+      - ./docker/config/operator-be.env
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    # MGT-F1: published for the same reason as management-be's port above —
+    # the Node test process seeds a linked application directly into this
+    # service's Mongo collection (RA-311 fix doc decision: seed, don't drive
+    # a full submit) and reads its state back after management-be pushes a
+    # raised query, and there is no UI on either side to route the read
+    # through instead.
+    ports:
+      - 8080:8080
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8080/health']
       interval: 5s
       start_period: 10s
       retries: 5
