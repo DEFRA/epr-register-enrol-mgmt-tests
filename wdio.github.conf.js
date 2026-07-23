@@ -25,7 +25,10 @@ export const config = {
   specs: ['./test/specs/**/*.js'],
   // Tests to exclude
   exclude: [],
-  maxInstances: 1,
+  // Runs specs in parallel against the selenium-chrome container, which is
+  // configured (via SE_NODE_MAX_SESSIONS/SE_NODE_MAX_INSTANCES in
+  // compose.yml) to accept the same number of concurrent sessions.
+  maxInstances: 3,
 
   capabilities: [
     {

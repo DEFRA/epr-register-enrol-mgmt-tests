@@ -52,6 +52,10 @@ runs:
         ref: ${{ steps.management-fe-branch.outputs.ref }}
         path: epr-register-enrol-management-fe
 
+    - name: Set up Docker Buildx
+      if: inputs.journey-test-pr != 'false'
+      uses: docker/setup-buildx-action@v3
+
     - name: Build management-fe Docker image from source
       if: inputs.journey-test-pr != 'false' && steps.management-fe-branch.outputs.exists == 'true'
       id: docker-management-fe
@@ -60,7 +64,11 @@ runs:
         cd epr-register-enrol-management-fe
         MANAGEMENT_FE_SHA=$(git rev-parse --short HEAD)
         IMAGE_TAG="defradigital/epr-register-enrol-management-fe:${MANAGEMENT_FE_SHA}"
-        docker build -t $IMAGE_TAG .
+        docker buildx build \
+          --cache-from type=gha,scope=mgmt-tests-management-fe \
+          --cache-to type=gha,mode=max,scope=mgmt-tests-management-fe \
+          --load \
+          -t $IMAGE_TAG .
         echo "image=$MANAGEMENT_FE_SHA" >> "$GITHUB_OUTPUT"
 
     - name: Check for matching management-be branch
@@ -92,7 +100,11 @@ runs:
         cd epr-register-enrol-management-be
         MANAGEMENT_BE_SHA=$(git rev-parse --short HEAD)
         IMAGE_TAG="defradigital/epr-register-enrol-management-be:${MANAGEMENT_BE_SHA}"
-        docker build -t $IMAGE_TAG .
+        docker buildx build \
+          --cache-from type=gha,scope=mgmt-tests-management-be \
+          --cache-to type=gha,mode=max,scope=mgmt-tests-management-be \
+          --load \
+          -t $IMAGE_TAG .
         echo "image=$MANAGEMENT_BE_SHA" >> "$GITHUB_OUTPUT"
 
     - uses: actions/setup-node@v6
