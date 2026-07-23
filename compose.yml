@@ -23,6 +23,11 @@ services:
   # containers.
   selenium-chrome:
     image: selenium/standalone-chrome:123.0
+    shm_size: 2g
+    environment:
+      - SE_NODE_MAX_SESSIONS=3
+      - SE_NODE_MAX_INSTANCES=3
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
     ports:
       - 4444:4444
 
