@@ -256,6 +256,28 @@ class WorkItemsPage extends Page {
     return $('[data-testid="work-items-summary"]').getText()
   }
 
+  /**
+   * The results summary line. It is rendered only when the backend query
+   * succeeds (ok=true) — on a failed query the template swaps it for the
+   * "Could not reach the backend" notification banner instead. Its presence
+   * is therefore a positive signal that GET /work-items returned rather than
+   * 500'd (RA-342).
+   */
+  worklistSummary() {
+    return $('[data-testid="work-items-summary"]')
+  }
+
+  /**
+   * The GOV.UK notification banner the worklist renders when the backend
+   * query fails (titleText "Could not reach the backend", body e.g.
+   * "Backend returned 500"). No data-testid exists on it, so the GOV.UK
+   * component class is the selector. Used by RA-342 to assert the legacy
+   * snapshot no longer crashes the whole worklist batch.
+   */
+  worklistErrorBanner() {
+    return $('.govuk-notification-banner')
+  }
+
   pagination() {
     return $('.govuk-pagination')
   }
