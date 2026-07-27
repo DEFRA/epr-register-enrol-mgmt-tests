@@ -1,6 +1,6 @@
 import { $, browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
-import workItems from '../page-objects/work-items.page.js'
+import workItems, { TILE_FIELD_ORDER } from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import query from '../page-objects/query.page.js'
 
@@ -29,17 +29,6 @@ import query from '../page-objects/query.page.js'
  * Updated, Queried) to keep the run fast without leaving the badge ACs
  * unproven.
  */
-
-const CANONICAL_FIELD_ORDER = [
-  'application-ref',
-  'org-name',
-  'org-id',
-  'material',
-  'applicant-type',
-  'submitted-on',
-  'assigned-to',
-  'due-date'
-]
 
 const uniqueOrg = (label) => `${label} ${Date.now()}`
 
@@ -173,11 +162,10 @@ describe('RA-324 Applications page', () => {
 
     it('AC05: shows the tile fields in the defined order', async () => {
       const order = await workItems.tileFieldOrder(itemId)
-      // Every field returned must be a known field (no strays)…
-      const indices = order.map((field) => CANONICAL_FIELD_ORDER.indexOf(field))
-      expect(indices).not.toContain(-1)
-      // …and they must appear in the canonical order (monotonically
-      // increasing indices), tolerating conditional fields being absent.
+      // The present fields must appear in the canonical order (their indices
+      // into TILE_FIELD_ORDER increase monotonically), tolerating conditional
+      // fields being absent.
+      const indices = order.map((field) => TILE_FIELD_ORDER.indexOf(field))
       expect(indices).toEqual([...indices].sort((a, b) => a - b))
       // The always-present fields must be there in the right relative order.
       expect(order).toContain('application-ref')
@@ -198,6 +186,11 @@ describe('RA-324 Applications page', () => {
     })
 
     it('AC05: omits Due date while the SLA clock has not started', async () => {
+      // Guard first: tileHasField chains isExisting() off the tile, so an
+      // absent tile would report the field absent and pass this AC05
+      // conditional-display rule vacuously. Assert the tile is on the page so
+      // an absent tile fails loudly instead.
+      await expect(workItems.tileFor(itemId)).toBeDisplayed()
       expect(await workItems.tileHasField(itemId, 'due-date')).toBe(false)
     })
 
@@ -214,9 +207,11 @@ describe('RA-324 Applications page', () => {
           tile.$('[data-testid^="work-item-state-tag-"]')
         ).toBeDisplayed()
       }
-      // The two fields whose absence is conditional must not both be present
-      // on a brand-new item — this is the negative for AC05's conditional
-      // rules cross-checked at the list level.
+      // The Due date field must be absent on a brand-new item (SLA clock not
+      // started) — the negative for AC05's conditional rule cross-checked at
+      // the list level. Guard the tile is present first so an absent tile
+      // cannot pass this vacuously.
+      await expect(workItems.tileFor(otherId)).toBeDisplayed()
       expect(await workItems.tileHasField(otherId, 'due-date')).toBe(false)
     })
   })
@@ -246,6 +241,15 @@ describe('RA-324 Applications page', () => {
     })
 
     it('AC05: shows Due date and omits Submitted on once the SLA clock has started', async () => {
+      // Self-contained: navigate to the item's tile in this test's own body
+      // rather than relying on page state left by the preceding AC08 test
+      // (which would couple the two and let a reorder / .only / an AC08 abort
+      // read a stale page).
+      await workItems.goto()
+      await workItems.searchByOrgName(org)
+      // Guard the tile is present so the submitted-on ABSENCE assertion below
+      // fails loudly on an absent tile instead of passing vacuously.
+      await expect(workItems.tileFor(itemId)).toBeDisplayed()
       expect(await workItems.tileHasField(itemId, 'due-date')).toBe(true)
       expect(await workItems.tileHasField(itemId, 'submitted-on')).toBe(false)
     })

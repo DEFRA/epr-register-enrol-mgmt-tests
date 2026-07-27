@@ -1,6 +1,24 @@
 import { browser, $, expect } from '@wdio/globals'
 import { Page } from './page.js'
 
+/**
+ * RA-324 (AC05). The order in which a tile renders its fields. The
+ * application-reference link is the first field (its id-keyed testid is
+ * normalised to 'application-ref' by tileFieldOrder); the rest are the
+ * generic field testids. Exported so the spec asserts against the same source
+ * of truth the page object reads, rather than a second hand-kept copy.
+ */
+export const TILE_FIELD_ORDER = [
+  'application-ref',
+  'org-name',
+  'org-id',
+  'material',
+  'applicant-type',
+  'submitted-on',
+  'assigned-to',
+  'due-date'
+]
+
 class WorkItemsPage extends Page {
   async goto() {
     await this.open('/work-items')
@@ -298,16 +316,10 @@ class WorkItemsPage extends Page {
    * list first still get a deterministic count.
    */
   async getRowCount() {
-    const tiles = await $$('[data-testid="application-tile"]')
-    return tiles.length
+    return this.getTileCount()
   }
 
   // ── RA-324 Applications tiles ────────────────────────────────────────────── //
-
-  /** The tiles container wrapping every application tile. */
-  applicationsList() {
-    return $('[data-testid="applications-list"]')
-  }
 
   /** All application tiles currently rendered (document order). */
   tiles() {
@@ -344,10 +356,6 @@ class WorkItemsPage extends Page {
     return this.tileFor(id).$(`[data-testid="${field}"]`).isExisting()
   }
 
-  async tileFieldText(id, field) {
-    return this.tileField(id, field).getText()
-  }
-
   /**
    * The tile's status badge (RA-324 renders it as a govukTag with the
    * existing id-keyed testid). Alias of workItemStateTag for readability in
@@ -364,23 +372,15 @@ class WorkItemsPage extends Page {
    * order without requiring every conditional field to be present.
    */
   async tileFieldOrder(id) {
-    const known = [
-      'application-ref',
-      'org-name',
-      'org-id',
-      'material',
-      'applicant-type',
-      'submitted-on',
-      'assigned-to',
-      'due-date'
-    ]
     const tile = await this.tileFor(id)
     const elements = await tile.$$('[data-testid]')
     const seen = []
     for (const element of elements) {
       let testId = await element.getAttribute('data-testid')
       if (testId === `work-item-link-${id}`) testId = 'application-ref'
-      if (known.includes(testId) && !seen.includes(testId)) seen.push(testId)
+      if (TILE_FIELD_ORDER.includes(testId) && !seen.includes(testId)) {
+        seen.push(testId)
+      }
     }
     return seen
   }
