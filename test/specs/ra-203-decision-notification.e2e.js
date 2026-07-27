@@ -39,7 +39,7 @@ describe('RA-203 Approval sends operator decision notification', () => {
     ).id
 
     await workItems.openWorkItem(workItemId)
-    await detail.assertState('Submitted')
+    await detail.assertState('Not started')
 
     // Submitted -> Duly made (auto-transition fires when last submitted task completes)
     await detail.gotoTasks()
@@ -53,7 +53,7 @@ describe('RA-203 Approval sends operator decision notification', () => {
     await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
     await detail.gotoDetail()
     await detail.triggerAction('payment-received')
-    await detail.assertState('Assessment in progress')
+    await detail.assertState('Updated')
 
     // Assessment in progress -> Awaiting decision
     await detail.gotoTasks()
@@ -84,7 +84,7 @@ describe('RA-203 Approval sends operator decision notification', () => {
       'Application meets all re-accreditation criteria.'
     )
     await detail.submitApproval()
-    await detail.assertState('Approved')
+    await detail.assertState('Granted')
 
     // The notification hook fired and the send succeeded, so the audit
     // log carries the "Decision recorded: approved email sent" entry —

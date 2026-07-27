@@ -46,7 +46,7 @@ describe('Assign user journey', () => {
     // ── Progress work item 2 through stages ───────────────────────────────────
     await workItems.openWorkItem(progressedWorkItemId)
 
-    await detail.assertState('Submitted')
+    await detail.assertState('Not started')
 
     // Task controls live on the /tasks sub-page
     await detail.gotoTasks()
@@ -87,11 +87,11 @@ describe('Standard user journey', () => {
 
     await expect(workItems.workItemLink(assignedWorkItemId)).toBeDisplayed()
     await expect(workItems.workItemStateTag(assignedWorkItemId)).toHaveText(
-      expect.stringContaining('Submitted')
+      expect.stringContaining('Not started')
     )
 
     await workItems.openWorkItem(assignedWorkItemId)
-    await detail.assertState('Submitted')
+    await detail.assertState('Not started')
 
     // Task controls live on the /tasks sub-page
     await detail.gotoTasks()

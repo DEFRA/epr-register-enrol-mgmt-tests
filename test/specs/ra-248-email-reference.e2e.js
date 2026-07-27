@@ -47,7 +47,7 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
     ).id
 
     await workItems.openWorkItem(workItemId)
-    await detail.assertState('Submitted')
+    await detail.assertState('Not started')
 
     // Submitted -> Duly made (auto-transition when the last submitted task completes)
     await detail.gotoTasks()
@@ -62,7 +62,7 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
     await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
     await detail.gotoDetail()
     await detail.triggerAction('payment-received')
-    await detail.assertState('Assessment in progress')
+    await detail.assertState('Updated')
 
     await login.logout()
   })

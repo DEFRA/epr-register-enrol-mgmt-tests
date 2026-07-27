@@ -11,7 +11,7 @@ describe('Root redirect', () => {
   it('redirects an authenticated visitor from "/" to the work items list', async () => {
     await LoginPage.login()
     await browser.url('/')
-    await expect(browser).toHaveTitle('Work items', { containing: true })
+    await expect(browser).toHaveTitle('Applications', { containing: true })
     await expect(new URL(await browser.getUrl()).pathname).toBe('/work-items')
   })
 })

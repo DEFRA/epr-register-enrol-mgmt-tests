@@ -4,8 +4,12 @@ import { Page } from './page.js'
 class WorkItemsPage extends Page {
   async goto() {
     await this.open('/work-items')
+    // RA-324: the work-items list was redesigned into the "Applications"
+    // tiles page. The route is unchanged (/work-items) but the H1 now reads
+    // "Applications"; the nav LINK that reaches this page stays labelled
+    // "Work items".
     await expect($('[data-testid="app-heading-title"]')).toHaveText(
-      'Work items'
+      'Applications'
     )
   }
 
@@ -170,22 +174,6 @@ class WorkItemsPage extends Page {
     return match ? parseInt(match[1], 10) : 0
   }
 
-  async workItemOrgNameCell(id) {
-    const row = await this.workItemRow(id)
-    const cells = await row.$$('td')
-    return cells[3]
-  }
-
-  async getTableHeaderTexts() {
-    const table = await $('[data-testid="work-items-table"]')
-    const headers = await table.$$('.govuk-table__header')
-    return Promise.all([...headers].map((h) => h.getText()))
-  }
-
-  workItemRow(id) {
-    return $(`//*[@data-testid="work-item-link-${id}"]/ancestor::tr`)
-  }
-
   async getFilterLegendTexts() {
     const form = await $('[data-testid="work-items-filter-form"]')
     const legends = await form.$$('legend')
@@ -302,10 +290,99 @@ class WorkItemsPage extends Page {
     await this.nextPageLink().click()
   }
 
-  /** Number of work-item rows currently rendered in the list table. */
+  /**
+   * Number of work items currently rendered in the results region. RA-324
+   * replaced the govukTable with one <article data-testid="application-tile">
+   * per application, so the count is the number of tiles rather than table
+   * rows. Search/filter/pagination are unchanged, so callers that bound the
+   * list first still get a deterministic count.
+   */
   async getRowCount() {
-    const rows = await $$('[data-testid="work-items-table"] tbody tr')
-    return rows.length
+    const tiles = await $$('[data-testid="application-tile"]')
+    return tiles.length
+  }
+
+  // ── RA-324 Applications tiles ────────────────────────────────────────────── //
+
+  /** The tiles container wrapping every application tile. */
+  applicationsList() {
+    return $('[data-testid="applications-list"]')
+  }
+
+  /** All application tiles currently rendered (document order). */
+  tiles() {
+    return $$('[data-testid="application-tile"]')
+  }
+
+  async getTileCount() {
+    const tiles = await this.tiles()
+    return tiles.length
+  }
+
+  /**
+   * The tile <article> for a given work item id. Each tile carries
+   * data-work-item-id="{id}" so a specific application can be located
+   * directly, without depending on its position in the list.
+   */
+  tileFor(id) {
+    return $(`[data-testid="application-tile"][data-work-item-id="${id}"]`)
+  }
+
+  /**
+   * A field element inside a tile, located by its generic field testid
+   * (org-name, org-id, material, applicant-type, submitted-on, assigned-to,
+   * due-date). Scoped to the tile so it cannot resolve a field on a
+   * different application. The application reference field is the tile link
+   * itself (workItemLink(id)), not a generic field testid.
+   */
+  tileField(id, field) {
+    return this.tileFor(id).$(`[data-testid="${field}"]`)
+  }
+
+  /** Whether a (conditional) field is rendered inside a tile. */
+  async tileHasField(id, field) {
+    return this.tileFor(id).$(`[data-testid="${field}"]`).isExisting()
+  }
+
+  async tileFieldText(id, field) {
+    return this.tileField(id, field).getText()
+  }
+
+  /**
+   * The tile's status badge (RA-324 renders it as a govukTag with the
+   * existing id-keyed testid). Alias of workItemStateTag for readability in
+   * the Applications specs.
+   */
+  tileStatusBadge(id) {
+    return this.workItemStateTag(id)
+  }
+
+  /**
+   * The AC05 field testids present in a tile, in document order, with the
+   * application-reference link normalised to the logical name
+   * 'application-ref'. Lets a spec assert the fields render in the defined
+   * order without requiring every conditional field to be present.
+   */
+  async tileFieldOrder(id) {
+    const known = [
+      'application-ref',
+      'org-name',
+      'org-id',
+      'material',
+      'applicant-type',
+      'submitted-on',
+      'assigned-to',
+      'due-date'
+    ]
+    const tile = await this.tileFor(id)
+    const elements = await tile.$$('[data-testid]')
+    const seen = []
+    for (const element of elements) {
+      let testId = await element.getAttribute('data-testid')
+      if (testId === `work-item-link-${id}`) testId = 'application-ref'
+      if (known.includes(testId) && !seen.includes(testId)) seen.push(testId)
+    }
+    return seen
   }
 }
 

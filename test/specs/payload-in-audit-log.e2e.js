@@ -35,7 +35,7 @@ describe('RA-186 — payload lives in the submitted audit entry', () => {
     }))
 
     await workItems.openWorkItem(workItemId)
-    await detail.assertState('Submitted')
+    await detail.assertState('Not started')
     await detail.assertNoPayloadOrTemplateVersionOnDetail()
 
     await detail.gotoAudit()

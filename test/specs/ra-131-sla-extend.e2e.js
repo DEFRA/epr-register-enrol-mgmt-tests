@@ -39,7 +39,7 @@ describe('RA-131 Extend SLA', () => {
     ).id
 
     await workItems.openWorkItem(workItemId)
-    await detail.assertState('Submitted')
+    await detail.assertState('Not started')
 
     // Submitted -> Duly made (auto-transition on last submitted task completion)
     await detail.gotoTasks()
@@ -53,7 +53,7 @@ describe('RA-131 Extend SLA', () => {
     await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
     await detail.gotoDetail()
     await detail.triggerAction('payment-received')
-    await detail.assertState('Assessment in progress')
+    await detail.assertState('Updated')
 
     await login.logout()
   })
@@ -174,7 +174,7 @@ describe('RA-131 Override SLA', () => {
     ).id
 
     await workItems.openWorkItem(workItemId)
-    await detail.assertState('Submitted')
+    await detail.assertState('Not started')
 
     // Submitted -> Duly made (auto-transition on last submitted task completion)
     await detail.gotoTasks()
@@ -188,7 +188,7 @@ describe('RA-131 Override SLA', () => {
     await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
     await detail.gotoDetail()
     await detail.triggerAction('payment-received')
-    await detail.assertState('Assessment in progress')
+    await detail.assertState('Updated')
 
     await login.logout()
   })

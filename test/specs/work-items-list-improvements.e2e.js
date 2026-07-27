@@ -5,11 +5,18 @@ import workItems from '../page-objects/work-items.page.js'
 /**
  * Work items list page improvements.
  *
+ * RA-324 redesigned the results region from a govukTable into "Applications"
+ * tiles, so the old column-header assertions no longer apply — the org name
+ * and material now render as fields inside the item's tile (covered here) and
+ * the tile layout/field-order is covered in full by
+ * ra-324-applications-page.e2e.js. The filter panel is unchanged by the
+ * redesign, so the Regulator and Applicant type filter assertions carry over
+ * verbatim.
+ *
  * Acceptance criteria exercised here:
- *   • "SLA" column header renamed to "Due date (SLA)".
- *   • "Org name" and "Material" columns added, sourced from the work item payload.
+ *   • "Org name" and "Material" render from the work item payload in the tile.
  *   • Nation filter section renamed to "Regulator" with regulator body display names.
- *   • Applicant type filter section added with disabled Reprocessor / Exporter
+ *   • Applicant type filter section with disabled Reprocessor / Exporter
  *     checkboxes (placeholder — filtering not yet wired to backend data).
  */
 describe('Work items list improvements', () => {
@@ -33,39 +40,26 @@ describe('Work items list improvements', () => {
     await login.logout()
   })
 
-  // ── Table column headers ─────────────────────────────────────────────────── //
+  // ── Org name and Material values in the tile ─────────────────────────────── //
 
-  describe('table column headers', () => {
-    it('shows "Due date (SLA)" as the SLA column header', async () => {
-      const headers = await workItems.getTableHeaderTexts()
-      expect(headers).toContain('Due date (SLA)')
+  describe('Org name and Material render from the payload in the tile', () => {
+    before(async () => {
+      // Bound the list to this spec's item so the tile is on the page
+      // regardless of how many items other specs have created.
+      await workItems.goto()
+      await workItems.searchByOrgName('Delta Recyclers Ltd')
     })
 
-    it('does not show a bare "SLA" column header', async () => {
-      const headers = await workItems.getTableHeaderTexts()
-      expect(headers).not.toContain('SLA')
-    })
-
-    it('shows "Org name" and "Material" column headers', async () => {
-      const headers = await workItems.getTableHeaderTexts()
-      expect(headers).toContain('Org name')
-      expect(headers).toContain('Material')
-    })
-  })
-
-  // ── Org name and Material values ─────────────────────────────────────────── //
-
-  describe('Org name and Material columns show payload values', () => {
-    it('shows the organisation name from the work item payload in the list row', async () => {
-      const row = workItems.workItemRow(createdId)
-      await expect(row).toHaveText(
+    it('shows the organisation name from the work item payload in the tile', async () => {
+      await expect(workItems.tileField(createdId, 'org-name')).toHaveText(
         expect.stringContaining('Delta Recyclers Ltd')
       )
     })
 
-    it('shows the material from the work item payload in the list row', async () => {
-      const row = workItems.workItemRow(createdId)
-      await expect(row).toHaveText(expect.stringContaining('aluminium'))
+    it('shows the material from the work item payload in the tile', async () => {
+      await expect(workItems.tileField(createdId, 'material')).toHaveText(
+        expect.stringContaining('aluminium')
+      )
     })
   })
 

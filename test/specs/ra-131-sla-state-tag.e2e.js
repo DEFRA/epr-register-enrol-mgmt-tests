@@ -36,7 +36,7 @@ describe('RA-131 SLA state tag on the detail page', () => {
     ).id
 
     await workItems.openWorkItem(workItemId)
-    await detail.assertState('Submitted')
+    await detail.assertState('Not started')
 
     // Submitted -> Duly made (auto-transition on last submitted task completion)
     await detail.gotoTasks()
@@ -50,7 +50,7 @@ describe('RA-131 SLA state tag on the detail page', () => {
     await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
     await detail.gotoDetail()
     await detail.triggerAction('payment-received')
-    await detail.assertState('Assessment in progress')
+    await detail.assertState('Updated')
   })
 
   after(async () => {

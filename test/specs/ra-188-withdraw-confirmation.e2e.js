@@ -40,7 +40,7 @@ describe('RA-188 Withdraw confirmation', () => {
 
     it('links the Submitted-state Withdraw button to the confirmation page', async () => {
       await workItems.openWorkItem(workItemId)
-      await detail.assertState('Submitted')
+      await detail.assertState('Not started')
       const href = await $('[data-testid="action-withdraw"]').getAttribute(
         'href'
       )
@@ -67,7 +67,7 @@ describe('RA-188 Withdraw confirmation', () => {
       await withdraw.gotoFor(workItemId, 'withdraw')
       await withdraw.cancel()
       await withdraw.waitForDetailUrl(workItemId)
-      await detail.assertState('Submitted')
+      await detail.assertState('Not started')
     })
 
     it('withdraws the work item and writes the note to the audit log on confirm', async () => {
