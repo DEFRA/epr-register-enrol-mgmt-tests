@@ -142,7 +142,7 @@ describe('RA-324 Applications page', () => {
       // than one tile (AC04) while staying pagination-safe.
       itemId = await createFreshItem(`${token} One`, 'SW1A 4AA')
       otherId = await createFreshItem(`${token} Two`, 'SW1A 4AB')
-      await workItems.goto()
+      await workItems.resetFilters() // RA-299: bare landing now defaults to assigned-to-me, excluding these unassigned items
       await workItems.searchByOrgName(token)
     })
 
@@ -229,7 +229,7 @@ describe('RA-324 Applications page', () => {
     })
 
     it('AC08: shows a "Duly made" badge once the item is duly made', async () => {
-      await workItems.goto()
+      await workItems.resetFilters() // RA-299: bare landing now defaults to assigned-to-me, excluding these unassigned items
       await workItems.searchByOrgName(org)
       await expect(workItems.tileStatusBadge(itemId)).toHaveText(
         expect.stringContaining('Duly made')
@@ -241,7 +241,7 @@ describe('RA-324 Applications page', () => {
       // rather than relying on page state left by the preceding AC08 test
       // (which would couple the two and let a reorder / .only / an AC08 abort
       // read a stale page).
-      await workItems.goto()
+      await workItems.resetFilters() // RA-299: bare landing now defaults to assigned-to-me, excluding these unassigned items
       await workItems.searchByOrgName(org)
       await expect(workItems.tileFor(itemId)).toBeDisplayed()
       // Footer present once the SLA clock started: Due on + Assigned to.
@@ -252,7 +252,7 @@ describe('RA-324 Applications page', () => {
     })
 
     it('AC05: shows "Unassigned" in the footer for an unassigned SLA-started item', async () => {
-      await workItems.goto()
+      await workItems.resetFilters() // RA-299: bare landing now defaults to assigned-to-me, excluding these unassigned items
       await workItems.searchByOrgName(org)
       await expect(workItems.tileField(itemId, 'assigned-to')).toHaveText(
         expect.stringContaining('Unassigned')
@@ -261,7 +261,7 @@ describe('RA-324 Applications page', () => {
 
     it('AC07: shows an "Updated" badge in assessment-in-progress', async () => {
       await driveToUpdated(itemId)
-      await workItems.goto()
+      await workItems.resetFilters() // RA-299: bare landing now defaults to assigned-to-me, excluding these unassigned items
       await workItems.searchByOrgName(org)
       await expect(workItems.tileStatusBadge(itemId)).toHaveText(
         expect.stringContaining('Updated')
@@ -293,7 +293,7 @@ describe('RA-324 Applications page', () => {
     })
 
     it('shows a "Queried" badge in the tile once the application is queried', async () => {
-      await workItems.goto()
+      await workItems.resetFilters() // RA-299: bare landing now defaults to assigned-to-me, excluding these unassigned items
       await workItems.searchByOrgName(org)
       await expect(workItems.tileStatusBadge(itemId)).toHaveText(
         expect.stringContaining('Queried')

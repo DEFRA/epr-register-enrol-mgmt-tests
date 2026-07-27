@@ -28,7 +28,10 @@ describe('Applications list — organisation search', () => {
       material: 'glass',
       tonnageBand: '0-500'
     }))
-    await workItems.goto()
+    // RA-299: a bare goto() now pre-checks the "assigned to me" default,
+    // which searchByOrg's form submit would carry through and exclude this
+    // (unassigned) item — reset to an explicit empty state instead.
+    await workItems.resetFilters()
   })
 
   after(async () => {
@@ -56,7 +59,7 @@ describe('Applications list — organisation search', () => {
 
   describe('search by organisation name', () => {
     afterEach(async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
     })
 
     it('finds the work item by full organisation name', async () => {
@@ -84,7 +87,7 @@ describe('Applications list — organisation search', () => {
 
   describe('the organisation search is reflected back to the user', () => {
     afterEach(async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
     })
 
     // fe's results summary is now just "Showing {start}-{end} of {total}" —

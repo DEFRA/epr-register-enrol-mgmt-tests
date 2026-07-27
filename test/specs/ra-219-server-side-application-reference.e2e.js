@@ -64,8 +64,12 @@ describe('RA-219 — server-generated application reference', () => {
       // RA-324 phase-2: the combined "Organisation name or ID" search matches
       // organisation name or operator org id — NOT the application reference
       // (that capability went away with the old Org ID search box), so the
-      // item is located here by its organisation name.
-      await workItems.goto()
+      // item is located here by its organisation name. RA-299: a bare
+      // goto() now pre-checks the "assigned to me" default, which
+      // searchByOrg's form submit would carry through and exclude this
+      // (unassigned) item — reset to an explicit empty state first so the
+      // search isn't implicitly assignee-scoped.
+      await workItems.resetFilters()
       await workItems.searchByOrg('Server Reference Recyclers Ltd')
     })
 

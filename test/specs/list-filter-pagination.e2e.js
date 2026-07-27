@@ -33,7 +33,7 @@ describe('Work items list — filters and pagination', () => {
       material: 'glass',
       tonnageBand: '0-500'
     }))
-    await workItems.goto()
+    await workItems.resetFilters()
   })
 
   after(async () => {
@@ -44,7 +44,11 @@ describe('Work items list — filters and pagination', () => {
 
   describe('type / state / regulator checkbox filters', () => {
     beforeEach(async () => {
-      await workItems.goto()
+      // RA-299: a bare landing now defaults to assigned-to-me + due-date sort
+      // AND restores the session's last-applied filters, so goto() is no
+      // longer a stateless "show everything" reset. These pre-RA-299 specs
+      // assert against the full dataset, so submit an explicit empty filter.
+      await workItems.resetFilters()
     })
 
     it('lists the seeded work item on the unfiltered list', async () => {
@@ -102,7 +106,7 @@ describe('Work items list — filters and pagination', () => {
 
   describe('assignment-mode radios', () => {
     beforeEach(async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
     })
 
     it('"Assigned to me" sets assigneeMode=mine in the URL', async () => {
@@ -135,7 +139,7 @@ describe('Work items list — filters and pagination', () => {
 
   describe('clear filters', () => {
     it('removes the active regulator filter from the URL', async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
       await workItems.checkRegulator('England')
       await workItems.applyFilters()
       expect(await browser.getUrl()).toContain('nation=England')
@@ -150,7 +154,7 @@ describe('Work items list — filters and pagination', () => {
 
   describe('pagination (page size 20, filter-preserving hrefs)', () => {
     beforeEach(async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
     })
 
     it('renders at most 20 rows per page', async () => {

@@ -25,6 +25,22 @@ export const TILE_FIELD_ORDER = [
 ]
 
 class WorkItemsPage extends Page {
+  /**
+   * RA-299 (AC10/14). An explicit, empty filter submission — resets the
+   * currently-displayed list AND overwrites the session's "last applied"
+   * filters with an empty state, so a subsequent bare goto() genuinely shows
+   * the AC06/AC08 defaults rather than restoring whatever an earlier test in
+   * the same session happened to leave behind. Use this between tests that
+   * apply different filters within one login/session, instead of goto()
+   * (which now deliberately restores prior session state — that IS the
+   * behaviour under test in the session-persistence spec, but it is a trap
+   * for any other test that assumes goto() is a stateless reset).
+   */
+  async resetFilters() {
+    await this.open('/work-items?filtersApplied=1')
+    await this.worklistSummary().waitForDisplayed()
+  }
+
   async goto() {
     await this.open('/work-items')
     // RA-324: the work-items list was redesigned into the "Applications"
@@ -208,9 +224,18 @@ class WorkItemsPage extends Page {
     await $('[data-testid="work-items-summary"]').waitForDisplayed()
   }
 
+  /**
+   * The total match count parsed out of the results summary line. RA-324
+   * phase-2 replaced the old "(N work items match ...)" summary with
+   * "Showing {start}-{end} of {total}" (worklistSummary doc comment) — match
+   * the new format's trailing "of {total}", falling back to the legacy
+   * "(N work item" pattern for safety, and 0 for the "No work items match
+   * your filters" empty state (neither pattern matches it).
+   */
   async getWorkItemCount() {
     const summary = await $('[data-testid="work-items-summary"]').getText()
-    const match = summary.match(/\((\d+) work item/)
+    const match =
+      summary.match(/of (\d+)/) || summary.match(/\((\d+) work item/)
     return match ? parseInt(match[1], 10) : 0
   }
 
@@ -306,6 +331,21 @@ class WorkItemsPage extends Page {
   async checkType(value) {
     await this.expandSection('type')
     await $(`input[name="typeId"][value="${value}"]`).click()
+  }
+
+  /**
+   * RA-299 (AC01/15). Tick an "Application type" checkbox — a NEW filter
+   * section distinct from the existing "Applicant type" section (checkType,
+   * param typeId). Param applicationType; both sections merge into the same
+   * backend typeIds filter. Values: re-accreditation (real typeId — the only
+   * one with matching data), accreditation | registration-application |
+   * annual-fee-payment (stub typeIds, mirror the existing Exporter stub
+   * pattern and always return the empty state until those work item types
+   * exist).
+   */
+  async checkApplicationType(value) {
+    await this.expandSection('application-type')
+    await $(`input[name="applicationType"][value="${value}"]`).click()
   }
 
   /**

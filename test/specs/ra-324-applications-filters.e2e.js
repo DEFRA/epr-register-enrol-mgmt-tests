@@ -210,7 +210,10 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
     it('Material narrows the list to the chosen material', async () => {
       await workItems.goto()
       await workItems.searchByOrg(token)
-      await workItems.checkMaterial('glass')
+      // RA-299 split the single "Glass" filter option into "Glass- remelt"
+      // and "Glass- other" (both still map to the one real backend token
+      // 'glass') — either value proves the same narrowing this test checks.
+      await workItems.checkMaterial('glass-remelt')
       await workItems.applyFilters()
       await expect(workItems.tileFor(dulyMade.id)).toBeDisplayed()
       await expect(workItems.tileFor(notStarted.id)).not.toBeExisting()

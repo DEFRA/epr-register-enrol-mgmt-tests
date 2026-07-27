@@ -43,7 +43,10 @@ describe('RA-196 — application reference shown instead of internal id', () => 
 
   describe('work items list page', () => {
     before(async () => {
-      await workItems.goto()
+      // RA-299: a bare landing now defaults to "assigned to me" — the item
+      // created above is unassigned, so use the explicit empty submission
+      // (shows all regardless of assignee) rather than goto() to find it.
+      await workItems.resetFilters()
     })
 
     it('shows the application reference as the row link text', async () => {

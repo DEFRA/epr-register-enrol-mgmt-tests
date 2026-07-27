@@ -33,7 +33,7 @@ describe('Work items list improvements', () => {
       material: 'aluminium',
       tonnageBand: '0-500'
     }))
-    await workItems.goto()
+    await workItems.resetFilters()
   })
 
   after(async () => {
@@ -45,8 +45,10 @@ describe('Work items list improvements', () => {
   describe('Org name and Material render from the payload in the tile', () => {
     before(async () => {
       // Bound the list to this spec's item so the tile is on the page
-      // regardless of how many items other specs have created.
-      await workItems.goto()
+      // regardless of how many items other specs have created. RA-299: reset
+      // via an explicit empty submission rather than goto(), which now
+      // defaults to assigned-to-me and would exclude this unassigned item.
+      await workItems.resetFilters()
       await workItems.searchByOrgName('Delta Recyclers Ltd')
     })
 
@@ -70,7 +72,7 @@ describe('Work items list improvements', () => {
 
   describe('collapsible filter sections', () => {
     before(async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
     })
 
     it('renders each phase-2 filter section as a collapsible toggle', async () => {
@@ -107,7 +109,7 @@ describe('Work items list improvements', () => {
     })
 
     it('applying a Nation filter appends the nation value to the URL', async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
       await workItems.checkRegulator('England')
       await workItems.applyFilters()
       expect(await browser.getUrl()).toContain('nation=England')
