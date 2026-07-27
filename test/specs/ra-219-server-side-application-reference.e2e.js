@@ -15,7 +15,10 @@ import detail from '../page-objects/work-item-detail.page.js'
  *     reference (the field is gone from the form).
  *   • The created work item carries a server-generated `AP`-prefixed
  *     reference, shown on the success banner and the detail page.
- *   • That server-generated reference is searchable.
+ *   • That server-generated reference is displayed as the card ref link on
+ *     the applications list. (RA-324 phase-2 removed search-by-reference: the
+ *     combined "Organisation name or ID" field matches organisation name or
+ *     operator org id only, not the application reference.)
  */
 describe('RA-219 — server-generated application reference', () => {
   let createdId
@@ -56,13 +59,17 @@ describe('RA-219 — server-generated application reference', () => {
     })
   })
 
-  describe('search by the server-generated reference', () => {
+  describe('the generated reference on the applications list', () => {
     before(async () => {
+      // RA-324 phase-2: the combined "Organisation name or ID" search matches
+      // organisation name or operator org id — NOT the application reference
+      // (that capability went away with the old Org ID search box), so the
+      // item is located here by its organisation name.
       await workItems.goto()
+      await workItems.searchByOrg('Server Reference Recyclers Ltd')
     })
 
-    it('finds the work item by its full generated reference', async () => {
-      await workItems.searchByOrgId(applicationReference)
+    it('renders the server-generated reference as the card ref link text', async () => {
       const linkText = await workItems.workItemLink(createdId).getText()
       expect(linkText).toBe(applicationReference)
     })

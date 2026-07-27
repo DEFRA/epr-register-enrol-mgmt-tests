@@ -121,27 +121,40 @@ class WorkItemsPage extends Page {
    * Click Apply and wait for the filtered page to actually load.
    *
    * Applying a filter is a full page navigation. Without this wait the
-   * caller races it and can read rows from the *unfiltered* list still on
+   * caller races it and can read cards from the *unfiltered* list still on
    * screen — which silently returns the wrong work item rather than
-   * failing, and gets worse the more items the suite has created. The
-   * server stamps filtersApplied=1 on the query string, so that is the
-   * signal the new page has arrived.
+   * failing, and gets worse the more items the suite has created. The wait
+   * keys off the Apply button going stale (see the body) rather than the
+   * filtersApplied=1 flag, which is already present on a second apply.
    */
   async applyFiltersAndWait() {
-    await $('[data-testid="work-items-filter-apply"]').click()
+    // The Apply button submits the GET form — a full-page navigation. Capture
+    // the button, then wait for that node to go STALE, which proves the new
+    // page actually landed. Waiting only for filtersApplied=1 is unreliable:
+    // it is already in the URL on a second apply (e.g. sorting after a search),
+    // so the caller could otherwise read the pre-apply DOM before the
+    // re-render (a source of vacuous sort/filter assertions).
+    const applyButton = await $('[data-testid="work-items-filter-apply"]')
+    await applyButton.click()
     await browser.waitUntil(
-      async () => (await browser.getUrl()).includes('filtersApplied=1'),
+      async () => {
+        try {
+          await applyButton.getAttribute('data-testid')
+          return false
+        } catch {
+          return true
+        }
+      },
       {
         timeout: 10000,
-        timeoutMsg: 'Expected the filters to be applied to the work items list'
+        timeoutMsg: 'Expected the filtered results to re-render'
       }
     )
-  }
-
-  async filterByNation(nation) {
-    await this.expandSection('nation')
-    await $(`input[name="nation"][value="${nation}"]`).click()
-    await this.applyFiltersAndWait()
+    // The new page must have rendered its filter form before we return, so
+    // callers interact with the fresh DOM rather than a mid-navigation blank.
+    await $('[data-testid="work-items-filter-form"]').waitForExist({
+      timeout: 10000
+    })
   }
 
   /**
@@ -184,13 +197,11 @@ class WorkItemsPage extends Page {
 
   /**
    * RA-224. Reveal archived (terminal-state) work items bounded by an
-   * organisation search so presence assertions stay pagination-safe.
-   *
-   * RA-324 phase-2 dropped the "Show archived" sidebar toggle to match the
-   * prototype; `includeArchived` is now param-only (it still works, and the
-   * archived date still renders on the card). So this navigates straight to
-   * the archived + org-bounded view via the query string rather than clicking
-   * a checkbox that no longer exists.
+   * organisation search so presence assertions stay pagination-safe. Drives
+   * `includeArchived=true` straight through the query string for a
+   * deterministic, one-navigation reveal. (The "Show archived items" checkbox
+   * in the Archived filter section — see checkArchived — sets the same param
+   * through the UI, exercised separately in the phase-2 filters spec.)
    */
   async searchArchivedByOrgName(value) {
     await this.open(
@@ -259,7 +270,9 @@ class WorkItemsPage extends Page {
   async activeFilterLabels() {
     const tags = await this.activeFilterTags()
     return Promise.all(
-      [...tags].map((tag) => tag.$('.app-active-filters__label').getText())
+      [...tags].map((tag) =>
+        tag.$('[data-testid="active-filter-label"]').getText()
+      )
     )
   }
 
@@ -271,7 +284,7 @@ class WorkItemsPage extends Page {
   async removeActiveFilter(labelSubstring) {
     const tags = await this.activeFilterTags()
     for (const tag of tags) {
-      const label = await tag.$('.app-active-filters__label').getText()
+      const label = await tag.$('[data-testid="active-filter-label"]').getText()
       if (label.includes(labelSubstring)) {
         await tag.click()
         return

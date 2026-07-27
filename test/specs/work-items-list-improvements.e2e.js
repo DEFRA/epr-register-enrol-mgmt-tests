@@ -3,21 +3,21 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 
 /**
- * Work items list page improvements.
+ * Applications list — payload values + filter sections (RA-324).
  *
- * RA-324 redesigned the results region from a govukTable into "Applications"
- * tiles, so the old column-header assertions no longer apply — the org name
- * and material now render as fields inside the item's tile (covered here) and
- * the tile layout/field-order is covered in full by
- * ra-324-applications-page.e2e.js. The filter panel is unchanged by the
- * redesign, so the Regulator and Applicant type filter assertions carry over
- * verbatim.
+ * The results region is a set of "Applications" cards, so the old table
+ * column-header assertions no longer apply — organisation name and material
+ * render as fields inside the card (covered here; the full card layout and
+ * field order live in ra-324-applications-page.e2e.js). RA-324 phase-2 rebuilt
+ * the filter sidebar into collapsible <details> sections, exercised here at the
+ * structural level (the detailed filter behaviour is in
+ * ra-324-applications-filters.e2e.js).
  *
- * Acceptance criteria exercised here:
- *   • "Org name" and "Material" render from the work item payload in the tile.
- *   • Nation filter section renamed to "Regulator" with regulator body display names.
- *   • Applicant type filter section with disabled Reprocessor / Exporter
- *     checkboxes (placeholder — filtering not yet wired to backend data).
+ * Exercised here:
+ *   • "Org name" and "Material" render from the work item payload in the card.
+ *   • The eight collapsible filter sections are present, with the four UK
+ *     nations and the Reprocessor / Exporter Type options, and applying a
+ *     Nation filter reaches the URL.
  */
 describe('Work items list improvements', () => {
   let createdId
@@ -57,8 +57,11 @@ describe('Work items list improvements', () => {
     })
 
     it('shows the material from the work item payload in the tile', async () => {
+      // RA-324 phase-2: the card renders the material DISPLAY LABEL
+      // (aluminium -> "Aluminium"), matching the filter checkboxes/chips, not
+      // the raw lowercase payload token.
       await expect(workItems.tileField(createdId, 'material')).toHaveText(
-        expect.stringContaining('aluminium')
+        expect.stringContaining('Aluminium')
       )
     })
   })

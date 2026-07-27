@@ -44,17 +44,21 @@ async function driveToDulyMade(id) {
 }
 
 describe('RA-324 phase-2 Applications filters and sort', () => {
-  // A "Not started" glass item (no SLA) and a "Duly made" plastic item (SLA
-  // started) under a shared token, so facet/sort assertions can be bounded to
-  // exactly these two and stay pagination-safe.
-  let glass
-  let plastic
+  // Two items under a shared token so facet/sort assertions can be bounded to
+  // exactly these two and stay pagination-safe. `dulyMade` is a glass item
+  // created FIRST and driven to Duly made (SLA clock started); `notStarted` is
+  // a plastic item created SECOND and left Not started (no SLA). Creation order
+  // matters: the default newest-first order is (notStarted, dulyMade), the
+  // OPPOSITE of the due-date order (SLA-started first, no-SLA last) — so the
+  // sort test proves a real reorder rather than passing on a coincidental match.
+  let dulyMade
+  let notStarted
 
   before(async () => {
     await login.login()
-    glass = await createItem(`${token} Glass`, 'SW1A 9AA', 'glass')
-    plastic = await createItem(`${token} Plastic`, 'SW1A 9AB', 'plastic')
-    await driveToDulyMade(plastic.id)
+    dulyMade = await createItem(`${token} Glass`, 'SW1A 9AA', 'glass')
+    await driveToDulyMade(dulyMade.id)
+    notStarted = await createItem(`${token} Plastic`, 'SW1A 9AB', 'plastic')
   })
 
   after(async () => {
@@ -160,19 +164,27 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
       expect(await browser.getUrl()).not.toContain('sort=')
     })
 
-    it('sorting by due date orders SLA-started items before items with no SLA date', async () => {
+    it('sorting by due date reorders results, putting SLA-started items ahead of no-SLA items', async () => {
       await workItems.goto()
       await workItems.searchByOrg(token)
-      await workItems.selectSort('due-date')
+      // Capture the default (newest-first) order before sorting so we can prove
+      // the sort actually changed it rather than no-op'ing.
+      const defaultOrder = await workItems.cardRefOrder()
 
-      const refs = await workItems.cardRefOrder()
-      const slaIndex = refs.indexOf(plastic.applicationReference)
-      const noSlaIndex = refs.indexOf(glass.applicationReference)
+      await workItems.selectSort('due-date')
+      expect(await browser.getUrl()).toContain('sort=due-date')
+      const sortedOrder = await workItems.cardRefOrder()
+
+      const slaIndex = sortedOrder.indexOf(dulyMade.applicationReference)
+      const noSlaIndex = sortedOrder.indexOf(notStarted.applicationReference)
       expect(slaIndex).toBeGreaterThanOrEqual(0)
       expect(noSlaIndex).toBeGreaterThanOrEqual(0)
       // be sorts no-SLA-clock items last on due-date (both directions), so the
-      // duly-made (SLA-started) item must precede the brand-new one.
+      // duly-made (SLA-started) item must precede the brand-new one …
       expect(slaIndex).toBeLessThan(noSlaIndex)
+      // … and that must differ from the default newest-first order, proving the
+      // sort reordered the set server-side.
+      expect(sortedOrder).not.toEqual(defaultOrder)
     })
   })
 
@@ -200,8 +212,8 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
       await workItems.searchByOrg(token)
       await workItems.checkMaterial('glass')
       await workItems.applyFilters()
-      await expect(workItems.tileFor(glass.id)).toBeDisplayed()
-      await expect(workItems.tileFor(plastic.id)).not.toBeExisting()
+      await expect(workItems.tileFor(dulyMade.id)).toBeDisplayed()
+      await expect(workItems.tileFor(notStarted.id)).not.toBeExisting()
     })
 
     it('Status narrows the list to the chosen status', async () => {
@@ -209,8 +221,8 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
       await workItems.searchByOrg(token)
       await workItems.checkStatus('duly-made')
       await workItems.applyFilters()
-      await expect(workItems.tileFor(plastic.id)).toBeDisplayed()
-      await expect(workItems.tileFor(glass.id)).not.toBeExisting()
+      await expect(workItems.tileFor(dulyMade.id)).toBeDisplayed()
+      await expect(workItems.tileFor(notStarted.id)).not.toBeExisting()
     })
 
     it('shows the empty state for a non-matching filter combination', async () => {
@@ -227,11 +239,6 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
   // ── Archived filter (re-added as the 8th collapsible section) ─────────────── //
 
   describe('archived filter', () => {
-    it('is an eighth collapsible filter section', async () => {
-      await workItems.goto()
-      await expect(workItems.filterSectionToggle('archived')).toExist()
-    })
-
     it('checking "Show archived items" sets includeArchived, an Archived tag and a summary note', async () => {
       await workItems.goto()
       await workItems.checkArchived()
