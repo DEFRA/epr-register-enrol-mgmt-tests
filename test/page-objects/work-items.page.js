@@ -123,33 +123,29 @@ class WorkItemsPage extends Page {
    * Applying a filter is a full page navigation. Without this wait the
    * caller races it and can read cards from the *unfiltered* list still on
    * screen — which silently returns the wrong work item rather than
-   * failing, and gets worse the more items the suite has created. The wait
-   * keys off the Apply button going stale (see the body) rather than the
-   * filtersApplied=1 flag, which is already present on a second apply.
+   * failing, and gets worse the more items the suite has created.
+   *
+   * The wait keys off the URL query string changing. Every real apply
+   * re-serialises the selected filters into the query string, so unlike the
+   * filtersApplied=1 flag it also changes on a second apply (e.g. sorting
+   * after a search). Re-applying an identical filter is a no-op that leaves
+   * the URL unchanged — that is tolerated (we fall through) rather than
+   * treated as a failure. NB: element staleness is NOT a usable signal here —
+   * WDIO v9 re-resolves selectors on each access, so a captured Apply button
+   * never appears stale after navigation.
    */
   async applyFiltersAndWait() {
-    // The Apply button submits the GET form — a full-page navigation. Capture
-    // the button, then wait for that node to go STALE, which proves the new
-    // page actually landed. Waiting only for filtersApplied=1 is unreliable:
-    // it is already in the URL on a second apply (e.g. sorting after a search),
-    // so the caller could otherwise read the pre-apply DOM before the
-    // re-render (a source of vacuous sort/filter assertions).
+    const before = await browser.getUrl()
     const applyButton = await $('[data-testid="work-items-filter-apply"]')
     await applyButton.click()
-    await browser.waitUntil(
-      async () => {
-        try {
-          await applyButton.getAttribute('data-testid')
-          return false
-        } catch {
-          return true
-        }
-      },
-      {
+    // Wait for the navigation to land (the query string changes). An identical
+    // re-apply leaves the URL unchanged, so swallow the timeout and fall through.
+    await browser
+      .waitUntil(async () => (await browser.getUrl()) !== before, {
         timeout: 10000,
-        timeoutMsg: 'Expected the filtered results to re-render'
-      }
-    )
+        timeoutMsg: 'Expected applying the filter to navigate'
+      })
+      .catch(() => {})
     // The new page must have rendered its filter form before we return, so
     // callers interact with the fresh DOM rather than a mid-navigation blank.
     await $('[data-testid="work-items-filter-form"]').waitForExist({
