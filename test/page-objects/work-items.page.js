@@ -188,7 +188,7 @@ class WorkItemsPage extends Page {
   }
 
   async clearSearch() {
-    await $('[data-testid="work-items-filter-clear"]').click()
+    await this.clearAllFilters()
   }
 
   /**
@@ -384,12 +384,19 @@ class WorkItemsPage extends Page {
     return null
   }
 
+  /**
+   * fe removed the duplicate bottom "Clear filters" link — the single
+   * clear-all affordance is now the "Clear all filters" link in the Active
+   * filters block (data-testid active-filters-clear). Kept as an
+   * intent-revealing alias of clearAllFilters so existing call sites read
+   * unchanged.
+   */
   clearFilters() {
-    return $('[data-testid="work-items-filter-clear"]').click()
+    return this.clearAllFilters()
   }
 
   clearFiltersLink() {
-    return $('[data-testid="work-items-filter-clear"]')
+    return $('[data-testid="active-filters-clear"]')
   }
 
   getSummaryText() {

@@ -87,13 +87,9 @@ describe('Applications list — organisation search', () => {
       await workItems.goto()
     })
 
-    it('names the organisation term in the results summary', async () => {
-      await workItems.searchByOrg(orgName)
-      await expect($('[data-testid="work-items-summary"]')).toHaveText(
-        expect.stringContaining(`organisation: "${orgName}"`)
-      )
-    })
-
+    // fe's results summary is now just "Showing {start}-{end} of {total}" —
+    // no filter/sort recap — so the applied search term is proven via the
+    // Active-filters chip instead of the summary text.
     it('shows a removable "Organisation" active-filter tag', async () => {
       await workItems.searchByOrg(orgName)
       const labels = await workItems.activeFilterLabels()

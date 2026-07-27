@@ -239,16 +239,16 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
   // ── Archived filter (re-added as the 8th collapsible section) ─────────────── //
 
   describe('archived filter', () => {
-    it('checking "Show archived items" sets includeArchived, an Archived tag and a summary note', async () => {
+    it('checking "Show archived items" sets includeArchived and an Archived tag', async () => {
+      // fe's results summary is now just "Showing {start}-{end} of {total}" —
+      // no filter recap — so the Archived active-filter chip is the signal
+      // that the filter is applied, not a distinct summary note.
       await workItems.goto()
       await workItems.checkArchived()
       await workItems.applyFilters()
       expect(await browser.getUrl()).toContain('includeArchived=true')
       const labels = await workItems.activeFilterLabels()
       expect(labels.some((l) => l.includes('Archived: shown'))).toBe(true)
-      await expect($('[data-testid="work-items-summary"]')).toHaveText(
-        expect.stringContaining('including archived')
-      )
     })
 
     it('clear all filters removes the archived filter', async () => {

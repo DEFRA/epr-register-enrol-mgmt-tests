@@ -87,11 +87,14 @@ describe('Work items list — filters and pagination', () => {
       expect(url).toContain('filtersApplied=1')
     })
 
-    it('reflects the active regulator filter in the summary text', async () => {
+    it('reflects the active regulator filter as an active-filter tag', async () => {
+      // fe's results summary is now just "Showing {start}-{end} of {total}" —
+      // no filter recap — so the applied Nation filter is proven via the
+      // Active-filters chip instead of the summary text.
       await workItems.checkRegulator('England')
       await workItems.applyFilters()
-      const summary = await workItems.getSummaryText()
-      expect(summary).toContain('nation:')
+      const labels = await workItems.activeFilterLabels()
+      expect(labels.some((l) => l.includes('Nation: England'))).toBe(true)
     })
   })
 
@@ -200,12 +203,15 @@ describe('Work items list — filters and pagination', () => {
       await browser.url('/work-items')
       // RA-125 applies the single-nation default server-side: the URL is not
       // rewritten, so the observable signal is the pre-ticked Nation box and
-      // the nation line in the filter summary. RA-324 phase-2 shows the nation
-      // name (Scotland), not the regulator body (SEPA).
+      // the Nation active-filter chip (fe's results summary carries no filter
+      // recap any more — just "Showing {start}-{end} of {total}"). RA-324
+      // phase-2 shows the nation name (Scotland), not the regulator body
+      // (SEPA).
       expect(
         await $('input[name="nation"][value="Scotland"]').isSelected()
       ).toBe(true)
-      expect(await workItems.getSummaryText()).toContain('nation: Scotland')
+      const labels = await workItems.activeFilterLabels()
+      expect(labels.some((l) => l.includes('Nation: Scotland'))).toBe(true)
     })
 
     it('suppresses the nation default when filtersApplied=1 is present', async () => {
@@ -215,7 +221,8 @@ describe('Work items list — filters and pagination', () => {
       expect(
         await $('input[name="nation"][value="Scotland"]').isSelected()
       ).toBe(false)
-      expect(await workItems.getSummaryText()).not.toContain('nation: Scotland')
+      const labels = await workItems.activeFilterLabels()
+      expect(labels.some((l) => l.includes('Nation: Scotland'))).toBe(false)
     })
   })
 })
