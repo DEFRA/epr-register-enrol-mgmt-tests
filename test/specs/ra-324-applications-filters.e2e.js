@@ -69,14 +69,14 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
 
   describe('collapsible filter sections', () => {
     it('a section with no selection is collapsed by default and expands on toggle', async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
       expect(await workItems.isSectionOpen('type')).toBe(false)
       await workItems.expandSection('type')
       expect(await workItems.isSectionOpen('type')).toBe(true)
     })
 
     it('an expanded section collapses again when toggled', async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
       await workItems.expandSection('material')
       expect(await workItems.isSectionOpen('material')).toBe(true)
       await workItems.filterSectionToggle('material').click()
@@ -95,7 +95,7 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
 
   describe('active filters block', () => {
     it('shows a removable tag for each applied filter', async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
       await workItems.checkRegulator('England')
       await workItems.checkStatus('submitted')
       await workItems.applyFilters()
@@ -107,7 +107,7 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
     })
 
     it('removing one active filter keeps the rest', async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
       await workItems.checkRegulator('England')
       await workItems.checkStatus('submitted')
       await workItems.applyFilters()
@@ -128,7 +128,7 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
     })
 
     it('clear all filters resets to the unfiltered list', async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
       await workItems.checkRegulator('England')
       await workItems.applyFilters()
       await expect(workItems.activeFilters()).toBeDisplayed()
@@ -146,7 +146,7 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
 
   describe('sort', () => {
     it('surfaces a removable "Sorted by" tag and sets the sort in the URL', async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
       await workItems.selectSort('organisation')
       expect(await browser.getUrl()).toContain('sort=organisation')
       const labels = await workItems.activeFilterLabels()
@@ -154,7 +154,7 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
     })
 
     it('removing the "Sorted by" tag restores the default order', async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
       await workItems.selectSort('organisation')
       await workItems.removeActiveFilter('Sorted by')
       await browser.waitUntil(
@@ -165,7 +165,7 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
     })
 
     it('sorting by due date reorders results, putting SLA-started items ahead of no-SLA items', async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
       await workItems.searchByOrg(token)
       // Capture the default (newest-first) order before sorting so we can prove
       // the sort actually changed it rather than no-op'ing.
@@ -192,7 +192,7 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
 
   describe('filtering by facet', () => {
     it('Type: Exporter matches nothing (no exporter data)', async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
       await workItems.checkType('exporter')
       await workItems.applyFilters()
       await expect($('[data-testid="work-items-summary"]')).toHaveText(
@@ -201,14 +201,14 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
     })
 
     it('Type: Reprocessor reaccreditation returns applications', async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
       await workItems.checkType('re-accreditation')
       await workItems.applyFilters()
       expect(await workItems.getTileCount()).toBeGreaterThan(0)
     })
 
     it('Material narrows the list to the chosen material', async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
       await workItems.searchByOrg(token)
       // RA-299 split the single "Glass" filter option into "Glass- remelt"
       // and "Glass- other" (both still map to the one real backend token
@@ -220,7 +220,7 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
     })
 
     it('Status narrows the list to the chosen status', async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
       await workItems.searchByOrg(token)
       await workItems.checkStatus('duly-made')
       await workItems.applyFilters()
@@ -229,7 +229,7 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
     })
 
     it('shows the empty state for a non-matching filter combination', async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
       await workItems.searchByOrg(token)
       await workItems.checkMaterial('wood')
       await workItems.applyFilters()
@@ -246,7 +246,7 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
       // fe's results summary is now just "Showing {start}-{end} of {total}" —
       // no filter recap — so the Archived active-filter chip is the signal
       // that the filter is applied, not a distinct summary note.
-      await workItems.goto()
+      await workItems.resetFilters()
       await workItems.checkArchived()
       await workItems.applyFilters()
       expect(await browser.getUrl()).toContain('includeArchived=true')
@@ -255,7 +255,7 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
     })
 
     it('clear all filters removes the archived filter', async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
       await workItems.checkArchived()
       await workItems.applyFilters()
       await workItems.clearAllFilters()
