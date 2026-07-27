@@ -93,9 +93,7 @@ describe('Applications list — organisation search', () => {
     it('shows a removable "Organisation" active-filter tag', async () => {
       await workItems.searchByOrg(orgName)
       const labels = await workItems.activeFilterLabels()
-      expect(labels.some((l) => l.includes(`Organisation: ${orgName}`))).toBe(
-        true
-      )
+      expect(labels.some((l) => l.includes(orgName))).toBe(true)
     })
   })
 

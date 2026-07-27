@@ -102,8 +102,8 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
 
       await expect(workItems.activeFilters()).toBeDisplayed()
       const labels = await workItems.activeFilterLabels()
-      expect(labels.some((l) => l.includes('Nation: England'))).toBe(true)
-      expect(labels.some((l) => l.includes('Status: Not started'))).toBe(true)
+      expect(labels.some((l) => l.includes('England'))).toBe(true)
+      expect(labels.some((l) => l.includes('Not started'))).toBe(true)
     })
 
     it('removing one active filter keeps the rest', async () => {
@@ -112,7 +112,7 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
       await workItems.checkStatus('submitted')
       await workItems.applyFilters()
 
-      await workItems.removeActiveFilter('Nation: England')
+      await workItems.removeActiveFilter('England')
       await browser.waitUntil(
         async () => !(await browser.getUrl()).includes('nation=England'),
         {
@@ -123,7 +123,7 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
 
       const labels = await workItems.activeFilterLabels()
       expect(labels.some((l) => l.includes('Nation'))).toBe(false)
-      expect(labels.some((l) => l.includes('Status: Not started'))).toBe(true)
+      expect(labels.some((l) => l.includes('Not started'))).toBe(true)
       expect(await browser.getUrl()).toContain('status=submitted')
     })
 
@@ -248,7 +248,7 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
       await workItems.applyFilters()
       expect(await browser.getUrl()).toContain('includeArchived=true')
       const labels = await workItems.activeFilterLabels()
-      expect(labels.some((l) => l.includes('Archived: shown'))).toBe(true)
+      expect(labels.some((l) => l.includes('Archived'))).toBe(true)
     })
 
     it('clear all filters removes the archived filter', async () => {

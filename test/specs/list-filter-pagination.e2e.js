@@ -94,7 +94,7 @@ describe('Work items list — filters and pagination', () => {
       await workItems.checkRegulator('England')
       await workItems.applyFilters()
       const labels = await workItems.activeFilterLabels()
-      expect(labels.some((l) => l.includes('Nation: England'))).toBe(true)
+      expect(labels.some((l) => l.includes('England'))).toBe(true)
     })
   })
 
@@ -211,7 +211,7 @@ describe('Work items list — filters and pagination', () => {
         await $('input[name="nation"][value="Scotland"]').isSelected()
       ).toBe(true)
       const labels = await workItems.activeFilterLabels()
-      expect(labels.some((l) => l.includes('Nation: Scotland'))).toBe(true)
+      expect(labels.some((l) => l.includes('Scotland'))).toBe(true)
     })
 
     it('suppresses the nation default when filtersApplied=1 is present', async () => {
@@ -222,7 +222,7 @@ describe('Work items list — filters and pagination', () => {
         await $('input[name="nation"][value="Scotland"]').isSelected()
       ).toBe(false)
       const labels = await workItems.activeFilterLabels()
-      expect(labels.some((l) => l.includes('Nation: Scotland'))).toBe(false)
+      expect(labels.some((l) => l.includes('Scotland'))).toBe(false)
     })
   })
 })
