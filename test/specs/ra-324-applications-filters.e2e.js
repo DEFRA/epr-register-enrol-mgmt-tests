@@ -223,4 +223,40 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
       )
     })
   })
+
+  // ── Archived filter (re-added as the 8th collapsible section) ─────────────── //
+
+  describe('archived filter', () => {
+    it('is an eighth collapsible filter section', async () => {
+      await workItems.goto()
+      await expect(workItems.filterSectionToggle('archived')).toExist()
+    })
+
+    it('checking "Show archived items" sets includeArchived, an Archived tag and a summary note', async () => {
+      await workItems.goto()
+      await workItems.checkArchived()
+      await workItems.applyFilters()
+      expect(await browser.getUrl()).toContain('includeArchived=true')
+      const labels = await workItems.activeFilterLabels()
+      expect(labels.some((l) => l.includes('Archived: shown'))).toBe(true)
+      await expect($('[data-testid="work-items-summary"]')).toHaveText(
+        expect.stringContaining('including archived')
+      )
+    })
+
+    it('clear all filters removes the archived filter', async () => {
+      await workItems.goto()
+      await workItems.checkArchived()
+      await workItems.applyFilters()
+      await workItems.clearAllFilters()
+      await browser.waitUntil(
+        async () => !(await browser.getUrl()).includes('includeArchived'),
+        {
+          timeout: 10000,
+          timeoutMsg: 'Expected the archived filter to be cleared'
+        }
+      )
+      expect(await browser.getUrl()).not.toContain('includeArchived')
+    })
+  })
 })

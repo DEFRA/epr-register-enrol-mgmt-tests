@@ -314,6 +314,18 @@ class WorkItemsPage extends Page {
     await $(`input[name="material"][value="${value}"]`).click()
   }
 
+  /**
+   * Tick "Show archived items" in the Archived section. RA-324 phase-2 re-added
+   * this as the 8th collapsible section; the control is unchanged from phase-1
+   * (checkbox name=includeArchived, testid work-items-filter-include-archived)
+   * and still just sets includeArchived=true. (searchArchivedByOrgName drives
+   * the same param directly via the URL for the RA-224 reveal journey.)
+   */
+  async checkArchived() {
+    await this.expandSection('archived')
+    await $('[data-testid="work-items-filter-include-archived"]').click()
+  }
+
   async checkRegulator(nation) {
     await this.expandSection('nation')
     await $(`input[name="nation"][value="${nation}"]`).click()

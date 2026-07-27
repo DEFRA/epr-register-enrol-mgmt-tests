@@ -78,7 +78,8 @@ describe('Work items list improvements', () => {
         'material',
         'assignment',
         'status',
-        'organisation'
+        'organisation',
+        'archived'
       ]) {
         await expect(workItems.filterSectionToggle(key)).toExist()
       }
