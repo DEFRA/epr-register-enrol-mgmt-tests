@@ -2,21 +2,26 @@ import { browser, $, expect } from '@wdio/globals'
 import { Page } from './page.js'
 
 /**
- * RA-324 (AC05). The order in which a tile renders its fields. The
- * application-reference link is the first field (its id-keyed testid is
- * normalised to 'application-ref' by tileFieldOrder); the rest are the
- * generic field testids. Exported so the spec asserts against the same source
- * of truth the page object reads, rather than a second hand-kept copy.
+ * RA-324 (AC05). The order in which an application card renders its fields.
+ * The application-reference link is first (its id-keyed testid is normalised
+ * to 'application-ref' by tileFieldOrder); then the "Reprocessor
+ * reaccreditation: {Material}" title (applicant-type, material), the
+ * "{Org} ({Org ID})" line (org-name, org-id), and — only once the SLA clock
+ * has started — the footer (assigned-to, due-on).
+ *
+ * Phase-2 changes vs the first tiles design: submitted-on is gone from the
+ * card, due-date is renamed due-on, and org-name/org-id now precede the
+ * footer. Exported so the spec asserts against the same source of truth the
+ * page object reads, rather than a second hand-kept copy.
  */
 export const TILE_FIELD_ORDER = [
   'application-ref',
+  'applicant-type',
+  'material',
   'org-name',
   'org-id',
-  'material',
-  'applicant-type',
-  'submitted-on',
   'assigned-to',
-  'due-date'
+  'due-on'
 ]
 
 class WorkItemsPage extends Page {
@@ -134,23 +139,32 @@ class WorkItemsPage extends Page {
   }
 
   async filterByNation(nation) {
+    await this.expandSection('nation')
     await $(`input[name="nation"][value="${nation}"]`).click()
     await this.applyFiltersAndWait()
   }
 
-  async searchByOrgId(value) {
-    await $('[data-testid="work-items-filter-org-id"]').setValue(value)
+  /**
+   * RA-324 phase-2 merged the separate Org ID / Org name inputs into one
+   * "Organisation name or ID" search (data-testid work-items-filter-org-search,
+   * param `organisation`) that matches organisation name OR operator org id
+   * (case-insensitive; registration id is NOT matched — the Registration ID
+   * filter was removed). searchByOrgName and searchByOrgId are retained as
+   * intent-revealing aliases so existing call sites keep working — both drive
+   * the one combined field.
+   */
+  async searchByOrg(value) {
+    await this.expandSection('organisation')
+    await $('[data-testid="work-items-filter-org-search"]').setValue(value)
     await this.applyFiltersAndWait()
   }
 
-  async searchByRegistrationId(value) {
-    await $('[data-testid="work-items-filter-registration-id"]').setValue(value)
-    await this.applyFiltersAndWait()
+  searchByOrgName(value) {
+    return this.searchByOrg(value)
   }
 
-  async searchByOrgName(value) {
-    await $('[data-testid="work-items-filter-org-name"]').setValue(value)
-    await this.applyFiltersAndWait()
+  searchByOrgId(value) {
+    return this.searchByOrg(value)
   }
 
   /**
@@ -169,21 +183,22 @@ class WorkItemsPage extends Page {
   }
 
   /**
-   * RA-224. Reveal archived (terminal-state) work items by enabling the
-   * "Show archived" filter alongside an org-name search, then apply. The
-   * org-name search keeps the result set bounded so presence assertions
-   * stay pagination-safe even when the archived view holds unrelated
-   * items created by other specs.
+   * RA-224. Reveal archived (terminal-state) work items bounded by an
+   * organisation search so presence assertions stay pagination-safe.
+   *
+   * RA-324 phase-2 dropped the "Show archived" sidebar toggle to match the
+   * prototype; `includeArchived` is now param-only (it still works, and the
+   * archived date still renders on the card). So this navigates straight to
+   * the archived + org-bounded view via the query string rather than clicking
+   * a checkbox that no longer exists.
    */
   async searchArchivedByOrgName(value) {
-    const includeArchived = await $(
-      '[data-testid="work-items-filter-include-archived"]'
+    await this.open(
+      `/work-items?filtersApplied=1&includeArchived=true&organisation=${encodeURIComponent(
+        value
+      )}`
     )
-    if (!(await includeArchived.isSelected())) {
-      await includeArchived.click()
-    }
-    await $('[data-testid="work-items-filter-org-name"]').setValue(value)
-    await this.applyFiltersAndWait()
+    await $('[data-testid="work-items-summary"]').waitForDisplayed()
   }
 
   async getWorkItemCount() {
@@ -192,15 +207,81 @@ class WorkItemsPage extends Page {
     return match ? parseInt(match[1], 10) : 0
   }
 
-  async getFilterLegendTexts() {
-    const form = await $('[data-testid="work-items-filter-form"]')
-    const legends = await form.$$('legend')
-    return Promise.all([...legends].map((l) => l.getText()))
+  // ── RA-324 phase-2 collapsible filter sections ───────────────────────────── //
+
+  /**
+   * A filter section is a native <details data-testid="filter-section-{key}">,
+   * collapsed by default and auto-opened (open attribute) when it holds a
+   * selection. key ∈ {sort,type,nation,material,assignment,status,organisation}.
+   */
+  filterSection(key) {
+    return $(`[data-testid="filter-section-${key}"]`)
   }
 
-  async getRegulatorOptionTexts() {
-    const labels = await $$('//input[@name="nation"]/../label')
-    return Promise.all([...labels].map((l) => l.getText()))
+  filterSectionToggle(key) {
+    return $(`[data-testid="filter-section-${key}-toggle"]`)
+  }
+
+  /** Whether a filter <details> section is currently expanded. */
+  async isSectionOpen(key) {
+    return (await this.filterSection(key).getAttribute('open')) !== null
+  }
+
+  /**
+   * Expand a collapsible filter section so its controls become interactable.
+   * A control inside a collapsed <details> is not rendered and cannot be
+   * clicked, so every interaction helper opens its section first. No-op when
+   * the section is already open (clicking an open summary would collapse it).
+   */
+  async expandSection(key) {
+    if (!(await this.isSectionOpen(key))) {
+      await this.filterSectionToggle(key).click()
+      await browser.waitUntil(async () => this.isSectionOpen(key), {
+        timeout: 5000,
+        timeoutMsg: `Expected filter section "${key}" to expand`
+      })
+    }
+  }
+
+  // ── RA-324 phase-2 active-filters block ──────────────────────────────────── //
+
+  /** The "Active filters" block (rendered only when at least one is active). */
+  activeFilters() {
+    return $('[data-testid="active-filters"]')
+  }
+
+  /** Every removable active-filter tag link. */
+  activeFilterTags() {
+    return $$('[data-testid="active-filter-remove"]')
+  }
+
+  /** The label text of each active-filter tag, e.g. "Nation: England". */
+  async activeFilterLabels() {
+    const tags = await this.activeFilterTags()
+    return Promise.all(
+      [...tags].map((tag) => tag.$('.app-active-filters__label').getText())
+    )
+  }
+
+  /**
+   * Remove a single active filter by clicking the tag whose label contains
+   * `labelSubstring` (e.g. "England" or "Sorted by"). Throws if none matches
+   * so a wrong assumption fails loudly rather than silently no-op'ing.
+   */
+  async removeActiveFilter(labelSubstring) {
+    const tags = await this.activeFilterTags()
+    for (const tag of tags) {
+      const label = await tag.$('.app-active-filters__label').getText()
+      if (label.includes(labelSubstring)) {
+        await tag.click()
+        return
+      }
+    }
+    throw new Error(`No active-filter tag matching "${labelSubstring}"`)
+  }
+
+  clearAllFilters() {
+    return $('[data-testid="active-filters-clear"]').click()
   }
 
   // ── Checkbox/radio filters + pagination ──────────────────────────────────── //
@@ -214,26 +295,58 @@ class WorkItemsPage extends Page {
   }
 
   async checkType(value) {
+    await this.expandSection('type')
     await $(`input[name="typeId"][value="${value}"]`).click()
   }
 
-  async checkState(value) {
-    await $(`input[name="stateId"][value="${value}"]`).click()
+  /**
+   * Tick a Status filter. RA-324 phase-2 renamed the browser-facing param
+   * from `stateId` to `status` (the BFF expands it to the backend state ids —
+   * e.g. status=updated covers both assessment-in-progress and updated).
+   */
+  async checkStatus(value) {
+    await this.expandSection('status')
+    await $(`input[name="status"][value="${value}"]`).click()
+  }
+
+  async checkMaterial(value) {
+    await this.expandSection('material')
+    await $(`input[name="material"][value="${value}"]`).click()
   }
 
   async checkRegulator(nation) {
+    await this.expandSection('nation')
     await $(`input[name="nation"][value="${nation}"]`).click()
   }
 
   async setAssignmentMode(mode) {
+    await this.expandSection('assignment')
     await $(`input[name="assigneeMode"][value="${mode}"]`).click()
   }
 
   async selectSpecificUser(userId) {
+    await this.expandSection('assignment')
     await $('input[name="assigneeMode"][value="user"]').click()
     await $(
       '[data-testid="work-items-filter-assignee-user"]'
     ).selectByAttribute('value', userId)
+  }
+
+  /**
+   * Choose a Sort option and apply. Values: due-date | organisation | status
+   * (default, when none chosen, is newest submitted first). Sort also surfaces
+   * as a removable "Sorted by: …" active-filter chip.
+   */
+  async selectSort(value) {
+    await this.expandSection('sort')
+    await $(`[data-testid="filter-sort-${value}"]`).click()
+    await this.applyFiltersAndWait()
+  }
+
+  /** The application-ref link text of each card, in list (DOM) order. */
+  async cardRefOrder() {
+    const links = await $$('[data-testid^="work-item-link-"]')
+    return Promise.all([...links].map((link) => link.getText()))
   }
 
   /** Read the value of the first <option> in the specific-user select. */
@@ -342,8 +455,8 @@ class WorkItemsPage extends Page {
 
   /**
    * A field element inside a tile, located by its generic field testid
-   * (org-name, org-id, material, applicant-type, submitted-on, assigned-to,
-   * due-date). Scoped to the tile so it cannot resolve a field on a
+   * (applicant-type, material, org-name, org-id, and — in the SLA footer —
+   * assigned-to, due-on). Scoped to the tile so it cannot resolve a field on a
    * different application. The application reference field is the tile link
    * itself (workItemLink(id)), not a generic field testid.
    */

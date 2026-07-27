@@ -19,9 +19,11 @@ import query from '../page-objects/query.page.js'
  * <article data-testid="application-tile" data-work-item-id="{id}">. Inside
  * it the application-reference link is data-testid="work-item-link-{id}", the
  * status badge is data-testid="work-item-state-tag-{id}", and the remaining
- * fields carry generic testids (org-name, org-id, material, applicant-type,
- * submitted-on, assigned-to, due-date). submitted-on renders only while the
- * SLA clock has NOT started; due-date renders only once it has.
+ * fields carry generic testids: applicant-type + material (the "Reprocessor
+ * reaccreditation: {Material}" title), org-name + org-id (the "{Org} ({Org ID})"
+ * line), and — only once the SLA clock has started — assigned-to + due-on (the
+ * card footer). Phase-2 removed submitted-on from the card and renamed
+ * due-date to due-on.
  *
  * The terminal-state badges "Granted" (approved) and "Refused" (rejected) are
  * proven on the archived tile list by ra-224-archived-items.e2e.js, so this
@@ -56,8 +58,8 @@ async function createFreshItem(organisationName, postcode) {
 
 /**
  * Submitted → Duly made. Completing the two submitted-state tasks fires the
- * auto-duly-made hook, which starts the SLA clock (so submitted-on drops and
- * due-date appears on the tile).
+ * auto-duly-made hook, which starts the SLA clock (so the card's SLA footer,
+ * with Due on and Assigned to, appears).
  */
 async function driveToDulyMade(id) {
   await workItems.openWorkItem(id)
@@ -169,29 +171,23 @@ describe('RA-324 Applications page', () => {
       expect(indices).toEqual([...indices].sort((a, b) => a - b))
       // The always-present fields must be there in the right relative order.
       expect(order).toContain('application-ref')
-      expect(order).toContain('org-name')
-      expect(order).toContain('material')
       expect(order).toContain('applicant-type')
-      expect(order).toContain('assigned-to')
+      expect(order).toContain('material')
+      expect(order).toContain('org-name')
     })
 
-    it('AC05: shows "Unassigned" for an unassigned application', async () => {
-      await expect(workItems.tileField(itemId, 'assigned-to')).toHaveText(
-        expect.stringContaining('Unassigned')
-      )
-    })
-
-    it('AC05: shows Submitted on while assessment has not started', async () => {
-      expect(await workItems.tileHasField(itemId, 'submitted-on')).toBe(true)
-    })
-
-    it('AC05: omits Due date while the SLA clock has not started', async () => {
+    it('AC05: omits the SLA footer (Due on / Assigned to) while the SLA clock has not started', async () => {
       // Guard first: tileHasField chains isExisting() off the tile, so an
       // absent tile would report the field absent and pass this AC05
       // conditional-display rule vacuously. Assert the tile is on the page so
       // an absent tile fails loudly instead.
       await expect(workItems.tileFor(itemId)).toBeDisplayed()
-      expect(await workItems.tileHasField(itemId, 'due-date')).toBe(false)
+      // Phase-2: due-on and assigned-to live in the card footer, which only
+      // renders once the SLA clock starts. A brand-new item shows neither, and
+      // submitted-on was removed from the card entirely.
+      expect(await workItems.tileHasField(itemId, 'due-on')).toBe(false)
+      expect(await workItems.tileHasField(itemId, 'assigned-to')).toBe(false)
+      expect(await workItems.tileHasField(itemId, 'submitted-on')).toBe(false)
     })
 
     it('AC06: shows the status as a "Not started" badge in the tile', async () => {
@@ -207,12 +203,12 @@ describe('RA-324 Applications page', () => {
           tile.$('[data-testid^="work-item-state-tag-"]')
         ).toBeDisplayed()
       }
-      // The Due date field must be absent on a brand-new item (SLA clock not
+      // The Due on field must be absent on a brand-new item (SLA clock not
       // started) — the negative for AC05's conditional rule cross-checked at
       // the list level. Guard the tile is present first so an absent tile
       // cannot pass this vacuously.
       await expect(workItems.tileFor(otherId)).toBeDisplayed()
-      expect(await workItems.tileHasField(otherId, 'due-date')).toBe(false)
+      expect(await workItems.tileHasField(otherId, 'due-on')).toBe(false)
     })
   })
 
@@ -240,18 +236,27 @@ describe('RA-324 Applications page', () => {
       )
     })
 
-    it('AC05: shows Due date and omits Submitted on once the SLA clock has started', async () => {
+    it('AC05: shows the SLA footer with Due on and Assigned to once the SLA clock has started', async () => {
       // Self-contained: navigate to the item's tile in this test's own body
       // rather than relying on page state left by the preceding AC08 test
       // (which would couple the two and let a reorder / .only / an AC08 abort
       // read a stale page).
       await workItems.goto()
       await workItems.searchByOrgName(org)
-      // Guard the tile is present so the submitted-on ABSENCE assertion below
-      // fails loudly on an absent tile instead of passing vacuously.
       await expect(workItems.tileFor(itemId)).toBeDisplayed()
-      expect(await workItems.tileHasField(itemId, 'due-date')).toBe(true)
+      // Footer present once the SLA clock started: Due on + Assigned to.
+      expect(await workItems.tileHasField(itemId, 'due-on')).toBe(true)
+      expect(await workItems.tileHasField(itemId, 'assigned-to')).toBe(true)
+      // submitted-on was removed from the card entirely in phase-2.
       expect(await workItems.tileHasField(itemId, 'submitted-on')).toBe(false)
+    })
+
+    it('AC05: shows "Unassigned" in the footer for an unassigned SLA-started item', async () => {
+      await workItems.goto()
+      await workItems.searchByOrgName(org)
+      await expect(workItems.tileField(itemId, 'assigned-to')).toHaveText(
+        expect.stringContaining('Unassigned')
+      )
     })
 
     it('AC07: shows an "Updated" badge in assessment-in-progress', async () => {

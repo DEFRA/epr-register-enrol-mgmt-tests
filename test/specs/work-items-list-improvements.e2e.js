@@ -63,62 +63,50 @@ describe('Work items list improvements', () => {
     })
   })
 
-  // ── Regulator filter ─────────────────────────────────────────────────────── //
+  // ── Collapsible filter sections (RA-324 phase-2) ─────────────────────────── //
 
-  describe('Regulator filter panel', () => {
+  describe('collapsible filter sections', () => {
     before(async () => {
       await workItems.goto()
     })
 
-    it('shows "Regulator" as the filter section heading', async () => {
-      const legends = await workItems.getFilterLegendTexts()
-      expect(legends).toContain('Regulator')
+    it('renders each phase-2 filter section as a collapsible toggle', async () => {
+      for (const key of [
+        'sort',
+        'type',
+        'nation',
+        'material',
+        'assignment',
+        'status',
+        'organisation'
+      ]) {
+        await expect(workItems.filterSectionToggle(key)).toExist()
+      }
     })
 
-    it('does not show a "Nation" heading in the filter panel', async () => {
-      const legends = await workItems.getFilterLegendTexts()
-      expect(legends).not.toContain('Nation')
+    it('offers the four UK nations as Nation options', async () => {
+      for (const nation of [
+        'England',
+        'Scotland',
+        'Wales',
+        'NorthernIreland'
+      ]) {
+        await expect($(`input[name="nation"][value="${nation}"]`)).toExist()
+      }
     })
 
-    it('shows regulator body names as filter options', async () => {
-      const options = await workItems.getRegulatorOptionTexts()
-      expect(options).toContain('Environment Agency (EA)')
-      expect(options).toContain('SEPA')
-      expect(options).toContain('Natural Resources Wales (NRW)')
-      expect(options).toContain('NIEA')
+    it('offers Reprocessor and Exporter Type options', async () => {
+      await expect(
+        $('input[name="typeId"][value="re-accreditation"]')
+      ).toExist()
+      await expect($('input[name="typeId"][value="exporter"]')).toExist()
     })
 
-    it('applying a regulator filter appends the nation value to the URL', async () => {
-      await $('input[name="nation"][value="England"]').click()
-      await $('[data-testid="work-items-filter-apply"]').click()
+    it('applying a Nation filter appends the nation value to the URL', async () => {
+      await workItems.goto()
+      await workItems.checkRegulator('England')
+      await workItems.applyFilters()
       expect(await browser.getUrl()).toContain('nation=England')
-    })
-  })
-
-  // ── Applicant type filter (placeholder) ──────────────────────────────────── //
-
-  describe('Applicant type filter (placeholder)', () => {
-    before(async () => {
-      await workItems.goto()
-    })
-
-    it('shows an "Applicant type" section in the filter panel', async () => {
-      const legends = await workItems.getFilterLegendTexts()
-      expect(legends).toContain('Applicant type')
-    })
-
-    it('shows Reprocessor and Exporter checkboxes', async () => {
-      const reprocessor = $('input[name="applicantType"][value="reprocessor"]')
-      const exporter = $('input[name="applicantType"][value="exporter"]')
-      await expect(reprocessor).toExist()
-      await expect(exporter).toExist()
-    })
-
-    it('Reprocessor and Exporter checkboxes are disabled (not yet wired to data)', async () => {
-      const reprocessor = $('input[name="applicantType"][value="reprocessor"]')
-      const exporter = $('input[name="applicantType"][value="exporter"]')
-      expect(await reprocessor.getProperty('disabled')).toBe(true)
-      expect(await exporter.getProperty('disabled')).toBe(true)
     })
   })
 })

@@ -7,8 +7,8 @@ import workItems from '../page-objects/work-items.page.js'
  *
  * Search inputs are covered elsewhere (work-items-search.e2e.js); this spec
  * exercises the parts that were not covered:
- *   • Type / State / Regulator(nation) checkbox filters
- *   • Assignment-mode radios (Anyone / Assigned to me / Unassigned / Specific user)
+ *   • Type / Status / Nation checkbox filters
+ *   • Assignment-mode radios (Your applications / Unassigned / Specific officer)
  *   • Clear filters
  *   • Pagination (page size 20, filter-preserving hrefs)
  *   • Nation auto-default (RA-125): a single-nation user defaults the list to
@@ -73,17 +73,17 @@ describe('Work items list — filters and pagination', () => {
       expect(url).toContain('filtersApplied=1')
     })
 
-    it('applying a State filter adds the stateId to the URL', async function () {
-      const boxes = await $$('input[name="stateId"]')
+    it('applying a Status filter adds the status to the URL', async function () {
+      const boxes = await $$('input[name="status"]')
       if (boxes.length === 0) {
         this.skip()
         return
       }
       const value = await boxes[0].getAttribute('value')
-      await workItems.checkState(value)
+      await workItems.checkStatus(value)
       await workItems.applyFilters()
       const url = await browser.getUrl()
-      expect(url).toContain('stateId=')
+      expect(url).toContain('status=')
       expect(url).toContain('filtersApplied=1')
     })
 
@@ -91,7 +91,7 @@ describe('Work items list — filters and pagination', () => {
       await workItems.checkRegulator('England')
       await workItems.applyFilters()
       const summary = await workItems.getSummaryText()
-      expect(summary).toContain('regulator:')
+      expect(summary).toContain('nation:')
     })
   })
 
@@ -112,12 +112,6 @@ describe('Work items list — filters and pagination', () => {
       await workItems.setAssignmentMode('unassigned')
       await workItems.applyFilters()
       expect(await browser.getUrl()).toContain('assigneeMode=unassigned')
-    })
-
-    it('"Anyone" sets assigneeMode=any in the URL', async () => {
-      await workItems.setAssignmentMode('any')
-      await workItems.applyFilters()
-      expect(await browser.getUrl()).toContain('assigneeMode=any')
     })
 
     it('"Specific user" sets assigneeMode=user and the assigneeUserId', async function () {
@@ -205,12 +199,13 @@ describe('Work items list — filters and pagination', () => {
     it('defaults the list to the user nation on a fresh visit', async () => {
       await browser.url('/work-items')
       // RA-125 applies the single-nation default server-side: the URL is not
-      // rewritten, so the observable signal is the pre-ticked regulator box
-      // (Scotland -> SEPA) and the regulator line in the filter summary.
+      // rewritten, so the observable signal is the pre-ticked Nation box and
+      // the nation line in the filter summary. RA-324 phase-2 shows the nation
+      // name (Scotland), not the regulator body (SEPA).
       expect(
         await $('input[name="nation"][value="Scotland"]').isSelected()
       ).toBe(true)
-      expect(await workItems.getSummaryText()).toContain('SEPA')
+      expect(await workItems.getSummaryText()).toContain('nation: Scotland')
     })
 
     it('suppresses the nation default when filtersApplied=1 is present', async () => {
@@ -220,7 +215,7 @@ describe('Work items list — filters and pagination', () => {
       expect(
         await $('input[name="nation"][value="Scotland"]').isSelected()
       ).toBe(false)
-      expect(await workItems.getSummaryText()).not.toContain('SEPA')
+      expect(await workItems.getSummaryText()).not.toContain('nation: Scotland')
     })
   })
 })
