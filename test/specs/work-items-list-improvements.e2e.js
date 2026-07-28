@@ -3,14 +3,21 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 
 /**
- * Work items list page improvements.
+ * Applications list — payload values + filter sections (RA-324).
  *
- * Acceptance criteria exercised here:
- *   • "SLA" column header renamed to "Due date (SLA)".
- *   • "Org name" and "Material" columns added, sourced from the work item payload.
- *   • Nation filter section renamed to "Regulator" with regulator body display names.
- *   • Applicant type filter section added with disabled Reprocessor / Exporter
- *     checkboxes (placeholder — filtering not yet wired to backend data).
+ * The results region is a set of "Applications" cards, so the old table
+ * column-header assertions no longer apply — organisation name and material
+ * render as fields inside the card (covered here; the full card layout and
+ * field order live in ra-324-applications-page.e2e.js). RA-324 phase-2 rebuilt
+ * the filter sidebar into collapsible <details> sections, exercised here at the
+ * structural level (the detailed filter behaviour is in
+ * ra-324-applications-filters.e2e.js).
+ *
+ * Exercised here:
+ *   • "Org name" and "Material" render from the work item payload in the card.
+ *   • The eight collapsible filter sections are present, with the four UK
+ *     nations and the Reprocessor / Exporter Type options, and applying a
+ *     Nation filter reaches the URL.
  */
 describe('Work items list improvements', () => {
   let createdId
@@ -26,105 +33,86 @@ describe('Work items list improvements', () => {
       material: 'aluminium',
       tonnageBand: '0-500'
     }))
-    await workItems.goto()
+    await workItems.resetFilters()
   })
 
   after(async () => {
     await login.logout()
   })
 
-  // ── Table column headers ─────────────────────────────────────────────────── //
+  // ── Org name and Material values in the tile ─────────────────────────────── //
 
-  describe('table column headers', () => {
-    it('shows "Due date (SLA)" as the SLA column header', async () => {
-      const headers = await workItems.getTableHeaderTexts()
-      expect(headers).toContain('Due date (SLA)')
+  describe('Org name and Material render from the payload in the tile', () => {
+    before(async () => {
+      // Bound the list to this spec's item so the tile is on the page
+      // regardless of how many items other specs have created. RA-299: reset
+      // via an explicit empty submission rather than goto(), which now
+      // defaults to assigned-to-me and would exclude this unassigned item.
+      await workItems.resetFilters()
+      await workItems.searchByOrgName('Delta Recyclers Ltd')
     })
 
-    it('does not show a bare "SLA" column header', async () => {
-      const headers = await workItems.getTableHeaderTexts()
-      expect(headers).not.toContain('SLA')
-    })
-
-    it('shows "Org name" and "Material" column headers', async () => {
-      const headers = await workItems.getTableHeaderTexts()
-      expect(headers).toContain('Org name')
-      expect(headers).toContain('Material')
-    })
-  })
-
-  // ── Org name and Material values ─────────────────────────────────────────── //
-
-  describe('Org name and Material columns show payload values', () => {
-    it('shows the organisation name from the work item payload in the list row', async () => {
-      const row = workItems.workItemRow(createdId)
-      await expect(row).toHaveText(
+    it('shows the organisation name from the work item payload in the tile', async () => {
+      await expect(workItems.tileField(createdId, 'org-name')).toHaveText(
         expect.stringContaining('Delta Recyclers Ltd')
       )
     })
 
-    it('shows the material from the work item payload in the list row', async () => {
-      const row = workItems.workItemRow(createdId)
-      await expect(row).toHaveText(expect.stringContaining('aluminium'))
+    it('shows the material from the work item payload in the tile', async () => {
+      // RA-324 phase-2: the card renders the material DISPLAY LABEL
+      // (aluminium -> "Aluminium"), matching the filter checkboxes/chips, not
+      // the raw lowercase payload token.
+      await expect(workItems.tileField(createdId, 'material')).toHaveText(
+        expect.stringContaining('Aluminium')
+      )
     })
   })
 
-  // ── Regulator filter ─────────────────────────────────────────────────────── //
+  // ── Collapsible filter sections (RA-324 phase-2) ─────────────────────────── //
 
-  describe('Regulator filter panel', () => {
+  describe('collapsible filter sections', () => {
     before(async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
     })
 
-    it('shows "Regulator" as the filter section heading', async () => {
-      const legends = await workItems.getFilterLegendTexts()
-      expect(legends).toContain('Regulator')
+    it('renders each phase-2 filter section as a collapsible toggle', async () => {
+      for (const key of [
+        'sort',
+        'type',
+        'nation',
+        'material',
+        'assignment',
+        'status',
+        'organisation',
+        'archived'
+      ]) {
+        await expect(workItems.filterSectionToggle(key)).toExist()
+      }
     })
 
-    it('does not show a "Nation" heading in the filter panel', async () => {
-      const legends = await workItems.getFilterLegendTexts()
-      expect(legends).not.toContain('Nation')
+    it('offers the four UK nations as Nation options', async () => {
+      for (const nation of [
+        'England',
+        'Scotland',
+        'Wales',
+        'NorthernIreland'
+      ]) {
+        await expect($(`input[name="nation"][value="${nation}"]`)).toExist()
+      }
     })
 
-    it('shows regulator body names as filter options', async () => {
-      const options = await workItems.getRegulatorOptionTexts()
-      expect(options).toContain('Environment Agency (EA)')
-      expect(options).toContain('SEPA')
-      expect(options).toContain('Natural Resources Wales (NRW)')
-      expect(options).toContain('NIEA')
+    it('offers Reprocessor and Exporter Type options', async () => {
+      await expect(
+        $('input[name="typeId"][value="re-accreditation"]')
+      ).toExist()
+      await expect($('input[name="typeId"][value="exporter"]')).toExist()
     })
 
-    it('applying a regulator filter appends the nation value to the URL', async () => {
-      await $('input[name="nation"][value="England"]').click()
-      await $('[data-testid="work-items-filter-apply"]').click()
+    it('applying a Nation filter appends the nation value to the URL', async () => {
+      await workItems.resetFilters()
+      await workItems.checkRegulator('England')
+      await workItems.applyFilters()
       expect(await browser.getUrl()).toContain('nation=England')
-    })
-  })
-
-  // ── Applicant type filter (placeholder) ──────────────────────────────────── //
-
-  describe('Applicant type filter (placeholder)', () => {
-    before(async () => {
-      await workItems.goto()
-    })
-
-    it('shows an "Applicant type" section in the filter panel', async () => {
-      const legends = await workItems.getFilterLegendTexts()
-      expect(legends).toContain('Applicant type')
-    })
-
-    it('shows Reprocessor and Exporter checkboxes', async () => {
-      const reprocessor = $('input[name="applicantType"][value="reprocessor"]')
-      const exporter = $('input[name="applicantType"][value="exporter"]')
-      await expect(reprocessor).toExist()
-      await expect(exporter).toExist()
-    })
-
-    it('Reprocessor and Exporter checkboxes are disabled (not yet wired to data)', async () => {
-      const reprocessor = $('input[name="applicantType"][value="reprocessor"]')
-      const exporter = $('input[name="applicantType"][value="exporter"]')
-      expect(await reprocessor.getProperty('disabled')).toBe(true)
-      expect(await exporter.getProperty('disabled')).toBe(true)
     })
   })
 })

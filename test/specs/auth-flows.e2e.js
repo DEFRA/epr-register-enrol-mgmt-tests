@@ -24,7 +24,7 @@ describe('Auth flows', () => {
     })
 
     it('lands authenticated on the work items list with a Sign out link', async () => {
-      await expect(browser).toHaveTitle('Work items', { containing: true })
+      await expect(browser).toHaveTitle('Applications', { containing: true })
       await expect($('a[href="/auth/logout"]')).toBeDisplayed()
     })
 
@@ -46,7 +46,7 @@ describe('Auth flows', () => {
     it('an England-scoped user lands on the work items list and sees both assignment affordances', async () => {
       await LoginPage.login('England')
 
-      await expect(browser).toHaveTitle('Work items', { containing: true })
+      await expect(browser).toHaveTitle('Applications', { containing: true })
       await expect($('a[href="/auth/logout"]')).toBeDisplayed()
 
       await workItems.goto()
@@ -69,7 +69,7 @@ describe('Auth flows', () => {
     it('a Wales-scoped user sees both assignment affordances on a work item', async () => {
       await LoginPage.login('Wales')
 
-      await expect(browser).toHaveTitle('Work items', { containing: true })
+      await expect(browser).toHaveTitle('Applications', { containing: true })
       await expect($('a[href="/auth/logout"]')).toBeDisplayed()
 
       await workItems.goto()

@@ -7,8 +7,8 @@ import workItems from '../page-objects/work-items.page.js'
  *
  * Search inputs are covered elsewhere (work-items-search.e2e.js); this spec
  * exercises the parts that were not covered:
- *   • Type / State / Regulator(nation) checkbox filters
- *   • Assignment-mode radios (Anyone / Assigned to me / Unassigned / Specific user)
+ *   • Type / Status / Nation checkbox filters
+ *   • Assignment-mode radios (Your applications / Unassigned / Specific officer)
  *   • Clear filters
  *   • Pagination (page size 20, filter-preserving hrefs)
  *   • Nation auto-default (RA-125): a single-nation user defaults the list to
@@ -33,7 +33,7 @@ describe('Work items list — filters and pagination', () => {
       material: 'glass',
       tonnageBand: '0-500'
     }))
-    await workItems.goto()
+    await workItems.resetFilters()
   })
 
   after(async () => {
@@ -44,7 +44,11 @@ describe('Work items list — filters and pagination', () => {
 
   describe('type / state / regulator checkbox filters', () => {
     beforeEach(async () => {
-      await workItems.goto()
+      // RA-299: a bare landing now defaults to assigned-to-me + due-date sort
+      // AND restores the session's last-applied filters, so goto() is no
+      // longer a stateless "show everything" reset. These pre-RA-299 specs
+      // assert against the full dataset, so submit an explicit empty filter.
+      await workItems.resetFilters()
     })
 
     it('lists the seeded work item on the unfiltered list', async () => {
@@ -73,25 +77,28 @@ describe('Work items list — filters and pagination', () => {
       expect(url).toContain('filtersApplied=1')
     })
 
-    it('applying a State filter adds the stateId to the URL', async function () {
-      const boxes = await $$('input[name="stateId"]')
+    it('applying a Status filter adds the status to the URL', async function () {
+      const boxes = await $$('input[name="status"]')
       if (boxes.length === 0) {
         this.skip()
         return
       }
       const value = await boxes[0].getAttribute('value')
-      await workItems.checkState(value)
+      await workItems.checkStatus(value)
       await workItems.applyFilters()
       const url = await browser.getUrl()
-      expect(url).toContain('stateId=')
+      expect(url).toContain('status=')
       expect(url).toContain('filtersApplied=1')
     })
 
-    it('reflects the active regulator filter in the summary text', async () => {
+    it('reflects the active regulator filter as an active-filter tag', async () => {
+      // fe's results summary is now just "Showing {start}-{end} of {total}" —
+      // no filter recap — so the applied Nation filter is proven via the
+      // Active-filters chip instead of the summary text.
       await workItems.checkRegulator('England')
       await workItems.applyFilters()
-      const summary = await workItems.getSummaryText()
-      expect(summary).toContain('regulator:')
+      const labels = await workItems.activeFilterLabels()
+      expect(labels.some((l) => l.includes('England'))).toBe(true)
     })
   })
 
@@ -99,7 +106,7 @@ describe('Work items list — filters and pagination', () => {
 
   describe('assignment-mode radios', () => {
     beforeEach(async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
     })
 
     it('"Assigned to me" sets assigneeMode=mine in the URL', async () => {
@@ -112,12 +119,6 @@ describe('Work items list — filters and pagination', () => {
       await workItems.setAssignmentMode('unassigned')
       await workItems.applyFilters()
       expect(await browser.getUrl()).toContain('assigneeMode=unassigned')
-    })
-
-    it('"Anyone" sets assigneeMode=any in the URL', async () => {
-      await workItems.setAssignmentMode('any')
-      await workItems.applyFilters()
-      expect(await browser.getUrl()).toContain('assigneeMode=any')
     })
 
     it('"Specific user" sets assigneeMode=user and the assigneeUserId', async function () {
@@ -138,7 +139,7 @@ describe('Work items list — filters and pagination', () => {
 
   describe('clear filters', () => {
     it('removes the active regulator filter from the URL', async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
       await workItems.checkRegulator('England')
       await workItems.applyFilters()
       expect(await browser.getUrl()).toContain('nation=England')
@@ -153,7 +154,7 @@ describe('Work items list — filters and pagination', () => {
 
   describe('pagination (page size 20, filter-preserving hrefs)', () => {
     beforeEach(async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
     })
 
     it('renders at most 20 rows per page', async () => {
@@ -205,12 +206,16 @@ describe('Work items list — filters and pagination', () => {
     it('defaults the list to the user nation on a fresh visit', async () => {
       await browser.url('/work-items')
       // RA-125 applies the single-nation default server-side: the URL is not
-      // rewritten, so the observable signal is the pre-ticked regulator box
-      // (Scotland -> SEPA) and the regulator line in the filter summary.
+      // rewritten, so the observable signal is the pre-ticked Nation box and
+      // the Nation active-filter chip (fe's results summary carries no filter
+      // recap any more — just "Showing {start}-{end} of {total}"). RA-324
+      // phase-2 shows the nation name (Scotland), not the regulator body
+      // (SEPA).
       expect(
         await $('input[name="nation"][value="Scotland"]').isSelected()
       ).toBe(true)
-      expect(await workItems.getSummaryText()).toContain('SEPA')
+      const labels = await workItems.activeFilterLabels()
+      expect(labels.some((l) => l.includes('Scotland'))).toBe(true)
     })
 
     it('suppresses the nation default when filtersApplied=1 is present', async () => {
@@ -220,7 +225,8 @@ describe('Work items list — filters and pagination', () => {
       expect(
         await $('input[name="nation"][value="Scotland"]').isSelected()
       ).toBe(false)
-      expect(await workItems.getSummaryText()).not.toContain('SEPA')
+      const labels = await workItems.activeFilterLabels()
+      expect(labels.some((l) => l.includes('Scotland'))).toBe(false)
     })
   })
 })

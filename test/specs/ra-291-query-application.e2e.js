@@ -75,7 +75,7 @@ describe('RA-291 Query an application', () => {
 
     it('offers a Query link on the application summary page', async () => {
       await workItems.openWorkItem(workItemId)
-      await detail.assertState('Submitted')
+      await detail.assertState('Not started')
       const href = await $('[data-testid="action-query"]').getAttribute('href')
       expect(href).toContain(`/work-items/${workItemId}/query`)
     })
@@ -91,7 +91,7 @@ describe('RA-291 Query an application', () => {
       await query.gotoFor(workItemId)
       await query.cancel()
       await query.waitForDetailUrl(workItemId)
-      await detail.assertState('Submitted')
+      await detail.assertState('Not started')
     })
   })
 
@@ -151,7 +151,7 @@ describe('RA-291 Query an application', () => {
       )
 
       await workItems.openWorkItem(workItemId)
-      await detail.assertState('Submitted')
+      await detail.assertState('Not started')
     })
 
     it('rejects a query with no section selected', async () => {

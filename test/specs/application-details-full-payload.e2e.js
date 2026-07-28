@@ -29,7 +29,10 @@ describe('Application details page — full operator payload (seeded)', () => {
 
   before(async () => {
     await login.login()
-    await workItems.goto()
+    // RA-299: a bare landing defaults to assigned-to-me, which would hide
+    // this (unassigned) seeded item from the search — reset to an explicit
+    // empty filter first so the search is not implicitly assignee-scoped.
+    await workItems.resetFilters()
     await workItems.searchByOrgName('Full Payload Verification Ltd')
     workItemId = await workItems.firstResultWorkItemId()
     await applicationDetails.open(workItemId)

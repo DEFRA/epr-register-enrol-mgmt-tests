@@ -1,4 +1,4 @@
-import { browser, $, expect } from '@wdio/globals'
+import { browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
@@ -46,7 +46,7 @@ describe('Assign user journey', () => {
     // ── Progress work item 2 through stages ───────────────────────────────────
     await workItems.openWorkItem(progressedWorkItemId)
 
-    await detail.assertState('Submitted')
+    await detail.assertState('Not started')
 
     // Task controls live on the /tasks sub-page
     await detail.gotoTasks()
@@ -81,17 +81,20 @@ describe('Standard user journey', () => {
     expect(new URL(await browser.getUrl()).pathname).toBe('/work-items')
 
     // ── Navigate to work items and filter by "assigned to me" ─────────────────
+    // RA-324 phase-2: the Assignment radios now live inside a collapsed
+    // <details> section, so a raw click on the radio is not interactable — the
+    // page object helper expands the section first.
     await workItems.goto()
-    await $('input[name="assigneeMode"][value="mine"]').click()
-    await $('[data-testid="work-items-filter-apply"]').click()
+    await workItems.setAssignmentMode('mine')
+    await workItems.applyFilters()
 
     await expect(workItems.workItemLink(assignedWorkItemId)).toBeDisplayed()
     await expect(workItems.workItemStateTag(assignedWorkItemId)).toHaveText(
-      expect.stringContaining('Submitted')
+      expect.stringContaining('Not started')
     )
 
     await workItems.openWorkItem(assignedWorkItemId)
-    await detail.assertState('Submitted')
+    await detail.assertState('Not started')
 
     // Task controls live on the /tasks sub-page
     await detail.gotoTasks()

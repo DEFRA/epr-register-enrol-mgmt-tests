@@ -1,167 +1,111 @@
-import { expect } from '@wdio/globals'
+import { $, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 
 /**
- * Work items list — search filters.
+ * Applications list — combined "Organisation name or ID" search (RA-324 phase-2).
  *
- * Covers the three specific search inputs added to the filter sidebar:
- *   Org ID           — matches payload.applicationReference
- *   Registration ID  — matches the work item id (application ref column)
- *   Org name         — matches payload.organisationName
+ * The separate Org ID / Registration ID / Org name inputs were replaced by a
+ * single "Organisation name or ID" field (data-testid
+ * work-items-filter-org-search, param `organisation`) that matches
+ * organisation name OR the operator organisation id, case-insensitively.
+ * Registration-id search was removed entirely. Items created through the case
+ * management UI carry no operator org id, so these tests exercise the
+ * organisation-NAME matching path.
  */
-describe('Work items list — search filters', () => {
+describe('Applications list — organisation search', () => {
   let workItemId
-  let applicationReference
   const orgName = `Search Test Org ${Date.now()}`
 
   before(async () => {
     await login.login()
     await workItems.goto()
-    ;({ id: workItemId, applicationReference } = await workItems.createWorkItem(
-      {
-        organisationName: orgName,
-        siteAddressLine1: '1 Search Street',
-        siteAddressTown: 'Leeds',
-        siteAddressPostcode: 'LS1 2AJ',
-        material: 'glass',
-        tonnageBand: '0-500'
-      }
-    ))
-    await workItems.goto()
+    ;({ id: workItemId } = await workItems.createWorkItem({
+      organisationName: orgName,
+      siteAddressLine1: '1 Search Street',
+      siteAddressTown: 'Leeds',
+      siteAddressPostcode: 'LS1 2AJ',
+      material: 'glass',
+      tonnageBand: '0-500'
+    }))
+    // RA-299: a bare goto() now pre-checks the "assigned to me" default,
+    // which searchByOrg's form submit would carry through and exclude this
+    // (unassigned) item — reset to an explicit empty state instead.
+    await workItems.resetFilters()
   })
 
   after(async () => {
     await login.logout()
   })
 
-  describe('search inputs are present in the filter form', () => {
-    it('renders an Org ID input', async () => {
-      await expect($('[data-testid="work-items-filter-org-id"]')).toExist()
+  describe('the search input replaces the old separate filters', () => {
+    it('renders the combined "Organisation name or ID" input', async () => {
+      await workItems.expandSection('organisation')
+      await expect(
+        $('[data-testid="work-items-filter-org-search"]')
+      ).toBeDisplayed()
     })
 
-    it('renders a Registration ID input', async () => {
+    it('no longer renders the removed Registration ID / Org ID / Org name inputs', async () => {
       await expect(
         $('[data-testid="work-items-filter-registration-id"]')
-      ).toExist()
-    })
-
-    it('renders an Org name input', async () => {
-      await expect($('[data-testid="work-items-filter-org-name"]')).toExist()
-    })
-  })
-
-  describe('search by Org ID (applicationReference)', () => {
-    afterEach(async () => {
-      await workItems.goto()
-    })
-
-    it('finds the work item when the full application reference is entered', async () => {
-      await workItems.searchByOrgId(applicationReference)
-      await expect(workItems.workItemLink(workItemId)).toExist()
-    })
-
-    it('finds the work item when a partial application reference is entered', async () => {
-      const partial = applicationReference.slice(0, 4)
-      await workItems.searchByOrgId(partial)
-      await expect(workItems.workItemLink(workItemId)).toExist()
-    })
-
-    it('shows no results for a non-existent org ID', async () => {
-      await workItems.searchByOrgId('NONEXISTENT-ORG-ID-XYZ')
-      await expect($('[data-testid="work-items-summary"]')).toHaveText(
-        expect.stringContaining('No work items match your filters')
-      )
+      ).not.toExist()
+      await expect($('[data-testid="work-items-filter-org-id"]')).not.toExist()
+      await expect(
+        $('[data-testid="work-items-filter-org-name"]')
+      ).not.toExist()
     })
   })
 
-  describe('search by Registration ID (work item id)', () => {
+  describe('search by organisation name', () => {
     afterEach(async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
     })
 
-    it('finds the work item when the full id is entered', async () => {
-      await workItems.searchByRegistrationId(workItemId)
+    it('finds the work item by full organisation name', async () => {
+      await workItems.searchByOrg(orgName)
       await expect(workItems.workItemLink(workItemId)).toExist()
     })
 
-    it('finds the work item when a partial id prefix is entered', async () => {
-      const partial = workItemId.slice(0, 8)
-      await workItems.searchByRegistrationId(partial)
-      await expect(workItems.workItemLink(workItemId)).toExist()
-    })
-
-    it('shows no results for a non-existent registration id', async () => {
-      await workItems.searchByRegistrationId(
-        '00000000-0000-0000-0000-nonexistent'
-      )
-      await expect($('[data-testid="work-items-summary"]')).toHaveText(
-        expect.stringContaining('No work items match your filters')
-      )
-    })
-  })
-
-  describe('search by Org name (organisationName)', () => {
-    afterEach(async () => {
-      await workItems.goto()
-    })
-
-    it('finds the work item when the full org name is entered', async () => {
-      await workItems.searchByOrgName(orgName)
-      await expect(workItems.workItemLink(workItemId)).toExist()
-    })
-
-    it('finds the work item when a partial org name is entered', async () => {
-      await workItems.searchByOrgName('Search Test Org')
+    it('finds the work item by a partial organisation name', async () => {
+      await workItems.searchByOrg('Search Test Org')
       await expect(workItems.workItemLink(workItemId)).toExist()
     })
 
     it('is case-insensitive', async () => {
-      await workItems.searchByOrgName(orgName.toLowerCase())
+      await workItems.searchByOrg(orgName.toLowerCase())
       await expect(workItems.workItemLink(workItemId)).toExist()
     })
 
-    it('shows no results for a non-existent org name', async () => {
-      await workItems.searchByOrgName('NONEXISTENT ORG XYZ 99999')
+    it('shows no results for a non-matching search', async () => {
+      await workItems.searchByOrg('NONEXISTENT ORG XYZ 99999')
       await expect($('[data-testid="work-items-summary"]')).toHaveText(
         expect.stringContaining('No work items match your filters')
       )
     })
   })
 
-  describe('filter summary reflects active search terms', () => {
+  describe('the organisation search is reflected back to the user', () => {
     afterEach(async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
     })
 
-    it('shows the org ID in the filter summary', async () => {
-      await workItems.searchByOrgId(applicationReference)
-      await expect($('[data-testid="work-items-summary"]')).toHaveText(
-        expect.stringContaining(`org ID: "${applicationReference}"`)
-      )
-    })
-
-    it('shows the registration ID in the filter summary', async () => {
-      await workItems.searchByRegistrationId(workItemId)
-      await expect($('[data-testid="work-items-summary"]')).toHaveText(
-        expect.stringContaining(`registration ID: "${workItemId}"`)
-      )
-    })
-
-    it('shows the org name in the filter summary', async () => {
-      await workItems.searchByOrgName(orgName)
-      await expect($('[data-testid="work-items-summary"]')).toHaveText(
-        expect.stringContaining(`org name: "${orgName}"`)
-      )
+    // fe's results summary is now just "Showing {start}-{end} of {total}" —
+    // no filter/sort recap — so the applied search term is proven via the
+    // Active-filters chip instead of the summary text.
+    it('shows a removable "Organisation" active-filter tag', async () => {
+      await workItems.searchByOrg(orgName)
+      const labels = await workItems.activeFilterLabels()
+      expect(labels.some((l) => l.includes(orgName))).toBe(true)
     })
   })
 
-  describe('navigating to the work item detail from search results', () => {
+  describe('navigating to detail from a search result', () => {
     before(async () => {
-      await workItems.searchByOrgName(orgName)
+      await workItems.searchByOrg(orgName)
     })
 
-    it('clicking the application ref link opens the work item detail', async () => {
+    it('opens the work item detail when the ref link is clicked', async () => {
       await workItems.workItemLink(workItemId).click()
       await expect($('[data-testid="work-item-summary"]')).toExist()
     })

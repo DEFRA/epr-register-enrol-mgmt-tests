@@ -38,7 +38,7 @@ async function driveToAwaitingDecision(suffix, material) {
   })
 
   await workItems.openWorkItem(id)
-  await detail.assertState('Submitted')
+  await detail.assertState('Not started')
 
   // Submitted -> Duly made (auto-transition on last submitted task).
   await detail.gotoTasks()
@@ -52,7 +52,7 @@ async function driveToAwaitingDecision(suffix, material) {
   await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
   await detail.gotoDetail()
   await detail.triggerAction('payment-received')
-  await detail.assertState('Assessment in progress')
+  await detail.assertState('Updated')
 
   // Assessment in progress -> Awaiting decision.
   await detail.gotoTasks()
@@ -106,7 +106,7 @@ describe('RA-224 all terminal states are archived', () => {
     await detail.setTaskStatus('record-decision-rationale', 'Completed')
     await detail.gotoDetail()
     await detail.triggerAction('reject')
-    await detail.assertState('Rejected')
+    await detail.assertState('Refused')
 
     await login.logout()
   })
@@ -122,7 +122,7 @@ describe('RA-224 all terminal states are archived', () => {
     await detail.gotoDetail()
     await detail.triggerAction('approve')
     await detail.submitApproval()
-    await detail.assertState('Approved')
+    await detail.assertState('Granted')
 
     await login.logout()
   })
@@ -161,10 +161,10 @@ describe('RA-224 all terminal states are archived', () => {
       expect.stringContaining('Withdrawn')
     )
     await expect(workItems.workItemStateTag(rejectedId)).toHaveText(
-      expect.stringContaining('Rejected')
+      expect.stringContaining('Refused')
     )
     await expect(workItems.workItemStateTag(approvedId)).toHaveText(
-      expect.stringContaining('Approved')
+      expect.stringContaining('Granted')
     )
 
     await login.logout()

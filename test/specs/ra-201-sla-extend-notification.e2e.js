@@ -41,7 +41,7 @@ describe('RA-201 Extend SLA sends operator notification', () => {
     ).id
 
     await workItems.openWorkItem(workItemId)
-    await detail.assertState('Submitted')
+    await detail.assertState('Not started')
 
     // Submitted -> Duly made (auto-transition fires when last submitted task completes)
     await detail.gotoTasks()
@@ -57,7 +57,7 @@ describe('RA-201 Extend SLA sends operator notification', () => {
     await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
     await detail.gotoDetail()
     await detail.triggerAction('payment-received')
-    await detail.assertState('Assessment in progress')
+    await detail.assertState('Updated')
 
     await login.logout()
   })

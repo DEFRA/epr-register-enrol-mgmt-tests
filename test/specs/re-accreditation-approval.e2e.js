@@ -38,7 +38,7 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     ).id
 
     await workItems.openWorkItem(workItemId)
-    await detail.assertState('Submitted')
+    await detail.assertState('Not started')
 
     // Submitted -> Duly made (auto-transition fires when last submitted task completes)
     await detail.gotoTasks()
@@ -52,7 +52,7 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
     await detail.gotoDetail()
     await detail.triggerAction('payment-received')
-    await detail.assertState('Assessment in progress')
+    await detail.assertState('Updated')
 
     // Assessment in progress -> Awaiting decision
     await detail.gotoTasks()
@@ -78,7 +78,7 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await detail.triggerAction('approve')
     await detail.submitApproval()
 
-    await detail.assertState('Approved')
+    await detail.assertState('Granted')
     await detail.assertApprovalPanelVisible()
 
     // RA-177. The "Accreditation issued" success panel and its metadata
@@ -112,7 +112,7 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
   it('re-approving an already-approved work item is idempotent (panel still shows the same id)', async () => {
     await login.login()
     await workItems.openWorkItem(workItemId)
-    await detail.assertState('Approved')
+    await detail.assertState('Granted')
     await detail.assertApprovalPanelVisible()
     const accreditationIdOnReturn = await detail.getAccreditationId()
     expect(accreditationIdOnReturn).toMatch(/^ACC-\d{4}-P-[A-Z0-9]{8}$/)

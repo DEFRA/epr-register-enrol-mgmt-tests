@@ -18,6 +18,13 @@ import detail from '../page-objects/work-item-detail.page.js'
  * number). This spec proves both the populated value (against a seeded item
  * that carries the id) and the graceful em-dash fallback (against a UI-created
  * item that has no registration id).
+ *
+ * NOTE (RA-299): this covers the DETAIL page's "Registration ID" row, which is
+ * still shipped. It is NOT the list page's registration-ID *search filter*,
+ * which RA-299 deliberately removed (org name/ID search only). They are
+ * separate features that happen to share a name — this spec was deleted
+ * alongside that filter removal once already, dropping real detail-page
+ * coverage, and was restored after review caught it.
  */
 describe('RA-223 — Registration ID shown on the work item detail page', () => {
   before(async () => {
@@ -37,7 +44,10 @@ describe('RA-223 — Registration ID shown on the work item detail page', () => 
     // via an org-name search. The org name is unique to the seed data (no spec
     // creates it), so the search returns exactly this item.
     before(async () => {
-      await workItems.goto()
+      // RA-299: a bare landing now defaults to "assigned to me", which would
+      // hide this unassigned seeded item — reset to an explicit empty filter
+      // so the org-name search is not implicitly assignee-scoped.
+      await workItems.resetFilters()
       await workItems.searchByOrgName('Belfast Fibres Co')
       // Wait for the filtered list to settle before reading it — applying any
       // filter is a GET that redirects with filtersApplied=1, so the pre-filter
@@ -70,7 +80,7 @@ describe('RA-223 — Registration ID shown on the work item detail page', () => 
     // submission), so the row must degrade gracefully to an em-dash rather
     // than leaking any other identifier.
     before(async () => {
-      await workItems.goto()
+      await workItems.resetFilters()
       const { id } = await workItems.createWorkItem({
         organisationName: 'Registration Id Recyclers Ltd',
         siteAddressLine1: '1 Registry Road',

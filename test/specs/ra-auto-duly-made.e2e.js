@@ -53,7 +53,7 @@ describe('Auto duly-made and SLA clock start', () => {
 
     it('does not show a "Mark as duly made" action button while in submitted state', async () => {
       await workItems.openWorkItem(workItemId)
-      await detail.assertState('Submitted')
+      await detail.assertState('Not started')
       // The duly-make action button was removed; the transition is now
       // automatic when both submitted tasks are completed.
       await expect($('[data-testid="action-duly-make"]')).not.toBeDisplayed()
@@ -129,7 +129,7 @@ describe('Auto duly-made and SLA clock start', () => {
       await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
       await detail.gotoDetail()
       await detail.triggerAction('payment-received')
-      await detail.assertState('Assessment in progress')
+      await detail.assertState('Updated')
     })
   })
 
@@ -144,7 +144,7 @@ describe('Auto duly-made and SLA clock start', () => {
 
     it('SLA clock info is still visible after payment-received resets the clock', async () => {
       await workItems.openWorkItem(workItemId)
-      await detail.assertState('Assessment in progress')
+      await detail.assertState('Updated')
       // The payment-received action (ReAccreditationSlaStampHook) resets
       // the SLA clock — the clock should still be shown.
       await expect($('[data-testid="sla-clock-info"]')).toBeDisplayed()
