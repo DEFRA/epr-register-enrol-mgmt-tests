@@ -1,8 +1,9 @@
-import { expect } from '@wdio/globals'
+import { $, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import queryPage from '../page-objects/query.page.js'
+import withdrawPage from '../page-objects/withdraw.page.js'
 
 /**
  * RA-295 (AC03 + AC04) — assignment stays reachable through the redesign, and
@@ -154,6 +155,51 @@ describe('RA-295 assignment panel and query assignment notice', () => {
           )
         )
       })
+    })
+  })
+
+  describe('the due-date links on a closed case', () => {
+    // AC03's "available throughout" is about ASSIGNMENT, and reassign/unassign
+    // are unconditional. The SLA due-date links are NOT, and that distinction
+    // matters more than it looks: `SlaService.ExtendAsync` in management-be has
+    // no terminal-state check, so it will accept a due-date change on a closed
+    // case. The UI gate is the only thing preventing that, which makes this
+    // the real backstop rather than a presentational detail.
+    //
+    // Uses its OWN work item, deliberately: withdrawing is irreversible, so
+    // reusing the item above would leave every later block in this file
+    // operating on a closed case. Withdraw is the shortest route to a terminal
+    // state — one interstitial, rather than the whole approval journey.
+    let closedItemId
+
+    before(async () => {
+      await workItems.resetFilters()
+      ;({ id: closedItemId } = await workItems.createWorkItem({
+        organisationName: 'RA-295 Closed Case Ltd',
+        siteAddressLine1: '1 Closure Court',
+        siteAddressTown: 'Hull',
+        siteAddressPostcode: 'HU1 1AA',
+        material: 'paper',
+        tonnageBand: '0-500'
+      }))
+      await withdrawPage.gotoFor(closedItemId)
+      await withdrawPage.fillNote('Closing the case to check the SLA gating')
+      await withdrawPage.submit()
+      await detail.waitForDetailUrl()
+      await detail.assertState('Withdrawn')
+    })
+
+    it('hides the extend and override due-date links', async () => {
+      await expect($('[data-testid="action-sla-extend"]')).not.toBeExisting()
+      await expect($('[data-testid="action-sla-override"]')).not.toBeExisting()
+    })
+
+    it('still offers reassign and unassign', async () => {
+      // The complement, and why this is not simply "the panel disappears": a
+      // closed case still has to be reassignable so it can be handed over.
+      await expect(detail.assignmentPanel()).toBeDisplayed()
+      expect(await detail.hasAssignmentControl('reassign')).toBe(true)
+      expect(await detail.hasAssignmentControl('unassign')).toBe(true)
     })
   })
 })

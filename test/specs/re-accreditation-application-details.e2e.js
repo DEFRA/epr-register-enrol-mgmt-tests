@@ -138,16 +138,19 @@ describe('Application information — sparse, form-created work item', () => {
   })
 
   describe('prior year section (RA-254), folded onto the detail page', () => {
-    it('renders when the backend prior-year lookup succeeds', async () => {
-      // management-fe omits the whole block when the lookup fails, so this is
-      // treated as optional rather than asserted unconditionally — a hard
-      // assertion here would make the spec fail for a backend reason that has
-      // nothing to do with the UI under test. When it IS present, its parts
-      // must be too; a heading with no content is the regression worth
-      // catching.
-      if (!(await detail.hasPriorYear('heading'))) {
-        return
-      }
+    it('renders the heading and all of its parts', async () => {
+      // Asserted unconditionally, on purpose. My first version skipped the
+      // body when the heading was absent, on the reasoning that management-fe
+      // omits the block when the backend prior-year lookup fails. That made
+      // the test unfalsifiable: it reported green both when the section
+      // rendered correctly AND when it had vanished entirely.
+      //
+      // The retired spec asserted this section's presence unconditionally and
+      // passed, so it does render reliably against the compose stack. If the
+      // lookup genuinely becomes unreliable, a red test saying so is the right
+      // outcome — far better than a silent pass hiding a section that stopped
+      // rendering.
+      expect(await detail.hasPriorYear('heading')).toBe(true)
       expect(await detail.hasPriorYear('tonnage')).toBe(true)
       expect(await detail.hasPriorYear('authorisers')).toBe(true)
       expect(await detail.hasPriorYear('businessPlan')).toBe(true)
