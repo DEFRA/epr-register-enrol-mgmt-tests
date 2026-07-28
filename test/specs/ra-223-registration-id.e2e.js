@@ -13,11 +13,22 @@ import detail from '../page-objects/work-item-detail.page.js'
  * detail page renders it in a "Registration ID" row of the envelope summary
  * list, immediately after "Application ref".
  *
- * The row is deliberately sourced from `operatorRegistrationId` (the EPR
- * registration id), NOT `registrationNumber` (the Companies House company
- * number). This spec proves both the populated value (against a seeded item
- * that carries the id) and the graceful em-dash fallback (against a UI-created
- * item that has no registration id).
+ * The row is deliberately sourced from `operatorRegistrationId` (the operator
+ * backend's internal registration record id, e.g. `reg-008`), NOT
+ * `registrationNumber` (the EPR registration number, e.g. `EPR-100198`). This
+ * spec proves both the populated value (against a seeded item that carries the
+ * id) and the graceful em-dash fallback (against a UI-created item that has no
+ * registration id).
+ *
+ * RA-295 correction: this comment previously described `registrationNumber` as
+ * "the Companies House company number". That was wrong — every seeded value is
+ * EPR-prefixed and nothing in the payload carries a Companies House number at
+ * all (Companies House data is deferred to RA-289). Confirmed with
+ * management-be. The distinction still matters, and now matters more: RA-295
+ * puts `registrationNumber` in the case header and on the list cards
+ * (ra-295-case-header / ra-295-list-registration-number), while the
+ * `operatorRegistrationId` row this spec covers survives unchanged. Two
+ * similarly-named fields on the same page is exactly how they get crossed.
  *
  * NOTE (RA-299): this covers the DETAIL page's "Registration ID" row, which is
  * still shipped. It is NOT the list page's registration-ID *search filter*,

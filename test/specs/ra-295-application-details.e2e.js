@@ -19,10 +19,22 @@ import detail, {
  * Run against the seeded "Full Payload Verification Ltd" re-accreditation
  * item, which is the only fixture carrying the whole payload — PRN tonnage and
  * authorisers, a sampling & inspection plan, a business plan, and overseas
- * site / BES evidence. That last part matters for the negative test: the item
- * HAS overseas + BES data in its payload but is a Reprocessor, so those two
- * sections must still not render. A fixture without the data could not tell
- * "correctly hidden" apart from "nothing to show".
+ * site / BES evidence.
+ *
+ * KNOWN LIMITATION on AC02 items 9 and 10 (BES / Overseas Reprocessing Site,
+ * "only show if application type = Exporter"). There is no Exporter
+ * discriminator anywhere in the stack: management-be confirmed that the
+ * upstream ReEx `wasteProcessingType` is never written into the work item
+ * payload and `typeId` is hard-coded "re-accreditation" for both operator
+ * types, so no Exporter fixture exists or can exist in this story.
+ * management-fe therefore gates the two sections on a non-empty
+ * `overseasSites.sites[]` as an explicit PROXY for Exporter.
+ *
+ * That means these specs can only prove the proxy, not the AC: they assert the
+ * sections appear when overseas data is present and are absent when it is not.
+ * A genuine Exporter/Reprocessor test is impossible until the payload carries
+ * the real discriminator — flagged to the lead as a follow-up, and called out
+ * again on the negative test below so nobody mistakes it for full coverage.
  */
 describe('RA-295 application details on a single page', () => {
   before(async () => {
@@ -112,20 +124,54 @@ describe('RA-295 application details on a single page', () => {
     await expect(detail.samplingPlanUpdatedBy()).toBeDisplayed()
   })
 
-  describe('Exporter-only sections on a Reprocessor application', () => {
-    it('does not show Broadly Equivalent Standards or the Overseas Reprocessing Site', async () => {
-      // AC02 items 9 and 10 are conditional on application type = Exporter.
-      // This fixture is a Reprocessor (re-accreditation) that nonetheless
-      // carries overseasSites and besEvidence in its payload, so a template
-      // that renders those sections whenever the data is present — rather than
-      // when the type warrants it — fails here.
-      const rendered = []
+  describe('the conditional BES / Overseas Reprocessing Site sections', () => {
+    it('shows both sections for an application that has overseas site data', async () => {
+      // Still on the full-payload fixture, which carries overseasSites with
+      // BES evidence. Asserting the sections DO render here is what stops the
+      // negative test below from passing vacuously against a build that simply
+      // never renders them at all.
+      const missing = []
       for (const row of EXPORTER_ONLY_ROWS) {
-        if (await detail.hasApplicationDetailRow(row)) {
-          rendered.push(row)
+        if (!(await detail.hasApplicationDetailRow(row))) {
+          missing.push(row)
         }
       }
-      expect(rendered).toEqual([])
+      expect(missing).toEqual([])
+    })
+
+    describe('an application with no overseas site data', () => {
+      // "Belfast Fibres Co" is a seeded re-accreditation item with no
+      // overseasSites in its payload, and its org name is unique to the seed
+      // data (no spec creates it), so the search resolves to exactly one row.
+      //
+      // NB this proves the PROXY described in the file header, not AC02's
+      // actual "only if Exporter" rule — both fixtures are Reprocessors,
+      // because no Exporter fixture can exist yet. Re-point this at a real
+      // Exporter fixture once the payload carries the discriminator.
+      before(async () => {
+        await workItems.resetFilters()
+        await workItems.searchByOrgName('Belfast Fibres Co')
+        expect(await workItems.getRowCount()).toBe(1)
+        await workItems.openFirstListedWorkItem()
+      })
+
+      it('hides Broadly Equivalent Standards and the Overseas Reprocessing Site', async () => {
+        const rendered = []
+        for (const row of EXPORTER_ONLY_ROWS) {
+          if (await detail.hasApplicationDetailRow(row)) {
+            rendered.push(row)
+          }
+        }
+        expect(rendered).toEqual([])
+      })
+
+      it('still shows the rest of the application information', async () => {
+        // Guards against the hiding being implemented by simply not rendering
+        // the section at all on this page.
+        await expect(detail.applicationDetails()).toBeDisplayed()
+        expect(await detail.hasApplicationDetailRow('site-address')).toBe(true)
+        expect(await detail.hasApplicationDetailRow('material')).toBe(true)
+      })
     })
   })
 })

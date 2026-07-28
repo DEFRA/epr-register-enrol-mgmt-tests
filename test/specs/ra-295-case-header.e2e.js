@@ -65,25 +65,46 @@ describe('RA-295 case header on the work item detail page', () => {
       await expect(detail.caseHeader()).toBeDisplayed()
     })
 
-    it('renders every field AC01 requires, none of them empty', async () => {
+    it('renders every field AC01 requires', async () => {
       // Driven off CASE_HEADER_FIELDS so adding a required field to the
       // contract automatically requires it here, rather than relying on
       // someone remembering to add an assertion.
       const missing = []
-      const empty = []
       for (const name of Object.keys(CASE_HEADER_FIELDS)) {
         if (!(await detail.hasCaseHeaderField(name))) {
           missing.push(name)
-          continue
-        }
-        const text = (await detail.caseHeaderFieldText(name)).trim()
-        // An em dash is the frontend's "no value" fallback. It counts as
-        // empty here: AC01 asks for the information, not a placeholder.
-        if (text === '' || text === '—') {
-          empty.push(`${name} ("${text}")`)
         }
       }
-      expect({ missing, empty }).toEqual({ missing: [], empty: [] })
+      expect(missing).toEqual([])
+    })
+
+    it('populates every field with real data rather than a placeholder', async () => {
+      // Presence alone is a weak assertion — a header of nine em dashes would
+      // satisfy it. Every field is therefore also checked for a real value.
+      //
+      // "dueOn" is deliberately exempt: management-be confirmed the SLA clock
+      // is stamped by the submitted → duly-made transition, so a seeded item
+      // in `submitted` (which this fixture is) has slaDueDate: null by design
+      // and correctly renders the em-dash fallback. Requiring a date here
+      // would be asserting a bug. The populated case gets its own block at the
+      // bottom of this file, against a clock pinned to known values.
+      const placeholders = []
+      for (const name of Object.keys(CASE_HEADER_FIELDS)) {
+        if (name === 'dueOn') continue
+        const text = (await detail.caseHeaderFieldText(name)).trim()
+        if (text === '' || text === '—') {
+          placeholders.push(`${name} ("${text}")`)
+        }
+      }
+      expect(placeholders).toEqual([])
+    })
+
+    it('falls back to a placeholder for "Due on" before the SLA clock starts', async () => {
+      // The complement of the exemption above, asserted rather than assumed:
+      // this fixture is in `submitted`, so it must show the em dash. If the
+      // seeder ever starts stamping a clock on submitted items, this fails and
+      // tells us the exemption above is now hiding something.
+      expect(await detail.hasRealDueOn()).toBe(false)
     })
 
     it('shows the organisation name and the organisation ID', async () => {
