@@ -121,11 +121,25 @@ describe('Full operator payload on the work item detail page (seeded)', () => {
       await expect(detail.applicationDetailRow('prn-tonnage')).toBeDisplayed()
     })
 
-    it('shows the PRN authoriser name and email', async () => {
-      const authorisers =
-        await detail.applicationDetailRowText('prn-authorisers')
-      expect(authorisers).toContain('Tom Baker')
-      expect(authorisers).toContain('tom.baker@example.com')
+    it('shows the PRN authoriser by name', async () => {
+      // Names only, by design: "PRN authorisers" answers who they are, and
+      // "Authority to issue" below carries the contact detail. I originally
+      // asserted the email here too, carried over from the retired page's
+      // name+email table — but nothing is lost, it just moved rows.
+      await expect(detail.applicationDetailRow('prn-authorisers')).toHaveText(
+        expect.stringContaining('Tom Baker')
+      )
+    })
+
+    it('shows the authoriser contact detail under "Authority to issue"', async () => {
+      // Rendered as "Name (email)". Asserting the email specifically is the
+      // point: it is the only place the submitted authoriser contact appears,
+      // so if this row regressed to names-only the address would be nowhere on
+      // the page and no other test would notice.
+      const authority =
+        await detail.applicationDetailRowText('authority-to-issue')
+      expect(authority).toContain('Tom Baker')
+      expect(authority).toContain('tom.baker@example.com')
     })
 
     it('shows every business plan category with its detail text', async () => {
@@ -148,13 +162,19 @@ describe('Full operator payload on the work item detail page (seeded)', () => {
   })
 
   describe('sampling and inspection plan documents', () => {
-    it('lists the uploaded files with their scan status', async () => {
+    it('lists every uploaded file with its upload metadata', async () => {
+      // No "Clean" tag is expected: a clean file renders as a plain download
+      // link, and the scan tag appears only for files that are NOT clean
+      // (which then render as an unlinked span). Asserting "Clean" here — as I
+      // first did, carried over from the retired page's scan-status column —
+      // would have demanded a tag the design deliberately omits.
       const documents = await detail.supportingDocumentNames()
       expect(documents).toContain('sampling-plan.pdf')
+      expect(documents).toContain('sampling-plan-appendix.pdf')
       const row = await detail.applicationDetailRowText(
         'sampling-inspection-plan'
       )
-      expect(row).toContain('Clean')
+      expect(row).toContain('Updated 1 June 2026')
     })
 
     it('every listed document downloads the real file', async () => {

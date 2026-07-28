@@ -45,40 +45,36 @@ describe('RA-295 registration number on the applications list', () => {
   })
 
   describe('across several seeded applications', () => {
-    before(async () => {
-      // Bounded to the seeded re-accreditation items by searching a fragment
-      // common to their organisation IDs, rather than reading the unfiltered
-      // first page.
-      //
-      // The unfiltered list was the original approach and it was wrong: which
-      // cards land on page one depends on how many items earlier specs created,
-      // so "is there an EPR- number anywhere on this page" passed or failed
-      // depending on spec execution order. A test whose result depends on what
-      // ran before it is not evidence of anything.
-      await workItems.resetFilters()
-      await workItems.searchByOrgId('org-')
-    })
+    // Each seeded organisation is searched by name and its OWN registration
+    // number asserted, rather than scanning a page of cards.
+    //
+    // Two earlier attempts here were unsound. Reading the unfiltered first
+    // page made the outcome depend on how many items previous specs had
+    // created — a test whose result depends on execution order is not
+    // evidence of anything. Searching a shared "org-" fragment then matched
+    // only ONE card, because only the full-payload fixture carries an
+    // operatorOrganisationId at all.
+    //
+    // Asserting a DIFFERENT expected number per organisation is what gives
+    // this teeth: a card rendering one hardcoded value, or reading the wrong
+    // payload field, still satisfies a "looks like EPR-nnn" check but fails
+    // here.
+    const seeded = [
+      ['Full Payload Verification Ltd', 'EPR-100999'],
+      ['Belfast Fibres Co', 'EPR-100198']
+    ]
 
-    it('renders a registration number on every card', async () => {
-      const numbers = await workItems.cardRegistrationNumbers()
-      // Guard against a vacuous pass: an empty list would satisfy "every card
-      // has one" without proving anything.
-      expect(numbers.length).toBeGreaterThan(1)
-      expect(numbers.filter((value) => value === null)).toEqual([])
-    })
-
-    it('shows real registration numbers rather than placeholders', async () => {
-      // Every seeded re-accreditation item carries an EPR-prefixed
-      // registration number. If the field renders but is universally an em
-      // dash the value is not actually plumbed through — which the
-      // presence-only assertion above would not catch. Requiring EVERY card in
-      // this bounded, all-seeded set to have one is stronger than "some card
-      // does", and no longer depends on which cards happen to be on page one.
-      const numbers = await workItems.cardRegistrationNumbers()
-      const withoutRealNumber = numbers.filter(
-        (value) => !/EPR-\d+/.test(value ?? '')
-      )
-      expect(withoutRealNumber).toEqual([])
-    })
+    for (const [organisation, registrationNumber] of seeded) {
+      it(`shows ${registrationNumber} on the ${organisation} card`, async () => {
+        await workItems.resetFilters()
+        await workItems.searchByOrgName(organisation)
+        expect(await workItems.getRowCount()).toBe(1)
+        const id = await workItems.firstResultWorkItemId()
+        expect(await workItems.tileHasRegistrationNumber(id)).toBe(true)
+        await expect(workItems.tileRegistrationNumber(id)).toHaveText(
+          expect.stringContaining(registrationNumber)
+        )
+      })
+    }
   })
 })
