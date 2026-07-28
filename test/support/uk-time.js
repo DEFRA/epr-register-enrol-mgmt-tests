@@ -34,6 +34,27 @@ export function formatUkDateTimeGds(date) {
 }
 
 /**
+ * Format a Date as a GDS date in UK local time, e.g. "24 August 2026".
+ *
+ * RA-295's case-header "Due on" is a date, not a timestamp. It still has to be
+ * computed in Europe/London rather than the runner's TZ: an SLA deadline that
+ * lands just after midnight BST is the *previous* day in UTC, so formatting in
+ * UTC would assert the wrong date for part of the year — exactly the class of
+ * bug these helpers exist to catch.
+ *
+ * @param {Date} date
+ * @returns {string}
+ */
+export function formatUkDateGds(date) {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  }).format(date)
+}
+
+/**
  * The set of acceptable UK-local GDS strings for an event that happened "about
  * now", allowing for the delay between the server creating the record and the
  * test reading the rendered page. Returns one string per minute across the

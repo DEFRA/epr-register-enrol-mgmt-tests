@@ -93,11 +93,20 @@ describe('Auto duly-made and SLA clock start', () => {
       await login.logout()
     })
 
-    it('shows SLA clock status section on the detail page in duly-made state', async () => {
+    it('surfaces the SLA due date on the detail page in duly-made state', async () => {
       await workItems.openWorkItem(workItemId)
       await detail.assertState('Duly made')
-      // SLA clock section is visible to team leaders (canManageSla).
-      await expect($('[data-testid="sla-clock-info"]')).toBeDisplayed()
+      // RA-295 removed the "On track" / "At risk" / "Breached" SLA tracker
+      // badge this used to assert on, and replaced it with an absolute "Due
+      // on" date in the case header. The behaviour under test is unchanged —
+      // the auto-transition to duly-made starts the SLA clock and the
+      // caseworker can see it — so the assertion moves to the new surface
+      // rather than being dropped.
+      //
+      // hasRealDueOn() rather than a presence check: the field renders either
+      // way, showing an em dash when no clock has started, so a presence-only
+      // assertion would pass even if the clock had never started.
+      expect(await detail.hasRealDueOn()).toBe(true)
     })
 
     it('audit log contains sla-clock-started entry after auto-transition', async () => {
@@ -142,12 +151,14 @@ describe('Auto duly-made and SLA clock start', () => {
       await login.logout()
     })
 
-    it('SLA clock info is still visible after payment-received resets the clock', async () => {
+    it('still shows the SLA due date after payment-received resets the clock', async () => {
       await workItems.openWorkItem(workItemId)
       await detail.assertState('Updated')
-      // The payment-received action (ReAccreditationSlaStampHook) resets
-      // the SLA clock — the clock should still be shown.
-      await expect($('[data-testid="sla-clock-info"]')).toBeDisplayed()
+      // The payment-received action (ReAccreditationSlaStampHook) resets the
+      // SLA clock — the caseworker must still be able to see the deadline.
+      // RA-295 moved that from the removed SLA tracker badge to the case
+      // header's "Due on" date; see the duly-made test above.
+      expect(await detail.hasRealDueOn()).toBe(true)
     })
   })
 })

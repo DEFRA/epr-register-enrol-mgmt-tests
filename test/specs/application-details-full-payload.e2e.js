@@ -247,15 +247,22 @@ describe('Application details page — full operator payload (seeded)', () => {
     })
   })
 
-  describe('link from detail page', () => {
+  describe('the detail page no longer links out to a separate page', () => {
+    // RA-295 (AC02) folded this page's content into the work item detail page
+    // and removed the two-step journey. This block used to assert the "View
+    // full application details" link was DISPLAYED; the link is now gone, so
+    // the assertion is inverted rather than deleted — keeping a guard here
+    // means a re-introduced link fails next to the payload coverage it
+    // belongs with. That the payload actually renders on the detail page is
+    // covered by ra-295-application-details.e2e.js.
     before(async () => {
       await workItems.openWorkItem(workItemId)
     })
 
-    it('shows the "View full application details" link', async () => {
+    it('no longer shows the "View full application details" link', async () => {
       await expect(
         $('[data-testid="view-application-details-link"]')
-      ).toBeDisplayed()
+      ).not.toBeExisting()
     })
   })
 })

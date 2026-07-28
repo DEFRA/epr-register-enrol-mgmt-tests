@@ -78,6 +78,26 @@ class QueryPage extends Page {
     await $('[data-testid="query-cancel"]').click()
   }
 
+  /**
+   * RA-295 (AC04). The "When you send the query, the application will also be
+   * assigned to you." inset text.
+   *
+   * Before RA-295 this rendered unconditionally. The AC makes it conditional:
+   * it must appear when the application is UNASSIGNED (querying will take
+   * ownership) and must NOT appear when the application is already assigned
+   * (where the sentence is simply untrue — it would tell a caseworker their
+   * colleague's application is about to change hands). Both directions are
+   * asserted, because the presence half alone passes against the old
+   * unconditional markup and could never fail.
+   */
+  assignmentNotice() {
+    return $('[data-testid="query-assignment-notice"]')
+  }
+
+  async hasAssignmentNotice() {
+    return this.assignmentNotice().isExisting()
+  }
+
   async assertErrorSummaryDisplayed() {
     await expect($('[data-testid="query-error-summary"]')).toBeDisplayed()
   }

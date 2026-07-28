@@ -43,29 +43,24 @@ describe('Application details page — re-accreditation', () => {
     await login.logout()
   })
 
-  describe('link from detail page', () => {
+  describe('no link from the detail page', () => {
+    // RA-295 (AC02) removed the two-step journey: all application data is now
+    // shown on the work item detail page itself, and the "View full
+    // application details" link that opened this page is gone.
+    //
+    // This block previously asserted the link was displayed, that its href
+    // pointed here, and that clicking it navigated here — all three are now
+    // untrue by design. They are replaced by one inverted guard so a
+    // re-introduced link fails loudly. The content those tests reached is
+    // covered on the detail page by ra-295-application-details.e2e.js.
     before(async () => {
       await workItems.openWorkItem(workItemId)
     })
 
-    it('shows the "View full application details" link', async () => {
+    it('no longer shows the "View full application details" link', async () => {
       await expect(
         $('[data-testid="view-application-details-link"]')
-      ).toBeDisplayed()
-    })
-
-    it('link href points to the application-details page for this work item', async () => {
-      const href = await $(
-        '[data-testid="view-application-details-link"]'
-      ).getAttribute('href')
-      expect(href).toContain(`/work-items/${workItemId}/application-details`)
-    })
-
-    it('clicking the link navigates to the application-details page', async () => {
-      await $('[data-testid="view-application-details-link"]').click()
-      await applicationDetails.waitForPage()
-      const url = await browser.getUrl()
-      expect(url).toContain(`/work-items/${workItemId}/application-details`)
+      ).not.toBeExisting()
     })
   })
 

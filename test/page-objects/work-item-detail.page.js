@@ -15,6 +15,47 @@ function toXPathString(value) {
   return `concat(${parts.join(`, "'", `)})`
 }
 
+/**
+ * RA-295 (AC01). The eight things the case header must carry, mapped to the
+ * `data-testid` that surfaces each one. Exported so a spec asserts against the
+ * same single source of truth the page object reads, rather than a second
+ * hand-kept copy — and so a markup rename is a one-line change here rather
+ * than a sweep through the specs.
+ */
+export const CASE_HEADER_FIELDS = {
+  applicationsLink: 'case-header-applications-link',
+  accreditationRef: 'case-header-accreditation-ref',
+  orgName: 'case-header-org-name',
+  orgId: 'case-header-org-id',
+  material: 'case-header-material',
+  status: 'case-header-status',
+  assignedTo: 'case-header-assigned-to',
+  dueOn: 'case-header-due-on',
+  registrationNumber: 'case-header-registration-number'
+}
+
+/**
+ * RA-295 (AC02). The application information rows, in the exact order the AC
+ * prescribes. `bes` and `ors` are Exporter-only and are expected to be ABSENT
+ * for a Reprocessor (re-accreditation) application, so ordering assertions
+ * compare against the subset actually rendered rather than requiring all ten.
+ */
+export const APPLICATION_DETAIL_ROWS = [
+  'site-address',
+  'type',
+  'material',
+  'prn-tonnage',
+  'prn-authorisers',
+  'authority-to-issue',
+  'sampling-inspection-plan',
+  'business-plan',
+  'bes',
+  'ors'
+]
+
+/** RA-295 (AC02). The Exporter-only rows, split out for the negative test. */
+export const EXPORTER_ONLY_ROWS = ['bes', 'ors']
+
 class WorkItemDetailPage extends Page {
   /**
    * Read the page caption text (RA-196). The caption now shows the
@@ -49,7 +90,29 @@ class WorkItemDetailPage extends Page {
     ).isExisting()
   }
 
+  /**
+   * RA-295 moved status and assignee out of the envelope summary list and into
+   * the case header's meta line. Roughly fifteen specs assert on those two
+   * values via assertState / assertAssignedTo / assertUnassigned without
+   * caring WHERE they are rendered, so the three helpers below read the case
+   * header when it is present and fall back to the summary list otherwise.
+   *
+   * Keeping the fallback matters for more than the transition: the summary
+   * list still renders on work item pages the redesign does not cover, and a
+   * hard switch would have turned a UI relocation into a fifteen-spec rewrite
+   * for no gain in what is actually being tested.
+   */
+  async hasCaseHeader() {
+    return this.caseHeader().isExisting()
+  }
+
   async assertState(expectedState) {
+    if (await this.hasCaseHeader()) {
+      await expect(this.caseHeaderField('status')).toHaveText(
+        expect.stringContaining(expectedState)
+      )
+      return
+    }
     await expect(
       $(
         `//*[contains(@class,"govuk-summary-list__value") and contains(.,"${expectedState}")]`
@@ -70,9 +133,20 @@ class WorkItemDetailPage extends Page {
     await $('[data-testid="unassign-submit"]').click()
   }
 
+  /**
+   * Assert who holds the work item. Reads the RA-295 case header's "Assigned
+   * to" field when present, else the envelope summary row.
+   *
+   * Both paths are scoped to the assignee field specifically, so neither can
+   * pass on the name merely appearing somewhere else on the page.
+   */
   async assertAssignedTo(displayName) {
-    // Scoped to the "Assigned to" row (mirroring assertUnassigned) so it
-    // can't pass on the name appearing in some other summary-list value.
+    if (await this.hasCaseHeader()) {
+      await expect(this.caseHeaderField('assignedTo')).toHaveText(
+        expect.stringContaining(displayName)
+      )
+      return
+    }
     await expect(
       $(
         `//*[contains(@class,"govuk-summary-list__key") and normalize-space(.)="Assigned to"]/following-sibling::*[contains(@class,"govuk-summary-list__value") and contains(.,"${displayName}")]`
@@ -81,17 +155,11 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * Assert the envelope summary "Assigned to" row reads "Unassigned"
-   * (the literal rendered when no assignee is set). Scoped to the row
-   * whose key is exactly "Assigned to" so it cannot pass against an
-   * unrelated value cell.
+   * Assert the assignee field reads "Unassigned" — the literal rendered when
+   * no assignee is set.
    */
   async assertUnassigned() {
-    await expect(
-      $(
-        '//*[contains(@class,"govuk-summary-list__key") and normalize-space(.)="Assigned to"]/following-sibling::*[contains(@class,"govuk-summary-list__value") and contains(.,"Unassigned")]'
-      )
-    ).toBeDisplayed()
+    await this.assertAssignedTo('Unassigned')
   }
 
   /**
@@ -435,6 +503,234 @@ class WorkItemDetailPage extends Page {
         `//*[contains(@class,"govuk-summary-list__value") and contains(.,"${email}")]`
       )
     ).toBeDisplayed()
+  }
+
+  // ── RA-295 AC01: case header ─────────────────────────────────────────────── //
+
+  /** The case header panel that sits directly under the service navigation. */
+  caseHeader() {
+    return $('[data-testid="case-header"]')
+  }
+
+  /**
+   * A single case-header field element, keyed by the logical names in
+   * CASE_HEADER_FIELDS (e.g. 'orgName', 'dueOn'). Scoped to the header so a
+   * value repeated elsewhere on the page cannot satisfy a header assertion —
+   * "Plastic" appears in both the header and the Material detail row, so an
+   * unscoped material assertion could never fail.
+   */
+  caseHeaderField(name) {
+    const testId = CASE_HEADER_FIELDS[name]
+    if (!testId) {
+      throw new Error(`Unknown case header field "${name}"`)
+    }
+    return this.caseHeader().$(`[data-testid="${testId}"]`)
+  }
+
+  async caseHeaderFieldText(name) {
+    return this.caseHeaderField(name).getText()
+  }
+
+  async hasCaseHeaderField(name) {
+    return this.caseHeaderField(name).isExisting()
+  }
+
+  /**
+   * Whether the header's "Due on" carries a real date rather than the em-dash
+   * "no value" fallback.
+   *
+   * RA-295 replaces the old SLA tracker badge with this absolute due date, so
+   * this is what "the caseworker can see the SLA clock is running" looks like
+   * after the redesign. Asserting the field merely EXISTS would not do — it is
+   * rendered either way, showing an em dash when no clock has started.
+   */
+  async hasRealDueOn() {
+    if (!(await this.hasCaseHeaderField('dueOn'))) {
+      return false
+    }
+    const text = (await this.caseHeaderFieldText('dueOn')).trim()
+    return text !== '' && text !== '—'
+  }
+
+  /**
+   * Click the header's "Applications" link and wait until the browser is
+   * actually on the Applications list. The AC is that the link *takes you
+   * back to the list page*, so asserting the href alone would not prove it —
+   * the click and the resulting navigation are the behaviour under test.
+   */
+  async clickApplicationsLink() {
+    await this.caseHeaderField('applicationsLink').click()
+    await browser.waitUntil(
+      async () => new URL(await browser.getUrl()).pathname === '/work-items',
+      {
+        timeout: 10000,
+        timeoutMsg:
+          'Expected the case header "Applications" link to navigate back to /work-items'
+      }
+    )
+  }
+
+  // ── RA-295: markup the redesign removes ──────────────────────────────────── //
+
+  /**
+   * The RA-98 reference-implementation notification banner ("Re-accreditation
+   * work item" / "Reference implementation showing how a module supplies its
+   * own detail template"), which AC01 removes.
+   *
+   * Deliberately matched on its body text rather than on
+   * `.govuk-notification-banner` generally: the flash banner, the create
+   * success banner and the notification-failure banner are all GOV.UK
+   * notification banners too, so asserting "no notification banner exists"
+   * would fail for unrelated, wanted reasons — and would pass vacuously on a
+   * page where the RA-98 banner had merely been restyled.
+   */
+  ra98ReferenceBanner() {
+    return $(
+      '//*[contains(@class,"govuk-notification-banner")]' +
+        '[contains(.,"Reference implementation showing how a module supplies its own detail template")]'
+    )
+  }
+
+  /**
+   * The SLA tracker badge — the "On track" / "At risk" / "Breached" govukTag
+   * in the detail page's "SLA status" section. RA-295 removes it. The
+   * container testid is the one the pre-RA-295 template stamped
+   * (`sla-clock-info`), so this asserts the badge is genuinely gone rather
+   * than merely renamed.
+   */
+  slaStatusBadge() {
+    return $('[data-testid="sla-clock-info"]')
+  }
+
+  /**
+   * The "View full application details" link that took the user to the
+   * separate /application-details page. AC02 folds that page into the detail
+   * page and removes the link.
+   */
+  viewApplicationDetailsLink() {
+    return $('[data-testid="view-application-details-link"]')
+  }
+
+  // ── RA-295 AC02: single-page application information ─────────────────────── //
+
+  /** The container holding the ordered application information rows. */
+  applicationDetails() {
+    return $('[data-testid="application-details"]')
+  }
+
+  applicationDetailRow(key) {
+    return this.applicationDetails().$(`[data-testid="app-detail-row-${key}"]`)
+  }
+
+  async hasApplicationDetailRow(key) {
+    return this.applicationDetailRow(key).isExisting()
+  }
+
+  async applicationDetailRowText(key) {
+    return this.applicationDetailRow(key).getText()
+  }
+
+  /**
+   * The application-information row keys actually rendered, in DOM order.
+   *
+   * Returns only keys the AC names (filtered through APPLICATION_DETAIL_ROWS)
+   * so an unrelated row added later cannot break the ordering assertion, and
+   * de-duplicates so a nested testid cannot report a key twice. A spec asserts
+   * order by comparing this against APPLICATION_DETAIL_ROWS filtered to the
+   * same set — which checks relative order without requiring every
+   * conditional row to be present.
+   */
+  async applicationDetailRowOrder() {
+    const rows = await this.applicationDetails().$$('[data-testid]')
+    const seen = []
+    for (const row of rows) {
+      const testId = await row.getAttribute('data-testid')
+      const key = (testId ?? '').replace(/^app-detail-row-/, '')
+      if (
+        testId?.startsWith('app-detail-row-') &&
+        APPLICATION_DETAIL_ROWS.includes(key) &&
+        !seen.includes(key)
+      ) {
+        seen.push(key)
+      }
+    }
+    return seen
+  }
+
+  /**
+   * The filenames of every supporting document listed against the sampling &
+   * inspection plan row. AC02 requires ALL supporting documents to be listed,
+   * so this returns the full set for a length + membership assertion; reading
+   * only the first would pass against a template that renders `files[0]` and
+   * stops, which is precisely the regression the AC guards against.
+   */
+  async supportingDocumentNames() {
+    const links = await this.applicationDetailRow(
+      'sampling-inspection-plan'
+    ).$$('[data-testid="app-detail-document"]')
+    return Promise.all([...links].map((link) => link.getText()))
+  }
+
+  /**
+   * The "S&I updated by" uploaded-at / uploaded-by metadata, which the Jira
+   * notes explicitly RETAIN through the redesign.
+   */
+  samplingPlanUpdatedBy() {
+    return $('[data-testid="app-detail-sampling-updated-by"]')
+  }
+
+  // ── RA-295: application ref retained, moved to the bottom ────────────────── //
+
+  /** The retained debugging application ref, relocated to the page footer. */
+  footerApplicationRef() {
+    return $('[data-testid="work-item-application-ref-footer"]')
+  }
+
+  /**
+   * Assert the retained application ref sits AFTER the application
+   * information section in document order — the Jira note is not just "keep
+   * it" but "move it to the bottom of the page", so position is part of the
+   * requirement. Uses an XPath `following::` axis so this is about DOM order,
+   * not pixel position (mirroring assertApprovalPanelAboveSummary).
+   */
+  async assertApplicationRefAtBottom() {
+    await expect(this.footerApplicationRef()).toBeDisplayed()
+    await expect(
+      $(
+        '//*[@data-testid="application-details"]' +
+          '/following::*[@data-testid="work-item-application-ref-footer"]'
+      )
+    ).toExist()
+  }
+
+  // ── RA-295 AC03: assignment panel ────────────────────────────────────────── //
+
+  /** The bordered right-hand assignment panel. */
+  assignmentPanel() {
+    return $('[data-testid="case-assignment-panel"]')
+  }
+
+  /**
+   * The three assignment affordances AC03 requires, scoped to the right-hand
+   * panel so a control rendered elsewhere on the page cannot satisfy the AC
+   * ("available on the right side panel box" is the requirement, not merely
+   * "present somewhere").
+   */
+  assignmentControl(name) {
+    const testIds = {
+      selfAssign: 'self-assign-submit',
+      reassign: 'assign-submit',
+      unassign: 'unassign-submit'
+    }
+    const testId = testIds[name]
+    if (!testId) {
+      throw new Error(`Unknown assignment control "${name}"`)
+    }
+    return this.assignmentPanel().$(`[data-testid="${testId}"]`)
+  }
+
+  async hasAssignmentControl(name) {
+    return this.assignmentControl(name).isExisting()
   }
 }
 
