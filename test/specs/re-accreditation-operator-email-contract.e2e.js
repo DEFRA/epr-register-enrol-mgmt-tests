@@ -1,6 +1,7 @@
 import { browser, $, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
+import detail from '../page-objects/work-item-detail.page.js'
 
 /**
  * Frontend/Backend Contract Test: operatorEmail field (RA-123)
@@ -66,7 +67,11 @@ describe('RA-123 contract: operatorEmail field in re-accreditation submission', 
     expect(workItemId).toBeTruthy()
 
     // Navigate to the audit log to verify notification-sent entry
-    await $('[data-testid="work-item-audit-log-link"]').click()
+    // RA-295 replaced the "View audit log" link with the "Application history"
+    // tab. Routed through the page object rather than a raw testid so the next
+    // relocation is absorbed there too — bypassing gotoAudit() is exactly why
+    // this spec broke while the twelve that use it did not.
+    await detail.gotoAudit()
     await expect($('[data-testid="work-item-audit-log"]')).toBeDisplayed()
 
     // Look for the operator-facing submission-confirmation audit entry
@@ -110,7 +115,11 @@ describe('RA-123 contract: operatorEmail field in re-accreditation submission', 
     await expect($('[data-testid="work-item-success-banner"]')).toBeDisplayed()
 
     // Verify audit log includes notification-sent with the default email
-    await $('[data-testid="work-item-audit-log-link"]').click()
+    // RA-295 replaced the "View audit log" link with the "Application history"
+    // tab. Routed through the page object rather than a raw testid so the next
+    // relocation is absorbed there too — bypassing gotoAudit() is exactly why
+    // this spec broke while the twelve that use it did not.
+    await detail.gotoAudit()
     await expect($('[data-testid="work-item-audit-log"]')).toBeDisplayed()
 
     // See the previous test for why this is scoped to "Submission

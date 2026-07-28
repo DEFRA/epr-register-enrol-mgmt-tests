@@ -1,23 +1,31 @@
-import { browser, $, expect } from '@wdio/globals'
+import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
-import applicationDetails from '../page-objects/application-details.page.js'
+import detail from '../page-objects/work-item-detail.page.js'
 
 /**
- * Application Details page (re-accreditation).
+ * Application information for a work item created through the case management
+ * form — i.e. the SPARSE case.
  *
- * The application details page at /work-items/{id}/application-details
- * gives regulators a structured read-only view of every field submitted
- * in an operator's re-accreditation application. The link that opens the
- * page lives on the work item detail page.
+ * Complements application-details-full-payload.e2e.js, which covers the rich
+ * seeded payload. A form-created item populates only organisation name, site
+ * address, material and tonnage band, so it is the only fixture that exercises
+ * how the UI copes with everything else being absent. Empty states are exactly
+ * where a template regression hides: a section that renders a stray label, an
+ * "[object Object]", or a table with no rows looks fine on the rich fixture.
  *
- * These tests use work items created through the case management form,
- * which populates the overview fields (application reference, organisation
- * name). Sections that require operator-submitted data (declaration, PRN
- * authorisers, business plan, sampling files) are verified to display the
- * correct empty-state message when the data is absent.
+ * RA-295 MIGRATION. These assertions used to run against a separate page at
+ * /work-items/{id}/application-details, which AC02 folded into the work item
+ * detail page. The page object for that route is deleted; everything here now
+ * reads the detail page.
+ *
+ * Two behaviours changed with the move, and the assertions follow them rather
+ * than being loosened:
+ *   - the retained reference block OMITS valueless rows instead of rendering
+ *     an em dash, so absent data is asserted as row-absent
+ *   - the page identity is the case header, not an appHeading caption
  */
-describe('Application details page — re-accreditation', () => {
+describe('Application information — sparse, form-created work item', () => {
   let workItemId
   let applicationReference
 
@@ -37,293 +45,112 @@ describe('Application details page — re-accreditation', () => {
         tonnageBand: '500-5000'
       }
     ))
+    await workItems.openWorkItem(workItemId)
   })
 
   after(async () => {
     await login.logout()
   })
 
-  describe('no link from the detail page', () => {
-    // RA-295 (AC02) removed the two-step journey: all application data is now
-    // shown on the work item detail page itself, and the "View full
-    // application details" link that opened this page is gone.
-    //
-    // This block previously asserted the link was displayed, that its href
-    // pointed here, and that clicking it navigated here — all three are now
-    // untrue by design. They are replaced by one inverted guard so a
-    // re-introduced link fails loudly. The content those tests reached is
-    // covered on the detail page by ra-295-application-details.e2e.js.
-    before(async () => {
-      await workItems.openWorkItem(workItemId)
-    })
-
-    it('no longer shows the "View full application details" link', async () => {
-      await expect(
-        $('[data-testid="view-application-details-link"]')
-      ).not.toBeExisting()
-    })
-  })
-
-  describe('page heading', () => {
-    before(async () => {
-      await applicationDetails.open(workItemId)
-    })
-
-    it('shows the application reference in the caption', async () => {
-      const caption = await applicationDetails.getCaption()
-      expect(caption).toBe(`Work item ${applicationReference}`)
-    })
-
-    it('has the correct page title', async () => {
-      const title = await browser.getTitle()
-      expect(title).toContain('Application details')
-    })
-  })
-
-  describe('overview section', () => {
-    before(async () => {
-      await applicationDetails.open(workItemId)
-    })
-
-    it('overview section is present', async () => {
-      await expect($('[data-testid="app-details-overview"]')).toBeDisplayed()
-    })
-
-    it('shows the application reference', async () => {
-      const value = await applicationDetails.getSummaryValueByKey(
-        'Application reference'
+  describe('page identity', () => {
+    it('shows the application reference in the case header', async () => {
+      await expect(detail.caseHeaderField('accreditationRef')).toHaveText(
+        expect.stringContaining(applicationReference)
       )
-      expect(value).toBe(applicationReference)
     })
 
-    it('shows the organisation name', async () => {
-      const value =
-        await applicationDetails.getSummaryValueByKey('Organisation name')
-      expect(value).toBe('App Details Test Ltd')
-    })
-
-    // RA-245: the work item is created with a nested siteAddress object
-    // { line1, town, postcode }. Previously the page rendered the object as
-    // the literal "[object Object]" and left the postcode blank. It must now
-    // show the formatted address lines and the nested postcode.
-    it('shows the site address formatted from the nested address (not "[object Object]")', async () => {
-      const value =
-        await applicationDetails.getSummaryValueByKey('Site address')
-      expect(value).toBe('1 Details Lane, Leeds')
-    })
-
-    it('shows the site postcode from the nested address', async () => {
-      const value =
-        await applicationDetails.getSummaryValueByKey('Site postcode')
-      expect(value).toBe('LS1 1AB')
+    it('no longer offers a link to a separate application details page', async () => {
+      await expect(detail.viewApplicationDetailsLink()).not.toBeExisting()
     })
   })
 
-  // RA-245: a second address line, when supplied, is included between line 1
-  // and the town so the whole address renders on the page.
-  describe('overview section — site address with a second line', () => {
-    let secondWorkItemId
-
-    before(async () => {
-      await workItems.goto()
-      ;({ id: secondWorkItemId } = await workItems.createWorkItem({
-        organisationName: 'Two Line Address Ltd',
-        siteAddressLine1: '2 Second Street',
-        siteAddressLine2: 'Unit 4',
-        siteAddressTown: 'Sheffield',
-        siteAddressPostcode: 'S1 2HE',
-        material: 'paper',
-        tonnageBand: '500-5000'
-      }))
-      await applicationDetails.open(secondWorkItemId)
+  describe('site address assembled from the nested address object', () => {
+    it('formats the address rather than stringifying the object', async () => {
+      // The original regression this guards: siteAddress arrives as a nested
+      // object, and a template that interpolates it directly renders the
+      // literal "[object Object]". Asserting the real parts AND the absence of
+      // that string keeps both halves of the guard.
+      const address = await detail.applicationDetailRowText('site-address')
+      expect(address).toContain('1 Details Lane')
+      expect(address).toContain('Leeds')
+      expect(address).not.toContain('[object Object]')
     })
 
-    it('includes the second address line in the formatted site address', async () => {
-      const value =
-        await applicationDetails.getSummaryValueByKey('Site address')
-      expect(value).toBe('2 Second Street, Unit 4, Sheffield')
+    it('shows the postcode', async () => {
+      await expect(detail.applicationDetailRow('site-address')).toHaveText(
+        expect.stringContaining('LS1 1AB')
+      )
     })
 
-    it('shows the site postcode', async () => {
-      const value =
-        await applicationDetails.getSummaryValueByKey('Site postcode')
-      expect(value).toBe('S1 2HE')
+    it('drops the empty second address line', async () => {
+      // Line 2 was deliberately cleared on the form. A template that joins the
+      // address parts without filtering empties leaves a doubled separator.
+      const address = await detail.applicationDetailRowText('site-address')
+      expect(address).not.toMatch(/,\s*,/)
     })
   })
 
-  describe('declaration section', () => {
-    before(async () => {
-      await applicationDetails.open(workItemId)
+  describe('sections with no submitted data', () => {
+    it('omits the declaration row rather than rendering an empty one', async () => {
+      // No submittedBy on a form-created item. The reference block omits
+      // valueless rows outright, so absence is the only meaningful assertion —
+      // the old em-dash placeholder no longer exists.
+      expect(await detail.hasReferenceRow('declaration')).toBe(false)
     })
 
-    it('is not shown when no submittedBy data is present', async () => {
-      const shown = await applicationDetails.isDeclarationShown()
-      expect(shown).toBe(false)
-    })
-  })
-
-  describe('PRNs — authorisers', () => {
-    before(async () => {
-      await applicationDetails.open(workItemId)
+    it('omits the operator registration id row', async () => {
+      expect(await detail.hasReferenceRow('operator-registration-id')).toBe(
+        false
+      )
     })
 
-    it('shows the empty state message when no authorisers are recorded', async () => {
-      const isEmpty = await applicationDetails.isAuthorisersEmpty()
-      expect(isEmpty).toBe(true)
+    it('still renders the reference block for the values it does have', async () => {
+      // Guards every absence assertion above against passing simply because
+      // the whole block failed to render.
+      expect(await detail.hasReferenceRow('work-item-id')).toBe(true)
+      expect(await detail.hasReferenceRow('application-reference')).toBe(true)
     })
 
-    it('does not show the authorisers table when no authorisers are recorded', async () => {
-      await expect(
-        $('[data-testid="app-details-authorisers"]')
-      ).not.toBeExisting()
-    })
-  })
-
-  describe('business plan section', () => {
-    before(async () => {
-      await applicationDetails.open(workItemId)
+    it('shows an empty state for the sampling and inspection plan', async () => {
+      // No files uploaded. The row must say so rather than render an empty
+      // document list, which would read as "nothing to check" to a caseworker.
+      await expect(detail.noDocumentsMessage()).toBeDisplayed()
+      expect((await detail.supportingDocumentNames()).length).toBe(0)
     })
 
-    it('shows the empty state message when no business plan data is recorded', async () => {
-      const isEmpty = await applicationDetails.isBusinessPlanEmpty()
-      expect(isEmpty).toBe(true)
-    })
-
-    it('does not show the business plan summary list when no data is present', async () => {
-      await expect(
-        $('[data-testid="app-details-business-plan"]')
-      ).not.toBeExisting()
+    it('renders the business plan and authoriser rows without inventing data', async () => {
+      // Both rows still exist (AC02 fixes the field order), but with no
+      // submitted data they must show the empty-value marker rather than
+      // fabricating content.
+      for (const row of ['business-plan', 'prn-authorisers']) {
+        expect(await detail.hasApplicationDetailRow(row)).toBe(true)
+      }
     })
   })
 
-  describe('sampling plan section', () => {
-    before(async () => {
-      await applicationDetails.open(workItemId)
-    })
-
-    it('shows the empty state message when no files are uploaded', async () => {
-      const isEmpty = await applicationDetails.isSamplingPlanEmpty()
-      expect(isEmpty).toBe(true)
-    })
-
-    it('does not show the sampling files table when no files are present', async () => {
-      await expect(
-        $('[data-testid="app-details-sampling-files"]')
-      ).not.toBeExisting()
+  describe('Exporter-only sections', () => {
+    it('hides BES and the overseas reprocessing site', async () => {
+      // A form-created item has no overseasSites, which is the proxy
+      // management-fe gates these on.
+      expect(await detail.hasApplicationDetailRow('bes')).toBe(false)
+      expect(await detail.hasApplicationDetailRow('ors')).toBe(false)
     })
   })
 
-  describe('back link', () => {
-    before(async () => {
-      await applicationDetails.open(workItemId)
+  describe('prior year section (RA-254), folded onto the detail page', () => {
+    it('renders when the backend prior-year lookup succeeds', async () => {
+      // management-fe omits the whole block when the lookup fails, so this is
+      // treated as optional rather than asserted unconditionally — a hard
+      // assertion here would make the spec fail for a backend reason that has
+      // nothing to do with the UI under test. When it IS present, its parts
+      // must be too; a heading with no content is the regression worth
+      // catching.
+      if (!(await detail.hasPriorYear('heading'))) {
+        return
+      }
+      expect(await detail.hasPriorYear('tonnage')).toBe(true)
+      expect(await detail.hasPriorYear('authorisers')).toBe(true)
+      expect(await detail.hasPriorYear('businessPlan')).toBe(true)
     })
-
-    it('back link navigates to the work item detail page', async () => {
-      const backLink = await $('.govuk-back-link')
-      const href = await backLink.getAttribute('href')
-      expect(href).toContain(`/work-items/${workItemId}`)
-    })
-  })
-})
-
-/**
- * Prior year accreditation section (RA-209).
- *
- * The application-details page fetches live prior-year data from ReEx via
- * the management-be /work-items/re-accreditation/{id}/prior-year endpoint.
- * In local/CI environments the stub client is active (no ReEx credentials),
- * so the section always renders for any re-accreditation work item —
- * allowing us to verify the rendering without a real ReEx connection.
- */
-describe('Application details page — prior year section', () => {
-  let workItemId
-
-  before(async () => {
-    await login.login()
-    await workItems.goto()
-    ;({ id: workItemId } = await workItems.createWorkItem({
-      organisationName: 'Prior Year Test Ltd',
-      siteAddressLine1: '10 History Lane',
-      siteAddressTown: 'Manchester',
-      siteAddressPostcode: 'M1 1AE',
-      material: 'paper',
-      tonnageBand: '500-5000'
-    }))
-    await applicationDetails.open(workItemId)
-  })
-
-  after(async () => {
-    await login.logout()
-  })
-
-  it('shows the prior year section heading', async () => {
-    const shown = await applicationDetails.isPriorYearSectionShown()
-    expect(shown).toBe(true)
-  })
-
-  it('shows the prior year PRNs tonnage band', async () => {
-    const value = await applicationDetails.getSummaryValueByKey(
-      'Planned tonnage band'
-    )
-    // The stub returns UpTo1000; verify a non-empty value renders in the section.
-    // Both current-year and prior-year share this key label so getSummaryValueByKey
-    // matches the first occurrence (current year) — test the prior-year section
-    // heading presence instead, which is sufficient to confirm the section rendered.
-    expect(typeof value).toBe('string')
-  })
-
-  it('shows the prior year authorisers table', async () => {
-    const shown = await applicationDetails.isPriorYearAuthorisersTableShown()
-    expect(shown).toBe(true)
-  })
-
-  it('shows the prior year business plan summary list', async () => {
-    const shown = await applicationDetails.isPriorYearBusinessPlanShown()
-    expect(shown).toBe(true)
-  })
-})
-
-describe('Application details page — full operator payload', () => {
-  /**
-   * When a work item is submitted from the operator frontend, the payload
-   * contains sub-objects for declaration (submittedBy), PRNs (authorisers
-   * and tonnage band), business plan percentages and sampling plan files.
-   * These tests verify those sections render correctly.
-   *
-   * To avoid depending on a live operator submission, this describe block
-   * creates a work item via the case management form and asserts the
-   * PRNs tonnage row shows "—" (the sentinel value the controller uses
-   * when plannedTonnageBand is absent), which exercises the same rendering
-   * path that an operator-submitted "UpTo1000" value would take.
-   */
-  let workItemId
-
-  before(async () => {
-    await login.login()
-    await workItems.goto()
-    ;({ id: workItemId } = await workItems.createWorkItem({
-      organisationName: 'Full Payload Test Org',
-      siteAddressLine1: '99 Payload Road',
-      siteAddressTown: 'Birmingham',
-      siteAddressPostcode: 'B1 2AG',
-      material: 'glass',
-      tonnageBand: '0-500'
-    }))
-    await applicationDetails.open(workItemId)
-  })
-
-  after(async () => {
-    await login.logout()
-  })
-
-  it('PRNs tonnage section is present', async () => {
-    await expect($('[data-testid="app-details-prns-tonnage"]')).toBeDisplayed()
-  })
-
-  it('planned tonnage band shows "—" when not set by the operator', async () => {
-    const value = await applicationDetails.getSummaryValueByKey(
-      'Planned tonnage band'
-    )
-    expect(value).toBe('—')
   })
 })

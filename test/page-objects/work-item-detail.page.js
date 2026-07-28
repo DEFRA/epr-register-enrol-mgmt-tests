@@ -344,19 +344,26 @@ class WorkItemDetailPage extends Page {
    * pixel position.
    */
   async assertApprovalPanelAboveSummary() {
-    // The envelope summary must appear somewhere after the approval panel.
+    // RA-295 removed `work-item-summary`, which this used as the "everything
+    // else on the page" landmark. Re-pointed at `application-details`, which
+    // is the section that now occupies that position.
+    //
+    // This is not a cosmetic swap: an XPath naming a testid that no longer
+    // exists anywhere can never match, so leaving it would have turned an
+    // ordering guarantee into a permanently failing assertion (and, had it
+    // been written as a negative, into one that could never fail).
     await expect(
       $(
         '//*[@data-testid="re-accreditation-approval-panel"]' +
-          '/following::*[@data-testid="work-item-summary"]'
+          '/following::*[@data-testid="application-details"]'
       )
     ).toExist()
-    // The decision metadata must sit between the panel and the summary.
+    // The decision metadata must sit between the panel and the details.
     await expect(
       $(
         '//*[@data-testid="re-accreditation-approval-panel"]' +
           '/following::*[@data-testid="re-accreditation-decision-metadata"]' +
-          '/following::*[@data-testid="work-item-summary"]'
+          '/following::*[@data-testid="application-details"]'
       )
     ).toExist()
   }
@@ -936,6 +943,52 @@ class WorkItemDetailPage extends Page {
 
   async referenceRowText(key) {
     return this.referenceRow(key).getText()
+  }
+
+  /**
+   * The value cell of an application-information row. Rows also carry
+   * `app-detail-value-{key}` on the value side, so assertions can target the
+   * submitted data without matching the row's own label — which matters for
+   * short values ("Plastic") that could otherwise be satisfied by the label.
+   */
+  applicationDetailValue(key) {
+    return this.applicationDetails().$(
+      `[data-testid="app-detail-value-${key}"]`
+    )
+  }
+
+  /** The "no supporting documents" empty state on the sampling plan row. */
+  noDocumentsMessage() {
+    return $('[data-testid="app-detail-documents-none"]')
+  }
+
+  // ── RA-295: prior-year section, folded onto the detail page ─────────────── //
+
+  /**
+   * The RA-254 prior-year block, which moved onto the detail page with the
+   * rest of the application-details content.
+   *
+   * management-fe renders it only when the backend prior-year lookup succeeds
+   * and is absent entirely when it fails, so callers must treat it as
+   * optional rather than assuming it is always present.
+   */
+  priorYear(part = 'details') {
+    const testIds = {
+      heading: 'prior-year-heading',
+      details: 'prior-year-details',
+      tonnage: 'prior-year-tonnage',
+      authorisers: 'prior-year-authorisers',
+      businessPlan: 'prior-year-business-plan'
+    }
+    const testId = testIds[part]
+    if (!testId) {
+      throw new Error(`Unknown prior-year part "${part}"`)
+    }
+    return $(`[data-testid="${testId}"]`)
+  }
+
+  async hasPriorYear(part = 'details') {
+    return this.priorYear(part).isExisting()
   }
 }
 

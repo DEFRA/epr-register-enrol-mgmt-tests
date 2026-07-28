@@ -318,11 +318,15 @@ describe('RA-324 Applications page', () => {
       await login.logout()
     })
 
-    it('offers the audit-log history link on the work-item page', async () => {
+    it('offers the activity history affordance on the work-item page', async () => {
+      // RA-295 replaced the "View audit log" link with an "Application
+      // history" tab alongside "Application summary". The affordance and the
+      // route are the same; only its presentation changed, so this asserts the
+      // tab exists and that the summary tab is the one currently active.
       await workItems.openWorkItem(itemId)
-      const link = $('[data-testid="work-item-audit-log-link"]')
-      await expect(link).toBeDisplayed()
-      await expect(link).toHaveText(expect.stringContaining('View audit log'))
+      await expect(detail.tab('history')).toBeDisplayed()
+      expect(await detail.isActiveTab('summary')).toBe(true)
+      expect(await detail.isActiveTab('history')).toBe(false)
     })
 
     it('navigates to the activity history when the link is used', async () => {
