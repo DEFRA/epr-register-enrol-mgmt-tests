@@ -54,11 +54,16 @@ describe('RA-295 assignment panel and query assignment notice', () => {
     // therefore the only one that can regress silently, so it gets its own
     // assertion rather than being folded into a loop.
     describe('while the item is unassigned', () => {
-      it('shows the panel and reads "Unassigned"', async () => {
+      it('shows the panel with no status line, per the prototype', async () => {
         await expect(detail.assignmentPanel()).toBeDisplayed()
-        await expect(detail.assignmentCurrent()).toHaveText(
+        // The prototype's unassigned card carries no status line: "Unassigned"
+        // there only restates the case header's "Assigned to" field, directly
+        // above the button that resolves it. Paired with a positive assertion
+        // on the header so this cannot pass by the whole page failing to load.
+        await expect(detail.caseHeaderField('assignedTo')).toHaveText(
           expect.stringContaining('Unassigned')
         )
+        expect(await detail.assignmentCurrent().isExisting()).toBe(false)
       })
 
       it('offers all three assignment affordances', async () => {
