@@ -531,7 +531,21 @@ class WorkItemDetailPage extends Page {
     return this.caseHeaderField(name).getText()
   }
 
+  /**
+   * Whether a case-header field is present.
+   *
+   * Guarded, because the field selectors are SCOPED to the header container:
+   * calling `.$()` on an element that does not exist throws rather than
+   * returning a not-found element, so on a page with no case header at all
+   * this would raise `Can't call $ on element with selector
+   * "[data-testid=case-header]"` instead of answering "no". A predicate named
+   * `has…` must return a boolean for every page it is pointed at — callers
+   * (and `hasRealDueOn` below) branch on it.
+   */
   async hasCaseHeaderField(name) {
+    if (!(await this.caseHeader().isExisting())) {
+      return false
+    }
     return this.caseHeaderField(name).isExisting()
   }
 
@@ -763,7 +777,13 @@ class WorkItemDetailPage extends Page {
     return this.assignmentPanel().$(`[data-testid="${testId}"]`)
   }
 
+  /** Guarded for the same reason as hasCaseHeaderField — the control
+   * selectors are scoped to the panel, so a missing panel would throw
+   * rather than answer "no". */
   async hasAssignmentControl(name) {
+    if (!(await this.assignmentPanel().isExisting())) {
+      return false
+    }
     return this.assignmentControl(name).isExisting()
   }
 }
