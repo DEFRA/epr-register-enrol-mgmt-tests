@@ -118,6 +118,20 @@ describe('RA-295 application details on a single page', () => {
     expect(documents).toContain('sampling-plan-appendix.pdf')
   })
 
+  it('gives every supporting document a link that resolves to the real file', async () => {
+    // Listing a filename is not the same as linking it correctly. The second
+    // and subsequent documents are exactly where an index-confused or
+    // copy-pasted href hides — every link would render, and a names-only
+    // assertion would be perfectly green while the appendix downloaded the
+    // first file (or 404'd).
+    const responses = await detail.fetchSupportingDocumentResponses()
+    expect(responses.length).toBeGreaterThan(1)
+    for (const response of responses) {
+      expect(response.status).toBe(200)
+      expect(response.contentType).toContain('application/pdf')
+    }
+  })
+
   it('retains the sampling & inspection plan "updated by" metadata', async () => {
     // Explicitly retained by the Jira notes, so it needs a guard of its own —
     // it is the sort of detail that quietly disappears in a layout rewrite.

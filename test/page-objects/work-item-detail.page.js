@@ -664,11 +664,45 @@ class WorkItemDetailPage extends Page {
    * only the first would pass against a template that renders `files[0]` and
    * stops, which is precisely the regression the AC guards against.
    */
+  supportingDocumentLinks() {
+    return this.applicationDetailRow('sampling-inspection-plan').$$(
+      '[data-testid="app-detail-document"]'
+    )
+  }
+
   async supportingDocumentNames() {
-    const links = await this.applicationDetailRow(
-      'sampling-inspection-plan'
-    ).$$('[data-testid="app-detail-document"]')
+    const links = await this.supportingDocumentLinks()
     return Promise.all([...links].map((link) => link.getText()))
+  }
+
+  /**
+   * Request every supporting document's href from inside the browser session,
+   * so the cookie carries over and the URL resolves against whatever host the
+   * current environment's baseUrl points at (docker network name in CI,
+   * localhost locally, the deployed host on BrowserStack).
+   *
+   * Mirrors fetchBesEvidenceFileDownloadResponse on the application-details
+   * page object. Proves each listed document resolves to a real object rather
+   * than just having a well-shaped href — which matters here precisely because
+   * AC02 is about the documents beyond the first, the ones most likely to be
+   * rendered with a copy-pasted or index-confused link.
+   */
+  async fetchSupportingDocumentResponses() {
+    const links = await this.supportingDocumentLinks()
+    const hrefs = await Promise.all(
+      [...links].map((link) => link.getAttribute('href'))
+    )
+    return browser.execute(async (urls) => {
+      const results = []
+      for (const url of urls) {
+        const res = await fetch(url)
+        results.push({
+          status: res.status,
+          contentType: res.headers.get('content-type')
+        })
+      }
+      return results
+    }, hrefs)
   }
 
   /**
