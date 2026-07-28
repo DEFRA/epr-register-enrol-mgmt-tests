@@ -176,14 +176,6 @@ describe('RA-295 case header on the work item detail page', () => {
       await expect(detail.ra98ReferenceBanner()).not.toBeExisting()
     })
 
-    it('no longer shows the SLA tracker badge', async () => {
-      // The "On track" / "At risk" / "Breached" govukTag in the old "SLA
-      // status" section. Removing it is a Jira note, and it is easy to
-      // reintroduce by accident when the SLA extend/override actions (which
-      // survive RA-295) are touched.
-      await expect(detail.slaStatusBadge()).not.toBeExisting()
-    })
-
     it('still shows the application ref, at the bottom of the page', async () => {
       // Retained for debugging per the Jira note — but MOVED, so position in
       // the document is part of the requirement, not just presence.
@@ -191,11 +183,21 @@ describe('RA-295 case header on the work item detail page', () => {
     })
   })
 
-  describe('"Due on" for an item with a running SLA clock', () => {
+  describe('an item with a running SLA clock', () => {
     // The seeded item above has no SLA clock, so its "Due on" cannot carry a
     // real date. This drives a fresh item to the state where the clock starts,
     // then pins the clock to known values so the expected due date is an exact
     // string rather than an approximation.
+    //
+    // The SLA tracker badge removal is asserted HERE rather than alongside the
+    // other removals, and that placement is the whole point. The old template
+    // rendered the badge inside `{% if workItem.slaState %}`, so on an item
+    // with no clock — like the seeded fixture above — it never rendered in the
+    // first place. Asserting its absence there passed against the pre-RA-295
+    // build too: a vacuous test that could never have caught a regression.
+    // This block is the only place in the suite with a guaranteed running
+    // clock, which is exactly the condition under which the badge used to
+    // appear.
     let workItemId
     const targetDays = 84
     const startedAt = new Date('2026-06-01T09:00:00.000Z')
@@ -244,6 +246,14 @@ describe('RA-295 case header on the work item detail page', () => {
       await expect(detail.caseHeaderField('dueOn')).toHaveText(
         expect.stringContaining(expected)
       )
+    })
+
+    it('no longer shows the SLA tracker badge', async () => {
+      // The "On track" / "At risk" / "Breached" govukTag from the old "SLA
+      // status" section. This item has a running clock, so the pre-RA-295
+      // template WOULD have rendered the badge — which is what gives this
+      // assertion teeth. See the note on the describe block above.
+      await expect(detail.slaStatusBadge()).not.toBeExisting()
     })
   })
 })
