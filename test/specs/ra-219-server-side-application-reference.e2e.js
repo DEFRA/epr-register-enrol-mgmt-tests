@@ -53,8 +53,11 @@ describe('RA-219 — server-generated application reference', () => {
       await workItems.openWorkItem(createdId)
     })
 
-    it('shows the server-generated reference in the "Application ref" summary row', async () => {
-      const value = await detail.getSummaryValueByKey('Application ref')
+    it('shows the server-generated reference in the retained reference block', async () => {
+      // RA-295 removed the envelope summary list; the reference moved to the
+      // block at the foot of the page and the label changed from "Application
+      // ref" to "Application reference".
+      const value = await detail.getSummaryValueByKey('Application reference')
       expect(value).toBe(applicationReference)
     })
   })

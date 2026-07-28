@@ -44,56 +44,90 @@ describe('RA-295 assignment panel and query assignment notice', () => {
   })
 
   describe('AC03 — assignment controls in the right-hand panel', () => {
-    it('shows the assignment panel on an unassigned item', async () => {
-      await detail.assertUnassigned()
-      await expect(detail.assignmentPanel()).toBeDisplayed()
-    })
+    // management-fe confirmed the final matrix: "Reassign the application" and
+    // "Unassign the application" are UNCONDITIONAL in every workflow and
+    // assignment state; "Assign to yourself" renders whenever the signed-in
+    // user is not already the assignee — so it is present when unassigned AND
+    // when a colleague holds it (take-over), and absent only when the item is
+    // already yours. That last case is the single conditional in the panel and
+    // therefore the only one that can regress silently, so it gets its own
+    // assertion rather than being folded into a loop.
+    describe('while the item is unassigned', () => {
+      it('shows the panel and reads "Unassigned"', async () => {
+        await expect(detail.assignmentPanel()).toBeDisplayed()
+        await expect(detail.assignmentCurrent()).toHaveText(
+          expect.stringContaining('Unassigned')
+        )
+      })
 
-    it('offers "Assign to yourself" while the item is unassigned', async () => {
-      await expect(detail.assignmentControl('selfAssign')).toBeDisplayed()
-    })
-
-    it('offers the assign/reassign control while the item is unassigned', async () => {
-      await expect(detail.assignmentControl('reassign')).toBeDisplayed()
+      it('offers all three assignment affordances', async () => {
+        for (const control of ['selfAssign', 'reassign', 'unassign']) {
+          expect(await detail.hasAssignmentControl(control)).toBe(true)
+        }
+      })
     })
 
     describe('once the item is assigned to another caseworker', () => {
       before(async () => {
-        // Assigned to somebody ELSE, not to the signed-in user: this is the
-        // state where a caseworker most needs reassign/unassign, and the one a
-        // panel wired only for "my own item" would break.
+        // Assigned to somebody ELSE, not the signed-in user: the state where a
+        // caseworker most needs reassign/unassign, and the one a panel wired
+        // only for "my own item" would break. This is the "not just when
+        // freshly unassigned" case.
         await detail.assignTo('stub-caseworker-2')
         await detail.assertAssignedTo('Stub Caseworker Two')
       })
 
-      it('still shows the assignment panel', async () => {
+      it('still offers all three affordances, including take-over', async () => {
         await expect(detail.assignmentPanel()).toBeDisplayed()
+        for (const control of ['selfAssign', 'reassign', 'unassign']) {
+          expect(await detail.hasAssignmentControl(control)).toBe(true)
+        }
       })
 
-      it('offers "Reassign the application"', async () => {
-        await expect(detail.assignmentControl('reassign')).toBeDisplayed()
-      })
-
-      it('offers "Unassign the application"', async () => {
-        await expect(detail.assignmentControl('unassign')).toBeDisplayed()
-      })
-
-      it('can actually reassign from the panel', async () => {
-        // Presence is not the whole AC — the control has to work from the new
-        // panel, so this drives it end to end rather than eyeballing the DOM.
+      it('can actually reassign through the interstitial', async () => {
+        // Presence is not the whole AC — the affordance has to work. AC03 made
+        // reassign a LINK to a GET interstitial, so this drives the whole
+        // link → picker → POST → redirect journey rather than eyeballing DOM.
         await detail.assignTo('stub-caseworker-3')
         await detail.assertAssignedTo('Stub Caseworker Three')
         await expect(detail.assignmentPanel()).toBeDisplayed()
+      })
+    })
+
+    describe('once the item is assigned to the signed-in user', () => {
+      before(async () => {
+        await detail.assignmentControl('selfAssign').click()
+        await detail.waitForDetailUrl()
+      })
+
+      it('reads "Assigned to you"', async () => {
+        await expect(detail.assignmentCurrent()).toHaveText(
+          expect.stringContaining('Assigned to you')
+        )
+      })
+
+      it('drops "Assign to yourself" but keeps reassign and unassign', async () => {
+        // The one conditional in the panel: offering to assign an item to the
+        // person who already holds it is meaningless. Reassign and unassign
+        // must survive, or a caseworker cannot hand the item on.
+        expect(await detail.hasAssignmentControl('selfAssign')).toBe(false)
+        expect(await detail.hasAssignmentControl('reassign')).toBe(true)
+        expect(await detail.hasAssignmentControl('unassign')).toBe(true)
       })
     })
   })
 
   describe('AC04 — the query page assignment notice', () => {
     describe('when the application is already assigned', () => {
-      // Continues from the AC03 block above, where the item ended up held by
-      // Stub Caseworker Three.
+      // Continues from the AC03 block above, which left the item assigned to
+      // the signed-in user. Asserted rather than assumed, so a change to the
+      // block above surfaces here as a clear failure rather than as a
+      // mysteriously passing negative test.
       before(async () => {
-        await detail.assertAssignedTo('Stub Caseworker Three')
+        await workItems.openWorkItem(workItemId)
+        await expect(detail.assignmentCurrent()).toHaveText(
+          expect.stringContaining('Assigned to you')
+        )
         await queryPage.gotoFor(workItemId)
       })
 

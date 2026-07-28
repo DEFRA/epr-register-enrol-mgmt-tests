@@ -43,33 +43,44 @@ describe('Assign / re-assign / unassign via the assign-to-anyone picker', () => 
 
     await workItems.openWorkItem(workItemId)
 
-    // A freshly created item is unassigned; the assign picker and the
-    // self-assign shortcut are both shown, but there's no unassign
-    // control yet since nobody holds the item.
+    // RA-295 (AC03) changed the shape of this panel. The assignee picker and
+    // the unassign button moved onto GET interstitials, so the detail page now
+    // carries LINKS; and reassign/unassign are unconditional rather than
+    // appearing only once somebody holds the item. The lifecycle below is
+    // unchanged — it is only how each step is reached that moved.
     await detail.assertUnassigned()
-    await expect($('[data-testid="assign-select"]')).toBeDisplayed()
-    await expect($('[data-testid="unassign-submit"]')).not.toBeExisting()
+    for (const control of ['selfAssign', 'reassign', 'unassign']) {
+      expect(await detail.hasAssignmentControl(control)).toBe(true)
+    }
   })
 
-  it('assigns the item to another user via the select', async () => {
+  it('assigns the item to another user via the assign interstitial', async () => {
     await detail.assignTo('stub-caseworker-2')
     await detail.assertAssignedTo('Stub Caseworker Two')
-
-    // Once assigned, the unassign control appears alongside the picker.
-    await expect($('[data-testid="unassign-submit"]')).toBeDisplayed()
   })
 
-  it('re-assigns the item to a different user via the select', async () => {
+  it('re-assigns the item to a different user via the assign interstitial', async () => {
     await detail.assignTo('stub-caseworker-3')
     await detail.assertAssignedTo('Stub Caseworker Three')
   })
 
-  it('unassigns the item via the unassign form', async () => {
+  it('unassigns the item via the unassign interstitial', async () => {
     await detail.unassign()
     await detail.assertUnassigned()
+  })
 
-    // Back to the unassigned state: picker remains, unassign control gone.
-    await expect($('[data-testid="assign-select"]')).toBeDisplayed()
+  it('offers the unassign link even when nobody holds the item', async () => {
+    // The link is unconditional now, so the interstitial has to cope with an
+    // already-unassigned item rather than 500 or offer a no-op submit. That
+    // graceful path is easy to miss precisely because the link used to be
+    // hidden in this state.
+    expect(await detail.hasAssignmentControl('unassign')).toBe(true)
+    await detail.assignmentControl('unassign').click()
+    await expect(
+      $('[data-testid="unassign-already-unassigned"]')
+    ).toBeDisplayed()
     await expect($('[data-testid="unassign-submit"]')).not.toBeExisting()
+    await $('[data-testid="unassign-cancel"]').click()
+    await detail.waitForDetailUrl()
   })
 })

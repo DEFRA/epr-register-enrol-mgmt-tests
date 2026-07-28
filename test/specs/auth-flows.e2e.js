@@ -2,6 +2,7 @@ import { browser, $, expect } from '@wdio/globals'
 
 import LoginPage from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
+import detail from '../page-objects/work-item-detail.page.js'
 
 /**
  * Auth flows (logout + stub nation selection).
@@ -61,9 +62,11 @@ describe('Auth flows', () => {
       await workItems.openWorkItem(id)
 
       // RA-323: every caseworker sees both the self-assign shortcut and the
-      // assign-to-anyone picker on an unassigned item.
-      await expect($('[data-testid="self-assign-submit"]')).toBeDisplayed()
-      await expect($('[data-testid="assign-select"]')).toBeDisplayed()
+      // reassign affordance on an unassigned item. RA-295 moved the assignee
+      // picker onto an interstitial, so the panel now offers a link rather
+      // than the <select> this used to assert on.
+      expect(await detail.hasAssignmentControl('selfAssign')).toBe(true)
+      expect(await detail.hasAssignmentControl('reassign')).toBe(true)
     })
 
     it('a Wales-scoped user sees both assignment affordances on a work item', async () => {
@@ -83,9 +86,12 @@ describe('Auth flows', () => {
       })
       await workItems.openWorkItem(id)
 
-      await expect($('[data-testid="assign-select"]')).toBeDisplayed()
-      await expect($('[data-testid="assign-submit"]')).toBeDisplayed()
-      await expect($('[data-testid="self-assign-submit"]')).toBeDisplayed()
+      // All three affordances, per RA-295's AC03 matrix: reassign and unassign
+      // are unconditional, and self-assign shows because this user does not
+      // already hold the item.
+      for (const control of ['selfAssign', 'reassign', 'unassign']) {
+        expect(await detail.hasAssignmentControl(control)).toBe(true)
+      }
     })
   })
 })

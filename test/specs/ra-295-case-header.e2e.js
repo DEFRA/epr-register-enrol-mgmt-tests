@@ -131,8 +131,16 @@ describe('RA-295 case header on the work item detail page', () => {
     })
 
     it('shows the status', async () => {
+      // The seeded fixture sits in stateId `submitted`, whose DISPLAY name is
+      // "Not started" — the two are deliberately different, and asserting the
+      // state id here would be asserting something the user never sees.
+      //
+      // Scoped to case-header-status, which matters: the status value is a
+      // nested govukTag carrying `work-item-state-tag` (RA-324 AC08's shared
+      // badge-colour contract had to survive), so an unscoped text match could
+      // resolve against the tag or the label independently.
       await expect(detail.caseHeaderField('status')).toHaveText(
-        expect.stringContaining('Submitted')
+        expect.stringContaining('Not started')
       )
     })
 

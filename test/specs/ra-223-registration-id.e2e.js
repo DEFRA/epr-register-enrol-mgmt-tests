@@ -75,13 +75,29 @@ describe('RA-223 — Registration ID shown on the work item detail page', () => 
       await workItems.openFirstListedWorkItem()
     })
 
-    it('renders a "Registration ID" summary row', async () => {
-      expect(await detail.hasSummaryKey('Registration ID')).toBe(true)
+    it('renders an "Operator registration ID" row', async () => {
+      // RA-295 moved this from the removed envelope summary list into the
+      // reference block at the foot of the page, and RELABELLED it from
+      // "Registration ID" to "Operator registration ID" — deliberately, to
+      // stop it being confused with the "Registration number" that RA-295 puts
+      // in the case header and on the list cards.
+      expect(await detail.hasSummaryKey('Operator registration ID')).toBe(true)
     })
 
-    it('shows the operator EPR registration id from the payload', async () => {
-      const value = await detail.getSummaryValueByKey('Registration ID')
+    it('shows the operator registration id from the payload', async () => {
+      const value = await detail.getSummaryValueByKey(
+        'Operator registration ID'
+      )
       expect(value).toBe('reg-008')
+    })
+
+    it('keeps it distinct from the registration number', async () => {
+      // Both fields are now on the same page, which is exactly how they get
+      // crossed. Belfast Fibres Co carries operatorRegistrationId "reg-008"
+      // AND registrationNumber "EPR-100198", so a mix-up is detectable here.
+      expect(await detail.getSummaryValueByKey('Registration number')).toBe(
+        'EPR-100198'
+      )
     })
   })
 
@@ -103,14 +119,21 @@ describe('RA-223 — Registration ID shown on the work item detail page', () => 
       await workItems.openWorkItem(id)
     })
 
-    it('renders a "Registration ID" summary row', async () => {
-      const hasRow = await detail.hasSummaryKey('Registration ID')
-      expect(hasRow).toBe(true)
+    it('omits the row entirely when the work item has no registration id', async () => {
+      // Behaviour change in RA-295, not a relaxation of the test. The old
+      // envelope summary rendered an em-dash placeholder; the reference block
+      // omits valueless rows outright. So the correct assertion is row-ABSENT.
+      //
+      // Asserting the em dash here would now fail, and — more insidiously —
+      // asserting "the value is not reg-xxx" would pass vacuously against a
+      // missing row. Absence is the only assertion that means anything.
+      expect(await detail.hasSummaryKey('Operator registration ID')).toBe(false)
     })
 
-    it('falls back to an em-dash when the work item has no registration id', async () => {
-      const value = await detail.getSummaryValueByKey('Registration ID')
-      expect(value).toBe('—')
+    it('still renders the rows it does have values for', async () => {
+      // Guards the assertion above against passing because the whole reference
+      // block failed to render. A UI-created item always has a work item ID.
+      expect(await detail.hasSummaryKey('Work item ID')).toBe(true)
     })
   })
 })

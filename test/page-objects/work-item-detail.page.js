@@ -58,11 +58,29 @@ export const EXPORTER_ONLY_ROWS = ['bes', 'ors']
 
 class WorkItemDetailPage extends Page {
   /**
-   * Read the page caption text (RA-196). The caption now shows the
-   * user-facing application reference rather than the internal id.
+   * The user-facing application reference shown as the page identity.
+   *
+   * RA-295 removed `app-heading` / `app-heading-caption` from the detail page
+   * — the case header IS the page identity now — so this reads
+   * `case-header-accreditation-ref`. The RA-249 rule is unchanged: it falls
+   * back to the work item id when there is no RA-* reference.
+   *
+   * Handles BOTH page shapes deliberately. RA-295 rebuilt the detail and
+   * audit-log pages around the case header, but the tasks sub-page still uses
+   * the shared `appHeading` macro and its `app-heading-caption`. RA-196
+   * asserts the reference on both, so a helper that understood only one of
+   * them would force that spec to know which page it is on — exactly the
+   * detail a page object exists to absorb.
+   *
+   * Prefers the caption when present so the tasks page keeps its existing
+   * "Work item {ref}" text, and falls back to the case header elsewhere.
    */
   async getCaption() {
-    return $('[data-testid="app-heading-caption"]').getText()
+    const caption = await $('[data-testid="app-heading-caption"]')
+    if (await caption.isExisting()) {
+      return caption.getText()
+    }
+    return this.caseHeaderFieldText('accreditationRef')
   }
 
   /**
@@ -120,17 +138,65 @@ class WorkItemDetailPage extends Page {
     ).toBeDisplayed()
   }
 
+  /**
+   * Assign the work item to a specific user.
+   *
+   * RA-295 (AC03) turned "Reassign the application" into a LINK, so the
+   * assignee picker moved off the detail page onto a GET interstitial at
+   * /work-items/{id}/assign (the same pattern as withdraw in RA-188 and query
+   * in RA-291). The POST target is unchanged.
+   *
+   * Kept as one method rather than exposing the interstitial to callers: a
+   * dozen specs across the suite just want "make this item assigned to X" and
+   * have no interest in how many pages that now takes. Navigating via the
+   * panel link rather than typing the URL means the specs still exercise the
+   * affordance AC03 is actually about.
+   */
   async assignTo(userId) {
+    await this.assignmentControl('reassign').click()
+    await $('[data-testid="assign-form"]').waitForDisplayed()
     await $('[data-testid="assign-select"]').selectByAttribute('value', userId)
     await $('[data-testid="assign-submit"]').click()
+    await this.waitForDetailUrl()
   }
 
   /**
-   * Clear the assignee via the Unassign form. The button only renders
-   * once an item is assigned, so callers must have assigned first.
+   * Clear the assignee via the unassign interstitial.
+   *
+   * The "Unassign the application" link is present in EVERY state (AC03), so
+   * the interstitial has to cope with an item that is already unassigned — in
+   * that case it renders `unassign-already-unassigned` and no submit button.
+   * This throws rather than silently doing nothing in that situation, so a
+   * caller whose assumptions have drifted gets a clear diagnostic instead of
+   * an assertion failure several steps later.
    */
   async unassign() {
-    await $('[data-testid="unassign-submit"]').click()
+    await this.assignmentControl('unassign').click()
+    const submit = await $('[data-testid="unassign-submit"]')
+    if (!(await submit.isExisting())) {
+      throw new Error(
+        'unassign(): the item is already unassigned (the interstitial rendered ' +
+          'unassign-already-unassigned and offered no submit button)'
+      )
+    }
+    await submit.click()
+    await this.waitForDetailUrl()
+  }
+
+  /**
+   * Wait for a POST-redirect-GET back onto the work item detail page. The
+   * assignment interstitials redirect to /work-items/{id} on success; without
+   * this the caller races the navigation and reads the interstitial's DOM.
+   */
+  async waitForDetailUrl() {
+    await browser.waitUntil(
+      async () =>
+        /\/work-items\/[^/]+$/.test(new URL(await browser.getUrl()).pathname),
+      {
+        timeout: 10000,
+        timeoutMsg: 'Expected to land back on the work item detail page'
+      }
+    )
   }
 
   /**
@@ -300,12 +366,41 @@ class WorkItemDetailPage extends Page {
     await $('[data-testid="add-note-submit"]').click()
   }
 
+  /**
+   * Open the audit log.
+   *
+   * RA-295 replaced the "View audit log" link (`work-item-audit-log-link`,
+   * now gone) with the "Application history" tab. The route is unchanged, so
+   * the dozen specs that call this are unaffected by the change of
+   * affordance — which is the point of it living here.
+   */
   async gotoAudit() {
-    await $('[data-testid="work-item-audit-log-link"]').click()
+    await this.tab('history').click()
     await browser.waitUntil(
       async () => /\/work-items\/[^/]+\/audit/.test(await browser.getUrl()),
-      { timeoutMsg: 'Expected audit log URL after clicking audit link' }
+      { timeoutMsg: 'Expected audit log URL after clicking the history tab' }
     )
+  }
+
+  /**
+   * A case tab. Note the ACTIVE tab renders as a <span aria-current="page">
+   * and only the inactive one is an <a>, so callers must not assume both are
+   * clickable — assert with isActiveTab() rather than clicking blindly.
+   */
+  tab(name) {
+    const testIds = {
+      summary: 'tab-application-summary',
+      history: 'tab-application-history'
+    }
+    const testId = testIds[name]
+    if (!testId) {
+      throw new Error(`Unknown case tab "${name}"`)
+    }
+    return $(`[data-testid="${testId}"]`)
+  }
+
+  async isActiveTab(name) {
+    return (await this.tab(name).getAttribute('aria-current')) === 'page'
   }
 
   async assertAuditEntry(action) {
@@ -497,12 +592,16 @@ class WorkItemDetailPage extends Page {
     ).not.toBeExisting()
   }
 
+  /**
+   * RA-295 moved the operator email out of the removed envelope summary list
+   * into the retained reference block at the foot of the page. Scoped to that
+   * row so the assertion cannot pass on the address appearing somewhere else
+   * (it is also rendered in notification audit entries).
+   */
   async assertOperatorEmail(email) {
-    await expect(
-      $(
-        `//*[contains(@class,"govuk-summary-list__value") and contains(.,"${email}")]`
-      )
-    ).toBeDisplayed()
+    await expect(this.referenceRow('operator-email')).toHaveText(
+      expect.stringContaining(email)
+    )
   }
 
   // ── RA-295 AC01: case header ─────────────────────────────────────────────── //
@@ -703,9 +802,15 @@ class WorkItemDetailPage extends Page {
    */
   async fetchSupportingDocumentResponses() {
     const links = await this.supportingDocumentLinks()
-    const hrefs = await Promise.all(
+    const allHrefs = await Promise.all(
       [...links].map((link) => link.getAttribute('href'))
     )
+    // A document is only an <a> when it is `scanStatus: "Clean"` and has a
+    // fileId; a quarantined or still-scanning file is listed as a <span> with
+    // a govuk-tag and no href. Those are correctly not downloadable, so they
+    // are filtered out rather than counted as failures — the caller asserts on
+    // the documents that SHOULD resolve.
+    const hrefs = allHrefs.filter(Boolean)
     return browser.execute(async (urls) => {
       const results = []
       for (const url of urls) {
@@ -764,11 +869,21 @@ class WorkItemDetailPage extends Page {
    * ("available on the right side panel box" is the requirement, not merely
    * "present somewhere").
    */
+  /**
+   * The three assignment affordances AC03 requires, scoped to the right-hand
+   * panel so a control rendered elsewhere cannot satisfy the AC ("available on
+   * the right side panel box" is the requirement, not merely "present").
+   *
+   * `reassign` and `unassign` are LINKS to interstitials, not submit buttons —
+   * AC03 says "link", so the pickers moved off this page. The `assign-submit`
+   * / `unassign-submit` buttons now live on those interstitials and are NOT
+   * in this panel.
+   */
   assignmentControl(name) {
     const testIds = {
       selfAssign: 'self-assign-submit',
-      reassign: 'assign-submit',
-      unassign: 'unassign-submit'
+      reassign: 'reassign-link',
+      unassign: 'unassign-link'
     }
     const testId = testIds[name]
     if (!testId) {
@@ -785,6 +900,42 @@ class WorkItemDetailPage extends Page {
       return false
     }
     return this.assignmentControl(name).isExisting()
+  }
+
+  /**
+   * The panel's assignment status line, reading exactly "Unassigned",
+   * "Assigned to {Name}" or "Assigned to you".
+   */
+  assignmentCurrent() {
+    return $('[data-testid="assignment-current"]')
+  }
+
+  // ── RA-295: the retained reference block at the foot of the page ─────────── //
+
+  /**
+   * A row in the reference block, keyed by the field name in its testid (e.g.
+   * 'operator-registration-id', 'application-reference', 'operator-email').
+   *
+   * Rows with no value are OMITTED entirely rather than rendered with an em
+   * dash — so absence is the correct assertion for missing data here, unlike
+   * the case header where the field renders with a dash. Getting that backwards
+   * gives a test that can never fail.
+   */
+  referenceRow(key) {
+    return this.footerApplicationRef().$(
+      `[data-testid="work-item-reference-row-${key}"]`
+    )
+  }
+
+  async hasReferenceRow(key) {
+    if (!(await this.footerApplicationRef().isExisting())) {
+      return false
+    }
+    return this.referenceRow(key).isExisting()
+  }
+
+  async referenceRowText(key) {
+    return this.referenceRow(key).getText()
   }
 }
 
