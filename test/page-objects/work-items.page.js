@@ -144,24 +144,32 @@ class WorkItemsPage extends Page {
    * The wait keys off the URL query string changing. Every real apply
    * re-serialises the selected filters into the query string, so unlike the
    * filtersApplied=1 flag it also changes on a second apply (e.g. sorting
-   * after a search). Re-applying an identical filter is a no-op that leaves
-   * the URL unchanged — that is tolerated (we fall through) rather than
-   * treated as a failure. NB: element staleness is NOT a usable signal here —
+   * after a search). NB: element staleness is NOT a usable signal here —
    * WDIO v9 re-resolves selectors on each access, so a captured Apply button
    * never appears stale after navigation.
+   *
+   * Re-applying an identical filter is a genuine no-op that leaves the URL
+   * unchanged. That is tolerated ONLY when we can prove we were already in an
+   * applied state (the pre-click URL carries filtersApplied=1). Starting from
+   * an unapplied URL and seeing no navigation means Apply did not work, so the
+   * timeout is re-thrown rather than swallowed — otherwise a broken Apply
+   * button degrades into a confusing assertion failure further downstream.
    */
   async applyFiltersAndWait() {
     const before = await browser.getUrl()
     const applyButton = await $('[data-testid="work-items-filter-apply"]')
     await applyButton.click()
-    // Wait for the navigation to land (the query string changes). An identical
-    // re-apply leaves the URL unchanged, so swallow the timeout and fall through.
-    await browser
-      .waitUntil(async () => (await browser.getUrl()) !== before, {
+    try {
+      await browser.waitUntil(async () => (await browser.getUrl()) !== before, {
         timeout: 10000,
         timeoutMsg: 'Expected applying the filter to navigate'
       })
-      .catch(() => {})
+    } catch (err) {
+      if (!before.includes('filtersApplied=1')) {
+        throw err
+      }
+      // Already-applied URL + no change = identical re-apply, which is fine.
+    }
     // The new page must have rendered its filter form before we return, so
     // callers interact with the fresh DOM rather than a mid-navigation blank.
     await $('[data-testid="work-items-filter-form"]').waitForExist({
