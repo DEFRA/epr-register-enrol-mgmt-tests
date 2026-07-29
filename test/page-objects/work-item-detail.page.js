@@ -785,7 +785,19 @@ class WorkItemDetailPage extends Page {
    * stops, which is precisely the regression the AC guards against.
    */
   supportingDocumentLinks() {
-    return this.applicationDetailRow('sampling-inspection-plan').$$(
+    return this.documentLinksIn('sampling-inspection-plan')
+  }
+
+  /**
+   * Every document link inside one application-details row, scoped to that
+   * row. Parameterised because the BES-evidence row renders the same document
+   * markup as the sampling & inspection plan and needs the same download
+   * coverage — `download-file.controller.js` reaches BES files through a
+   * SEPARATE `overseasSites.sites[].besEvidence.files` lookup, so proving the
+   * sampling branch resolves says nothing about the BES one.
+   */
+  documentLinksIn(rowKey) {
+    return this.applicationDetailRow(rowKey).$$(
       '[data-testid="app-detail-document"]'
     )
   }
@@ -807,8 +819,8 @@ class WorkItemDetailPage extends Page {
    * AC02 is about the documents beyond the first, the ones most likely to be
    * rendered with a copy-pasted or index-confused link.
    */
-  async fetchSupportingDocumentResponses() {
-    const links = await this.supportingDocumentLinks()
+  async fetchSupportingDocumentResponses(rowKey = 'sampling-inspection-plan') {
+    const links = await this.documentLinksIn(rowKey)
     const allHrefs = await Promise.all(
       [...links].map((link) => link.getAttribute('href'))
     )
@@ -818,17 +830,26 @@ class WorkItemDetailPage extends Page {
     // are filtered out rather than counted as failures — the caller asserts on
     // the documents that SHOULD resolve.
     const hrefs = allHrefs.filter(Boolean)
-    return browser.execute(async (urls) => {
+    const responses = await browser.execute(async (urls) => {
       const results = []
       for (const url of urls) {
         const res = await fetch(url)
         results.push({
           status: res.status,
-          contentType: res.headers.get('content-type')
+          contentType: res.headers.get('content-type'),
+          // The response BODY is the only thing that distinguishes the two
+          // seeded objects. Status and content-type are identical for both,
+          // so an href bug serving document one for both entries would look
+          // like two healthy 200s — which is exactly the failure the backend
+          // seeder warns about when it says to keep the two s3Keys distinct.
+          body: await res.text()
         })
       }
       return results
     }, hrefs)
+    // Returned alongside so a caller can assert the links are distinct even
+    // before fetching anything.
+    return responses.map((r, i) => ({ ...r, href: hrefs[i] }))
   }
 
   /**

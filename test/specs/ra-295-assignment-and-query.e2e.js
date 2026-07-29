@@ -187,6 +187,30 @@ describe('RA-295 assignment panel and query assignment notice', () => {
         material: 'paper',
         tonnageBand: '0-500'
       }))
+      // Drive the item to Assessment in progress FIRST. `sla-extend` is only
+      // projected from that state, so withdrawing straight from `submitted`
+      // would assert absence on links that had never rendered at any point —
+      // the negative could not fail, and a regression where a terminal state
+      // still projects `sla-extend` would sail through green.
+      await workItems.openWorkItem(closedItemId)
+      await detail.gotoTasks()
+      await detail.setTaskStatus('verify-organisation-details', 'Completed')
+      await detail.setTaskStatus(
+        'confirm-application-completeness',
+        'Completed'
+      )
+      await detail.gotoDetail()
+      await detail.assertState('Duly made')
+      await detail.gotoTasks()
+      await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
+      await detail.gotoDetail()
+      await detail.triggerAction('payment-received')
+
+      // The precondition, asserted rather than assumed: the links must be
+      // present here, or the absence check below proves nothing.
+      await expect($('[data-testid="action-sla-extend"]')).toBeExisting()
+      await expect($('[data-testid="action-sla-override"]')).toBeExisting()
+
       await withdrawPage.gotoFor(closedItemId)
       await withdrawPage.fillNote('Closing the case to check the SLA gating')
       await withdrawPage.submit()

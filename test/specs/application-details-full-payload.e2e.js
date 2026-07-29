@@ -211,6 +211,22 @@ describe('Full operator payload on the work item detail page (seeded)', () => {
         expect.stringContaining('bes-evidence.pdf')
       )
     })
+
+    it('gives the BES evidence file a link that resolves to the real file', async () => {
+      // The RA-319 fast-follow coverage this file's header promises. Listing
+      // the filename only proves the loop ran; `download-file.controller.js`
+      // reaches BES files through a SEPARATE
+      // `overseasSites.sites[].besEvidence.files` lookup from the sampling-plan
+      // branch, so nothing else in the suite exercises it. Without this the
+      // `epr-register-enrol-bes-evidence` localstack fixture is seeded and
+      // never fetched.
+      const responses = await detail.fetchSupportingDocumentResponses('bes')
+      expect(responses.length).toBeGreaterThan(0)
+      for (const response of responses) {
+        expect(response.status).toBe(200)
+        expect(response.contentType).toContain('application/pdf')
+      }
+    })
   })
 
   describe('the retired two-step journey', () => {

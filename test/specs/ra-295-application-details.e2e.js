@@ -130,6 +130,18 @@ describe('RA-295 application details on a single page', () => {
       expect(response.status).toBe(200)
       expect(response.contentType).toContain('application/pdf')
     }
+
+    // Status and content-type are identical for both documents, so the checks
+    // above cannot tell a correct link from one serving document one twice.
+    // The two seeded objects have deliberately different bodies — that is the
+    // only signal that discriminates, so assert on it.
+    const hrefs = responses.map((r) => r.href)
+    expect(new Set(hrefs).size).toBe(hrefs.length)
+    const bodies = responses.map((r) => r.body)
+    expect(new Set(bodies).size).toBe(bodies.length)
+    expect(bodies.some((b) => b.includes('appendix fixture content'))).toBe(
+      true
+    )
   })
 
   it('retains the sampling & inspection plan "updated by" metadata', async () => {
