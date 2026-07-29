@@ -19,7 +19,13 @@ export const config = {
 
   // Connection to remote chromedriver
   hostname: process.env.CHROMEDRIVER_URL || '127.0.0.1',
-  port: process.env.CHROMEDRIVER_PORT || 4444,
+  // parseInt, not a bare `||`: WebdriverIO validates `port` as a number and
+  // aborts the whole run with `Expected option "port" to be type of number but
+  // was string` when CHROMEDRIVER_PORT is set, since env vars are always
+  // strings. The default path (env var unset) yields the number 4444 and
+  // works, which is why this survived — the documented knob was simply broken
+  // for anyone who used it. wdio.conf.js already does it this way.
+  port: parseInt(process.env.CHROMEDRIVER_PORT, 10) || 4444,
 
   // Tests to run
   specs: ['./test/specs/**/*.js'],

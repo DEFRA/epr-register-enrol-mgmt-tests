@@ -1,4 +1,4 @@
-import { $, expect } from '@wdio/globals'
+import { $, browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 
@@ -107,7 +107,17 @@ describe('Applications list — organisation search', () => {
 
     it('opens the work item detail when the ref link is clicked', async () => {
       await workItems.workItemLink(workItemId).click()
-      await expect($('[data-testid="work-item-summary"]')).toExist()
+      // RA-295 replaced the envelope summary list with the case header panel,
+      // so this no longer keys off `work-item-summary`. What this test is
+      // actually about is the search result linking to the RIGHT work item, so
+      // it now waits for whichever detail-page landmark the build renders and
+      // then asserts the URL — which is a stronger check than the old one
+      // anyway: the previous assertion would have passed on ANY work item's
+      // detail page, including the wrong one.
+      await workItems.waitForDetailPage()
+      await expect(browser).toHaveUrl(
+        expect.stringContaining(`/work-items/${workItemId}`)
+      )
     })
   })
 })

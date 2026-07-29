@@ -40,10 +40,12 @@ describe('RA-153 — self-assign: a caseworker takes an unassigned work item', (
 
     await workItems.openWorkItem(workItemId)
 
-    // Newly created work item is unassigned — "Take this work item" is
-    // shown alongside the assign-to-anyone picker.
-    await expect($('[data-testid="self-assign-submit"]')).toBeDisplayed()
-    await expect($('[data-testid="assign-select"]')).toBeDisplayed()
+    // Newly created work item is unassigned — "Assign to yourself" is shown
+    // alongside the reassign affordance. RA-295 moved the assignee PICKER off
+    // this page onto a GET interstitial, so what sits beside the self-assign
+    // button here is now the "Reassign the application" link, not a <select>.
+    expect(await detail.hasAssignmentControl('selfAssign')).toBe(true)
+    expect(await detail.hasAssignmentControl('reassign')).toBe(true)
 
     // Take the work item — this returned a 403 before RA-153 was fixed
     await $('[data-testid="self-assign-submit"]').click()

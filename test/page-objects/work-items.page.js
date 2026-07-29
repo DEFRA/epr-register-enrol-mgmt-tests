@@ -120,9 +120,35 @@ class WorkItemsPage extends Page {
     const link = await $('[data-testid^="work-item-link-"]')
     await link.waitForClickable()
     await link.click()
-    // Wait for the detail page to render so callers can read the summary list
-    // without racing a slow navigation.
-    await $('[data-testid="work-item-summary"]').waitForDisplayed()
+    await this.waitForDetailPage()
+  }
+
+  /**
+   * Wait for a work item detail page to have rendered, so callers can read it
+   * without racing a slow navigation.
+   *
+   * RA-295 replaces the envelope summary list with the case header panel, so
+   * this accepts EITHER landmark. Keying the wait on `work-item-summary`
+   * alone (as it did before) would hang for the full timeout on every
+   * post-RA-295 page; keying it on `case-header` alone would hang against a
+   * pre-RA-295 build. Accepting either keeps the many specs that merely need
+   * "the detail page has loaded" working across the transition, and none of
+   * them assert on the landmark itself — the specs that DO care assert
+   * explicitly.
+   */
+  async waitForDetailPage() {
+    const caseHeader = await $('[data-testid="case-header"]')
+    const envelopeSummary = await $('[data-testid="work-item-summary"]')
+    await browser.waitUntil(
+      async () =>
+        (await caseHeader.isDisplayed()) ||
+        (await envelopeSummary.isDisplayed()),
+      {
+        timeout: 10000,
+        timeoutMsg:
+          'Expected a work item detail page (case header or envelope summary) to render'
+      }
+    )
   }
 
   workItemLink(id) {
@@ -543,6 +569,38 @@ class WorkItemsPage extends Page {
   /** Whether a (conditional) field is rendered inside a tile. */
   async tileHasField(id, field) {
     return this.tileFor(id).$(`[data-testid="${field}"]`).isExisting()
+  }
+
+  /**
+   * RA-295 (AC06). The registration number on an application card.
+   *
+   * Deliberately NOT added to TILE_FIELD_ORDER: that constant is RA-324's
+   * card-ordering contract, and AC06 only requires the registration number to
+   * be "included in the data being displayed", not placed at a particular
+   * position. tileFieldOrder() filters to TILE_FIELD_ORDER, so the new field
+   * is ignored there and RA-324's ordering spec keeps passing unchanged.
+   */
+  tileRegistrationNumber(id) {
+    return this.tileField(id, 'registration-number')
+  }
+
+  async tileHasRegistrationNumber(id) {
+    return this.tileHasField(id, 'registration-number')
+  }
+
+  /**
+   * The registration number rendered on every card currently listed, in DOM
+   * order. Lets AC06 assert the field is on the cards generally rather than
+   * on one hand-picked card that might be the only one wired up.
+   */
+  async cardRegistrationNumbers() {
+    const cards = await this.tiles()
+    return Promise.all(
+      [...cards].map(async (card) => {
+        const field = await card.$('[data-testid="registration-number"]')
+        return (await field.isExisting()) ? field.getText() : null
+      })
+    )
   }
 
   /**
