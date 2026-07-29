@@ -211,7 +211,11 @@ describe('RA-295 assignment panel and query assignment notice', () => {
       await expect($('[data-testid="action-sla-extend"]')).toBeExisting()
       await expect($('[data-testid="action-sla-override"]')).toBeExisting()
 
-      await withdrawPage.gotoFor(closedItemId)
+      // `withdraw` is the action id from `submitted` only — each later state
+      // has its own (`withdraw-during-assessment` here). Now that this block
+      // drives the item to Assessment in progress first, the default id no
+      // longer resolves and the confirm page renders nothing.
+      await withdrawPage.gotoFor(closedItemId, 'withdraw-during-assessment')
       await withdrawPage.fillNote('Closing the case to check the SLA gating')
       await withdrawPage.submit()
       await detail.waitForDetailUrl()
