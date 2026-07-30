@@ -46,17 +46,18 @@ class Page {
   }
 
   /**
-   * RA-335. A number of case-panel navigational affordances (reassign,
-   * unassign, change/override due date, query, withdraw, approve, create
-   * work item) were converted from plain `<a href>` links to `<button>`s
-   * wrapped in a one-field GET `<form>`, so a read-only support user's
-   * session can disable them (govukButton's native `disabled` only applies
-   * to `<button>` elements). A spec that used to read the target off the
-   * link's `href` reads it off the wrapping form's `action` instead.
+   * RA-335. A number of case-panel affordances (reassign, unassign,
+   * change/override due date, query, withdraw, approve, create work item)
+   * have no native disabled state to lean on — neither a plain `<a>` nor a
+   * govukButton-styled `<a href>` supports `disabled`, and the app renders
+   * no JavaScript to intercept a click. For a read-only support user they
+   * render as an inert `<span>` with no `href` instead (see
+   * `action-link/macro.njk` in management-fe) — this is true whenever the
+   * element at `testId` is a `<span>` rather than an `<a>`.
    */
-  async formActionFor(testId) {
-    const form = await $(`[data-testid="${testId}"]`).$('..')
-    return form.getAttribute('action')
+  async isActionDisabled(testId) {
+    const tagName = await $(`[data-testid="${testId}"]`).getTagName()
+    return tagName.toLowerCase() === 'span'
   }
 
   /**

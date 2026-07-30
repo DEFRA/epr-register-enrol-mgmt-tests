@@ -12,11 +12,17 @@ import detail from '../page-objects/work-item-detail.page.js'
  * any attempt to submit one anyway must be rejected. They also get a
  * "Backend status" nav link + page that is otherwise not shown at all.
  *
+ * "Disabled" takes two shapes depending on the affordance: self-assign is
+ * a real POST form/button, so it gets a native `disabled` attribute; the
+ * navigational affordances (reassign, unassign, query, withdraw, approve,
+ * create work item) are links with no native disabled state, so they
+ * render as an inert `<span>` with no `href` instead — see
+ * action-link/macro.njk in management-fe.
+ *
  * Enforcement is entirely in this frontend app (per architectural
  * decision — the .NET backend does not implement RBAC), so this spec
- * checks both layers: the UI control is disabled, AND a direct POST to
- * the underlying route is rejected even if a disabled control were
- * bypassed.
+ * checks both layers: the UI control is disabled/inert, AND a direct
+ * POST to the underlying route is rejected even if that were bypassed.
  */
 describe('RA-335 Support user read-only view', () => {
   let workItemId
@@ -68,17 +74,26 @@ describe('RA-335 Support user read-only view', () => {
       await login.logout()
     })
 
-    it('shows the self-assign, reassign and unassign controls, all disabled', async () => {
-      for (const control of ['selfAssign', 'reassign', 'unassign']) {
+    it('shows the self-assign control, disabled', async () => {
+      // Self-assign is a real POST form/button, so it has a native
+      // disabled state, unlike the link-based controls below.
+      expect(await detail.hasAssignmentControl('selfAssign')).toBe(true)
+      await expect(detail.assignmentControl('selfAssign')).not.toBeEnabled()
+    })
+
+    it('shows the reassign and unassign controls as inert (no href)', async () => {
+      for (const control of ['reassign', 'unassign']) {
         expect(await detail.hasAssignmentControl(control)).toBe(true)
-        await expect(detail.assignmentControl(control)).not.toBeEnabled()
+        const testId =
+          control === 'reassign' ? 'reassign-link' : 'unassign-link'
+        expect(await detail.isActionDisabled(testId)).toBe(true)
       }
     })
 
-    it('shows the Query control, disabled', async () => {
+    it('shows the Query control as inert (no href)', async () => {
       const query = $('[data-testid="action-query"]')
       await expect(query).toBeExisting()
-      await expect(query).not.toBeEnabled()
+      expect(await detail.isActionDisabled('action-query')).toBe(true)
     })
   })
 

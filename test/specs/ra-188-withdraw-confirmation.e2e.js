@@ -1,4 +1,4 @@
-import { browser, expect } from '@wdio/globals'
+import { $, browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
@@ -41,10 +41,10 @@ describe('RA-188 Withdraw confirmation', () => {
     it('links the Submitted-state Withdraw button to the confirmation page', async () => {
       await workItems.openWorkItem(workItemId)
       await detail.assertState('Not started')
-      // RA-335: rendered as a button-styled GET form, not an <a href> link,
-      // so a read-only support user's session can disable it.
-      const action = await detail.formActionFor('action-withdraw')
-      expect(action).toContain(
+      const href = await $('[data-testid="action-withdraw"]').getAttribute(
+        'href'
+      )
+      expect(href).toContain(
         `/work-items/${workItemId}/actions/withdraw/confirm`
       )
     })

@@ -73,13 +73,11 @@ describe('RA-291 Query an application', () => {
       await expect($('[data-testid="re-accreditation-detail"]')).toBeDisplayed()
     })
 
-    it('offers a Query control on the application summary page', async () => {
+    it('offers a Query link on the application summary page', async () => {
       await workItems.openWorkItem(workItemId)
       await detail.assertState('Not started')
-      // RA-335: rendered as a button-styled GET form, not an <a href> link,
-      // so a read-only support user's session can disable it.
-      const action = await detail.formActionFor('action-query')
-      expect(action).toContain(`/work-items/${workItemId}/query`)
+      const href = await $('[data-testid="action-query"]').getAttribute('href')
+      expect(href).toContain(`/work-items/${workItemId}/query`)
     })
 
     it('navigates to the query page when Query is selected', async () => {
