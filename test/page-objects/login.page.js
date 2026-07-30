@@ -25,6 +25,19 @@ class LoginPage extends Page {
     await this.open('/auth/logout')
     await expect($('h1=Stub Login')).toBeDisplayed()
   }
+
+  /**
+   * RA-335. Stub sign-in as the read-only support user, via the "Sign in
+   * as support user" button on the stub chooser — a separate form from the
+   * caseworker login above, so there is no nation to select.
+   */
+  async loginAsSupportUser() {
+    await this.open('/auth/regulator/login')
+    await $('[data-testid="stub-support-login"]').click()
+    await browser.waitUntil(
+      async () => new URL(await browser.getUrl()).pathname === '/work-items'
+    )
+  }
 }
 
 export default new LoginPage()

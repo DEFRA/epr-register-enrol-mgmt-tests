@@ -38,6 +38,28 @@ class Page {
   }
 
   /**
+   * RA-335. Only rendered in the service nav for a signed-in support user —
+   * absent for a caseworker or a signed-out visitor.
+   */
+  navBackendStatusLink() {
+    return $('[data-testid="nav-backend-status"]')
+  }
+
+  /**
+   * RA-335. A number of case-panel navigational affordances (reassign,
+   * unassign, change/override due date, query, withdraw, approve, create
+   * work item) were converted from plain `<a href>` links to `<button>`s
+   * wrapped in a one-field GET `<form>`, so a read-only support user's
+   * session can disable them (govukButton's native `disabled` only applies
+   * to `<button>` elements). A spec that used to read the target off the
+   * link's `href` reads it off the wrapping form's `action` instead.
+   */
+  async formActionFor(testId) {
+    const form = await $(`[data-testid="${testId}"]`).$('..')
+    return form.getAttribute('action')
+  }
+
+  /**
    * RA-295 (AC05). Resize the browser window to one of the VIEWPORTS above.
    *
    * `setWindowSize` sets the OUTER window size, so the usable viewport ends up
