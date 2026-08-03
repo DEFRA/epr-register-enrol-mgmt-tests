@@ -102,6 +102,25 @@ describe('RA-335 Support user read-only view', () => {
       await login.logout()
     })
 
+    // The crumb cookie is HttpOnly (by design — it must not be readable
+    // by third-party script), so read the token from the hidden form
+    // field the page already rendered instead. `fetch` sends cookies
+    // automatically for a same-origin request, so the browser attaches
+    // the crumb cookie itself. The scope check runs before the handler
+    // ever looks at params/payload, so a placeholder taskId/actionId is
+    // enough to prove rejection — this is about auth, not business logic.
+    async function postAsSupportUser(url) {
+      return browser.execute(async (u) => {
+        const crumbValue = document.querySelector('input[name="crumb"]')?.value
+        const res = await fetch(u, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `crumb=${crumbValue}`
+        })
+        return res.status
+      }, url)
+    }
+
     // Defence in depth: even if a disabled UI control were bypassed (a
     // crafted request, a stale form), the underlying route itself must
     // reject a support user — this is what actually satisfies "any
@@ -111,23 +130,44 @@ describe('RA-335 Support user read-only view', () => {
       await login.loginAsSupportUser()
       await workItems.openWorkItem(workItemId)
 
-      // The crumb cookie is HttpOnly (by design — it must not be readable
-      // by third-party script), so read the token from the hidden form
-      // field the page already rendered instead. `fetch` sends cookies
-      // automatically for a same-origin request, so the browser attaches
-      // the crumb cookie itself.
-      const status = await browser.execute(async (id) => {
-        const crumbValue = document.querySelector('input[name="crumb"]')?.value
-        const res = await fetch(`/work-items/${id}/self-assign`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: `crumb=${crumbValue}`
-        })
-        return res.status
-      }, workItemId)
+      const status = await postAsSupportUser(
+        `/work-items/${workItemId}/self-assign`
+      )
 
       expect(status).toBe(403)
     })
+
+    // RA-335: these 5 routes had NO scope check at all before RA-335 —
+    // any authenticated session, including a read-only support user,
+    // could reach them. self-assign (above) already had requireStandard
+    // beforehand, so it alone doesn't prove this fix; these do.
+    const previouslyUngatedRoutes = [
+      [
+        'complete task',
+        (id) => `/work-items/${id}/tasks/placeholder-task/complete`
+      ],
+      [
+        'set task status',
+        (id) => `/work-items/${id}/tasks/placeholder-task/status`
+      ],
+      ['apply action', (id) => `/work-items/${id}/actions/placeholder-action`],
+      [
+        'withdraw confirm',
+        (id) => `/work-items/${id}/actions/withdraw/confirm`
+      ],
+      ['submit query', (id) => `/work-items/${id}/query`]
+    ]
+
+    for (const [name, urlFor] of previouslyUngatedRoutes) {
+      it(`rejects a direct POST to the previously-ungated ${name} route with 403`, async () => {
+        await login.loginAsSupportUser()
+        await workItems.openWorkItem(workItemId)
+
+        const status = await postAsSupportUser(urlFor(workItemId))
+
+        expect(status).toBe(403)
+      })
+    }
   })
 
   describe('backend status', () => {
