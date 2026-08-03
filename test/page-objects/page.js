@@ -38,6 +38,29 @@ class Page {
   }
 
   /**
+   * RA-335. Only rendered in the service nav for a signed-in support user —
+   * absent for a caseworker or a signed-out visitor.
+   */
+  navBackendStatusLink() {
+    return $('[data-testid="nav-backend-status"]')
+  }
+
+  /**
+   * RA-335. A number of case-panel affordances (reassign, unassign,
+   * change/override due date, query, withdraw, approve, create work item)
+   * have no native disabled state to lean on — neither a plain `<a>` nor a
+   * govukButton-styled `<a href>` supports `disabled`, and the app renders
+   * no JavaScript to intercept a click. For a read-only support user they
+   * render as an inert `<span>` with no `href` instead (see
+   * `action-link/macro.njk` in management-fe) — this is true whenever the
+   * element at `testId` is a `<span>` rather than an `<a>`.
+   */
+  async isActionDisabled(testId) {
+    const tagName = await $(`[data-testid="${testId}"]`).getTagName()
+    return tagName.toLowerCase() === 'span'
+  }
+
+  /**
    * RA-295 (AC05). Resize the browser window to one of the VIEWPORTS above.
    *
    * `setWindowSize` sets the OUTER window size, so the usable viewport ends up
