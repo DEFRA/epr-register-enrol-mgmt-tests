@@ -25,11 +25,13 @@ import query from '../page-objects/query.page.js'
  *
  * RA-370 supersedes the phase-2 card contract this spec was written against:
  * the footer now always renders, assigned-to is on every card, submitted-on is
- * back (shown only while the assessment has not started, the exact inverse of
- * due-on), and org-name/org-id precede material/applicant-type. The canonical
- * order lives in TILE_FIELD_ORDER, so the AC05 ordering test below follows it
- * automatically; the visibility assertions were updated in place and the full
- * RA-370 contract is proven in ra-370-card-field-order.e2e.js.
+ * back, and org-name/org-id precede material/applicant-type. That whole
+ * contract now belongs to ra-370-card-field-order.e2e.js, which proves it in
+ * full — so the AC05 tests here were trimmed back to the one part that is
+ * genuinely RA-324's own AC, the conditional display of Due on. Duplicating the
+ * rest would only give two places to update when the card changes again. The
+ * canonical order lives in TILE_FIELD_ORDER, so the AC05 ordering test below
+ * follows it automatically.
  *
  * The terminal-state badges "Granted" (approved) and "Refused" (rejected) are
  * proven on the archived tile list by ra-224-archived-items.e2e.js, so this
@@ -188,15 +190,12 @@ describe('RA-324 Applications page', () => {
       // conditional-display rule vacuously. Assert the tile is on the page so
       // an absent tile fails loudly instead.
       await expect(workItems.tileFor(itemId)).toBeDisplayed()
-      // Due on still renders only once the SLA clock starts.
+      // Due on still renders only once the SLA clock starts. That is the only
+      // part of the old phase-2 footer rule that is still RA-324's own AC —
+      // the submitted-on / assigned-to / footer contract moved to RA-370 and is
+      // proven in full by ra-370-card-field-order.e2e.js, so re-asserting it
+      // here would only duplicate coverage and give two places to update.
       expect(await workItems.tileHasField(itemId, 'due-on')).toBe(false)
-      // RA-370 supersedes the phase-2 footer rule this used to assert:
-      // assigned-to is no longer gated on the clock (it is on every card), and
-      // submitted-on is back on the card while the assessment has not started.
-      // The full RA-370 contract is proven in ra-370-card-field-order.e2e.js;
-      // these two lines keep this spec honest about the change.
-      expect(await workItems.tileHasField(itemId, 'assigned-to')).toBe(true)
-      expect(await workItems.tileHasField(itemId, 'submitted-on')).toBe(true)
     })
 
     it('AC06: shows the status as a "Not started" badge in the tile', async () => {
@@ -245,7 +244,7 @@ describe('RA-324 Applications page', () => {
       )
     })
 
-    it('AC05: shows the SLA footer with Due on and Assigned to once the SLA clock has started', async () => {
+    it('AC05: shows Due on once the SLA clock has started', async () => {
       // Self-contained: navigate to the item's tile in this test's own body
       // rather than relying on page state left by the preceding AC08 test
       // (which would couple the two and let a reorder / .only / an AC08 abort
@@ -253,20 +252,10 @@ describe('RA-324 Applications page', () => {
       await workItems.resetFilters() // RA-299: bare landing now defaults to assigned-to-me, excluding these unassigned items
       await workItems.searchByOrgName(org)
       await expect(workItems.tileFor(itemId)).toBeDisplayed()
-      // Footer shows Due on + Assigned to once the SLA clock started.
+      // Due on appears once the SLA clock started. The rest of the footer
+      // contract (submitted-on, assigned-to / "Unassigned", and the footer
+      // always rendering) is RA-370's, proven in ra-370-card-field-order.e2e.js.
       expect(await workItems.tileHasField(itemId, 'due-on')).toBe(true)
-      expect(await workItems.tileHasField(itemId, 'assigned-to')).toBe(true)
-      // RA-370: submitted-on is the inverse of due-on, so it drops off the card
-      // once the clock is running.
-      expect(await workItems.tileHasField(itemId, 'submitted-on')).toBe(false)
-    })
-
-    it('AC05: shows "Unassigned" in the footer for an unassigned SLA-started item', async () => {
-      await workItems.resetFilters() // RA-299: bare landing now defaults to assigned-to-me, excluding these unassigned items
-      await workItems.searchByOrgName(org)
-      await expect(workItems.tileField(itemId, 'assigned-to')).toHaveText(
-        expect.stringContaining('Unassigned')
-      )
     })
 
     it('AC07: shows an "Updated" badge in assessment-in-progress', async () => {

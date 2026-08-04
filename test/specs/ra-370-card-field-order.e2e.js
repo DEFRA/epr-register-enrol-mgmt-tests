@@ -12,26 +12,52 @@ import { formatUkDateGds } from '../support/uk-time.js'
  * date that RA-324 phase-2 had dropped:
  *
  *   Application ref no · Org name · Org ID · Material type · Applicant type ·
- *   Submitted on (only while the assessment has NOT started, GDS date) ·
- *   Assigned to (officer name, or "Unassigned") · Due date (only once the SLA
- *   clock has started)
+ *   Submitted on · Assigned to (officer name, or "Unassigned") · Due date
  *
  * Contract confirmed with management-fe on the matching branch:
  *   - The card footer (data-testid application-card-footer) now ALWAYS renders.
- *     It holds submitted-on, assigned-to and due-on, in that order.
- *   - submitted-on and due-on are both keyed off the backend list field
- *     `slaState` — the clock starts when the assessment starts, so
- *     showSubmittedOn = !slaState and showDueDate = !!slaState. They are exact
- *     inverses: every card shows EXACTLY ONE of the two, never both, never
- *     neither. That invariant is asserted directly below.
- *   - Visibility is keyed off slaState, NOT off the state id, so this spec
- *     deliberately drives the SLA clock rather than asserting a state list.
+ *     It holds submitted-on, assigned-to and due-on, and that internal order
+ *     holds even when all three render.
+ *   - showSubmittedOn is keyed off the STATE, not the SLA clock:
+ *     PRE_ASSESSMENT_STATE_IDS = {'submitted', 'duly-made'}.
+ *   - showDueDate is keyed off the SLA clock: Boolean(item.slaState).
+ *   - The two are therefore NOT inverses and NOT mutually exclusive. A card may
+ *     legitimately show two dates, one, or none, so this spec asserts no
+ *     "exactly one date" invariant. The only safe rule is the one being tested
+ *     here: Submitted on is present exactly when the state is submitted or
+ *     duly-made.
  *   - assigned-to is no longer gated on the clock: it renders on every card.
  *   - Every field testid node holds the VALUE ONLY; the visible label sits in a
  *     sibling span outside the hook, so exact-text assertions are safe.
  *   - registration-number (RA-295 AC06) still renders, between org-id and
  *     material. It is not an RA-370 field, so it is asserted as "still there"
  *     rather than positioned by this spec's ordering contract.
+ *
+ * The three date combinations reachable through the UI, all verified against a
+ * running stack and all covered below:
+ *
+ *   state                  | Submitted on | Due on
+ *   -----------------------|--------------|-------
+ *   submitted              | yes          | no
+ *   duly-made              | yes          | YES     <- both
+ *   assessment-in-progress | no           | yes
+ *
+ * NB the both-dates row is reached by the ORDINARY journey, not only by the
+ * ReAccreditationDulyMadeSnapshotMigration back-fill that prompted the fix:
+ * ReAccreditationDulyMadeHook starts the SLA clock on the auto-duly-made
+ * transition, so completing the two submitted-state tasks lands an item in
+ * duly-made WITH a running clock. That is why it is covered end-to-end here.
+ *
+ * NOT covered here, deliberately:
+ *   - NEITHER date. Reachable only when ReAccreditationSlaStampHook swallows a
+ *     WorkItemConcurrencyException and leaves an assessment-in-progress item
+ *     with no clock. There is no way to provoke that through the UI, so it is
+ *     covered by management-fe unit tests only.
+ *   - The `queried` and `updated` states. Both are reachable from pre- AND
+ *     post-assessment transitions, so stateId alone cannot disambiguate them
+ *     and such items lose Submitted on even when assessment never started.
+ *     That is a known, accepted partial miss tracked as bead epr-r2s4 — this
+ *     spec asserts nothing either way about them.
  *
  * The canonical order lives in TILE_FIELD_ORDER on the page object, so the
  * ordering assertions and the page object read from one source of truth.
@@ -62,18 +88,37 @@ async function createFreshItem(organisationName, postcode) {
 }
 
 /**
- * Start the assessment: completing the two submitted-state tasks fires the
- * auto-duly-made hook, which starts the SLA clock. That is the transition the
- * conditional fields key off — after it the card must drop Submitted on and
- * gain Due date.
+ * Drive submitted -> duly-made. Completing the two submitted-state tasks fires
+ * the auto-duly-made hook, which ALSO starts the SLA clock
+ * (ReAccreditationDulyMadeHook) — so this lands the item in the one state that
+ * satisfies both conditions at once: still pre-assessment (Submitted on shows)
+ * and clock running (Due on shows). This is the both-dates fixture.
  */
-async function startAssessment(id) {
+async function driveToDulyMade(id) {
   await workItems.openWorkItem(id)
   await detail.gotoTasks()
   await detail.setTaskStatus('verify-organisation-details', 'Completed')
   await detail.setTaskStatus('confirm-application-completeness', 'Completed')
   await detail.gotoDetail()
   await detail.assertState('Duly made')
+}
+
+/**
+ * Drive duly-made -> assessment-in-progress via payment-received. This moves
+ * the item OUT of PRE_ASSESSMENT_STATE_IDS while the clock keeps running, so
+ * the card must drop Submitted on and keep Due date.
+ *
+ * The state's display name is "Updated" but its stateId is
+ * `assessment-in-progress` (verified against the running stack) — so this is
+ * NOT the `updated` state that RA-370 deliberately leaves uncovered.
+ */
+async function driveToAssessmentInProgress(id) {
+  await driveToDulyMade(id)
+  await workItems.openWorkItem(id)
+  await detail.gotoTasks()
+  await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
+  await detail.gotoDetail()
+  await detail.triggerAction('payment-received')
 }
 
 /** Bound the list to one organisation token so the assertions are pagination-safe. */
@@ -122,29 +167,51 @@ const ALWAYS_PRESENT = [
   'assigned-to'
 ]
 
+/** The two conditionally-rendered date fields in the card footer. */
+const DATE_FIELDS = ['submitted-on', 'due-on']
+
 /**
- * Assert one card's field order against the canonical contract.
+ * Assert one card's fields appear in the canonical RELATIVE order: each field's
+ * index into TILE_FIELD_ORDER must be greater than the last.
  *
- * Relative order rather than exact equality, because two of the fields are
- * conditional by design (submitted-on / due-on are exact inverses) and org-id
- * depends on the payload. Exact equality against TILE_FIELD_ORDER would make
- * the test a statement about the fixture rather than about the template.
+ * Relative order rather than exact equality, because several fields are
+ * conditional by design (org-id depends on the payload; submitted-on and due-on
+ * depend on the item's state). Exact equality against TILE_FIELD_ORDER would
+ * make the test a statement about the fixture rather than about the template.
  *
- * @param {string[]} order      testids as rendered, in DOM order
- * @param {string} dateField    the one date field this card must show
+ * Shared by the single-card and every-card assertions so the two cannot drift.
+ *
+ * @param {string[]} order  testids as rendered, in DOM order
  */
-function assertCardOrder(order, dateField) {
-  // Canonical relative order: indices into TILE_FIELD_ORDER must increase.
+function assertRelativeOrder(order) {
   const indices = order.map((field) => TILE_FIELD_ORDER.indexOf(field))
   expect(indices).toEqual([...indices].sort((a, b) => a - b))
+}
+
+/**
+ * Assert one card's full field contract: canonical relative order, every
+ * unconditional field present, and the expected date field(s).
+ *
+ * @param {string[]} order       testids as rendered, in DOM order
+ * @param {string[]} dateFields  the date testids this card must show; any of
+ *                               DATE_FIELDS not listed must be absent. All four
+ *                               combinations are legal, including `[]` (no date
+ *                               at all) and both — the two are not inverses.
+ */
+function assertCardOrder(order, dateFields) {
+  assertRelativeOrder(order)
   // Every unconditional field is actually on the card...
   for (const field of ALWAYS_PRESENT) {
     expect(order).toContain(field)
   }
-  // ...and exactly one of the two mutually exclusive date fields.
-  const otherDate = dateField === 'submitted-on' ? 'due-on' : 'submitted-on'
-  expect(order).toContain(dateField)
-  expect(order).not.toContain(otherDate)
+  // ...and exactly the expected date fields, no more.
+  for (const field of DATE_FIELDS) {
+    if (dateFields.includes(field)) {
+      expect(order).toContain(field)
+    } else {
+      expect(order).not.toContain(field)
+    }
+  }
 }
 
 describe('RA-370 — application card field order and Submitted on', () => {
@@ -172,18 +239,17 @@ describe('RA-370 — application card field order and Submitted on', () => {
       await expect(workItems.tileFor(firstId)).toBeDisplayed()
       const order = await workItems.tileFieldOrder(firstId)
       // A not-started card shows Submitted on, not Due date.
-      assertCardOrder(order, 'submitted-on')
+      assertCardOrder(order, ['submitted-on'])
     })
 
     it('AC1: every card on the page uses the same field order', async () => {
       const orders = await workItems.cardFieldOrders()
       expect(orders.length).toBeGreaterThan(1)
+      // Relative order, not mere presence: tolerates a conditional field being
+      // absent on some cards but not others. Same helper the single-card
+      // assertions use, so the two checks cannot drift apart.
       for (const order of orders) {
-        // Relative order, not mere presence: each card's field indices into the
-        // canonical list must increase monotonically, tolerating a conditional
-        // field being absent on some cards but not others.
-        const indices = order.map((field) => TILE_FIELD_ORDER.indexOf(field))
-        expect(indices).toEqual([...indices].sort((a, b) => a - b))
+        assertRelativeOrder(order)
       }
       // ...and they must all agree with each other, so a template that ordered
       // the first card correctly and the rest differently still fails.
@@ -240,19 +306,28 @@ describe('RA-370 — application card field order and Submitted on', () => {
       expect(await workItems.tileHasDueOn(secondId)).toBe(false)
     })
 
-    it('AC2/AC5: shows exactly one of Submitted on / Due date on every card', async () => {
-      const submitted = await workItems.cardFieldValues('submitted-on')
-      const due = await workItems.cardFieldValues('due-on')
-      expect(submitted.length).toEqual(due.length)
-      for (let index = 0; index < submitted.length; index++) {
-        expect(submitted[index] === null).not.toEqual(due[index] === null)
-      }
-    })
-
     it('AC6: keeps the RA-295 registration number on the card', async () => {
       // Regression guard: RA-370 reorders the card, and the registration number
       // is not in the story's field list — it must survive the reorder.
       expect(await workItems.tileHasRegistrationNumber(firstId)).toBe(true)
+    })
+
+    it('AC1: renders the reworded card title sentence', async () => {
+      // The rest of this spec pins the contract through testids and their DOM
+      // order, which the copy change does NOT affect — material and
+      // applicant-type keep the same order inside any surrounding wording. So
+      // assert the user-visible sentence directly, or RA-370's rename from
+      // "Reprocessor reaccreditation: {Material}" could silently revert.
+      await expect(workItems.tileTitle(firstId)).toHaveText(
+        'Plastic reaccreditation (Reprocessor)'
+      )
+    })
+
+    it('AC1: always renders the card footer, even before the SLA clock starts', async () => {
+      // Pre-RA-370 the footer appeared only once the clock had started. Both
+      // fresh cards must now carry it.
+      await expect(workItems.tileFooter(firstId)).toBeDisplayed()
+      await expect(workItems.tileFooter(secondId)).toBeDisplayed()
     })
   })
 
@@ -292,50 +367,95 @@ describe('RA-370 — application card field order and Submitted on', () => {
     it('AC1: an assigned card keeps the canonical field order', async () => {
       await listCardsFor(org)
       const order = await workItems.tileFieldOrder(itemId)
-      assertCardOrder(order, 'submitted-on')
+      assertCardOrder(order, ['submitted-on'])
     })
   })
 
-  // ── AC2/AC5 — assessment started (SLA clock running) ─────────────────────── //
+  // ── AC2/AC5 — duly-made: pre-assessment AND clock running, so BOTH dates ─── //
 
-  describe('assessment started', () => {
-    const org = uniqueOrg('RA370 Started Ltd')
+  describe('duly made (clock running)', () => {
+    const org = uniqueOrg('RA370 DulyMade Ltd')
     let itemId
 
     before(async () => {
       await login.login()
       itemId = await createFreshItem(org, 'SW1A 9AD')
-      await startAssessment(itemId)
+      await driveToDulyMade(itemId)
     })
 
     after(async () => {
       await login.logout()
     })
 
-    it('AC2: hides Submitted on once the assessment has started', async () => {
+    it('AC2/AC5: shows BOTH Submitted on and Due date', async () => {
+      // The regression RA-370 fixes. duly-made is still pre-assessment, so
+      // Submitted on must stay; the auto-duly-made hook has started the clock,
+      // so Due date appears too. Under the old `showSubmittedOn = !slaState`
+      // rule this card lost its Submitted on entirely.
+      await listCardsFor(org)
+      await expect(workItems.tileFor(itemId)).toBeDisplayed()
+      expect(await workItems.tileHasSubmittedOn(itemId)).toBe(true)
+      expect(await workItems.tileHasDueOn(itemId)).toBe(true)
+    })
+
+    it('AC3/AC5: GDS-formats both dates', async () => {
+      await listCardsFor(org)
+      expect(await workItems.tileSubmittedOn(itemId).getText()).toMatch(
+        GDS_DATE
+      )
+      expect(await workItems.tileDueOn(itemId).getText()).toMatch(GDS_DATE)
+    })
+
+    it('AC1: keeps the canonical field order with all three footer fields', async () => {
+      // The footer's internal order (submitted-on -> assigned-to -> due-on) has
+      // to hold in the three-way case too, which is the only case that can
+      // distinguish it from a two-field footer.
+      await listCardsFor(org)
+      const order = await workItems.tileFieldOrder(itemId)
+      assertCardOrder(order, ['submitted-on', 'due-on'])
+    })
+  })
+
+  // ── AC2/AC5 — assessment in progress: past pre-assessment, clock running ─── //
+
+  describe('assessment in progress', () => {
+    const org = uniqueOrg('RA370 InProgress Ltd')
+    let itemId
+
+    before(async () => {
+      await login.login()
+      itemId = await createFreshItem(org, 'SW1A 9AE')
+      await driveToAssessmentInProgress(itemId)
+    })
+
+    after(async () => {
+      await login.logout()
+    })
+
+    it('AC2: hides Submitted on once the state leaves pre-assessment', async () => {
       await listCardsFor(org)
       await expect(workItems.tileFor(itemId)).toBeDisplayed()
       expect(await workItems.tileHasSubmittedOn(itemId)).toBe(false)
     })
 
-    it('AC5: shows Due date, GDS-formatted, once the SLA clock has started', async () => {
+    it('AC5: shows Due date, GDS-formatted, while the SLA clock runs', async () => {
       await listCardsFor(org)
       await expect(workItems.tileFor(itemId)).toBeDisplayed()
       expect(await workItems.tileHasDueOn(itemId)).toBe(true)
       expect(await workItems.tileDueOn(itemId).getText()).toMatch(GDS_DATE)
     })
 
-    it('AC4: still shows Assigned to on an SLA-started card', async () => {
+    it('AC4: still shows Assigned to', async () => {
       await listCardsFor(org)
       await expect(workItems.tileAssignedTo(itemId)).toHaveText('Unassigned')
     })
 
-    it('AC1: an SLA-started card keeps the canonical field order', async () => {
+    it('AC1: keeps the canonical field order', async () => {
       await listCardsFor(org)
       const order = await workItems.tileFieldOrder(itemId)
-      // Submitted on drops out, Due date appears — the remaining fields keep
+      // Submitted on drops out, Due date stays — the remaining fields keep
       // their relative positions.
-      assertCardOrder(order, 'due-on')
+      assertCardOrder(order, ['due-on'])
     })
   })
 })

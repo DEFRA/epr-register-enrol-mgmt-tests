@@ -746,6 +746,17 @@ class WorkItemsPage extends Page {
   }
 
   /**
+   * RA-370. The card's title sentence, e.g. "Plastic reaccreditation
+   * (Reprocessor)". The material and applicant-type testids sit INSIDE it, so
+   * the ordering assertions alone cannot catch a change to the surrounding
+   * wording — the spans keep their DOM order under any copy. Assert this text
+   * directly to pin the user-visible sentence.
+   */
+  tileTitle(id) {
+    return this.tileField(id, 'application-card-title')
+  }
+
+  /**
    * RA-370. The rendered value of one field on every card currently listed, in
    * DOM order, with `null` for cards where the (conditional) field is absent.
    * Lets a spec assert a rule holds list-wide rather than on a single card.
