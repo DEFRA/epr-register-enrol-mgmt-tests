@@ -43,20 +43,43 @@ export const DECISION_TASK = 'record-decision-rationale'
 /**
  * Create a re-accreditation work item and return its id.
  *
- * `postcode` is a required argument rather than a constant, and every spec
- * must pass one no other spec uses. The RA-318 application reference is
- * derived from the year, agency code, operatorOrganisationId, the last 3
- * postcode characters and the first 2 material characters — the
- * organisation NAME is not part of it, so timestamping the name does
- * nothing to keep references apart. Fixtures matching on that tuple are
- * disambiguated by a retry loop that can only produce 5 references in
- * total, after which creation fails permanently with "Failed to generate a
- * unique applicationReference after 5 attempts" (see epr-s9uc). Two specs
- * sharing a postcode therefore pass on a clean database and start failing
- * once matches accumulate across runs — an intermittent failure worth
- * designing out rather than tolerating. Hence the one-postcode-per-spec
- * convention across `test/specs`; putting the postcode in this shared
- * helper would silently break it for every caller at once.
+ * `postcode` is a required argument rather than a constant. THE RULE: pick
+ * one whose LAST 3 CHARACTERS are not already used by another spec creating
+ * the same material. `material` is deliberately fixed to `plastic` below
+ * and forms part of the key, so it is not a free variable you can vary to
+ * dodge a clash — change it and you change which specs you collide with.
+ *
+ * Why the last 3 characters and not the whole postcode: the RA-318
+ * application reference is built from (accreditation year, agency code,
+ * operatorOrganisationId, LAST 3 postcode characters, FIRST 2 material
+ * characters). Two details make this trap people:
+ *
+ *  - The organisation NAME is not in the key, so timestamping it does
+ *    nothing to keep references apart (it is there for humans reading the
+ *    work-items list). `operatorOrganisationId` is not in the key either in
+ *    practice — the case-management create form has no such field, so it is
+ *    empty for every fixture this helper makes.
+ *  - The agency code comes from the postcode's LEADING letters, not its
+ *    suffix (Scotland/Wales/NI sets map to SE/NR/NI, everything else EA).
+ *    So `EH1 1AA` and `SW1A 1AA` genuinely do not clash. Existing specs rely
+ *    on this, which is why the tree contains apparent counter-examples to
+ *    the rule above. The rule is deliberately stricter than the mechanism —
+ *    follow it and you are safe without having to reason about agencies.
+ *
+ * Why it matters: at most 5 work items can EVER share one tuple. The
+ * generator disambiguates with a retry loop producing `'0' + attempt % 10`,
+ * capped at 5 attempts, then fails permanently with "Failed to generate a
+ * unique applicationReference after 5 attempts" — no retry clears it. The
+ * failure is therefore by accumulation across runs, not a pairwise clash,
+ * which is why a clean database passes and a reused one fails.
+ *
+ * This is not hypothetical headroom. As of RA-346 the tuple
+ * `(EA, '1AA', 'PL')` already has exactly 5 members (ra-235, ra-238,
+ * ra-295-assignment-and-query, ra-295-case-header,
+ * re-accreditation-operator-email-contract), so it is AT the ceiling: a
+ * clean run consumes all 5 slots and every one of those specs fails on any
+ * subsequent run against the same database. See epr-p5rt for the fixture
+ * hygiene and epr-s9uc for the generator defect underneath it.
  *
  * The organisation name is still timestamped so a human reading the
  * work-items list can tell runs apart.

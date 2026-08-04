@@ -19,10 +19,18 @@ import {
  * `awaiting-decision` would be asserting the wrong design.
  *
  * The `submit-for-decision` transition carries
- * `requiresAllTasksComplete: true`, so the engine filters it out of
- * `availableActions` while any assessment task is outstanding. That means
- * the affordance is ABSENT rather than disabled — distinct from the
- * read-only support-user case (RA-335), where controls render inert.
+ * `requiresAllTasksComplete: true`, so it is withheld from
+ * `availableActions` while any assessment task is outstanding and the
+ * affordance is ABSENT rather than disabled — distinct from the read-only
+ * support-user case (RA-335), where controls render inert.
+ *
+ * On the rendered detail page that filtering is done by the BACKEND, not
+ * the frontend: the detail controller's `decorate` passes `availableActions`
+ * through verbatim and never calls `projectWorkItem`, so the frontend
+ * engine's equivalent filter is not what is being exercised here
+ * (confirmed with the management-fe owner). Stated explicitly because the
+ * frontend DOES gate `approve` in the sibling RA-346 spec, and assuming the
+ * same mechanism covers both would be wrong.
  *
  * This is the end-to-end regression for that gate; management-fe and
  * management-be carry the unit-level ones.
@@ -53,10 +61,15 @@ describe('RA-346 Submit for decision is gated on assessment task completion', ()
     // Negative control. "Submit for decision is missing" only means the
     // gate works if the actions panel rendered at all — otherwise a
     // template that failed to render would pass the assertion above.
-    // `sla-extend` and `withdraw-during-assessment` are both
-    // `requiresAllTasksComplete: false` from this same state.
+    //
+    // `withdraw-during-assessment` is the control because it is
+    // `requiresAllTasksComplete: false` AND genuinely comes from
+    // `availableActions`. Deliberately NOT `sla-extend`: despite its
+    // `action-` testid it is rendered by the assignment panel and is
+    // filtered out of `availableActions` by the detail controller, so it
+    // would still be present even if the actions panel vanished — a
+    // control that cannot fail is not a control.
     const actionIds = await detail.availableActionIds()
-    expect(actionIds).toContain('sla-extend')
     expect(actionIds).toContain('withdraw-during-assessment')
     expect(actionIds).not.toContain('submit-for-decision')
   })
@@ -76,10 +89,17 @@ describe('RA-346 Submit for decision is gated on assessment task completion', ()
   it('rejects a direct POST to the apply-action route with 409 while a task is outstanding', async () => {
     // Defence in depth. Hiding the button is a UI affordance; the route
     // behind it has to refuse too, or a stale form or a crafted request
-    // walks straight through the gate. Enforced in BOTH services — the
-    // backend rejects with 409 ("requires every task for state
-    // 'assessment-in-progress' to be complete first") and the frontend's
-    // own engine check maps the `not-allowed` reason to 409 as well.
+    // walks straight through the gate.
+    //
+    // Enforced by the BACKEND, which rejects with 409 while any
+    // `assessment-in-progress` task is outstanding. The frontend only
+    // surfaces that 409 — `toResult` maps the status to a `not-allowed`
+    // reason and the detail controller re-renders with it. There is no
+    // independent frontend gate on this path: `canApplyAction` exists but
+    // has a single production caller, the `approve` eligibility check,
+    // which is a different action entirely. That asymmetry is why the
+    // sibling RA-346 approve spec can assert a frontend-rendered guard and
+    // this one cannot. (Chain verified by the management-fe owner.)
     //
     // Unlike the approve route, this one does NOT redirect: the generic
     // apply-action route re-renders the detail page in place with an error

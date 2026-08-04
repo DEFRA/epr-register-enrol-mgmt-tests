@@ -1026,11 +1026,22 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * RA-346. Every action affordance currently rendered, by actionId.
+   * RA-346. Every element carrying an `action-*` testid, by the suffix.
    *
-   * Used as a negative control: asserting a specific action is missing is
-   * only meaningful if the actions panel rendered at all, so specs assert
-   * the ungated siblings are still present in the same breath.
+   * ⚠ This is NOT the engine's `availableActions`. The `action-` testid
+   * prefix is reused by two independently-rendered panels in `detail.njk`:
+   *
+   *  - the actions panel, whose primary buttons and secondary query/withdraw
+   *    links DO come from `availableActions`;
+   *  - the assignment panel, where `action-sla-extend` and
+   *    `action-sla-override` render as "Change the due date" / "Override the
+   *    due date" gated on `canChangeDueDate`. `sla-extend` is deliberately
+   *    filtered OUT of `availableActions` by the detail controller, so those
+   *    two never pass through the engine's gate at all.
+   *
+   * So only a `withdraw-*` / `query` / primary-button id is evidence that
+   * the actions panel rendered. Using an SLA id as a negative control would
+   * pass even if the actions panel were missing entirely.
    */
   async availableActionIds() {
     const elements = await $$('[data-testid^="action-"]')
