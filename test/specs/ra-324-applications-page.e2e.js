@@ -19,11 +19,17 @@ import query from '../page-objects/query.page.js'
  * <article data-testid="application-tile" data-work-item-id="{id}">. Inside
  * it the application-reference link is data-testid="work-item-link-{id}", the
  * status badge is data-testid="work-item-state-tag-{id}", and the remaining
- * fields carry generic testids: applicant-type + material (the "Reprocessor
- * reaccreditation: {Material}" title), org-name + org-id (the "{Org} ({Org ID})"
- * line), and — only once the SLA clock has started — assigned-to + due-on (the
- * card footer). Phase-2 removed submitted-on from the card and renamed
- * due-date to due-on.
+ * fields carry generic testids: org-name + org-id (the "{Org} ({Org ID})"
+ * line), material + applicant-type (the title line), and — in the card footer —
+ * submitted-on, assigned-to and due-on.
+ *
+ * RA-370 supersedes the phase-2 card contract this spec was written against:
+ * the footer now always renders, assigned-to is on every card, submitted-on is
+ * back (shown only while the assessment has not started, the exact inverse of
+ * due-on), and org-name/org-id precede material/applicant-type. The canonical
+ * order lives in TILE_FIELD_ORDER, so the AC05 ordering test below follows it
+ * automatically; the visibility assertions were updated in place and the full
+ * RA-370 contract is proven in ra-370-card-field-order.e2e.js.
  *
  * The terminal-state badges "Granted" (approved) and "Refused" (rejected) are
  * proven on the archived tile list by ra-224-archived-items.e2e.js, so this
@@ -176,18 +182,21 @@ describe('RA-324 Applications page', () => {
       expect(order).toContain('org-name')
     })
 
-    it('AC05: omits the SLA footer (Due on / Assigned to) while the SLA clock has not started', async () => {
+    it('AC05: omits Due on while the SLA clock has not started', async () => {
       // Guard first: tileHasField chains isExisting() off the tile, so an
       // absent tile would report the field absent and pass this AC05
       // conditional-display rule vacuously. Assert the tile is on the page so
       // an absent tile fails loudly instead.
       await expect(workItems.tileFor(itemId)).toBeDisplayed()
-      // Phase-2: due-on and assigned-to live in the card footer, which only
-      // renders once the SLA clock starts. A brand-new item shows neither, and
-      // submitted-on was removed from the card entirely.
+      // Due on still renders only once the SLA clock starts.
       expect(await workItems.tileHasField(itemId, 'due-on')).toBe(false)
-      expect(await workItems.tileHasField(itemId, 'assigned-to')).toBe(false)
-      expect(await workItems.tileHasField(itemId, 'submitted-on')).toBe(false)
+      // RA-370 supersedes the phase-2 footer rule this used to assert:
+      // assigned-to is no longer gated on the clock (it is on every card), and
+      // submitted-on is back on the card while the assessment has not started.
+      // The full RA-370 contract is proven in ra-370-card-field-order.e2e.js;
+      // these two lines keep this spec honest about the change.
+      expect(await workItems.tileHasField(itemId, 'assigned-to')).toBe(true)
+      expect(await workItems.tileHasField(itemId, 'submitted-on')).toBe(true)
     })
 
     it('AC06: shows the status as a "Not started" badge in the tile', async () => {
@@ -244,10 +253,11 @@ describe('RA-324 Applications page', () => {
       await workItems.resetFilters() // RA-299: bare landing now defaults to assigned-to-me, excluding these unassigned items
       await workItems.searchByOrgName(org)
       await expect(workItems.tileFor(itemId)).toBeDisplayed()
-      // Footer present once the SLA clock started: Due on + Assigned to.
+      // Footer shows Due on + Assigned to once the SLA clock started.
       expect(await workItems.tileHasField(itemId, 'due-on')).toBe(true)
       expect(await workItems.tileHasField(itemId, 'assigned-to')).toBe(true)
-      // submitted-on was removed from the card entirely in phase-2.
+      // RA-370: submitted-on is the inverse of due-on, so it drops off the card
+      // once the clock is running.
       expect(await workItems.tileHasField(itemId, 'submitted-on')).toBe(false)
     })
 

@@ -2,24 +2,45 @@ import { browser, $, expect } from '@wdio/globals'
 import { Page } from './page.js'
 
 /**
- * RA-324 (AC05). The order in which an application card renders its fields.
- * The application-reference link is first (its id-keyed testid is normalised
- * to 'application-ref' by tileFieldOrder); then the "Reprocessor
- * reaccreditation: {Material}" title (applicant-type, material), the
- * "{Org} ({Org ID})" line (org-name, org-id), and — only once the SLA clock
- * has started — the footer (assigned-to, due-on).
+ * RA-370 (supersedes RA-324 AC05). The order in which an application card
+ * renders its fields — the story's field list, verbatim and in order:
+ * application ref, org name, org ID, material type, applicant type, submitted
+ * on, assigned to, due date.
  *
- * Phase-2 changes vs the first tiles design: submitted-on is gone from the
- * card, due-date is renamed due-on, and org-name/org-id now precede the
- * footer. Exported so the spec asserts against the same source of truth the
- * page object reads, rather than a second hand-kept copy.
+ * Changes vs the RA-324 phase-2 order this replaces:
+ *   - org-name/org-id now come BEFORE material/applicant-type (the title line
+ *     was reworded from "Reprocessor reaccreditation: {Material}" to
+ *     "{Material} reaccreditation (Reprocessor)", so material precedes
+ *     applicant type);
+ *   - submitted-on is back on the card, between applicant-type and
+ *     assigned-to, shown only while the assessment has not started;
+ *   - assigned-to is no longer gated on the SLA clock — it renders on every
+ *     card, "Unassigned" when nobody holds it.
+ *
+ * NOT listed here: the id-keyed status tag (its position is RA-324's concern,
+ * not a story field) and registration-number (RA-295 AC06 — it renders between
+ * org-id and material but is outside the RA-370 field list, so keeping it out
+ * of this constant lets each ticket's contract move independently).
+ *
+ * This is an ORDERING contract, not a presence one — three of the entries are
+ * conditional, so treat the list as the sequence a card's fields must respect
+ * rather than the set it must contain:
+ *   - org-id renders only `{% if item.orgId %}`, and orgId maps to
+ *     payload.operatorOrganisationId, which items created through the UI
+ *     "Create work item" form never set;
+ *   - submitted-on and due-on are exact inverses, so a card carries one or the
+ *     other and never both.
+ *
+ * Exported so the specs assert against the same source of truth the page
+ * object reads, rather than a second hand-kept copy.
  */
 export const TILE_FIELD_ORDER = [
   'application-ref',
-  'applicant-type',
-  'material',
   'org-name',
   'org-id',
+  'material',
+  'applicant-type',
+  'submitted-on',
   'assigned-to',
   'due-on'
 ]
@@ -557,10 +578,15 @@ class WorkItemsPage extends Page {
 
   /**
    * A field element inside a tile, located by its generic field testid
-   * (applicant-type, material, org-name, org-id, and — in the SLA footer —
-   * assigned-to, due-on). Scoped to the tile so it cannot resolve a field on a
-   * different application. The application reference field is the tile link
-   * itself (workItemLink(id)), not a generic field testid.
+   * (org-name, org-id, registration-number, material, applicant-type, and — in
+   * the card footer — submitted-on, assigned-to, due-on). Scoped to the tile so
+   * it cannot resolve a field on a different application. The application
+   * reference field is the tile link itself (workItemLink(id)), not a generic
+   * field testid.
+   *
+   * RA-370: every one of these testid nodes holds the VALUE ONLY — the visible
+   * label ("Assigned to:", "Due on:") sits in a sibling span outside the hook —
+   * so assertions can use toHaveText on the exact value without a prefix.
    */
   tileField(id, field) {
     return this.tileFor(id).$(`[data-testid="${field}"]`)
@@ -619,17 +645,119 @@ class WorkItemsPage extends Page {
    * order without requiring every conditional field to be present.
    */
   async tileFieldOrder(id) {
-    const tile = await this.tileFor(id)
-    const elements = await tile.$$('[data-testid]')
+    return this.fieldOrderIn(await this.tileFor(id), id)
+  }
+
+  // ── RA-370 card field order + Submitted on ───────────────────────────────── //
+
+  /**
+   * RA-370. The ordered field testids inside ONE card element, normalising the
+   * id-keyed application-reference link to 'application-ref'.
+   *
+   * Split out of tileFieldOrder so the same reading can be taken from a card
+   * located by position (cardFieldOrders, which walks every card on the page)
+   * as well as from a card located by work item id. `id` is optional: when it
+   * is not known, any `work-item-link-*` testid is normalised instead, which is
+   * safe because the selector is already scoped to a single card.
+   *
+   * @param {WebdriverIO.Element} card
+   * @param {string} [id]
+   */
+  async fieldOrderIn(card, id) {
+    const elements = await card.$$('[data-testid]')
     const seen = []
     for (const element of elements) {
       let testId = await element.getAttribute('data-testid')
-      if (testId === `work-item-link-${id}`) testId = 'application-ref'
+      if (
+        id
+          ? testId === `work-item-link-${id}`
+          : testId?.startsWith('work-item-link-')
+      ) {
+        testId = 'application-ref'
+      }
       if (TILE_FIELD_ORDER.includes(testId) && !seen.includes(testId)) {
         seen.push(testId)
       }
     }
     return seen
+  }
+
+  /**
+   * RA-370. The field order of EVERY card currently listed, in DOM order — one
+   * array of testids per card.
+   *
+   * The AC is "fields appear in a consistent order for every case item", so a
+   * spec must not settle for checking one hand-picked card: a template that
+   * ordered the first card correctly and the rest differently would pass that.
+   */
+  async cardFieldOrders() {
+    const cards = await this.tiles()
+    const orders = []
+    for (const card of cards) {
+      orders.push(await this.fieldOrderIn(card))
+    }
+    return orders
+  }
+
+  /**
+   * RA-370. The "Submitted on" value on a card. Rendered only while the
+   * application assessment has NOT been started; pair positive assertions with
+   * tileHasSubmittedOn for the conditional-visibility negative.
+   */
+  tileSubmittedOn(id) {
+    return this.tileField(id, 'submitted-on')
+  }
+
+  async tileHasSubmittedOn(id) {
+    return this.tileHasField(id, 'submitted-on')
+  }
+
+  /**
+   * RA-370. "Assigned to" — present on every card, showing the officer's name
+   * when assigned and the literal "Unassigned" when not. (Before RA-370 it
+   * lived in the SLA footer and so appeared only once the clock had started.)
+   */
+  tileAssignedTo(id) {
+    return this.tileField(id, 'assigned-to')
+  }
+
+  async tileHasAssignedTo(id) {
+    return this.tileHasField(id, 'assigned-to')
+  }
+
+  /**
+   * RA-370. "Due date" — rendered only once the SLA clock has started.
+   */
+  tileDueOn(id) {
+    return this.tileField(id, 'due-on')
+  }
+
+  async tileHasDueOn(id) {
+    return this.tileHasField(id, 'due-on')
+  }
+
+  /**
+   * RA-370. The card footer, which now always renders (it used to appear only
+   * once the SLA clock had started) and holds the submitted-on / assigned-to /
+   * due-on trio.
+   */
+  tileFooter(id) {
+    return this.tileField(id, 'application-card-footer')
+  }
+
+  /**
+   * RA-370. The rendered value of one field on every card currently listed, in
+   * DOM order, with `null` for cards where the (conditional) field is absent.
+   * Lets a spec assert a rule holds list-wide rather than on a single card.
+   */
+  async cardFieldValues(field) {
+    const cards = await this.tiles()
+    const values = []
+    for (const card of cards) {
+      const element = await card.$(`[data-testid="${field}"]`)
+      values.push((await element.isExisting()) ? await element.getText() : null)
+    }
+    return values
   }
 }
 
