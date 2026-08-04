@@ -234,14 +234,21 @@ describe('RA-295 assignment panel and query assignment notice', () => {
       // the gate was absent, so the reversal is recorded here rather than
       // left to look like someone quietly flipped a passing spec.
       //
-      // WHY IT CHANGED: Tom found that a withdrawn work item still offered
-      // "Assign to yourself and start", and that clicking it worked —
-      // POST /work-items/{id}/assign returned 200 and really assigned the
-      // closed case. The UI was the only gate and it was open. The hand-over
-      // rationale above was put to him explicitly, with this spec cited, and
-      // the reversal was confirmed with it on the table: assignment is now
-      // blocked on ALL terminal states (withdrawn, approved, rejected), in
-      // both management-fe (affordances suppressed) and management-be (409).
+      // WHY IT CHANGED: a withdrawn work item still offered "Assign to
+      // yourself and start", and clicking it worked — POST
+      // /work-items/{id}/assign returned 200 and really assigned the closed
+      // case (found by Tom on the RA-358 local test; see bead epr-b4as). The
+      // UI was the only gate and it was open. Assignment is now blocked on
+      // ALL terminal states (withdrawn, approved, rejected), in both
+      // management-fe (affordances suppressed) and management-be (409).
+      //
+      // The hand-over rationale above was raised against that change and is
+      // reported to have been overridden with this spec cited. That
+      // confirmation reached this suite RELAYED, not directly from Tom, so it
+      // is recorded as relayed rather than as settled — during this same work
+      // a relayed decision was quoted from a bead field that had been
+      // overwritten. Reverting this case is the other half of reverting
+      // ra-358-terminal-assignment-gating.e2e.js if the call changes.
       //
       // The panel itself REMAINS — it now explains that the case is closed,
       // and still shows who holds it, which is information rather than an

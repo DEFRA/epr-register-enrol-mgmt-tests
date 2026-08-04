@@ -24,17 +24,24 @@ import {
  *   - management-be rejects assign/unassign on a terminal work item with a
  *     409, so the UI is not the only gate.
  *
- * SCOPE IS ALL THREE TERMINAL STATES — withdrawn, approved and rejected —
- * confirmed by Tom, not withdrawn alone. All three are reachable through
- * existing journeys, so all three are covered here rather than inferring the
- * other two from the withdrawn case.
+ * SCOPE IS ALL THREE TERMINAL STATES — withdrawn, approved and rejected, not
+ * withdrawn alone. All three are reachable through existing journeys, so all
+ * three are covered here rather than inferring the other two from the
+ * withdrawn case.
  *
  * THIS REVERSES RA-295 AC03, which required assignment to be available "all
- * the way through" so a closed case could still be handed over. That
- * rationale was put to Tom explicitly and the reversal was confirmed with it
- * on the table. `ra-295-assignment-and-query.e2e.js` carries the inverted
- * case and the same note, so the next reader finds a recorded decision rather
- * than a spec that was quietly flipped.
+ * the way through" so a closed case could still be handed over.
+ *
+ * PROVENANCE, stated plainly because it matters for a reversal of an accepted
+ * AC: the scope decision reached this suite RELAYED (via the coordinating
+ * session), not directly from Tom. The hand-over rationale was raised and is
+ * reported to have been overridden with it on the table, but that
+ * confirmation is second-hand from here. Recorded as relayed rather than
+ * presented as settled, because during this same work a relayed decision was
+ * quoted from a bead field that turned out to have been overwritten. If the
+ * decision is reversed, the inverted case in
+ * `ra-295-assignment-and-query.e2e.js` is the other half that reverts with
+ * this file.
  */
 describe('RA-358 — assignment is gated on terminal work items', () => {
   /**
