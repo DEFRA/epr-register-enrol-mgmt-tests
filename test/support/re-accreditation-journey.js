@@ -44,13 +44,19 @@ export const DECISION_TASK = 'record-decision-rationale'
  * Create a re-accreditation work item and return its id.
  *
  * `postcode` is a required argument rather than a constant, and every spec
- * must pass one no other spec uses. The RA-318 application reference the
- * backend generates is derived from the postcode suffix and the material,
- * NOT from the organisation name — so two fixtures sharing a postcode and a
- * material collide, and creation fails outright with "Failed to generate a
- * unique applicationReference after 5 attempts". Hence the one-postcode-per-
- * spec convention visible across `test/specs`; putting the postcode in this
- * shared helper would silently break it for every caller at once.
+ * must pass one no other spec uses. The RA-318 application reference is
+ * derived from the year, agency code, operatorOrganisationId, the last 3
+ * postcode characters and the first 2 material characters — the
+ * organisation NAME is not part of it, so timestamping the name does
+ * nothing to keep references apart. Fixtures matching on that tuple are
+ * disambiguated by a retry loop that can only produce 5 references in
+ * total, after which creation fails permanently with "Failed to generate a
+ * unique applicationReference after 5 attempts" (see epr-s9uc). Two specs
+ * sharing a postcode therefore pass on a clean database and start failing
+ * once matches accumulate across runs — an intermittent failure worth
+ * designing out rather than tolerating. Hence the one-postcode-per-spec
+ * convention across `test/specs`; putting the postcode in this shared
+ * helper would silently break it for every caller at once.
  *
  * The organisation name is still timestamped so a human reading the
  * work-items list can tell runs apart.
