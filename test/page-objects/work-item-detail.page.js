@@ -931,6 +931,109 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * RA-358 (assignment gating). Whether an assignment affordance is actually
+   * USABLE — i.e. a live control the caseworker can act on.
+   *
+   * Deliberately tolerant of two valid implementations, because the
+   * requirement is "a closed case offers no assignment affordance", not "the
+   * markup is shaped a particular way": management-fe may either omit the
+   * control entirely, or follow the RA-335 precedent and render an inert
+   * `<span>` with the same test id (which `appActionLink` already does for
+   * read-only users). Both satisfy the AC; a live `<a>` or `<button>` does
+   * not, and that is what this returns true for.
+   *
+   * Written this way so the spec pins the behaviour rather than the choice
+   * between those two, and does not need rewriting when the choice is made.
+   */
+  async hasUsableAssignmentControl(name) {
+    if (!(await this.hasAssignmentControl(name))) {
+      return false
+    }
+    const control = this.assignmentControl(name)
+    const tagName = (await control.getTagName()).toLowerCase()
+    if (tagName === 'span') {
+      return false
+    }
+    // A link is only usable if it actually navigates; `appActionLink` drops
+    // the href rather than the element in some states.
+    if (tagName === 'a') {
+      return Boolean(await control.getAttribute('href'))
+    }
+    return await control.isEnabled()
+  }
+
+  /**
+   * RA-358. The panel's terminal-state explanation, which REPLACES the three
+   * affordances on a closed case rather than merely disabling them.
+   */
+  assignmentClosedNotice() {
+    return $('[data-testid="assignment-closed"]')
+  }
+
+  /**
+   * RA-358. Assert a terminal-state case offers no usable assignment
+   * affordance at all.
+   *
+   * Pairs the negative with a POSITIVE hook on purpose. management-fe
+   * suppresses the three controls from the DOM, so an absence-only assertion
+   * would also pass if the panel failed to render for an unrelated reason —
+   * the page erroring, the testids being renamed, or the item not loading at
+   * all. That is precisely how a false "pre-existing failure" wasted time
+   * earlier in this work. Requiring `assignment-closed` to be displayed means
+   * the panel demonstrably rendered and deliberately said the case is closed,
+   * so the absences below are meaningful rather than vacuous.
+   *
+   * Checks all three affordances together and reports which survived, so a
+   * failure names the offender instead of stopping at the first.
+   */
+  async assertNoUsableAssignmentAffordances() {
+    await expect(this.assignmentPanel()).toBeDisplayed()
+    await expect(this.assignmentClosedNotice()).toBeDisplayed()
+
+    const names = ['selfAssign', 'reassign', 'unassign']
+    const usable = []
+    for (const name of names) {
+      if (await this.hasUsableAssignmentControl(name)) {
+        usable.push(name)
+      }
+    }
+    expect(usable).toEqual([])
+  }
+
+  /**
+   * RA-358. Assert an assign attempt on a terminal work item was REFUSED.
+   *
+   * management-be returns 409 and management-fe's BFF maps it to an error
+   * render rather than a redirect, so the browser stays on the interstitial
+   * URL and shows a GOV.UK error summary. Both are asserted: the error
+   * summary alone would also appear for an ordinary validation failure, and
+   * the URL alone would not distinguish a refusal from a page that simply
+   * never submitted.
+   *
+   * The 409's COPY is deliberately not pinned. management-be owns that
+   * wording, it changed once already during this work (it used to embed the
+   * work item GUID, which RA-358 exists to remove), and its own tests cover
+   * it. What this suite is entitled to assert is that the call was refused.
+   */
+  async assertAssignRefused() {
+    const submit = $('button[type="submit"]')
+    await submit.waitForClickable({
+      timeout: 10000,
+      timeoutMsg: 'Expected the assign interstitial to offer a submit button'
+    })
+    await submit.click()
+
+    const errorSummary = $('.govuk-error-summary')
+    await errorSummary.waitForDisplayed({
+      timeout: 10000,
+      timeoutMsg:
+        'Expected an error summary after assigning a terminal work item'
+    })
+    const url = new URL(await browser.getUrl())
+    expect(url.pathname).toMatch(/\/assign$/)
+  }
+
+  /**
    * The panel's assignment status line, reading exactly "Unassigned",
    * "Assigned to {Name}" or "Assigned to you".
    */
