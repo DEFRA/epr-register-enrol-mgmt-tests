@@ -192,6 +192,11 @@ function assertRelativeOrder(order) {
  * Assert one card's full field contract: canonical relative order, every
  * unconditional field present, and the expected date field(s).
  *
+ * Self-guarding against a missing tile, unlike a bare tileHasField negative: an
+ * absent card yields an empty `order`, which passes every absence check but
+ * fails the ALWAYS_PRESENT ones loudly. So call sites need no separate
+ * tile-displayed precondition — the presence half supplies it.
+ *
  * @param {string[]} order       testids as rendered, in DOM order
  * @param {string[]} dateFields  the date testids this card must show; any of
  *                               DATE_FIELDS not listed must be absent. All four
@@ -301,8 +306,14 @@ describe('RA-370 — application card field order and Submitted on', () => {
     })
 
     it('AC5: omits Due date before the SLA clock starts', async () => {
+      // Guard EVERY card before its negative assertion: tileHasDueOn chains
+      // isExisting() off the tile, so a card that dropped out of the filtered
+      // list entirely would report the field absent and pass this vacuously.
+      // One guard per id — guarding only the first would leave the second
+      // assertion able to pass on a missing card.
       await expect(workItems.tileFor(firstId)).toBeDisplayed()
       expect(await workItems.tileHasDueOn(firstId)).toBe(false)
+      await expect(workItems.tileFor(secondId)).toBeDisplayed()
       expect(await workItems.tileHasDueOn(secondId)).toBe(false)
     })
 
