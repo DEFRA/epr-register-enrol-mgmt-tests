@@ -1011,6 +1011,75 @@ class WorkItemDetailPage extends Page {
   async hasPriorYear(part = 'details') {
     return this.priorYear(part).isExisting()
   }
+
+  /**
+   * RA-358 (AC1). The prominent "this application has been withdrawn" message
+   * on the detail page of a withdrawn work item.
+   *
+   * Before RA-358 a withdrawn item announced itself only through the grey
+   * `Withdrawn` status tag in the case header and a generic "This work item is
+   * in a final state" Outcome panel — neither of which tells a regulator what
+   * actually happened to the application. This is the explicit message.
+   */
+  withdrawnNotice() {
+    return $('[data-testid="work-item-withdrawn-notice"]')
+  }
+
+  async hasWithdrawnNotice() {
+    return this.withdrawnNotice().isExisting()
+  }
+
+  /**
+   * RA-358 (AC1). The emphasised application reference inside the withdrawn
+   * message. Rendered only when the case actually has one — the copy degrades
+   * to an unqualified sentence rather than falling back to the GUID — so
+   * callers that may hit a reference-less item must check existence first.
+   */
+  withdrawnNoticeReference() {
+    return $('[data-testid="work-item-withdrawn-reference"]')
+  }
+
+  async withdrawnNoticeText() {
+    return this.withdrawnNotice().getText()
+  }
+
+  /**
+   * RA-358 (AC1). Assert the withdrawn message is on screen and says so.
+   *
+   * The exact wording belongs to management-fe and content design, so this
+   * matches case-insensitively on "withdrawn" rather than pinning the whole
+   * sentence — a copy tweak should not turn this suite red. What RA-358
+   * actually guarantees (the message exists, is visible, and names the
+   * withdrawal) is asserted; the identifier rules are asserted separately by
+   * `assertWithdrawnNoticeIdentifiedBy` so a failure says which half broke.
+   */
+  async assertWithdrawnNotice() {
+    await this.withdrawnNotice().waitForDisplayed({
+      timeout: 10000,
+      timeoutMsg:
+        'Expected a withdrawn message on the detail page of a withdrawn work item'
+    })
+    await expect(this.withdrawnNotice()).toHaveText(/withdrawn/i)
+  }
+
+  /**
+   * RA-358 (AC1). Where the withdrawn message names the case it must use the
+   * user-facing application reference, never the system-generated work item
+   * GUID.
+   *
+   * Scoped to the message itself rather than the whole page on purpose:
+   * RA-196 deliberately KEEPS a "Work item ID" summary row carrying the GUID
+   * on this page for debugging, so a page-wide GUID-absence assertion would
+   * fail for a reason that has nothing to do with this AC.
+   */
+  async assertWithdrawnNoticeIdentifiedBy(applicationReference, workItemId) {
+    const text = await this.withdrawnNoticeText()
+    expect(text).toContain(applicationReference)
+    expect(text).not.toContain(workItemId)
+    await expect(this.withdrawnNoticeReference()).toHaveText(
+      applicationReference
+    )
+  }
 }
 
 export default new WorkItemDetailPage()
