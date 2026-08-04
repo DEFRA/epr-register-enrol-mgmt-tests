@@ -55,6 +55,13 @@ describe('Error pages', () => {
     // the shared page object. The RA-358 spec owns the detailed assertions
     // (application-terms wording, id not shown as the identifier); this case
     // keeps its original job of proving the 404 branch renders at all.
+    //
+    // The id used here is deliberately NOT a GUID, which is the whole point
+    // of keeping it: it proves a malformed id still reaches the not-found
+    // view rather than some upstream validation branch. RA-358's
+    // "does not present a non-GUID id to the user either" case then pins the
+    // identifier rule for this same shape, so the split is: this file proves
+    // the routing, that file proves the copy.
     await workItems.openWorkItem('does-not-exist-00000000')
     await notFound.assertRendered()
   })

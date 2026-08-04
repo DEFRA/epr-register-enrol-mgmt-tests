@@ -153,6 +153,32 @@ describe('RA-358 — withdrawn work item message and not-found page', () => {
       await notFound.assertIdNotPresentedToUser(unknownId)
     })
 
+    it('does not present a non-GUID id to the user either', async () => {
+      // A separate case rather than a second call inside the one above,
+      // because the id SHAPE is the variable under test. A malformed id can
+      // short-circuit into a validation branch upstream of the not-found
+      // view, so "the GUID-shaped id is kept out of the copy" does not by
+      // itself prove anything about this shape — it has to be pinned
+      // independently. error-pages.e2e.js proves this id still reaches the
+      // same view; this proves the id is kept out of the copy once there.
+      const malformedId = 'does-not-exist-00000000'
+      await notFound.gotoWorkItem(malformedId)
+      await notFound.assertRendered()
+      await notFound.assertIdNotPresentedToUser(malformedId)
+    })
+
+    it('offers a route back to the applications list', async () => {
+      // AC2 is about a user who followed a dead link, so the page has to
+      // leave them somewhere useful. Asserted on the href rather than the
+      // link text: the destination is the contract, the wording is content
+      // design's to change. (The sibling `work-item-not-found-help` element
+      // is deliberately NOT asserted — it is pure prose with no behaviour
+      // behind it, and pinning it would make copy review a red build.)
+      await notFound.gotoWorkItem(unknownId)
+      await notFound.assertRendered()
+      await expect(notFound.backLink()).toHaveAttribute('href', '/work-items')
+    })
+
     it('renders the same not-found page from the action confirmation route', async () => {
       // /work-items/{id}/actions/{actionId}/confirm shares not-found.njk, so
       // a reworded page has to be reworded for this entry point too — this is

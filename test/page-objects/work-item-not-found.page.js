@@ -93,6 +93,11 @@ class WorkItemNotFoundPage extends Page {
     return $('[data-testid="work-item-not-found-diagnostic"]')
   }
 
+  /** The "Back to all applications" link — the way out of a dead link. */
+  backLink() {
+    return $('[data-testid="work-item-not-found-back"]')
+  }
+
   /**
    * RA-358 (AC2). The page must talk about the user's APPLICATION rather than
    * about an internal "work item" record.
