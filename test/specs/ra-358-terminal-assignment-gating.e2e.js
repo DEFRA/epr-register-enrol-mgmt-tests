@@ -2,6 +2,7 @@ import { browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
+import withdraw from '../page-objects/withdraw.page.js'
 import {
   approveWorkItem,
   createWithdrawnWorkItem,
@@ -32,14 +33,14 @@ import {
  * THIS REVERSES RA-295 AC03, which required assignment to be available "all
  * the way through" so a closed case could still be handed over.
  *
- * PROVENANCE, stated plainly because it matters for a reversal of an accepted
- * AC: the scope decision reached this suite RELAYED (via the coordinating
- * session), not directly from Tom. The hand-over rationale was raised and is
- * reported to have been overridden with it on the table, but that
- * confirmation is second-hand from here. Recorded as relayed rather than
- * presented as settled, because during this same work a relayed decision was
- * quoted from a bead field that turned out to have been overwritten. If the
- * decision is reversed, the inverted case in
+ * PROVENANCE, recorded because this reverses an accepted AC: Tom stated the
+ * requirement directly to the coordinating session, which is the primary
+ * source and rewrote bead `epr-b4as` first-hand from that conversation. The
+ * hand-over rationale behind AC03 — and the fact that this very spec file's
+ * predecessor asserted it — was put to him before the scope was settled, so
+ * the trade-off was made with full information rather than by overlooking it.
+ *
+ * If it is ever revisited, the inverted case in
  * `ra-295-assignment-and-query.e2e.js` is the other half that reverts with
  * this file.
  */
@@ -91,6 +92,60 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
       await browser.url(`/work-items/${workItemId}/assign`)
       await detail.assertAssignRefused()
       await workItems.openWorkItem(workItemId)
+      await detail.assertUnassigned()
+    })
+
+    it('refuses a stale self-assign submitted after the case was withdrawn', async () => {
+      // "Assign to yourself and start" is the affordance Tom actually
+      // clicked when he found this, and it is a DIFFERENT route from the one
+      // above: POST /work-items/{id}/self-assign, its own controller, and it
+      // re-renders the detail page on failure instead of redirecting to an
+      // interstitial. Covering only the assign route would leave the
+      // originally-reported path resting on the FE hiding the button.
+      //
+      // Models the real race rather than a synthetic request: the page is
+      // opened while the case is still open (so the button and its crumb
+      // exist), the case is withdrawn, and the stale form is then submitted.
+      // Once the button is hidden this is the only way the route can still
+      // be reached by a real user.
+      // Its own work item: this one has to be observed while still OPEN, and
+      // the shared item above is already withdrawn by the time this runs.
+      await workItems.goto()
+      const { id: staleId } = await workItems.createWorkItem({
+        organisationName: 'Terminal Gating Stale Form Ltd',
+        siteAddressLine1: '1 Stale Way',
+        siteAddressTown: 'York',
+        siteAddressPostcode: 'YO1 2AH',
+        material: 'plastic',
+        tonnageBand: '0-500'
+      })
+
+      // Capture the crumb from the still-open page, exactly as a browser tab
+      // left sitting on the case would hold it. Asserted rather than assumed:
+      // an absent crumb would make the POST below fail for the wrong reason
+      // and the test would "pass" against a 403.
+      await workItems.openWorkItem(staleId)
+      const staleCrumb = await detail.readCrumb()
+      expect(staleCrumb).toBeTruthy()
+
+      await detail.triggerAction('withdraw')
+      await withdraw.submit()
+      await withdraw.waitForDetailUrl(staleId)
+
+      const result = await detail.postSelfAssign(staleId, staleCrumb)
+
+      // 409 rather than a 200-with-error-page: management-fe propagates the
+      // backend's status instead of swallowing it, which is what makes the
+      // refusal legible to anything that is not a human reading the page.
+      expect(result.status).toBe(409)
+      // Rendered, not a dead end — the user gets an error summary back.
+      expect(result.hasErrorSummary).toBe(true)
+
+      // The substantive guarantee, and the one that would have caught the
+      // original bug: the case is not assigned. Before this work the same
+      // POST returned 200 and really did assign a withdrawn case.
+      await workItems.openWorkItem(staleId)
+      await detail.assertState('Withdrawn')
       await detail.assertUnassigned()
     })
   })

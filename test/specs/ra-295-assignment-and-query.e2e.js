@@ -242,13 +242,12 @@ describe('RA-295 assignment panel and query assignment notice', () => {
       // ALL terminal states (withdrawn, approved, rejected), in both
       // management-fe (affordances suppressed) and management-be (409).
       //
-      // The hand-over rationale above was raised against that change and is
-      // reported to have been overridden with this spec cited. That
-      // confirmation reached this suite RELAYED, not directly from Tom, so it
-      // is recorded as relayed rather than as settled — during this same work
-      // a relayed decision was quoted from a bead field that had been
-      // overwritten. Reverting this case is the other half of reverting
-      // ra-358-terminal-assignment-gating.e2e.js if the call changes.
+      // The hand-over rationale above was raised against that change, with
+      // this spec cited as evidence that AC03 was actively asserted and not
+      // merely written down. Tom settled the scope with that on the table, so
+      // the trade-off was made knowingly. Reverting this case is the other
+      // half of reverting ra-358-terminal-assignment-gating.e2e.js if the
+      // call is ever revisited.
       //
       // The panel itself REMAINS — it now explains that the case is closed,
       // and still shows who holds it, which is information rather than an

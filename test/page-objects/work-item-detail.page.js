@@ -1034,6 +1034,53 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * Read the session's CSRF crumb from any form the current page rendered.
+   *
+   * The crumb cookie is HttpOnly by design, so the token has to come from a
+   * hidden field rather than `document.cookie`. It is per-session, not
+   * per-form, so a crumb captured on one page stays valid on another — which
+   * is what makes the stale-form scenario below reproducible.
+   */
+  async readCrumb() {
+    return browser.execute(
+      () => document.querySelector('input[name="crumb"]')?.value
+    )
+  }
+
+  /**
+   * RA-358. POST the self-assign route directly, as a stale form would.
+   *
+   * Self-assign is a POST-only route with its own controller
+   * (`makeSelfAssignController`), separate from the assign/reassign
+   * interstitial, and it re-renders the detail page on failure rather than
+   * redirecting. Once management-fe hides the button on a closed case there
+   * is no clickable path left, so the only way to exercise the route — and
+   * the real journey it models, a page opened before the case was withdrawn
+   * and submitted after — is to post the captured crumb.
+   *
+   * `fetch` attaches the session cookies itself for a same-origin request.
+   */
+  async postSelfAssign(workItemId, crumb) {
+    return browser.execute(
+      async (id, crumbValue) => {
+        const res = await fetch(`/work-items/${id}/self-assign`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `crumb=${crumbValue}`
+        })
+        const body = await res.text()
+        return {
+          status: res.status,
+          hasErrorSummary: body.includes('govuk-error-summary'),
+          mentionsAssign: /assign/i.test(body)
+        }
+      },
+      workItemId,
+      crumb
+    )
+  }
+
+  /**
    * The panel's assignment status line, reading exactly "Unassigned",
    * "Assigned to {Name}" or "Assigned to you".
    */
