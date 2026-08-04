@@ -1011,6 +1011,102 @@ class WorkItemDetailPage extends Page {
   async hasPriorYear(part = 'details') {
     return this.priorYear(part).isExisting()
   }
+
+  /**
+   * RA-346. Is an action affordance rendered on the detail page at all?
+   *
+   * A transition whose `requiresAllTasksComplete` gate is unmet is filtered
+   * out of `availableActions` entirely, so the button is ABSENT rather than
+   * disabled — unlike the read-only support-user case (RA-335), where the
+   * control renders as an inert `<span>`. Specs therefore assert existence,
+   * not enabledness.
+   */
+  async hasAction(actionId) {
+    return $(`[data-testid="action-${actionId}"]`).isExisting()
+  }
+
+  /**
+   * RA-346. Every action affordance currently rendered, by actionId.
+   *
+   * Used as a negative control: asserting a specific action is missing is
+   * only meaningful if the actions panel rendered at all, so specs assert
+   * the ungated siblings are still present in the same breath.
+   */
+  async availableActionIds() {
+    const elements = await $$('[data-testid^="action-"]')
+    const ids = []
+    for (const element of elements) {
+      const testId = await element.getAttribute('data-testid')
+      ids.push(testId.replace(/^action-/, ''))
+    }
+    return ids
+  }
+
+  /**
+   * RA-132 / RA-346. The re-accreditation "Approve" CTA is not a generic
+   * action button — it is a type-specific link rendered by the
+   * `approveAction` block in `re-accreditation/detail-v1.njk`, wrapped in
+   * this container. RA-346 gates that container on the awaiting-decision
+   * tasks being complete, so its presence is the thing under test.
+   */
+  approveCta() {
+    return $('[data-testid="re-accreditation-approve-cta"]')
+  }
+
+  async hasApproveCta() {
+    return this.approveCta().isExisting()
+  }
+
+  /**
+   * RA-132. The approve interstitial lives on a type-specific route, not
+   * under the generic `/work-items/{id}/actions/...` namespace.
+   */
+  approvePath(workItemId) {
+    return `/work-items/re-accreditation/${workItemId}/approve`
+  }
+
+  /**
+   * RA-346. Navigate straight to the approve interstitial, bypassing the
+   * CTA. Hiding the CTA alone is not a control — the route itself has to
+   * refuse when the decision tasks are incomplete.
+   */
+  async openApprovePathDirectly(workItemId) {
+    await this.open(this.approvePath(workItemId))
+  }
+
+  /**
+   * RA-346 (and RA-335, which established the pattern). POST to a route
+   * from inside the page so the browser attaches the session cookie.
+   *
+   * The crumb cookie is HttpOnly by design, so the CSRF token is read from
+   * whichever hidden `crumb` field the currently-rendered page already
+   * carries — otherwise the request would be rejected as a CSRF failure and
+   * we would learn nothing about the business-rule gate we are testing.
+   * Returns the HTTP status so the caller can assert the refusal.
+   */
+  async postFromPage(path) {
+    return browser.execute(async (url) => {
+      const crumb = document.querySelector('input[name="crumb"]')?.value ?? ''
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `crumb=${encodeURIComponent(crumb)}`
+      })
+      return response.status
+    }, path)
+  }
+
+  /**
+   * RA-346. Fetch a route with GET from inside the page and report the
+   * status without navigating, so a spec can prove the route refuses
+   * without losing the crumb-bearing page it is standing on.
+   */
+  async getFromPage(path) {
+    return browser.execute(async (url) => {
+      const response = await fetch(url, { redirect: 'manual' })
+      return response.status
+    }, path)
+  }
 }
 
 export default new WorkItemDetailPage()
