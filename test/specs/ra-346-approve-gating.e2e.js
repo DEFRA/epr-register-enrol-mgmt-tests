@@ -1,4 +1,4 @@
-import { $, expect } from '@wdio/globals'
+import { $, browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
@@ -40,7 +40,12 @@ describe('RA-346 Approve is gated on the decision rationale task', () => {
 
   before(async () => {
     await login.login()
-    workItemId = await createReAccreditation('Approve Decision Gate')
+    // Distinct from the RA-346 submit-for-decision spec's postcode on
+    // purpose — see `createReAccreditation`. `SW1A 1AE` is unused elsewhere.
+    workItemId = await createReAccreditation(
+      'Approve Decision Gate',
+      'SW1A 1AE'
+    )
     await driveToAwaitingDecision(workItemId)
   })
 
@@ -70,24 +75,61 @@ describe('RA-346 Approve is gated on the decision rationale task', () => {
       expect(actionIds).not.toContain('approve')
     })
 
-    it('does not serve the approval interstitial on a direct GET', async () => {
+    it('bounces a direct GET back to the detail page instead of serving the approval interstitial', async () => {
       // Hiding the CTA is not a control: the route is guessable and was
-      // previously reachable by URL alone. Whatever the guard renders, the
-      // one thing that must never appear is the approve form itself.
+      // previously reachable by URL alone.
+      //
+      // The guard follows this app's established PRG + flash-banner
+      // convention (as withdraw, query and SLA already do) rather than
+      // returning a 4xx error page — it 302s to /work-items/{id}. Driving
+      // this with a real navigation rather than fetch is deliberate: the
+      // browser follows the redirect and consumes the one-shot flash
+      // message, so the banner can be asserted exactly as a user sees it.
       await detail.openApprovePathDirectly(workItemId)
 
+      await expect(browser).toHaveUrl(
+        expect.stringContaining(`/work-items/${workItemId}`)
+      )
+      await expect(browser).not.toHaveUrl(expect.stringContaining('/approve'))
+
+      // Belt and braces: whatever the guard renders, the one thing that
+      // must never appear is the approve form itself.
       await expect($('[data-testid="approval-submit"]')).not.toBeExisting()
       await expect(
         $('[data-testid="approval-decision-note"]')
       ).not.toBeExisting()
     })
 
-    it('rejects a direct POST to the approve route', async () => {
+    it('explains why, rather than failing silently', async () => {
+      // A bounce with no explanation reads as a broken link. The copy is
+      // asserted because it is what distinguishes the tasks-incomplete
+      // refusal from the pre-existing wrong-state refusal ("This work item
+      // can no longer be approved from its current state"), which is a
+      // different bug if it shows up here.
+      const banner = $('[data-testid="work-item-flash-banner"]')
+
+      await expect(banner).toBeDisplayed()
+      await expect(banner).toHaveText(
+        expect.stringContaining(
+          'Complete every task for this application before approving the determination.'
+        )
+      )
+    })
+
+    it('refuses a direct POST to the approve route', async () => {
+      // Same guard on the POST side, so a stale or crafted form cannot
+      // apply the transition. `postFromPage` follows the 302, so the proof
+      // of refusal is that the request ended up back on the detail page
+      // rather than on the approve route.
       await workItems.openWorkItem(workItemId)
 
-      const status = await detail.postFromPage(detail.approvePath(workItemId))
+      const { redirected, url } = await detail.postFromPage(
+        detail.approvePath(workItemId)
+      )
 
-      expect(status).toBeGreaterThanOrEqual(400)
+      expect(redirected).toBe(true)
+      expect(url).toEqual(expect.stringContaining(`/work-items/${workItemId}`))
+      expect(url).not.toEqual(expect.stringContaining('/approve'))
     })
 
     it('leaves the work item awaiting decision, with no accreditation issued', async () => {

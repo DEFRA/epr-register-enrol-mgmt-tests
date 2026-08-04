@@ -32,7 +32,12 @@ describe('RA-346 Submit for decision is gated on assessment task completion', ()
 
   before(async () => {
     await login.login()
-    workItemId = await createReAccreditation('Submit For Decision Gate')
+    // The postcode must be unique across the whole suite — see
+    // `createReAccreditation`. `SW1A 1AG` is unused elsewhere in test/specs.
+    workItemId = await createReAccreditation(
+      'Submit For Decision Gate',
+      'SW1A 1AG'
+    )
     await driveToAssessmentInProgress(workItemId)
   })
 
@@ -68,15 +73,22 @@ describe('RA-346 Submit for decision is gated on assessment task completion', ()
     expect(await detail.hasAction('submit-for-decision')).toBe(false)
   })
 
-  it('rejects a direct POST to the apply-action route while a task is outstanding', async () => {
+  it('rejects a direct POST to the apply-action route with 409 while a task is outstanding', async () => {
     // Defence in depth. Hiding the button is a UI affordance; the route
     // behind it has to refuse too, or a stale form or a crafted request
-    // walks straight through the gate.
-    const status = await detail.postFromPage(
+    // walks straight through the gate. Enforced in BOTH services — the
+    // backend rejects with 409 ("requires every task for state
+    // 'assessment-in-progress' to be complete first") and the frontend's
+    // own engine check maps the `not-allowed` reason to 409 as well.
+    //
+    // Unlike the approve route, this one does NOT redirect: the generic
+    // apply-action route re-renders the detail page in place with an error
+    // notice, so the status is readable directly.
+    const { status } = await detail.postFromPage(
       `/work-items/${workItemId}/actions/submit-for-decision`
     )
 
-    expect(status).toBeGreaterThanOrEqual(400)
+    expect(status).toBe(409)
   })
 
   it('leaves the work item in assessment after the rejected POST', async () => {

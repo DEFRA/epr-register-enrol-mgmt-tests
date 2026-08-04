@@ -43,17 +43,25 @@ export const DECISION_TASK = 'record-decision-rationale'
 /**
  * Create a re-accreditation work item and return its id.
  *
- * The organisation name is suffixed with a timestamp because the suite
- * shares one backend across specs and the work-items list is searchable by
- * name — a fixed name would make two specs' fixtures indistinguishable.
+ * `postcode` is a required argument rather than a constant, and every spec
+ * must pass one no other spec uses. The RA-318 application reference the
+ * backend generates is derived from the postcode suffix and the material,
+ * NOT from the organisation name — so two fixtures sharing a postcode and a
+ * material collide, and creation fails outright with "Failed to generate a
+ * unique applicationReference after 5 attempts". Hence the one-postcode-per-
+ * spec convention visible across `test/specs`; putting the postcode in this
+ * shared helper would silently break it for every caller at once.
+ *
+ * The organisation name is still timestamped so a human reading the
+ * work-items list can tell runs apart.
  */
-export async function createReAccreditation(namePrefix) {
+export async function createReAccreditation(namePrefix, postcode) {
   await workItems.goto()
   const { id } = await workItems.createWorkItem({
     organisationName: `${namePrefix} ${Date.now()}`,
     siteAddressLine1: '1 Decision Street',
     siteAddressTown: 'London',
-    siteAddressPostcode: 'SW1A 1AA',
+    siteAddressPostcode: postcode,
     material: 'plastic',
     tonnageBand: '0-500'
   })

@@ -1082,7 +1082,15 @@ class WorkItemDetailPage extends Page {
    * whichever hidden `crumb` field the currently-rendered page already
    * carries — otherwise the request would be rejected as a CSRF failure and
    * we would learn nothing about the business-rule gate we are testing.
-   * Returns the HTTP status so the caller can assert the refusal.
+   *
+   * Returns `{ status, redirected, url }` rather than a bare status because
+   * the two guarded routes refuse in two different shapes: the generic
+   * apply-action route re-renders in place with a 409, while the
+   * re-accreditation approve route follows this app's PRG convention and
+   * 302s back to the detail page. `redirect: 'manual'` is deliberately NOT
+   * used — it yields an opaque response with status 0 and no readable
+   * headers, so the redirect is followed and asserted via `redirected` +
+   * the final `url` instead.
    */
   async postFromPage(path) {
     return browser.execute(async (url) => {
@@ -1092,19 +1100,11 @@ class WorkItemDetailPage extends Page {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `crumb=${encodeURIComponent(crumb)}`
       })
-      return response.status
-    }, path)
-  }
-
-  /**
-   * RA-346. Fetch a route with GET from inside the page and report the
-   * status without navigating, so a spec can prove the route refuses
-   * without losing the crumb-bearing page it is standing on.
-   */
-  async getFromPage(path) {
-    return browser.execute(async (url) => {
-      const response = await fetch(url, { redirect: 'manual' })
-      return response.status
+      return {
+        status: response.status,
+        redirected: response.redirected,
+        url: response.url
+      }
     }, path)
   }
 }
