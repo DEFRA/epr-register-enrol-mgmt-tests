@@ -931,6 +931,156 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * RA-358 (assignment gating). Whether an assignment affordance is actually
+   * USABLE — i.e. a live control the caseworker can act on.
+   *
+   * Deliberately tolerant of two valid implementations, because the
+   * requirement is "a closed case offers no assignment affordance", not "the
+   * markup is shaped a particular way": management-fe may either omit the
+   * control entirely, or follow the RA-335 precedent and render an inert
+   * `<span>` with the same test id (which `appActionLink` already does for
+   * read-only users). Both satisfy the AC; a live `<a>` or `<button>` does
+   * not, and that is what this returns true for.
+   *
+   * Written this way so the spec pins the behaviour rather than the choice
+   * between those two, and does not need rewriting when the choice is made.
+   */
+  async hasUsableAssignmentControl(name) {
+    if (!(await this.hasAssignmentControl(name))) {
+      return false
+    }
+    const control = this.assignmentControl(name)
+    const tagName = (await control.getTagName()).toLowerCase()
+    if (tagName === 'span') {
+      return false
+    }
+    // A link is only usable if it actually navigates; `appActionLink` drops
+    // the href rather than the element in some states.
+    if (tagName === 'a') {
+      return Boolean(await control.getAttribute('href'))
+    }
+    return await control.isEnabled()
+  }
+
+  /**
+   * RA-358. The panel's terminal-state explanation, which REPLACES the three
+   * affordances on a closed case rather than merely disabling them.
+   */
+  assignmentClosedNotice() {
+    return $('[data-testid="assignment-closed"]')
+  }
+
+  /**
+   * RA-358. Assert a terminal-state case offers no usable assignment
+   * affordance at all.
+   *
+   * Pairs the negative with a POSITIVE hook on purpose. management-fe
+   * suppresses the three controls from the DOM, so an absence-only assertion
+   * would also pass if the panel failed to render for an unrelated reason —
+   * the page erroring, the testids being renamed, or the item not loading at
+   * all. That is precisely how a false "pre-existing failure" wasted time
+   * earlier in this work. Requiring `assignment-closed` to be displayed means
+   * the panel demonstrably rendered and deliberately said the case is closed,
+   * so the absences below are meaningful rather than vacuous.
+   *
+   * Checks all three affordances together and reports which survived, so a
+   * failure names the offender instead of stopping at the first.
+   */
+  async assertNoUsableAssignmentAffordances() {
+    await expect(this.assignmentPanel()).toBeDisplayed()
+    await expect(this.assignmentClosedNotice()).toBeDisplayed()
+
+    const names = ['selfAssign', 'reassign', 'unassign']
+    const usable = []
+    for (const name of names) {
+      if (await this.hasUsableAssignmentControl(name)) {
+        usable.push(name)
+      }
+    }
+    expect(usable).toEqual([])
+  }
+
+  /**
+   * RA-358. Assert an assign attempt on a terminal work item was REFUSED.
+   *
+   * management-be returns 409 and management-fe's BFF maps it to an error
+   * render rather than a redirect, so the browser stays on the interstitial
+   * URL and shows a GOV.UK error summary. Both are asserted: the error
+   * summary alone would also appear for an ordinary validation failure, and
+   * the URL alone would not distinguish a refusal from a page that simply
+   * never submitted.
+   *
+   * The 409's COPY is deliberately not pinned. management-be owns that
+   * wording, it changed once already during this work (it used to embed the
+   * work item GUID, which RA-358 exists to remove), and its own tests cover
+   * it. What this suite is entitled to assert is that the call was refused.
+   */
+  async assertAssignRefused() {
+    const submit = $('button[type="submit"]')
+    await submit.waitForClickable({
+      timeout: 10000,
+      timeoutMsg: 'Expected the assign interstitial to offer a submit button'
+    })
+    await submit.click()
+
+    const errorSummary = $('.govuk-error-summary')
+    await errorSummary.waitForDisplayed({
+      timeout: 10000,
+      timeoutMsg:
+        'Expected an error summary after assigning a terminal work item'
+    })
+    const url = new URL(await browser.getUrl())
+    expect(url.pathname).toMatch(/\/assign$/)
+  }
+
+  /**
+   * Read the session's CSRF crumb from any form the current page rendered.
+   *
+   * The crumb cookie is HttpOnly by design, so the token has to come from a
+   * hidden field rather than `document.cookie`. It is per-session, not
+   * per-form, so a crumb captured on one page stays valid on another — which
+   * is what makes the stale-form scenario below reproducible.
+   */
+  async readCrumb() {
+    return browser.execute(
+      () => document.querySelector('input[name="crumb"]')?.value
+    )
+  }
+
+  /**
+   * RA-358. POST the self-assign route directly, as a stale form would.
+   *
+   * Self-assign is a POST-only route with its own controller
+   * (`makeSelfAssignController`), separate from the assign/reassign
+   * interstitial, and it re-renders the detail page on failure rather than
+   * redirecting. Once management-fe hides the button on a closed case there
+   * is no clickable path left, so the only way to exercise the route — and
+   * the real journey it models, a page opened before the case was withdrawn
+   * and submitted after — is to post the captured crumb.
+   *
+   * `fetch` attaches the session cookies itself for a same-origin request.
+   */
+  async postSelfAssign(workItemId, crumb) {
+    return browser.execute(
+      async (id, crumbValue) => {
+        const res = await fetch(`/work-items/${id}/self-assign`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `crumb=${crumbValue}`
+        })
+        const body = await res.text()
+        return {
+          status: res.status,
+          hasErrorSummary: body.includes('govuk-error-summary'),
+          mentionsAssign: /assign/i.test(body)
+        }
+      },
+      workItemId,
+      crumb
+    )
+  }
+
+  /**
    * The panel's assignment status line, reading exactly "Unassigned",
    * "Assigned to {Name}" or "Assigned to you".
    */
@@ -1010,6 +1160,75 @@ class WorkItemDetailPage extends Page {
 
   async hasPriorYear(part = 'details') {
     return this.priorYear(part).isExisting()
+  }
+
+  /**
+   * RA-358 (AC1). The prominent "this application has been withdrawn" message
+   * on the detail page of a withdrawn work item.
+   *
+   * Before RA-358 a withdrawn item announced itself only through the grey
+   * `Withdrawn` status tag in the case header and a generic "This work item is
+   * in a final state" Outcome panel — neither of which tells a regulator what
+   * actually happened to the application. This is the explicit message.
+   */
+  withdrawnNotice() {
+    return $('[data-testid="work-item-withdrawn-notice"]')
+  }
+
+  async hasWithdrawnNotice() {
+    return this.withdrawnNotice().isExisting()
+  }
+
+  /**
+   * RA-358 (AC1). The emphasised application reference inside the withdrawn
+   * message. Rendered only when the case actually has one — the copy degrades
+   * to an unqualified sentence rather than falling back to the GUID — so
+   * callers that may hit a reference-less item must check existence first.
+   */
+  withdrawnNoticeReference() {
+    return $('[data-testid="work-item-withdrawn-reference"]')
+  }
+
+  async withdrawnNoticeText() {
+    return this.withdrawnNotice().getText()
+  }
+
+  /**
+   * RA-358 (AC1). Assert the withdrawn message is on screen and says so.
+   *
+   * The exact wording belongs to management-fe and content design, so this
+   * matches case-insensitively on "withdrawn" rather than pinning the whole
+   * sentence — a copy tweak should not turn this suite red. What RA-358
+   * actually guarantees (the message exists, is visible, and names the
+   * withdrawal) is asserted; the identifier rules are asserted separately by
+   * `assertWithdrawnNoticeIdentifiedBy` so a failure says which half broke.
+   */
+  async assertWithdrawnNotice() {
+    await this.withdrawnNotice().waitForDisplayed({
+      timeout: 10000,
+      timeoutMsg:
+        'Expected a withdrawn message on the detail page of a withdrawn work item'
+    })
+    await expect(this.withdrawnNotice()).toHaveText(/withdrawn/i)
+  }
+
+  /**
+   * RA-358 (AC1). Where the withdrawn message names the case it must use the
+   * user-facing application reference, never the system-generated work item
+   * GUID.
+   *
+   * Scoped to the message itself rather than the whole page on purpose:
+   * RA-196 deliberately KEEPS a "Work item ID" summary row carrying the GUID
+   * on this page for debugging, so a page-wide GUID-absence assertion would
+   * fail for a reason that has nothing to do with this AC.
+   */
+  async assertWithdrawnNoticeIdentifiedBy(applicationReference, workItemId) {
+    const text = await this.withdrawnNoticeText()
+    expect(text).toContain(applicationReference)
+    expect(text).not.toContain(workItemId)
+    await expect(this.withdrawnNoticeReference()).toHaveText(
+      applicationReference
+    )
   }
 }
 

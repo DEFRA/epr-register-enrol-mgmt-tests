@@ -227,12 +227,37 @@ describe('RA-295 assignment panel and query assignment notice', () => {
       await expect($('[data-testid="action-sla-override"]')).not.toBeExisting()
     })
 
-    it('still offers reassign and unassign', async () => {
-      // The complement, and why this is not simply "the panel disappears": a
-      // closed case still has to be reassignable so it can be handed over.
-      await expect(detail.assignmentPanel()).toBeDisplayed()
-      expect(await detail.hasAssignmentControl('reassign')).toBe(true)
-      expect(await detail.hasAssignmentControl('unassign')).toBe(true)
+    it('no longer offers reassign or unassign (RA-358 reverses AC03 here)', async () => {
+      // INVERTED BY RA-358, DELIBERATELY — this case used to assert the
+      // opposite, that a closed case stays reassignable so it can be handed
+      // over. That was RA-295 AC03's explicit rationale, and it is the reason
+      // the gate was absent, so the reversal is recorded here rather than
+      // left to look like someone quietly flipped a passing spec.
+      //
+      // WHY IT CHANGED: a withdrawn work item still offered "Assign to
+      // yourself and start", and clicking it worked — POST
+      // /work-items/{id}/assign returned 200 and really assigned the closed
+      // case (found by Tom on the RA-358 local test; see bead epr-b4as). The
+      // UI was the only gate and it was open. Assignment is now blocked on
+      // ALL terminal states (withdrawn, approved, rejected), in both
+      // management-fe (affordances suppressed) and management-be (409).
+      //
+      // The hand-over rationale above was raised against that change, with
+      // this spec cited as evidence that AC03 was actively asserted and not
+      // merely written down. Tom settled the scope with that on the table, so
+      // the trade-off was made knowingly. Reverting this case is the other
+      // half of reverting ra-358-terminal-assignment-gating.e2e.js if the
+      // call is ever revisited.
+      //
+      // The panel itself REMAINS — it now explains that the case is closed,
+      // and still shows who holds it, which is information rather than an
+      // affordance. That distinction is the point of the change.
+      //
+      // Full coverage of the new behaviour, including approved and rejected
+      // and the backend refusal, lives in
+      // ra-358-terminal-assignment-gating.e2e.js. This case stays here so the
+      // reversal is visible from the AC it reverses.
+      await detail.assertNoUsableAssignmentAffordances()
     })
   })
 })
