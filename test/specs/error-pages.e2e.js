@@ -2,14 +2,17 @@ import { $, browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
+import notFound from '../page-objects/work-item-not-found.page.js'
 
 /**
  * Error pages.
  *
  * Covers the work-item error states that previously had no explicit e2e
  * assertions:
- *   1. GET /work-items/{unknownId} renders the 404 "not found" page with the
- *      copy "No work item exists with id {id}" (not-found.njk).
+ *   1. GET /work-items/{unknownId} renders the 404 "not found" page
+ *      (not-found.njk). RA-358 reworded that page, so the copy assertions
+ *      moved into ra-358-withdrawn-work-item-message.e2e.js and this case now
+ *      asserts only that the branch renders.
  *   2. The returnTo open-redirect guard (successRedirect) only honours the
  *      whitelisted "/work-items/{id}/tasks" path. A forged, non-whitelisted
  *      returnTo is ignored and the user falls back to the detail page rather
@@ -46,17 +49,21 @@ describe('Error pages', () => {
   })
 
   it('renders the 404 page for an unknown work item id', async () => {
-    const unknownId = 'does-not-exist-00000000'
-    await workItems.openWorkItem(unknownId)
-
-    await expect($('h1')).toHaveText('Work item not found')
-
-    const notFound = $('[data-testid="work-item-not-found"]')
-    await expect(notFound).toBeDisplayed()
-    await expect(notFound).toHaveText(
-      expect.stringContaining('No work item exists with id')
-    )
-    await expect(notFound).toHaveText(expect.stringContaining(unknownId))
+    // RA-358 reworded this page: the heading is now "Application not found"
+    // and the body no longer presents the raw id as the user-facing
+    // identifier, so the old exact-copy assertions here have been replaced by
+    // the shared page object. The RA-358 spec owns the detailed assertions
+    // (application-terms wording, id not shown as the identifier); this case
+    // keeps its original job of proving the 404 branch renders at all.
+    //
+    // The id used here is deliberately NOT a GUID, which is the whole point
+    // of keeping it: it proves a malformed id still reaches the not-found
+    // view rather than some upstream validation branch. RA-358's
+    // "does not present a non-GUID id to the user either" case then pins the
+    // identifier rule for this same shape, so the split is: this file proves
+    // the routing, that file proves the copy.
+    await workItems.openWorkItem('does-not-exist-00000000')
+    await notFound.assertRendered()
   })
 
   it('honours a whitelisted returnTo and redirects to the tasks page', async () => {
