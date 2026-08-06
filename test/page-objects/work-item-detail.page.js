@@ -497,6 +497,51 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * RA-372. The state transitions the audit log shows, in order — one entry
+   * per `action-applied`, each as `"<from> → <to>"`.
+   *
+   * The audit log is where a state machine's edges become observable to a
+   * regulator: management-fe's `summariseAuditEntry` renders every applied
+   * action as `Action (from → to)` in the visible summary line, so this reads
+   * the rendered page rather than reaching into the backend for
+   * `fromStateId`.
+   *
+   * Returned as an ordered list rather than asserted one entry at a time so a
+   * spec can pin the whole path. That matters for a waypoint state: whether
+   * the waypoint was discharged through a declared edge or jumped across an
+   * undeclared one is visible ONLY in the shape of the sequence — the start
+   * and end states are identical either way.
+   */
+  async appliedTransitions() {
+    const entries = await $$(
+      '[data-testid="work-item-audit-log"] li[data-action="action-applied"]'
+    )
+    const transitions = []
+    for (const entry of entries) {
+      const text = await entry.getText()
+      const match = text.match(/\(([^)]*→[^)]*)\)/)
+      transitions.push(
+        match ? match[1].trim() : text.replace(/\s+/g, ' ').trim()
+      )
+    }
+    return transitions
+  }
+
+  /**
+   * RA-372. Whether an error summary is on the page.
+   *
+   * Deliberately reads the GOV.UK class, not the message. The copy belongs to
+   * management-fe (and `epr-ewv8` is filed to change it), so pinning it here
+   * would cement wording another repo intends to move — the same rule
+   * `assertAssignRefused` below states for management-be's 409 text. What
+   * this suite is entitled to assert is that the caseworker was NOT shown a
+   * problem.
+   */
+  async hasErrorSummary() {
+    return $('.govuk-error-summary').isExisting()
+  }
+
+  /**
    * A case tab. Note the ACTIVE tab renders as a <span aria-current="page">
    * and only the inactive one is an <a>, so callers must not assume both are
    * clickable — assert with isActiveTab() rather than clicking blindly.

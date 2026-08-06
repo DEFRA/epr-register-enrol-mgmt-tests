@@ -180,12 +180,13 @@ describe('RA-372 Tasks after a query response', () => {
       // Completing an assessment task must not itself advance the case —
       // only Continue review does that.
       //
-      // Note this is specific to the assessment origin. Had the query been
-      // raised from `submitted`, completing the LAST outstanding task here
-      // would fire the duly-made hook and move the item on its own; that is
-      // intended (there is no caller-invocable duly-make action, so the item
-      // would otherwise dead-end) and is why `submitted` is not used as an
-      // origin anywhere in this file.
+      // This is specific to the assessment origin, and the contrast is the
+      // point rather than an inconsistency. The `submitted` origin behaves
+      // differently BY DESIGN: completing its last task fires the duly-made
+      // hook and discharges the waypoint on the spot, because there is no
+      // caller-invocable duly-make action for a caseworker to reach for and
+      // the item would otherwise dead-end. Both behaviours are correct and
+      // both are covered — see the `submitted` block below.
       await workItems.openWorkItem(workItemId)
       await detail.assertStateTagClass(UPDATED_TAG)
     })
@@ -297,6 +298,110 @@ describe('RA-372 Tasks after a query response', () => {
       await detail.waitForDetailUrl()
       await detail.assertState('Duly made')
       await detail.assertStateTagClass(DULY_MADE_TAG)
+    })
+  })
+
+  describe('AC01/AC03 — queried from submitted', () => {
+    let workItemId
+
+    // The third origin, and the one that discharges its own waypoint.
+    //
+    // `submitted` is the only originating state with a state-mutating
+    // post-task hook: there is no caller-invocable duly-make action, so
+    // completing the last duly-making task has to carry the application on
+    // by itself. While the application is parked in `updated` that hook has
+    // to leave through the DECLARED edge — `continue-review-during-duly-
+    // making` (`updated → submitted`) and then `submitted → duly-made` —
+    // rather than jumping straight from `updated` to `duly-made`, an edge
+    // the template does not declare and which downstream consumers of the
+    // status push therefore cannot model.
+    //
+    // This block exists because its absence hid a live 500. Nothing in any
+    // repo exercised this path: the backend's hook tests ran in-process
+    // where optimistic concurrency cannot fire, and the two origins above
+    // deliberately avoid it. All three PRs were green while completing that
+    // last task returned a 500 and stranded the application in `submitted`
+    // with every task complete and no route forward.
+    before(async () => {
+      await login.login()
+      workItemId = await createApplication({
+        organisationName: uniqueOrg('Resubmission Submitted Ltd'),
+        postcode: 'SW1A 3AD'
+      })
+      // Queried straight from `submitted`, with no task completed first —
+      // so both duly-making tasks are outstanding when the operator's
+      // response lands and the hook has real work to do.
+      await raiseQuery(workItemId, {
+        sections: ['business-plan'],
+        reason: 'Please resend the business plan before we duly make this.'
+      })
+      await resumeFromQuery(workItemId)
+    })
+
+    after(async () => {
+      await login.logout()
+    })
+
+    it('AC01: offers the duly-making task list while updated', async () => {
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateTagClass(UPDATED_TAG)
+      await detail.gotoTasks()
+
+      expect(await detail.hasNoTasksMessage()).toBe(false)
+      expect(sorted(await detail.taskIds())).toEqual(sorted(SUBMITTED_TASKS))
+    })
+
+    it('AC03: completes the last duly-making task without showing an error', async () => {
+      // The failure-mode assertion, and the property that actually broke.
+      // Whatever the application does next, a caseworker who completes this
+      // task must not be left looking at a problem — so this asserts the
+      // shape of the outcome, not any wording: the redirect lands, and no
+      // error summary renders. The copy belongs to management-fe and
+      // `epr-ewv8` is filed to change it; pinning it here would cement
+      // wording another repo intends to move.
+      await workItems.openWorkItem(workItemId)
+      await detail.gotoTasks()
+      await detail.setTaskStatus('verify-organisation-details', 'Completed')
+      await detail.setTaskStatus(
+        'confirm-application-completeness',
+        'Completed'
+      )
+
+      expect(await detail.hasErrorSummary()).toBe(false)
+    })
+
+    it('AC03: carries the application on to duly-made rather than stranding it', async () => {
+      // "Not stranded" is the other half of the failure mode. The broken
+      // build left the application in `submitted` with 2 of 2 tasks complete
+      // and nothing further to do — every task done, no way forward. So this
+      // asserts both that it moved AND that it arrived somewhere with work
+      // in it.
+      await workItems.openWorkItem(workItemId)
+      await detail.assertState('Duly made')
+      await detail.assertStateTagClass(DULY_MADE_TAG)
+      await detail.gotoTasks()
+      expect(sorted(await detail.taskIds())).toEqual(sorted(DULY_MADE_TASKS))
+    })
+
+    it('AC03: discharges the waypoint through the declared edge', async () => {
+      // The declared-edge property, asserted as the SHAPE of the path.
+      //
+      // Start and end states cannot distinguish a correct discharge from the
+      // undeclared jump — both begin at `updated` and end at `duly-made`.
+      // Only the sequence tells them apart, and the audit log renders it in
+      // visible text, so this stays a rendered-surface assertion.
+      //
+      // Against the pre-fix build the third entry read `updated → duly-made`
+      // and the fourth did not exist.
+      await workItems.openWorkItem(workItemId)
+      await detail.gotoAudit()
+
+      expect(await detail.appliedTransitions()).toEqual([
+        'submitted → queried',
+        'queried → updated',
+        'updated → submitted',
+        'submitted → duly-made'
+      ])
     })
   })
 
