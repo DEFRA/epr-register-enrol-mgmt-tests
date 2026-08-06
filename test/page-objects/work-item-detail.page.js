@@ -1401,6 +1401,113 @@ class WorkItemDetailPage extends Page {
       applicationReference
     )
   }
+
+  /**
+   * RA-346. Is an action affordance rendered on the detail page at all?
+   *
+   * A transition whose `requiresAllTasksComplete` gate is unmet is filtered
+   * out of `availableActions` entirely, so the button is ABSENT rather than
+   * disabled — unlike the read-only support-user case (RA-335), where the
+   * control renders as an inert `<span>`. Specs therefore assert existence,
+   * not enabledness.
+   */
+  async hasAction(actionId) {
+    return $(`[data-testid="action-${actionId}"]`).isExisting()
+  }
+
+  /**
+   * RA-346. Every element carrying an `action-*` testid, by the suffix.
+   *
+   * ⚠ This is NOT the engine's `availableActions`. The `action-` testid
+   * prefix is reused by two independently-rendered panels in `detail.njk`:
+   *
+   *  - the actions panel, whose primary buttons and secondary query/withdraw
+   *    links DO come from `availableActions`;
+   *  - the assignment panel, where `action-sla-extend` and
+   *    `action-sla-override` render as "Change the due date" / "Override the
+   *    due date" gated on `canChangeDueDate`. `sla-extend` is deliberately
+   *    filtered OUT of `availableActions` by the detail controller, so those
+   *    two never pass through the engine's gate at all.
+   *
+   * So only a `withdraw-*` / `query` / primary-button id is evidence that
+   * the actions panel rendered. Using an SLA id as a negative control would
+   * pass even if the actions panel were missing entirely.
+   */
+  async availableActionIds() {
+    const elements = await $$('[data-testid^="action-"]')
+    const ids = []
+    for (const element of elements) {
+      const testId = await element.getAttribute('data-testid')
+      ids.push(testId.replace(/^action-/, ''))
+    }
+    return ids
+  }
+
+  /**
+   * RA-132 / RA-346. The re-accreditation "Approve" CTA is not a generic
+   * action button — it is a type-specific link rendered by the
+   * `approveAction` block in `re-accreditation/detail-v1.njk`, wrapped in
+   * this container. RA-346 gates that container on the awaiting-decision
+   * tasks being complete, so its presence is the thing under test.
+   */
+  approveCta() {
+    return $('[data-testid="re-accreditation-approve-cta"]')
+  }
+
+  async hasApproveCta() {
+    return this.approveCta().isExisting()
+  }
+
+  /**
+   * RA-132. The approve interstitial lives on a type-specific route, not
+   * under the generic `/work-items/{id}/actions/...` namespace.
+   */
+  approvePath(workItemId) {
+    return `/work-items/re-accreditation/${workItemId}/approve`
+  }
+
+  /**
+   * RA-346. Navigate straight to the approve interstitial, bypassing the
+   * CTA. Hiding the CTA alone is not a control — the route itself has to
+   * refuse when the decision tasks are incomplete.
+   */
+  async openApprovePathDirectly(workItemId) {
+    await this.open(this.approvePath(workItemId))
+  }
+
+  /**
+   * RA-346 (and RA-335, which established the pattern). POST to a route
+   * from inside the page so the browser attaches the session cookie.
+   *
+   * The crumb cookie is HttpOnly by design, so the CSRF token is read from
+   * whichever hidden `crumb` field the currently-rendered page already
+   * carries — otherwise the request would be rejected as a CSRF failure and
+   * we would learn nothing about the business-rule gate we are testing.
+   *
+   * Returns `{ status, redirected, url }` rather than a bare status because
+   * the two guarded routes refuse in two different shapes: the generic
+   * apply-action route re-renders in place with a 409, while the
+   * re-accreditation approve route follows this app's PRG convention and
+   * 302s back to the detail page. `redirect: 'manual'` is deliberately NOT
+   * used — it yields an opaque response with status 0 and no readable
+   * headers, so the redirect is followed and asserted via `redirected` +
+   * the final `url` instead.
+   */
+  async postFromPage(path) {
+    return browser.execute(async (url) => {
+      const crumb = document.querySelector('input[name="crumb"]')?.value ?? ''
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `crumb=${encodeURIComponent(crumb)}`
+      })
+      return {
+        status: response.status,
+        redirected: response.redirected,
+        url: response.url
+      }
+    }, path)
+  }
 }
 
 export default new WorkItemDetailPage()
