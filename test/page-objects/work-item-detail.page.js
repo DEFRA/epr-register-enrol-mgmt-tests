@@ -1272,6 +1272,190 @@ class WorkItemDetailPage extends Page {
     return ids
   }
 
+  // ── RA-364: the actions panel, scoped and counted ────────────────────────── //
+
+  /**
+   * The bordered actions card. Always rendered, even with no actions.
+   */
+  actionsPanel() {
+    return $('[data-testid="actions-panel"]')
+  }
+
+  /**
+   * The inner container holding the action controls. Rendered ONLY when the
+   * (already filtered) action list is non-empty — management-fe filters in the
+   * detail controller, before the data reaches the template, so the template's
+   * length check sees the filtered list. That ordering is what makes "all
+   * actions were non-caller-invocable" render the empty state rather than an
+   * empty container, and is asserted by assertActionsPanelWellFormed().
+   */
+  workItemActions() {
+    return $('[data-testid="work-item-actions"]')
+  }
+
+  /** The generic "No actions are currently available" empty state. */
+  noActionsMessage() {
+    return $('[data-testid="work-item-no-actions"]')
+  }
+
+  /**
+   * RA-132. The re-accreditation terminal-state panel, which REPLACES the
+   * generic actions panel body via the `actionsPanel` block override in
+   * `re-accreditation/detail-v1.njk`. A withdrawn/granted/refused
+   * re-accreditation item therefore shows THIS, not `work-item-no-actions` —
+   * a distinction worth encoding, because a spec that expected the generic
+   * empty state on a terminal item would fail for a reason that has nothing
+   * to do with the behaviour under test.
+   */
+  readOnlyActionsNotice() {
+    return $('[data-testid="re-accreditation-readonly-actions"]')
+  }
+
+  /**
+   * RA-364. Every action control rendered INSIDE the actions panel.
+   *
+   * ⚠ Scoping to the panel is load-bearing, not tidiness. The `action-` testid
+   * prefix is shared with the ASSIGNMENT panel, which renders `action-sla-extend`
+   * and `action-sla-override` ("Change the due date" / "Override the due date")
+   * gated on `canChangeDueDate`. Those two are siblings of this panel, not
+   * children of it (`case-assignment-panel` and `actions-panel` are separate
+   * `app-case-panel` divs), and `sla-extend` is deliberately filtered OUT of
+   * `availableActions` by the detail controller — so a page-wide
+   * `[data-testid^="action-"]` count silently includes up to two controls that
+   * never passed through the projection this ticket is about. That is precisely
+   * how a count-based assertion becomes wrong-by-two and unfalsifiable.
+   *
+   * `availableActionIds()` above is the page-wide version and keeps its existing
+   * callers; this is the panel-scoped one. They are NOT interchangeable.
+   *
+   * The wrapper itself is safe: `actions-panel` does not match
+   * `[data-testid^="action-"]` (the 7th character is `s`, not `-`), so the
+   * container cannot inflate the count.
+   */
+  actionControls() {
+    return this.actionsPanel().$$('[data-testid^="action-"]')
+  }
+
+  /**
+   * The action ids rendered in the panel, in DOM order.
+   *
+   * ⚠ Duplicates are DELIBERATELY PRESERVED. RA-364 is a bug about the same
+   * control being rendered four times over, so de-duplicating here — as
+   * `applicationDetailRowOrder()` legitimately does for its own purposes —
+   * would destroy the only evidence the bug leaves behind and turn every
+   * assertion below into one that could never fail.
+   */
+  async actionControlIds() {
+    if (!(await this.actionsPanel().isExisting())) {
+      return []
+    }
+    const controls = await this.actionControls()
+    const ids = []
+    for (const control of controls) {
+      const testId = await control.getAttribute('data-testid')
+      ids.push((testId ?? '').replace(/^action-/, ''))
+    }
+    return ids
+  }
+
+  /**
+   * The VISIBLE LABEL of each control in the panel, in DOM order, duplicates
+   * preserved for the same reason as above.
+   *
+   * The label is the control's own text node — `action.displayName` straight
+   * from the backend for buttons and withdraw links, and a hardcoded "Query"
+   * for the query link. Labels are what the user actually sees duplicated, and
+   * what the ticket's screenshot shows four of; asserting on ids alone would
+   * miss a regression that reintroduced four DISTINCT ids all labelled
+   * "Resume", which is exactly the shape of the original bug.
+   */
+  async actionControlLabels() {
+    if (!(await this.actionsPanel().isExisting())) {
+      return []
+    }
+    const controls = await this.actionControls()
+    const labels = []
+    for (const control of controls) {
+      labels.push((await control.getText()).trim())
+    }
+    return labels
+  }
+
+  /**
+   * How many controls in the panel carry `label`, compared case-insensitively
+   * and trimmed. Used for the zero-Resume / exactly-one-Withdraw assertions:
+   * a count is falsifiable against the bug, whereas "a Withdraw link exists"
+   * passed happily while four broken Resume buttons sat next to it.
+   */
+  async countActionsLabelled(label) {
+    const labels = await this.actionControlLabels()
+    const needle = label.trim().toLowerCase()
+    return labels.filter((text) => text.toLowerCase() === needle).length
+  }
+
+  /** How many controls in the panel carry exactly `actionId`. */
+  async countActionsWithId(actionId) {
+    const ids = await this.actionControlIds()
+    return ids.filter((id) => id === actionId).length
+  }
+
+  /**
+   * RA-364 (AC05). No action label may appear twice in the panel.
+   *
+   * This is the heart of the ticket, so it reports the offending labels with
+   * their counts rather than just failing a length check — a bare
+   * `expect(n).toBe(0)` on a regression would say "expected 4 to be 0" and
+   * leave the next person to open a browser to find out which control it was.
+   */
+  async assertNoDuplicateActionLabels() {
+    const labels = await this.actionControlLabels()
+    const counts = new Map()
+    for (const label of labels) {
+      counts.set(label, (counts.get(label) ?? 0) + 1)
+    }
+    const duplicated = [...counts.entries()]
+      .filter(([, count]) => count > 1)
+      .map(([label, count]) => `${label} ×${count}`)
+    expect(duplicated).toEqual([])
+  }
+
+  /**
+   * RA-364 (AC06). The actions panel must always be in exactly ONE of three
+   * well-formed shapes, never a rendered-but-empty container:
+   *
+   *   1. `work-item-actions` present AND holding at least one control;
+   *   2. `work-item-no-actions` — the generic empty state;
+   *   3. `re-accreditation-readonly-actions` — the RA-132 terminal-state
+   *      override, which replaces the panel body entirely.
+   *
+   * The regression this guards is specific: if the non-caller-invocable filter
+   * ran AFTER the template's `availableActions.length > 0` check rather than
+   * before it, a work item whose actions were all filtered away would render
+   * `work-item-actions` as an EMPTY div — no controls, and no empty-state
+   * message either. Asserting only "the empty state appears somewhere" would
+   * not catch that; asserting the container is never empty is what does.
+   */
+  async assertActionsPanelWellFormed() {
+    await expect(this.actionsPanel()).toBeDisplayed()
+
+    const hasControls = await this.workItemActions().isExisting()
+    const hasEmptyState = await this.noActionsMessage().isExisting()
+    const hasReadOnlyNotice = await this.readOnlyActionsNotice().isExisting()
+
+    const shapes = [hasControls, hasEmptyState, hasReadOnlyNotice].filter(
+      Boolean
+    ).length
+    expect(shapes).toBe(1)
+
+    if (hasControls) {
+      const ids = await this.actionControlIds()
+      // The container exists, so it must hold something. This is the
+      // empty-panel assertion; `toBeGreaterThan(0)` on a count that came back
+      // as `[]` is the failure mode being guarded.
+      expect(ids.length).toBeGreaterThan(0)
+    }
+  }
+
   /**
    * RA-132 / RA-346. The re-accreditation "Approve" CTA is not a generic
    * action button — it is a type-specific link rendered by the
