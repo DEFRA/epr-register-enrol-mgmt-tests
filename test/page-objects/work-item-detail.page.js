@@ -250,6 +250,17 @@ class WorkItemDetailPage extends Page {
    */
   async gotoTasks() {
     await $('[data-testid="work-item-tasks-link"]').click()
+    // RA-372: wait for the navigation to land. Callers that go straight into
+    // an auto-waiting matcher never noticed the gap, but a caller that reads
+    // the DOM once — counting the rendered tasks, say — would otherwise race
+    // the click and read the detail page it just left.
+    await browser.waitUntil(
+      async () => /\/work-items\/[^/]+\/tasks$/.test(await browser.getUrl()),
+      {
+        timeout: 10000,
+        timeoutMsg: 'Expected to land on the tasks page'
+      }
+    )
   }
 
   /**
@@ -283,6 +294,102 @@ class WorkItemDetailPage extends Page {
   async assertTaskStatus(task, expectedText) {
     await expect($(`[data-testid="task-status-tag-${task}"]`)).toHaveText(
       expect.stringContaining(expectedText)
+    )
+  }
+
+  /**
+   * RA-372. Complete a task via its "Mark complete" button rather than the
+   * status select.
+   *
+   * Both routes end at the same place, but this one is the affordance a
+   * caseworker actually reaches for, and it is the route that has to keep
+   * working while the application sits in `updated` — the whole point of the
+   * bug. Waits for the PRG redirect for the same reason setTaskStatus does.
+   */
+  async completeTask(task) {
+    await $(`[data-testid="complete-task-${task}"]`).click()
+    await browser.waitUntil(
+      async () => /\/work-items\/[^/]+\/tasks$/.test(await browser.getUrl()),
+      {
+        timeout: 10000,
+        timeoutMsg: `Expected tasks page URL after completing "${task}"`
+      }
+    )
+  }
+
+  /**
+   * RA-372. Whether a given task is rendered on the tasks page at all.
+   *
+   * The tasks page groups by status, so a task can move between headings
+   * between visits; `work-item-task-<taskId>` is on the list item itself and
+   * is therefore stable across those moves.
+   */
+  async hasTask(task) {
+    return $(`[data-testid="work-item-task-${task}"]`).isExisting()
+  }
+
+  /**
+   * RA-372. Every task id currently rendered on the tasks page, in DOM order.
+   *
+   * Returned rather than asserted so a spec can prove BOTH halves of "the
+   * tasks of the state the query was raised from": the expected ids are
+   * present AND no other state's ids have leaked in. Asserting presence alone
+   * would pass against a page that rendered the union of every state's tasks.
+   */
+  async taskIds() {
+    // Scoped to `li` on purpose: the DETAIL page carries
+    // `work-item-task-progress`, which a bare prefix match would happily
+    // report as a task called "progress".
+    const items = await $$('li[data-testid^="work-item-task-"]')
+    const ids = []
+    for (const item of items) {
+      const testId = await item.getAttribute('data-testid')
+      ids.push(testId.replace('work-item-task-', ''))
+    }
+    return ids
+  }
+
+  /**
+   * RA-372. The "No tasks are required for this work item in its current
+   * state." message. This is exactly what the bug rendered for an `updated`
+   * application, so its ABSENCE is the primary regression assertion.
+   */
+  async hasNoTasksMessage() {
+    return $('[data-testid="work-item-no-tasks"]').isExisting()
+  }
+
+  /**
+   * RA-372. The `govuk-tag--*` modifier on the case header's status badge.
+   *
+   * Needed because `assessment-in-progress` and `updated` deliberately share
+   * the display name "Updated" (RA-324 AC06, confirmed with the backend and
+   * explicitly not reconciled), so `assertState('Updated')` cannot tell the
+   * two apart — and telling them apart is the entire subject of this story.
+   * The badge colour does distinguish them: `updated` is turquoise,
+   * `assessment-in-progress` is blue (see `state-badge.js` in management-fe).
+   */
+  async stateTagClass() {
+    const tag = await $('[data-testid="work-item-state-tag"]')
+    if (!(await tag.isExisting())) {
+      return ''
+    }
+    return (await tag.getAttribute('class')) ?? ''
+  }
+
+  /**
+   * Polls rather than reading once, because callers reach for this straight
+   * after an action that PRG-redirects. `getAttribute` is a single shot with
+   * none of the implicit waiting the expect-webdriverio matchers do, so a
+   * one-shot read here would intermittently assert against the pre-redirect
+   * page — the classic source of a flaky state assertion.
+   */
+  async assertStateTagClass(modifier) {
+    await browser.waitUntil(
+      async () => (await this.stateTagClass()).split(/\s+/).includes(modifier),
+      {
+        timeout: 10000,
+        timeoutMsg: `Expected the status badge to carry "${modifier}"`
+      }
     )
   }
 
@@ -405,6 +512,51 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * RA-372. The state transitions the audit log shows, in order — one entry
+   * per `action-applied`, each as `"<from> → <to>"`.
+   *
+   * The audit log is where a state machine's edges become observable to a
+   * regulator: management-fe's `summariseAuditEntry` renders every applied
+   * action as `Action (from → to)` in the visible summary line, so this reads
+   * the rendered page rather than reaching into the backend for
+   * `fromStateId`.
+   *
+   * Returned as an ordered list rather than asserted one entry at a time so a
+   * spec can pin the whole path. That matters for a waypoint state: whether
+   * the waypoint was discharged through a declared edge or jumped across an
+   * undeclared one is visible ONLY in the shape of the sequence — the start
+   * and end states are identical either way.
+   */
+  async appliedTransitions() {
+    const entries = await $$(
+      '[data-testid="work-item-audit-log"] li[data-action="action-applied"]'
+    )
+    const transitions = []
+    for (const entry of entries) {
+      const text = await entry.getText()
+      const match = text.match(/\(([^)]*→[^)]*)\)/)
+      transitions.push(
+        match ? match[1].trim() : text.replace(/\s+/g, ' ').trim()
+      )
+    }
+    return transitions
+  }
+
+  /**
+   * RA-372. Whether an error summary is on the page.
+   *
+   * Deliberately reads the GOV.UK class, not the message. The copy belongs to
+   * management-fe (and `epr-ewv8` is filed to change it), so pinning it here
+   * would cement wording another repo intends to move — the same rule
+   * `assertAssignRefused` below states for management-be's 409 text. What
+   * this suite is entitled to assert is that the caseworker was NOT shown a
+   * problem.
+   */
+  async hasErrorSummary() {
+    return $('.govuk-error-summary').isExisting()
+  }
+
+  /**
    * A case tab. Note the ACTIVE tab renders as a <span aria-current="page">
    * and only the inactive one is an <a>, so callers must not assume both are
    * clickable — assert with isActiveTab() rather than clicking blindly.
@@ -438,6 +590,25 @@ class WorkItemDetailPage extends Page {
    */
   async assertFlashBanner() {
     await expect($('[data-testid="work-item-flash-banner"]')).toBeDisplayed()
+  }
+
+  /**
+   * RA-372. The text of the generic flash banner, for callers that need to
+   * distinguish WHICH operation flashed it rather than merely that one did.
+   */
+  async flashBannerText() {
+    return $('[data-testid="work-item-flash-banner"]').getText()
+  }
+
+  /**
+   * RA-372. The detail page's read-only "N of M tasks complete." line.
+   *
+   * The detail page and the tasks page render the empty case with the SAME
+   * `work-item-no-tasks` testid, so this is the positive counterpart on the
+   * detail side — it exists only when the work item has tasks at all.
+   */
+  async taskProgressText() {
+    return $('[data-testid="work-item-task-progress"]').getText()
   }
 
   /**
