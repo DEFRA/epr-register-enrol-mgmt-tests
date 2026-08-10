@@ -29,11 +29,18 @@ import { ORG_NAME, ORS, INTERIM, AUTHORISERS } from '../support/ra-292-seed.js'
  *     one — it is what proves the omission is driven by the data rather than
  *     by a field the template never learned to render.
  *
- *  2. That omission rule has a trap in it. `repatriatedLoads: 0` and
- *     `registeredNowAccredited: false` are FALSY but not absent, and "0 loads
- *     repatriated" / "not yet accredited" are answers a regulator needs. A
- *     truthiness-based omission check drops them, and the page still looks
- *     complete. Those two get their own tests below.
+ *  2. That omission rule has a trap in it. The BOOLEAN fields —
+ *     `registeredNowAccredited`, `isEu`, `isOecd` — are real booleans on the
+ *     wire, so `false` is genuinely falsy and a truthiness-based omission
+ *     check deletes those rows. "Not yet accredited" is an answer a regulator
+ *     needs, and its absence reads as "not asked" while the page still looks
+ *     complete. Those get dedicated tests below.
+ *
+ *     Note the boundary: `repatriatedLoads` and `coordinates` cross the wire
+ *     as STRINGS (verified against serialised legacy-be output), so `"0"` is
+ *     truthy and is NOT part of this trap. It is asserted below as a value,
+ *     not as omission-logic coverage — the distinction is recorded so nobody
+ *     later mistakes that test for a guarantee it does not provide.
  */
 describe('RA-292: ORS and interim site detail on the work item overview', () => {
   before(async () => {
@@ -81,8 +88,7 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
         'overseas-site-contact-name',
         'overseas-site-contact-email',
         'overseas-site-contact-phone',
-        'overseas-site-operation-code',
-        'overseas-site-conditions-of-export'
+        'overseas-site-operation-code'
       ])
       expect(values['overseas-site-ors-id']).toBe(site.orsId)
       expect(values['overseas-site-address']).toContain(site.address)
@@ -92,9 +98,15 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
       expect(values['overseas-site-contact-email']).toBe(site.contactEmail)
       expect(values['overseas-site-contact-phone']).toBe(site.contactPhone)
       expect(values['overseas-site-operation-code']).toBe(site.operationCode)
-      expect(values['overseas-site-conditions-of-export']).toBe(
-        site.conditionsOfExport
-      )
+
+      // `conditionsOfExport` is deliberately NOT value-asserted here. Its type
+      // is unresolved across the stack: management-fe treats it as a nullable
+      // BOOLEAN and renders "Yes"/"No", while management-be's seed currently
+      // carries free text. Pinning either reading would encode one team's
+      // assumption as a passing test and hide the disagreement rather than
+      // surface it. The field is still covered as a PRESENCE assertion via
+      // ORS_DETAIL_FIELDS above, which holds whichever way it resolves; the
+      // value assertion goes in once the two agree.
     })
 
     it('lists all three Basel/OECD waste codes for the new site', async () => {
@@ -134,10 +146,15 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
 
   describe('AC04 — falsy values are data, not absence', () => {
     it('renders "0" repatriated loads rather than omitting the row', async () => {
-      // The established site's `repatriatedLoads` is a real JSON zero. If the
-      // omission check is `{% if value %}` this row disappears and the
-      // regulator cannot tell "no loads were repatriated" from "we were never
-      // told" — a materially different fact when assessing a site.
+      // "No loads were repatriated" and "we were never told" are materially
+      // different facts when assessing a site, and only one of them is good
+      // news. The row has to appear.
+      //
+      // This one is a weaker test than it looks, and deliberately kept anyway:
+      // `repatriatedLoads` crosses the wire as a STRING, so `"0"` is truthy
+      // and would survive even a truthiness-based omission check. It pins the
+      // value, not the omission logic. The booleans below are what actually
+      // hold that line.
       const loads = await detail.blockFieldText(
         'overseasSite',
         ORS.ESTABLISHED.name,
@@ -147,9 +164,14 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
     })
 
     it('renders a false boolean as "No" rather than omitting the row', async () => {
-      // Same trap, different type. The new Rotterdam site is NOT already
-      // registered-and-now-seeking-accreditation, and "No" is the answer the
-      // regulator needs to see.
+      // THIS is the real falsy-omission test. `registeredNowAccredited` is a
+      // true boolean on the wire, so `false` is genuinely falsy and a
+      // `{% if value %}` omission check deletes the row outright.
+      //
+      // The new Rotterdam site is NOT already registered-and-now-seeking-
+      // accreditation. "No" is the answer the regulator needs; silence reads
+      // as "not asked" and the page looks complete either way, which is what
+      // makes the failure mode worth a dedicated test rather than a comment.
       const registered = await detail.blockFieldText(
         'overseasSite',
         ORS.NEW.name,
@@ -165,6 +187,69 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
       ])
       expect(values['overseas-site-eu-country']).toBe(ORS.NEW.euCountry)
       expect(values['overseas-site-oecd-country']).toBe(ORS.NEW.oecdCountry)
+    })
+
+    it('renders isEu false and isOecd false as "No" on the non-EU site', async () => {
+      // `registeredNowAccredited` covers the falsy-boolean branch only if
+      // management-fe renders every boolean through one shared helper. If the
+      // rows are per-field conditionals, `isEu` and `isOecd` have their own
+      // untested branches — so these are asserted on their own rather than
+      // assumed to be covered by proxy.
+      //
+      // Port Klang is in Malaysia — genuinely neither EU nor OECD, rather than
+      // a European site flipped to false to reach the branch.
+      //
+      // Asserted across ALL sites rather than by reading Port Klang alone: the
+      // failure being guarded is a row that VANISHES, and "the field is absent
+      // here" is indistinguishable from "the field is absent everywhere"
+      // unless the other three sites are in the comparison.
+      for (const field of [
+        'overseas-site-eu-country',
+        'overseas-site-oecd-country'
+      ]) {
+        const rows = await detail.flaggedBlockFieldValues('overseasSite', field)
+        const saidNo = rows.filter((row) => row.value === 'No')
+
+        // The row must RENDER as "No", not vanish. A truthiness-based omission
+        // check yields zero here, and a regulator cannot tell "not an OECD
+        // country" from "we were never told" — the difference between a
+        // shipment needing Annex VII controls and one that does not.
+        expect(saidNo).toHaveLength(1)
+        expect(saidNo[0].name).toContain(ORS.NON_EU.name)
+      }
+    })
+  })
+
+  describe('AC04 — a nullable field absent from an otherwise-complete site', () => {
+    it('renders every other data point for the non-EU site', async () => {
+      // Port Klang is fully populated EXCEPT conditionsOfExport. That is the
+      // shape the sparse-site test below cannot reach: a site with nothing
+      // missing except one nullable field. A template that decided how to
+      // render a site by branching on "is this site complete?" rather than
+      // per-field would fall into the sparse branch here and drop everything.
+      const expected = ORS_DETAIL_FIELDS.filter(
+        (key) => key !== 'overseas-site-conditions-of-export'
+      )
+      const values = await detail.blockFields(
+        'overseasSite',
+        ORS.NON_EU.name,
+        expected
+      )
+      const missing = expected.filter((key) => values[key] === null)
+      expect(missing).toEqual([])
+    })
+
+    it('omits only the nullable field it lacks', async () => {
+      // conditionsOfExport is the one nullable field among the flags, so
+      // "absent on an otherwise-complete site" is a legitimate production
+      // shape rather than bad data — and it must not drag its neighbours out
+      // of the summary list with it.
+      const value = await detail.blockFieldText(
+        'overseasSite',
+        ORS.NON_EU.name,
+        'overseas-site-conditions-of-export'
+      )
+      expect(value).toBeNull()
     })
   })
 
@@ -375,7 +460,7 @@ describe('RA-292: access to the new site data', () => {
     })
 
     it('can read the ORS and interim site detail', async () => {
-      expect(await detail.flaggedBlockCount('overseasSite')).toBe(3)
+      expect(await detail.flaggedBlockCount('overseasSite')).toBe(4)
       expect(await detail.flaggedBlockCount('interimSite')).toBe(2)
     })
 
@@ -394,8 +479,22 @@ describe('RA-292: access to the new site data', () => {
       ).toBe(true)
     })
 
-    it('is still offered no assignment affordances on the page', async () => {
-      await detail.assertNoUsableAssignmentAffordances()
+    it('is still offered no USABLE assignment control on the page', async () => {
+      // RA-335's read-only shape renders the assignment controls present but
+      // inert (self-assign disabled, reassign/unassign without an href) rather
+      // than replacing the panel with a closed notice — that closed-notice
+      // shape is RA-358's terminal-state case, a different thing entirely.
+      //
+      // So this asserts the property that actually matters and holds for both
+      // shapes: none of the three controls is USABLE. Asserting the markup
+      // shape instead would make this test a duplicate of RA-335's own, and
+      // it would fail whenever that shape changed for reasons unrelated to
+      // RA-292 — which is not what a spec in this file is for. What RA-292
+      // needs to know is narrower: adding the ORS/interim/authority section
+      // did not hand the support user an action alongside it.
+      for (const control of ['selfAssign', 'reassign', 'unassign']) {
+        expect(await detail.hasUsableAssignmentControl(control)).toBe(false)
+      }
     })
   })
 })

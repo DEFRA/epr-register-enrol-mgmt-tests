@@ -64,10 +64,11 @@ describe('RA-292: new ORS, interim site and authority-to-issue flags', () => {
       // only one site rendered, "the established site has no tag" would pass
       // for the trivial reason that the site is not on the page at all.
       const names = await detail.flaggedBlockNames('overseasSite')
-      expect(names).toHaveLength(3)
-      expect(names.join(' | ')).toContain(ORS.NEW.name)
-      expect(names.join(' | ')).toContain(ORS.ESTABLISHED.name)
-      expect(names.join(' | ')).toContain(ORS.LEGACY.name)
+      expect(names).toHaveLength(4)
+      const joined = names.join(' | ')
+      for (const site of Object.values(ORS)) {
+        expect(joined).toContain(site.name)
+      }
     })
 
     it('shows a New tag on the ORS with isNewSite true', async () => {
@@ -99,7 +100,13 @@ describe('RA-292: new ORS, interim site and authority-to-issue flags', () => {
       )
     })
 
-    it('tags exactly one of the three ORS sites', async () => {
+    it('shows NO New tag on the non-EU ORS, which is also not new', async () => {
+      expect(await detail.blockHasNewTag('overseasSite', ORS.NON_EU.name)).toBe(
+        false
+      )
+    })
+
+    it('tags exactly one of the four ORS sites', async () => {
       // The whole-page counterpart to the per-site assertions above: catches a
       // tag rendered outside any site block, or twice inside one, neither of
       // which a per-site isExisting() can see.
@@ -111,8 +118,8 @@ describe('RA-292: new ORS, interim site and authority-to-issue flags', () => {
     it('renders the interim sites, which did not appear on this page before RA-292', async () => {
       // Interim site rendering is new in RA-292 — there was no markup for it
       // at all — so this is a genuine presence assertion rather than a
-      // regression guard. Two, not three: the near-minimal Bilbao ORS
-      // deliberately carries no interimSite.
+      // regression guard. Two, not four: the near-minimal Bilbao ORS and the
+      // non-EU Port Klang site both deliberately carry no interimSite.
       const names = await detail.flaggedBlockNames('interimSite')
       expect(names).toHaveLength(2)
       expect(names.join(' | ')).toContain(INTERIM.NEW.name)

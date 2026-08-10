@@ -56,8 +56,14 @@ export const ORS = {
     operationCode: 'R3',
     wasteCodes: ['B3011', 'GH013', 'Y48'],
     repatriatedLoads: '3',
-    conditionsOfExport:
-      'Baled material, moisture content below 5%, shipped under Annex VII controls.',
+    // `conditionsOfExport` is a nullable BOOLEAN on the wire, not the free
+    // text an earlier draft of the seed map described. Rotterdam populates it
+    // (true), Hamburg is false, and Port Klang and Bilbao omit it entirely —
+    // it is the one nullable field among the flags, so "absent on an
+    // otherwise-complete site" is a real production shape. No value is
+    // asserted against it while the rendered form is still settling; it is
+    // covered as a presence assertion only.
+    //
     // Rendered as Yes/No by management-fe, not as the raw JSON boolean.
     registeredNowAccredited: 'No',
     euCountry: 'Yes',
@@ -75,13 +81,49 @@ export const ORS = {
     contactPhone: '+49 40 555 0142',
     operationCode: 'R4',
     wasteCodes: ['B1010', 'GA300', 'Y23'],
-    // A real JSON zero, deliberately. See the falsy-value spec: 0 is a
-    // meaningful answer and must render, not be omitted as though absent.
+    // Zero loads, and a genuinely different fact from "we were never told".
+    //
+    // NOTE ON TYPE: `repatriatedLoads` crosses the wire as a STRING, not a
+    // number (verified against serialised legacy-be output on RA-292). That
+    // matters for how much this value proves: `"0"` is truthy, so it survives
+    // even a naive truthiness-based omission check. It is still worth pinning
+    // — a value that must appear on screen — but the real falsy-omission
+    // coverage comes from the BOOLEAN fields below, which are true booleans on
+    // the wire and therefore genuinely falsy when false.
     repatriatedLoads: '0',
-    conditionsOfExport: 'Loose material, shipped under Annex VII controls.',
     registeredNowAccredited: 'Yes',
     euCountry: 'Yes',
     oecdCountry: 'Yes'
+  },
+  /**
+   * The non-EU, non-OECD site. It exists so `isEu: false` / `isOecd: false`
+   * have somewhere real to be observed.
+   *
+   * Deliberately a genuinely non-EU, non-OECD country rather than one of the
+   * European sites flipped to false. A fixture that asserts something
+   * factually untrue to reach a code path is worse than the gap it closes:
+   * the next person to read it cannot tell the difference between a fact and
+   * a testing convenience, and starts distrusting the rest of the file.
+   *
+   * `isNewSite` is false, chosen so the page still carries exactly one New
+   * tag and the AC01 count assertions hold with four sites instead of three.
+   */
+  NON_EU: {
+    name: 'Port Klang Reprocessing Facility',
+    orsId: 'ORS-2025-0113',
+    address: '88 Jalan Pelabuhan',
+    town: 'Port Klang',
+    country: 'Malaysia',
+    coordinates: '3.0044, 101.3928',
+    contactName: 'Aisyah Rahman',
+    contactEmail: 'aisyah.rahman@example.com',
+    contactPhone: '+60 3 3168 8000',
+    operationCode: 'R3',
+    wasteCodes: ['B3011', 'GH013', 'Y48'],
+    repatriatedLoads: '2',
+    registeredNowAccredited: 'No',
+    euCountry: 'No',
+    oecdCountry: 'No'
   },
   /**
    * Near-minimal: siteId, orsId, siteName, siteAddress, townOrCity and country

@@ -1644,6 +1644,35 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * One detail field read from EVERY block of a kind, as `{ name, value }`
+   * pairs in DOM order, with `value` null where the row is omitted.
+   *
+   * Exists for assertions about how a value is distributed across the page
+   * rather than about one named block — "exactly one site reports EU country
+   * as No". That framing is deliberately independent of which site it is,
+   * which lets the behaviour be pinned without the spec hard-coding a fixture
+   * name it would otherwise have to guess at.
+   */
+  async flaggedBlockFieldValues(kind, fieldTestId) {
+    const blocks = await this.flaggedBlocks(kind)
+    const nameTestId = NEW_FLAG_BLOCKS[kind].name
+    const rows = []
+    for (const block of [...blocks]) {
+      const nameEl = nameTestId
+        ? block.$(`[data-testid="${nameTestId}"]`)
+        : block
+      const field = block.$(`[data-testid="${fieldTestId}"]`)
+      rows.push({
+        name: (await nameEl.isExisting()) ? await nameEl.getText() : null,
+        value: (await field.isExisting())
+          ? (await field.getText()).trim()
+          : null
+      })
+    }
+    return rows
+  }
+
+  /**
    * The text of one detail field inside the block of `kind` named `name`.
    *
    * Returns `null` when the field is absent rather than throwing, because
@@ -1798,7 +1827,11 @@ export const NEW_FLAG_BLOCKS = {
   },
   authorityToIssueContact: {
     block: 'authority-to-issue-contact',
-    name: null,
+    // Wraps the DISPLAY NAME only — the email follows outside it, as
+    // "Grace Adeyemi (grace.adeyemi@example.com)". Matching on this rather
+    // than on block text keeps a name lookup from being satisfied by an email
+    // that happens to contain the same string.
+    name: 'authority-to-issue-contact-name',
     newTag: 'authority-to-issue-new-tag'
   }
 }
