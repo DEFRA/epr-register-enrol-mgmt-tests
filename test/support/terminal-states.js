@@ -11,11 +11,12 @@ import withdrawPage from '../page-objects/withdraw.page.js'
  * detail page and the withdraw interstitial. `support/` already holds this
  * kind of cross-cutting helper (see uk-time.js).
  *
- * NOTE: ra-224-archived-items.e2e.js contains a near-identical
- * `driveToAwaitingDecision`. It is deliberately NOT refactored to use this
- * module here: that spec is passing and unrelated to RA-358, and rewriting
- * its setup to prove a point about duplication would risk a green spec for no
- * behavioural gain. Deduplicating the two is filed as follow-up work.
+ * NOTE: ra-313-withdrawn-in-worklist.e2e.js (formerly ra-224-archived-items)
+ * contains a near-identical `driveToAwaitingDecision`. It is deliberately NOT
+ * refactored to use this module here: that spec is passing and unrelated to
+ * RA-358, and rewriting its setup to prove a point about duplication would
+ * risk a green spec for no behavioural gain. Deduplicating the two is filed
+ * as follow-up work.
  */
 
 /**

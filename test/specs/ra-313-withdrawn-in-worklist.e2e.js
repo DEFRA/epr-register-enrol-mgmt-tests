@@ -1,24 +1,29 @@
-import { $, expect } from '@wdio/globals'
+import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import withdraw from '../page-objects/withdraw.page.js'
 
 /**
- * RA-224 — All end states are archived.
+ * RA-313 AC01 — a withdrawn application is identifiable in the worklist.
  *
- * Previously only `approved` work items were hidden from the active
- * worklist; `rejected` and `withdrawn` items stayed visible. This spec
- * proves that EVERY terminal state (approved, rejected, withdrawn) is now
- * excluded from the default list and surfaced only when the "Show
- * archived" filter is enabled.
+ * "Given an application has been withdrawn, when a regulator views the
+ * applications worklist, then the application is displayed in the worklist
+ * and the application status is shown as 'Withdrawn'."
  *
- * A shared, unique org-name token scopes every assertion to the three
- * items this spec creates, so the "hidden" check returns zero results and
- * the "revealed" check is pagination-safe even when the archived view
- * holds unrelated items from other specs.
+ * This file REPLACES ra-224-archived-items.e2e.js, which asserted the exact
+ * opposite. RA-224 hid every terminal state (approved/rejected/withdrawn)
+ * from the default worklist unless "Show archived" was ticked; it was closed
+ * as incorrectly filed, so the hiding is gone and all three states come back
+ * to the list. The three-item setup is kept from that spec because it is
+ * still the cheapest way to prove the revert covers every terminal state, not
+ * just the withdrawn one RA-313 names.
+ *
+ * A shared, unique org-name token scopes every assertion to the three items
+ * this spec creates, so the presence checks stay pagination-safe even when
+ * the list holds unrelated items from other specs.
  */
-const token = `RA224Archive${Date.now()}`
+const token = `RA313Worklist${Date.now()}`
 
 /**
  * Create a re-accreditation work item under the shared token and drive it
@@ -67,7 +72,7 @@ async function driveToAwaitingDecision(suffix, material) {
   return id
 }
 
-describe('RA-224 all terminal states are archived', () => {
+describe('RA-313 terminal-state applications stay on the worklist', () => {
   let approvedId
   let rejectedId
   let withdrawnId
@@ -86,6 +91,12 @@ describe('RA-224 all terminal states are archived', () => {
       })
     ).id
 
+    // RA-313 is about OPERATOR-initiated withdrawal, but this suite only
+    // drives the case management UI — and both routes land the work item in
+    // the same `withdrawn` state, which is all AC01 turns on. The CM-side
+    // withdraw journey used here is RA-188's and is expected to be retired;
+    // when it goes, seed the withdrawn state some other way rather than
+    // dropping the assertions below.
     await workItems.openWorkItem(withdrawnId)
     await detail.triggerAction('withdraw')
     await withdraw.assertOnConfirmPage()
@@ -127,45 +138,56 @@ describe('RA-224 all terminal states are archived', () => {
     await login.logout()
   })
 
-  it('hides every terminal-state item from the default worklist', async () => {
+  it('shows the withdrawn application on the default worklist as "Withdrawn"', async () => {
+    // AC01 proper. No archived filter, no status filter — just the plain
+    // worklist a regulator lands on, bounded by the org search so the
+    // assertion is not at the mercy of pagination.
     await login.login()
     await workItems.goto()
-
-    // Searching the shared token without the archived filter must return
-    // nothing — all three items are in a terminal state and therefore
-    // excluded from the active worklist.
     await workItems.searchByOrgName(token)
-    await expect($('[data-testid="work-items-summary"]')).toHaveText(
-      expect.stringContaining('No work items match your filters')
+
+    await expect(workItems.workItemLink(withdrawnId)).toExist()
+    await expect(workItems.workItemStateTag(withdrawnId)).toHaveText(
+      expect.stringContaining('Withdrawn')
     )
-    await expect(workItems.workItemLink(withdrawnId)).not.toBeExisting()
-    await expect(workItems.workItemLink(rejectedId)).not.toBeExisting()
-    await expect(workItems.workItemLink(approvedId)).not.toBeExisting()
 
     await login.logout()
   })
 
-  it('reveals every terminal-state item under "Show archived" with its state tag', async () => {
+  it('shows the decided applications on the default worklist too', async () => {
+    // The RA-224 revert is not withdrawn-only: a regulator looking for a
+    // granted or refused application finds it where every other application
+    // is. This is the case that used to assert "No work items match your
+    // filters".
     await login.login()
     await workItems.goto()
+    await workItems.searchByOrgName(token)
 
-    // Enabling "Show archived" alongside the org-name search must surface
-    // all three terminal-state items, each with its own state tag.
-    await workItems.searchArchivedByOrgName(token)
-
-    await expect(workItems.workItemLink(withdrawnId)).toExist()
     await expect(workItems.workItemLink(rejectedId)).toExist()
     await expect(workItems.workItemLink(approvedId)).toExist()
-
-    await expect(workItems.workItemStateTag(withdrawnId)).toHaveText(
-      expect.stringContaining('Withdrawn')
-    )
     await expect(workItems.workItemStateTag(rejectedId)).toHaveText(
       expect.stringContaining('Refused')
     )
     await expect(workItems.workItemStateTag(approvedId)).toHaveText(
       expect.stringContaining('Granted')
     )
+
+    await login.logout()
+  })
+
+  it('still lists them when "Show archived" is enabled', async () => {
+    // `includeArchived` is now inert: nothing is hidden, so nothing is left
+    // for it to reveal. Kept as a regression guard because the checkbox is
+    // still on the Applications page (the UI was signed off against a
+    // prototype and is deliberately untouched by RA-313 — see epr-kenf) and
+    // ticking it must not start SUBTRACTING results.
+    await login.login()
+    await workItems.goto()
+    await workItems.searchArchivedByOrgName(token)
+
+    await expect(workItems.workItemLink(withdrawnId)).toExist()
+    await expect(workItems.workItemLink(rejectedId)).toExist()
+    await expect(workItems.workItemLink(approvedId)).toExist()
 
     await login.logout()
   })
