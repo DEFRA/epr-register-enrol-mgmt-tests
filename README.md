@@ -118,6 +118,90 @@ build, set `MANAGEMENT_BE` / `MANAGEMENT_FE` to a tag you have built locally:
 MANAGEMENT_BE=mytag MANAGEMENT_FE=mytag docker compose up -d
 ```
 
+### Journey tests failing on specs you didn't write
+
+**Merge `main` into all three branches before investigating.**
+
+PR CI tests the **merge commit** — your branch merged into `main` — so it runs
+every spec on `main`, including ones added after you branched. But
+`run-journey-tests` **branch-matches**: it looks for a branch of the same name
+in `epr-register-enrol-management-fe` and `-management-be` and, when one exists,
+builds those services from _that branch_ rather than from `main`.
+
+Those two facts pull in opposite directions. If a story merges to `main` after
+your branch was cut, you get its **new specs** running against **partner code
+that predates them**, and they fail. Nothing is broken; the branch is simply
+behind.
+
+The diagnostic tell:
+
+> Failures cluster **entirely inside one spec file you have never touched**,
+> whose story merged to `main` recently — and your own specs all pass.
+
+A red run caused by your change looks different: it lands in the specs and page
+objects your change actually touches.
+
+Merging `main` into **this** repo is **not sufficient**, and that is the
+non-obvious half. It brings the new specs in, but the partner _images_ still
+have to carry the code those specs exercise. All three branches need it:
+
+```bash
+# in each of mgmt-tests, management-fe and management-be,
+# on the shared branch name:
+git merge origin/main
+```
+
+Then re-trigger the run rather than pushing an empty commit — the action
+re-resolves the partner branches with `git ls-remote` at run time, so a rerun
+of the same commit picks up their new heads.
+
+This is not a defect to be fixed. Testing the merge commit against
+branch-matched images is what allows three repositories' pull requests to be
+verified together at all; a long-lived branch going red when `main` moves is
+that design working, and the remedy is a merge you would do before merging
+anyway.
+
+### Reproducing a CI failure locally: mind the network namespace
+
+CI runs `wdio` **on the runner host** (`setup-node` → `npm ci` →
+`npm run test:github`), with the stack in Docker. So a spec helper that fetches
+the backend directly at `http://localhost:8085` works, because `compose.yml`
+publishes that port to the host. Only the _browser_ is in a container.
+
+Run `wdio` **inside** a container joined to the compose network instead — a
+reasonable thing to do when the host's Node version doesn't match `.nvmrc` —
+and `localhost` becomes the container itself. Those helpers fail with
+`TypeError: fetch failed` while the browser-driven assertions carry on working,
+so most of the suite passes and one file collapses. Point them at the service
+name:
+
+```bash
+-e MANAGEMENT_BE_URL=http://epr-register-enrol-management-be:8085
+```
+
+The wider lesson is worth more than the fix:
+
+> **A reproduction that fails differently from the thing you're reproducing is
+> not a reproduction.**
+
+This bit during RA-292. A local run of a CI failure died on
+`TypeError: fetch failed`; CI had failed on assertions. Same file, same tests,
+entirely different cause. Read as a successful reproduction it said "this story
+is broken on `main`" — and would have sent someone hunting a regression in
+merged code that was working perfectly. The mismatch in _failure shape_ was the
+only thing distinguishing a real reproduction from an accident of local
+plumbing.
+
+So before drawing a conclusion from a local repro, check it fails **the same
+way**: same error type, same assertion, same tests. If it doesn't, you are
+debugging your own environment.
+
+`epr-register-enrol-management-be`'s README has a companion entry,
+**"Checks that don't check"**, cataloguing the same family from the other side —
+checks that appear to exercise a path they never touch, each failing quietly and
+in the direction the author was hoping for. This trap is that pattern seen from
+the reproduction end, and it is listed there as one of the four instances.
+
 ## BrowserStack
 
 Two wdio configuration files are provided to help run the tests using BrowserStack in both a GitHub workflow (`wdio.github.browserstack.conf.js`) and from the CDP Portal (`wdio.browserstack.conf.js`).
