@@ -80,12 +80,22 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
         ORS.NEW.name,
         'overseas-site-address'
       )
-      // Every line of it, not just the first. The address is the only piece
-      // of ORS identity the mock keeps besides the name, so a truncated one
-      // is a real loss even though it looks populated.
+      // EVERY line, not just the first. The address is the only piece of ORS
+      // identity the mock keeps besides the name, so a truncated one is a
+      // real loss even though it still looks populated on screen.
+      //
+      // The middle line is the one that matters. A first-match read returns
+      // "1 Havenstraat" alone and a naive line-1-plus-town join produces
+      // "1 Havenstraat, Rotterdam" — both look like an address, and both have
+      // silently lost the industrial park that identifies which site this is.
       expect(address).toContain(ORS.NEW.address)
+      expect(address).toContain(ORS.NEW.addressLine2)
       expect(address).toContain(ORS.NEW.town)
-      expect(address).toContain(ORS.NEW.country)
+
+      // The country is NOT here — it renders on the name line as a
+      // parenthetical, and is asserted there. Worth stating, because
+      // "the address should contain the country" is an easy and wrong
+      // assumption that would fail against a perfectly correct page.
     })
 
     it('shows the interim site name under its parent ORS', async () => {

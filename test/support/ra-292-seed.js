@@ -47,6 +47,10 @@ export const ORS = {
     name: 'Rotterdam New Reprocessing Site',
     orsId: 'ORS-2026-0292',
     address: '1 Havenstraat',
+    // The middle address line matters more than it looks: it is the line a
+    // first-match read or a naive two-field join silently drops, while the
+    // page still shows a plausible-looking address.
+    addressLine2: 'Europoort Industrial Park',
     town: 'Rotterdam',
     country: 'Netherlands',
     coordinates: '51.9244, 4.4777',
@@ -72,6 +76,7 @@ export const ORS = {
     name: 'Hamburg Established Reprocessing Site',
     orsId: 'ORS-2024-0042',
     address: '42 Hafenstrasse',
+    addressLine2: 'Building C',
     town: 'Hamburg',
     country: 'Germany',
     coordinates: '53.5511, 9.9937',
@@ -112,6 +117,7 @@ export const ORS = {
     name: 'Port Klang Reprocessing Facility',
     orsId: 'ORS-2025-0113',
     address: '88 Jalan Pelabuhan',
+    addressLine2: 'Zone 3',
     town: 'Port Klang',
     country: 'Malaysia',
     coordinates: '3.0044, 101.3928',
@@ -147,6 +153,7 @@ export const INTERIM = {
     name: 'Antwerp Interim Holding Site',
     siteNumber: 'INT-001',
     address: '12 Scheldelaan',
+    addressLine2: 'Unit 4',
     town: 'Antwerp',
     country: 'Belgium',
     contactName: 'Elke Janssens',
