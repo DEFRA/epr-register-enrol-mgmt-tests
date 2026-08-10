@@ -1521,6 +1521,319 @@ class WorkItemDetailPage extends Page {
       }
     }, path)
   }
+
+  // ── RA-292: new ORS / interim site / authority-to-issue contact ─────────── //
+
+  /**
+   * RA-292. Every repeating block on the work item overview page that the
+   * story can flag as NEW, resolved to the `data-testid` of the block itself.
+   *
+   * Specs address these by kind (`'overseasSite'`) rather than by raw testid so
+   * a markup rename stays a one-line change here — the same reason
+   * CASE_HEADER_FIELDS exists. The pairing of block testid to tag testid lives
+   * in NEW_TAG_TESTIDS below rather than being derived by string concatenation:
+   * `authority-to-issue-contact` takes an `authority-to-issue-new-tag`, not an
+   * `authority-to-issue-contact-new-tag`, so a derived name would be wrong for
+   * exactly one of the three and silently match nothing.
+   */
+  flaggedBlockTestId(kind) {
+    return NEW_FLAG_BLOCKS[kind].block
+  }
+
+  newTagTestId(kind) {
+    return NEW_FLAG_BLOCKS[kind].newTag
+  }
+
+  /** Every block of one kind rendered on the overview page, in DOM order. */
+  flaggedBlocks(kind) {
+    return $$(`[data-testid="${this.flaggedBlockTestId(kind)}"]`)
+  }
+
+  async flaggedBlockCount(kind) {
+    return (await this.flaggedBlocks(kind)).length
+  }
+
+  /** The visible text of each block of one kind, in DOM order. */
+  async flaggedBlockTexts(kind) {
+    const blocks = await this.flaggedBlocks(kind)
+    return Promise.all([...blocks].map((block) => block.getText()))
+  }
+
+  /**
+   * The single block of `kind` whose OWN name line reads `name`.
+   *
+   * Deliberately matched on the block's `*-name` element rather than on the
+   * block's whole `getText()`. management-fe nests each `interim-site` INSIDE
+   * its parent `overseas-site` div (an interim site belongs to an ORS), so an
+   * ORS block's text contains its interim site's text too — a substring match
+   * over block text would return the ORS parent when asked for an interim
+   * site, and every assertion scoped to it would then be reading the wrong
+   * element while still finding plausible-looking content.
+   *
+   * Throws when the match is not unique. Uniqueness is not pedantry: every
+   * negative assertion in RA-292 takes the form "site A is tagged new, site B
+   * is not", and if `name` matched two blocks a `.isExisting()` on the tag
+   * would answer for whichever came first and quietly pass regardless of which
+   * one the badge was actually on.
+   */
+  async flaggedBlockNamed(kind, name) {
+    const blocks = await this.flaggedBlocks(kind)
+    const nameTestId = NEW_FLAG_BLOCKS[kind].name
+    const matches = []
+    for (const block of [...blocks]) {
+      // The authority-to-issue contact has no separate name element — it
+      // renders as a single "Name (email)" line — so `name` is matched against
+      // the block's own text there. That is safe for contacts specifically
+      // because, unlike the sites, they are never nested inside one another.
+      const target = nameTestId
+        ? block.$(`[data-testid="${nameTestId}"]`)
+        : block
+      if (nameTestId && !(await target.isExisting())) continue
+      if ((await target.getText()).includes(name)) {
+        matches.push(block)
+      }
+    }
+    if (matches.length !== 1) {
+      const names = await this.flaggedBlockNames(kind)
+      throw new Error(
+        `Expected exactly one "${kind}" block named "${name}", found ` +
+          `${matches.length}. Blocks on the page: ${JSON.stringify(names)}`
+      )
+    }
+    return matches[0]
+  }
+
+  /**
+   * The name line of each block of one kind, in DOM order.
+   *
+   * Read from the block's own `*-name` element rather than from block text, so
+   * the ORS list does not report its nested interim sites' names as its own.
+   */
+  async flaggedBlockNames(kind) {
+    const blocks = await this.flaggedBlocks(kind)
+    const nameTestId = NEW_FLAG_BLOCKS[kind].name
+    const names = []
+    for (const block of [...blocks]) {
+      if (!nameTestId) {
+        names.push(await block.getText())
+        continue
+      }
+      const nameEl = block.$(`[data-testid="${nameTestId}"]`)
+      names.push((await nameEl.isExisting()) ? await nameEl.getText() : null)
+    }
+    return names
+  }
+
+  /**
+   * Whether the block of `kind` named `name` carries its "New" tag.
+   *
+   * The tag lookup is SCOPED INSIDE the matched block, which is the whole
+   * point: a page-wide `$('[data-testid="overseas-site-new-tag"]').isExisting()`
+   * cannot tell "the new site is badged" from "some other site is badged", and
+   * would pass against a template that renders the tag unconditionally on the
+   * first site in the list.
+   *
+   * The exact testid matters here too, for the same nesting reason: a suffix
+   * selector such as `[data-testid$="new-tag"]` scoped to an `overseas-site`
+   * would also match the interim site's tag inside it, so an untagged ORS with
+   * a tagged interim site would report as tagged.
+   */
+  async blockHasNewTag(kind, name) {
+    const block = await this.flaggedBlockNamed(kind, name)
+    return block.$(`[data-testid="${this.newTagTestId(kind)}"]`).isExisting()
+  }
+
+  /**
+   * The text of one detail field inside the block of `kind` named `name`.
+   *
+   * Returns `null` when the field is absent rather than throwing, because
+   * management-fe OMITS a detail row entirely when its source value is
+   * absent/null/blank — it renders no em-dash placeholder. "Absent" is
+   * therefore a legitimate, assertable outcome and not a lookup failure.
+   */
+  async blockFieldText(kind, name, fieldTestId) {
+    const block = await this.flaggedBlockNamed(kind, name)
+    const field = block.$(`[data-testid="${fieldTestId}"]`)
+    return (await field.isExisting()) ? (await field.getText()).trim() : null
+  }
+
+  /**
+   * Read several detail fields from one block in a single pass, as a
+   * `{ fieldTestId: text | null }` map.
+   *
+   * AC04 asks for a whole set of site data points to be "clearly displayed",
+   * so the natural assertion is over the set. Asserting field-by-field with a
+   * separate `expect` each would report only the first missing one and hide
+   * the rest behind it, which turns one fix-and-rerun cycle into six.
+   */
+  async blockFields(kind, name, fieldTestIds) {
+    const block = await this.flaggedBlockNamed(kind, name)
+    const values = {}
+    for (const fieldTestId of fieldTestIds) {
+      const field = block.$(`[data-testid="${fieldTestId}"]`)
+      values[fieldTestId] = (await field.isExisting())
+        ? (await field.getText()).trim()
+        : null
+    }
+    return values
+  }
+
+  /**
+   * How many blocks of `kind` carry a "New" tag.
+   *
+   * Counted per-block rather than by counting tag elements page-wide so a tag
+   * rendered outside any block — or two tags inside one block — cannot be
+   * mistaken for correct output.
+   */
+  async newTagCount(kind) {
+    const blocks = await this.flaggedBlocks(kind)
+    const testId = this.newTagTestId(kind)
+    let count = 0
+    for (const block of [...blocks]) {
+      if (await block.$(`[data-testid="${testId}"]`).isExisting()) {
+        count += 1
+      }
+    }
+    return count
+  }
+
+  /**
+   * RA-292. Every "New" tag of one kind must read exactly "New" and be a blue
+   * GOV.UK tag.
+   *
+   * Both halves matter and neither alone is enough. A tag rendered with the
+   * right testid but empty text is invisible to the user the AC is written
+   * for; a tag with the right text but the default grey styling is not the
+   * "clearly labelled or flagged" the story asks for, and grey is what a
+   * `govuk-tag` renders when the modifier class is dropped.
+   */
+  async assertNewTagsWellFormed(kind) {
+    const blocks = await this.flaggedBlocks(kind)
+    const testId = this.newTagTestId(kind)
+    for (const block of [...blocks]) {
+      const tag = block.$(`[data-testid="${testId}"]`)
+      if (!(await tag.isExisting())) continue
+      await expect(tag).toHaveText('New')
+      await expect(tag).toHaveElementClass(
+        expect.stringContaining('govuk-tag--blue')
+      )
+    }
+  }
+
+  /**
+   * Whether ANY of the three RA-292 "New" tags is present anywhere on the page.
+   *
+   * The backwards-compatibility case needs this. A pre-RA-292 work item carries
+   * none of `isNewSite` / `isNew`, and Nunjucks resolves a missing key to
+   * undefined — which is falsy, so the badge should not render. But a template
+   * written as `{% if site.isNewSite != false %}` would badge every legacy site
+   * on every historic case, which is a visible data-integrity bug and precisely
+   * the regression a per-kind assertion on a NEW work item would never see.
+   */
+  async hasAnyNewTag() {
+    for (const kind of Object.keys(NEW_FLAG_BLOCKS)) {
+      const tag = $(`[data-testid="${this.newTagTestId(kind)}"]`)
+      if (await tag.isExisting()) return true
+    }
+    return false
+  }
+
+  /**
+   * RA-292 (AC04). The rendered text of the whole application-information
+   * block, for asserting that a set of site detail values all made it onto the
+   * page.
+   *
+   * Read once and asserted against in memory rather than one `$()` per field:
+   * the ACs list ten-odd data points per site, and ten round trips to the
+   * browser per assertion is where this suite's runtime goes.
+   */
+  async applicationDetailsText() {
+    return this.applicationDetails().getText()
+  }
+
+  /**
+   * RA-292 backwards compatibility. Nothing on the overview page may render as
+   * `[object Object]` or `undefined`.
+   *
+   * This is the specific failure mode of the change under test. RA-292 adds
+   * template code that reaches into nested site objects (`site.address.town`,
+   * `site.wasteCodes`), and a legacy work item has those keys missing or shaped
+   * differently. Nunjucks does not throw on either — it stringifies, so the
+   * regression ships as a page that renders and looks fine to a smoke test
+   * while showing operators `[object Object]` where a town should be.
+   */
+  async assertNoUnrenderedValues() {
+    const text = await this.applicationDetailsText()
+    expect(text).not.toContain('[object Object]')
+    expect(text).not.toContain('undefined')
+  }
 }
+
+/**
+ * RA-292. Block testid ↔ name-line testid ↔ "New" tag testid, fixed by the
+ * cross-repo contract agreed with management-fe. Exported so a spec can assert
+ * against the same single source of truth the page object reads.
+ *
+ * `name` is null for the authority-to-issue contact, which management-fe
+ * renders as one "Name (email)" line with no separate name element; the page
+ * object falls back to the block's own text for that kind.
+ *
+ * The tag testid is held here rather than derived by appending `-new-tag` to
+ * the block testid, because that derivation is wrong for exactly one of the
+ * three: `authority-to-issue-contact` takes an `authority-to-issue-new-tag`.
+ * A derived name would match nothing and every contact assertion would report
+ * "no tag" — passing the negatives and failing the positives for a reason that
+ * has nothing to do with the code under test.
+ */
+export const NEW_FLAG_BLOCKS = {
+  overseasSite: {
+    block: 'overseas-site',
+    name: 'overseas-site-name',
+    newTag: 'overseas-site-new-tag'
+  },
+  interimSite: {
+    block: 'interim-site',
+    name: 'interim-site-name',
+    newTag: 'interim-site-new-tag'
+  },
+  authorityToIssueContact: {
+    block: 'authority-to-issue-contact',
+    name: null,
+    newTag: 'authority-to-issue-new-tag'
+  }
+}
+
+/**
+ * RA-292 (AC04). The ORS data points the AC requires to be "clearly
+ * displayed", as the testid management-fe puts on each value cell.
+ *
+ * `overseas-site-address` predates RA-292; the rest are new. Exported as a set
+ * so the AC04 spec asserts over the whole list in one pass and reports every
+ * missing field at once, rather than stopping at the first.
+ */
+export const ORS_DETAIL_FIELDS = [
+  'overseas-site-ors-id',
+  'overseas-site-address',
+  'overseas-site-coordinates',
+  'overseas-site-contact-name',
+  'overseas-site-contact-email',
+  'overseas-site-contact-phone',
+  'overseas-site-operation-code',
+  'overseas-site-waste-codes',
+  'overseas-site-repatriated-loads',
+  'overseas-site-conditions-of-export',
+  'overseas-site-registered-now-accredited',
+  'overseas-site-eu-country',
+  'overseas-site-oecd-country'
+]
+
+/** RA-292 (AC04). The interim-site data points, same contract. */
+export const INTERIM_DETAIL_FIELDS = [
+  'interim-site-site-number',
+  'interim-site-address',
+  'interim-site-contact-name',
+  'interim-site-contact-email',
+  'interim-site-contact-phone'
+]
 
 export default new WorkItemDetailPage()
