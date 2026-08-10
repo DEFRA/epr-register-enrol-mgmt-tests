@@ -56,14 +56,13 @@ export const ORS = {
     operationCode: 'R3',
     wasteCodes: ['B3011', 'GH013', 'Y48'],
     repatriatedLoads: '3',
-    // `conditionsOfExport` is a nullable BOOLEAN on the wire, not the free
-    // text an earlier draft of the seed map described. Rotterdam populates it
-    // (true), Hamburg is false, and Port Klang and Bilbao omit it entirely —
-    // it is the one nullable field among the flags, so "absent on an
-    // otherwise-complete site" is a real production shape. No value is
-    // asserted against it while the rendered form is still settling; it is
-    // covered as a presence assertion only.
-    //
+    // `conditionsOfExport` is a nullable BOOLEAN, not the free text an earlier
+    // draft of the seed map described — confirmed against legacy-be's model
+    // (`public bool? ConditionsOfExport`) rather than taken on report. It is
+    // the one nullable field among the flags: Rotterdam true, Hamburg false,
+    // absent on Port Klang and Bilbao, so "absent from an otherwise-complete
+    // site" is a real production shape and not bad data.
+    conditionsOfExport: 'Yes',
     // Rendered as Yes/No by management-fe, not as the raw JSON boolean.
     registeredNowAccredited: 'No',
     euCountry: 'Yes',
@@ -91,6 +90,7 @@ export const ORS = {
     // coverage comes from the BOOLEAN fields below, which are true booleans on
     // the wire and therefore genuinely falsy when false.
     repatriatedLoads: '0',
+    conditionsOfExport: 'No',
     registeredNowAccredited: 'Yes',
     euCountry: 'Yes',
     oecdCountry: 'Yes'

@@ -86,6 +86,38 @@ By default, the provided workflow will run when triggered manually from GitHub o
 
 If you want to use the repository exclusively for running docker composed based test suites consider displaying the publish.yml workflow.
 
+### Stale seed data: use `docker compose down -v` after a seed change
+
+`epr-register-enrol-management-be` seeds its work items with
+`CreateIfAbsentAsync`, which **inserts but never updates**. A seed item is
+keyed on a deterministic id, so:
+
+- a **new** seed key appears on the next backend boot, even against a mongo
+  volume that has already been seeded — no reset needed;
+- a **changed value on an existing** seed key does **not**. The old document
+  stays exactly as it was.
+
+The failure this produces is nastier than it sounds: specs assert against
+values the seeder now claims to emit, the backend serves the old document, and
+the run fails with content mismatches that look for all the world like a broken
+frontend template. It is easy to lose an hour to it.
+
+So whenever the backend's seed data changes — or specs start failing on values
+you can see are correct in `ReAccreditationSeeder.cs`:
+
+```bash
+docker compose down -v   # -v drops the mongo volume; without it the old seed persists
+docker compose up -d
+```
+
+The same applies to the published image tags. `compose.yml` defaults to
+`:latest` for both services, which can lag `main`; to run against a specific
+build, set `MANAGEMENT_BE` / `MANAGEMENT_FE` to a tag you have built locally:
+
+```bash
+MANAGEMENT_BE=mytag MANAGEMENT_FE=mytag docker compose up -d
+```
+
 ## BrowserStack
 
 Two wdio configuration files are provided to help run the tests using BrowserStack in both a GitHub workflow (`wdio.github.browserstack.conf.js`) and from the CDP Portal (`wdio.browserstack.conf.js`).

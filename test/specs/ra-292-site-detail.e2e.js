@@ -98,15 +98,47 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
       expect(values['overseas-site-contact-email']).toBe(site.contactEmail)
       expect(values['overseas-site-contact-phone']).toBe(site.contactPhone)
       expect(values['overseas-site-operation-code']).toBe(site.operationCode)
+    })
 
-      // `conditionsOfExport` is deliberately NOT value-asserted here. Its type
-      // is unresolved across the stack: management-fe treats it as a nullable
-      // BOOLEAN and renders "Yes"/"No", while management-be's seed currently
-      // carries free text. Pinning either reading would encode one team's
-      // assumption as a passing test and hide the disagreement rather than
-      // surface it. The field is still covered as a PRESENCE assertion via
-      // ORS_DETAIL_FIELDS above, which holds whichever way it resolves; the
-      // value assertion goes in once the two agree.
+    it('renders conditionsOfExport across all three of its states', async () => {
+      // A nullable boolean, so it has three observable states and each one is
+      // a different answer to the regulator: yes, no, and "not supplied".
+      // Asserted together because the value that matters most is the one that
+      // ISN'T there — a field rendering "No" when the operator never answered
+      // would be a fabricated compliance statement, and the two are one line
+      // apart in a template.
+      //
+      // The type here was genuinely disputed across three repos for part of
+      // this story (prose vs nullable boolean). It is pinned now only because
+      // legacy-be's model settles it — `public bool? ConditionsOfExport` —
+      // and management-be's seed and management-fe's rendering both agree.
+      expect(
+        await detail.blockFieldText(
+          'overseasSite',
+          ORS.NEW.name,
+          'overseas-site-conditions-of-export'
+        )
+      ).toBe(ORS.NEW.conditionsOfExport)
+
+      expect(
+        await detail.blockFieldText(
+          'overseasSite',
+          ORS.ESTABLISHED.name,
+          'overseas-site-conditions-of-export'
+        )
+      ).toBe(ORS.ESTABLISHED.conditionsOfExport)
+
+      // Absent, not "No". This is the assertion the sparse-site fixture cannot
+      // reach: Port Klang is complete in every other respect, so a template
+      // that defaulted a missing nullable to false would look entirely
+      // plausible here and be wrong.
+      expect(
+        await detail.blockFieldText(
+          'overseasSite',
+          ORS.NON_EU.name,
+          'overseas-site-conditions-of-export'
+        )
+      ).toBeNull()
     })
 
     it('lists all three Basel/OECD waste codes for the new site', async () => {
