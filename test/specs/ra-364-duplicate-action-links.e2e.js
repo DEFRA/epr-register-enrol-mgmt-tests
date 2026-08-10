@@ -56,7 +56,7 @@ import {
  *    no legacy frontend, so nothing in this stack will ever call it.
  *
  * management-be confirms the endpoint could be driven directly from the compose
- * network with an `x-cdp-cognito-client-id` header. That was considered and
+ * network with an `x-cdp-client-id` header. That was considered and
  * rejected, for three reasons: no spec in this suite calls management-be
  * directly (the backend publishes no host port, so it is reachable only when the
  * runner itself sits on the docker network — the spec would pass in CI and fail
