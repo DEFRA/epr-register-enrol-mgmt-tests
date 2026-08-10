@@ -236,6 +236,26 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * RA-153 self-assign quick action: take an unassigned work item. Submitting
+   * it is a POST/redirect/GET, so this waits for the reloaded detail page
+   * before returning — otherwise a caller reads the pre-assignment DOM and
+   * sees a stale "Unassigned".
+   */
+  async selfAssign() {
+    await this.assignmentControl('selfAssign').click()
+    await browser.waitUntil(
+      async () =>
+        (await this.assignmentCurrent().isExisting()) &&
+        !(await this.assignmentCurrent().getText()).includes('Unassigned'),
+      {
+        timeout: 10000,
+        timeoutMsg:
+          'Expected the work item to become assigned after self-assign'
+      }
+    )
+  }
+
+  /**
    * Assert the assignee field reads "Unassigned" — the literal rendered when
    * no assignee is set.
    */
