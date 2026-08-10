@@ -139,11 +139,17 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
   })
 
   it('shows the withdrawn application on the default worklist as "Withdrawn"', async () => {
-    // AC01 proper. No archived filter, no status filter — just the plain
-    // worklist a regulator lands on, bounded by the org search so the
-    // assertion is not at the mercy of pagination.
+    // AC01 proper. No archived filter and no status filter — the two things
+    // that used to be the ONLY way to see a withdrawn application. Bounded by
+    // the org search so the assertion is not at the mercy of pagination.
+    //
+    // resetFilters() rather than goto(): a bare landing defaults to "Your
+    // applications" (RA-299 AC08) and to the user's own nation, and the items
+    // created above are unassigned — so a bare landing would hide them for a
+    // reason that has nothing to do with the withdrawal. Same guard, and the
+    // same reasoning, as ra-223-registration-id.e2e.js.
     await login.login()
-    await workItems.goto()
+    await workItems.resetFilters()
     await workItems.searchByOrgName(token)
 
     await expect(workItems.workItemLink(withdrawnId)).toExist()
@@ -158,9 +164,9 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
     // The RA-224 revert is not withdrawn-only: a regulator looking for a
     // granted or refused application finds it where every other application
     // is. This is the case that used to assert "No work items match your
-    // filters".
+    // filters". resetFilters() for the same reason as the case above.
     await login.login()
-    await workItems.goto()
+    await workItems.resetFilters()
     await workItems.searchByOrgName(token)
 
     await expect(workItems.workItemLink(rejectedId)).toExist()
