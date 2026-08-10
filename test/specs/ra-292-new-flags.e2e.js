@@ -71,42 +71,57 @@ describe('RA-292: new ORS, interim site and authority-to-issue flags', () => {
       }
     })
 
-    it('shows a New tag on the ORS with isNewSite true', async () => {
+    it('marks as new the ORS with isNewSite true', async () => {
       expect(await detail.blockHasNewTag('overseasSite', ORS.NEW.name)).toBe(
         true
       )
     })
 
-    it('renders that tag as a blue GOV.UK tag reading "New"', async () => {
-      // The AC asks for the site to be "clearly labelled or flagged". A tag
-      // element with the right testid but empty text, or with the default grey
-      // styling, satisfies a bare isExisting() check while giving the
-      // regulator nothing to see.
-      await detail.assertNewTagsWellFormed('overseasSite')
+    it('renders the marker as a "NEW: " prefix on the site name line', async () => {
+      // The AC asks for the site to be "clearly labelled or flagged", and a
+      // marker element with the right testid but empty or mis-cased text
+      // satisfies a bare isExisting() check while giving the regulator
+      // nothing to read. This also asserts the rendered LINE, which is what
+      // catches the separating space being lost — the marker element can read
+      // a perfect "NEW:" while the page shows "NEW:Rotterdam".
+      await detail.assertNewPrefixesWellFormed('overseasSite')
     })
 
-    it('shows NO New tag on the ORS with isNewSite false', async () => {
+    it('does NOT mark as new the ORS with isNewSite false', async () => {
+      // Both halves: the conditional marker element is absent (the flag gate
+      // did not fire) AND the line the user reads carries no "NEW: " prefix.
+      // They fail independently — a `NEW:` hardcoded into the template text
+      // outside the testid leaves the element check looking perfectly clean.
       expect(
         await detail.blockHasNewTag('overseasSite', ORS.ESTABLISHED.name)
       ).toBe(false)
+      expect(
+        await detail.blockLineHasNewPrefix('overseasSite', ORS.ESTABLISHED.name)
+      ).toBe(false)
     })
 
-    it('shows NO New tag on the ORS that has no isNewSite field at all', async () => {
+    it('does NOT mark as new the ORS that has no isNewSite field at all', async () => {
       // The pre-RA-292 shape, on a page that also has genuinely new sites. A
       // negated-comparison bug (`!= false`) badges this one and nothing else
       // on the page would reveal it.
       expect(await detail.blockHasNewTag('overseasSite', ORS.LEGACY.name)).toBe(
         false
       )
+      expect(
+        await detail.blockLineHasNewPrefix('overseasSite', ORS.LEGACY.name)
+      ).toBe(false)
     })
 
-    it('shows NO New tag on the non-EU ORS, which is also not new', async () => {
+    it('does NOT mark as new the non-EU ORS, which is also not new', async () => {
       expect(await detail.blockHasNewTag('overseasSite', ORS.NON_EU.name)).toBe(
         false
       )
+      expect(
+        await detail.blockLineHasNewPrefix('overseasSite', ORS.NON_EU.name)
+      ).toBe(false)
     })
 
-    it('tags exactly one of the four ORS sites', async () => {
+    it('marks exactly one of the four ORS sites', async () => {
       // The whole-page counterpart to the per-site assertions above: catches a
       // tag rendered outside any site block, or twice inside one, neither of
       // which a per-site isExisting() can see.
@@ -126,27 +141,33 @@ describe('RA-292: new ORS, interim site and authority-to-issue flags', () => {
       expect(names.join(' | ')).toContain(INTERIM.ESTABLISHED.name)
     })
 
-    it('shows a New tag on the interim site with isNewSite true', async () => {
+    it('marks as new the interim site with isNewSite true', async () => {
       expect(await detail.blockHasNewTag('interimSite', INTERIM.NEW.name)).toBe(
         true
       )
     })
 
-    it('renders that tag as a blue GOV.UK tag reading "New"', async () => {
-      await detail.assertNewTagsWellFormed('interimSite')
+    it('renders the marker as a "NEW: " prefix on the interim name line', async () => {
+      await detail.assertNewPrefixesWellFormed('interimSite')
     })
 
-    it('shows NO New tag on the interim site with isNewSite false', async () => {
+    it('does NOT mark as new the interim site with isNewSite false', async () => {
       expect(
         await detail.blockHasNewTag('interimSite', INTERIM.ESTABLISHED.name)
       ).toBe(false)
+      expect(
+        await detail.blockLineHasNewPrefix(
+          'interimSite',
+          INTERIM.ESTABLISHED.name
+        )
+      ).toBe(false)
     })
 
-    it('tags exactly one of the two interim sites', async () => {
+    it('marks exactly one of the two interim sites', async () => {
       expect(await detail.newTagCount('interimSite')).toBe(1)
     })
 
-    it('does not leak the interim tag onto the parent ORS site', async () => {
+    it('does not leak the interim marker onto the parent ORS site', async () => {
       // management-fe nests each interim site INSIDE its parent ORS block, so
       // the two tags share a subtree. The established Hamburg ORS holds an
       // established interim site and neither should be badged; the new
@@ -158,6 +179,22 @@ describe('RA-292: new ORS, interim site and authority-to-issue flags', () => {
       ).toBe(false)
       expect(
         await detail.blockHasNewTag('interimSite', INTERIM.ESTABLISHED.name)
+      ).toBe(false)
+
+      // And the string form, which is where the nesting actually bites. The
+      // NEW Rotterdam ORS holds a NEW interim site, so its block text
+      // contains "NEW:" twice over; the established Hamburg ORS holds an
+      // established interim site and must contain it nowhere. Reading each
+      // site's OWN name line rather than its block text is the only way to
+      // tell a correctly-rendered page from a leak in either direction.
+      expect(
+        await detail.blockLineHasNewPrefix('overseasSite', ORS.NEW.name)
+      ).toBe(true)
+      expect(
+        await detail.blockLineHasNewPrefix('interimSite', INTERIM.NEW.name)
+      ).toBe(true)
+      expect(
+        await detail.blockLineHasNewPrefix('overseasSite', ORS.ESTABLISHED.name)
       ).toBe(false)
     })
 
@@ -182,7 +219,7 @@ describe('RA-292: new ORS, interim site and authority-to-issue flags', () => {
       expect(joined).toContain(AUTHORISERS.LEGACY.name)
     })
 
-    it('shows a New tag on the authoriser with isNew true', async () => {
+    it('marks as new the authoriser with isNew true', async () => {
       expect(
         await detail.blockHasNewTag(
           'authorityToIssueContact',
@@ -191,29 +228,44 @@ describe('RA-292: new ORS, interim site and authority-to-issue flags', () => {
       ).toBe(true)
     })
 
-    it('renders that tag as a blue GOV.UK tag reading "New"', async () => {
-      await detail.assertNewTagsWellFormed('authorityToIssueContact')
+    it('renders the marker as a "NEW: " prefix on the contact line', async () => {
+      // The contact's marker is a SIBLING of its name rather than inside it,
+      // so the prefix assertion here reads the whole contact line. Same
+      // user-visible guarantee, different markup shape.
+      await detail.assertNewPrefixesWellFormed('authorityToIssueContact')
     })
 
-    it('shows NO New tag on the authoriser with isNew false', async () => {
+    it('does NOT mark as new the authoriser with isNew false', async () => {
       expect(
         await detail.blockHasNewTag(
           'authorityToIssueContact',
           AUTHORISERS.ESTABLISHED.name
         )
       ).toBe(false)
+      expect(
+        await detail.blockLineHasNewPrefix(
+          'authorityToIssueContact',
+          AUTHORISERS.ESTABLISHED.name
+        )
+      ).toBe(false)
     })
 
-    it('shows NO New tag on the authoriser that has no isNew field at all', async () => {
+    it('does NOT mark as new the authoriser that has no isNew field at all', async () => {
       expect(
         await detail.blockHasNewTag(
           'authorityToIssueContact',
           AUTHORISERS.LEGACY.name
         )
       ).toBe(false)
+      expect(
+        await detail.blockLineHasNewPrefix(
+          'authorityToIssueContact',
+          AUTHORISERS.LEGACY.name
+        )
+      ).toBe(false)
     })
 
-    it('tags exactly one of the three authorisers', async () => {
+    it('marks exactly one of the three authorisers', async () => {
       expect(await detail.newTagCount('authorityToIssueContact')).toBe(1)
     })
 
@@ -272,7 +324,7 @@ describe('RA-292: a pre-RA-292 work item still renders cleanly', () => {
     )
   })
 
-  it('shows no New tag of any kind', async () => {
+  it('marks nothing on the page as new', async () => {
     expect(await detail.hasAnyNewTag()).toBe(false)
   })
 

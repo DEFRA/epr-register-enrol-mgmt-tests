@@ -7,6 +7,21 @@ import { Page } from './page.js'
  * XPath 1.0 has no escape syntax so mixed-quote strings have to be
  * stitched together with concat().
  */
+/**
+ * Replace non-breaking spaces with ordinary ones before a text comparison.
+ *
+ * RA-292 renders a `NEW: ` prefix, and `&nbsp;` is a legitimate way to keep
+ * that prefix from wrapping away from the name it belongs to. It is visually
+ * identical to a normal space, so failing a comparison on it would be
+ * asserting markup taste rather than anything a regulator can see.
+ */
+function normaliseSpaces(value) {
+  // \u00a0 written as an escape, not as a literal non-breaking space: the
+  // literal is invisible in an editor and one careless reformat turns this
+  // into a no-op that still compiles and silently stops normalising anything.
+  return String(value).replace(/\u00a0/g, ' ')
+}
+
 function toXPathString(value) {
   const s = String(value)
   if (!s.includes("'")) return `'${s}'`
@@ -1673,6 +1688,34 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * Whether the RENDERED LINE for the block of `kind` named `name` carries the
+   * `NEW: ` prefix — read as text, independently of the marker element.
+   *
+   * The complement to `blockHasNewTag`, and it catches a different bug. That
+   * one asks "is the conditional marker element present?", which is the right
+   * question for the flag logic. This asks "does the user see the word NEW on
+   * this line?", which is the right question for the page — and it is the only
+   * one that catches a `NEW:` hardcoded into the template text, outside the
+   * testid, where element-absence checks look perfectly clean.
+   *
+   * ⚠ SCOPED TO THE LINE, NEVER TO BLOCK TEXT. This is load-bearing now that
+   * the marker is a string rather than an element. Interim sites render nested
+   * INSIDE their parent `overseas-site` block, so an ORS block's text contains
+   * its interim site's text: a block-scoped "does not contain NEW:" assertion
+   * FAILS on a correctly-rendered established ORS that holds a new interim
+   * site, and the mirror case is worse — a block-scoped PRESENCE check passes
+   * for an ORS that is not new, because its new interim child supplied the
+   * string. Reading the site's own name line is what keeps the two apart.
+   */
+  async blockLineHasNewPrefix(kind, name) {
+    const block = await this.flaggedBlockNamed(kind, name)
+    const lineTestId = NEW_FLAG_BLOCKS[kind].line
+    const line = lineTestId ? block.$(`[data-testid="${lineTestId}"]`) : block
+    const text = normaliseSpaces(await line.getText())
+    return text.startsWith(NEW_PREFIX)
+  }
+
+  /**
    * The text of one detail field inside the block of `kind` named `name`.
    *
    * Returns `null` when the field is absent rather than throwing, because
@@ -1684,6 +1727,26 @@ class WorkItemDetailPage extends Page {
     const block = await this.flaggedBlockNamed(kind, name)
     const field = block.$(`[data-testid="${fieldTestId}"]`)
     return (await field.isExisting()) ? (await field.getText()).trim() : null
+  }
+
+  /**
+   * The joined text of EVERY element carrying `fieldTestId` inside the block
+   * of `kind` named `name`, newline-separated, or null when there are none.
+   *
+   * The ORS address needs this. Design moved it out of the labelled detail
+   * list to a line under the site name, and it now renders ONE `<p>` per
+   * address line rather than one joined string — so `overseas-site-address`
+   * matches three elements for a site with two address lines and a town.
+   * `blockFieldText` reads the first match only, which silently returns
+   * "1 Havenstraat" and would fail a town assertion while the page is
+   * perfectly correct. Anything multi-element must come through here.
+   */
+  async blockFieldAllText(kind, name, fieldTestId) {
+    const block = await this.flaggedBlockNamed(kind, name)
+    const fields = await block.$$(`[data-testid="${fieldTestId}"]`)
+    if (![...fields].length) return null
+    const parts = await Promise.all([...fields].map((field) => field.getText()))
+    return parts.join('\n').trim()
   }
 
   /**
@@ -1727,25 +1790,64 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * RA-292. Every "New" tag of one kind must read exactly "New" and be a blue
-   * GOV.UK tag.
+   * RA-292. Every "new" marker of one kind must read exactly `NEW:` and must
+   * render as a `NEW: ` prefix on the line the user actually reads.
    *
-   * Both halves matter and neither alone is enough. A tag rendered with the
-   * right testid but empty text is invisible to the user the AC is written
-   * for; a tag with the right text but the default grey styling is not the
-   * "clearly labelled or flagged" the story asks for, and grey is what a
-   * `govuk-tag` renders when the modifier class is dropped.
+   * DESIGN CHANGE: this used to assert a blue `govuk-tag`. Design replaced the
+   * tag with a literal `NEW: ` text prefix. The testids did not move — they
+   * describe purpose, not implementation — so every structural assertion built
+   * on them carries over unchanged; only the well-formedness check here does.
+   *
+   * Two assertions, and the second is the one that earns its keep:
+   *
+   *  1. The marker element reads exactly `NEW:` — uppercase, colon, and NO
+   *     trailing space. The space the user sees is markup whitespace BETWEEN
+   *     the marker element and the name, so it is not inside the element.
+   *
+   *  2. The rendered LINE reads `NEW: <name>`. This is what catches the
+   *     failure mode the first assertion cannot see: if that inter-element
+   *     whitespace is lost — a stray `{%- -%}`, a template reflow, a minifier
+   *     — the marker element still reads a perfect `NEW:` while the page shows
+   *     the user `NEW:Bharat Recycling`. Asserting the span alone would pass
+   *     that happily.
+   *
+   * The separating space is asserted STRICTLY as ASCII U+0020. management-fe
+   * considered a `&nbsp;` to stop the prefix wrapping away from its name and
+   * deliberately rejected it, precisely because it renders identically and
+   * would change the contract invisibly; if wrapping ever needs solving it
+   * will be solved in CSS. So a non-breaking space here is a real contract
+   * change and this should fail — but it would otherwise fail as
+   * "expected 'NEW: ' to be 'NEW: '", two strings that look identical in a
+   * terminal, so it is diagnosed by hand rather than left to the diff.
    */
-  async assertNewTagsWellFormed(kind) {
+  async assertNewPrefixesWellFormed(kind) {
     const blocks = await this.flaggedBlocks(kind)
     const testId = this.newTagTestId(kind)
+    const lineTestId = NEW_FLAG_BLOCKS[kind].line
     for (const block of [...blocks]) {
-      const tag = block.$(`[data-testid="${testId}"]`)
-      if (!(await tag.isExisting())) continue
-      await expect(tag).toHaveText('New')
-      await expect(tag).toHaveElementClass(
-        expect.stringContaining('govuk-tag--blue')
-      )
+      const marker = block.$(`[data-testid="${testId}"]`)
+      if (!(await marker.isExisting())) continue
+
+      expect(await marker.getText()).toBe(NEW_MARKER)
+
+      // The line carrying the prefix: the name element for the two site
+      // kinds, and the contact block itself for an authority-to-issue
+      // contact, whose marker is a sibling of its name rather than inside it.
+      const line = lineTestId ? block.$(`[data-testid="${lineTestId}"]`) : block
+      const text = await line.getText()
+      const prefix = text.slice(0, NEW_PREFIX.length)
+
+      if (normaliseSpaces(prefix) === NEW_PREFIX && prefix !== NEW_PREFIX) {
+        throw new Error(
+          `"${kind}" renders the prefix with a NON-BREAKING space, not the ` +
+            `agreed ASCII U+0020: ${JSON.stringify(prefix)}. This looks ` +
+            `identical on screen and in a failure diff, which is why it is ` +
+            `reported explicitly. Agree the change with management-fe before ` +
+            `relaxing this — the ASCII space is a deliberate decision, not an ` +
+            `accident.`
+        )
+      }
+      expect(prefix).toBe(NEW_PREFIX)
     }
   }
 
@@ -1818,11 +1920,15 @@ export const NEW_FLAG_BLOCKS = {
   overseasSite: {
     block: 'overseas-site',
     name: 'overseas-site-name',
+    // The marker sits INSIDE the name element, so the name element is also
+    // the line that must read `NEW: <name>`.
+    line: 'overseas-site-name',
     newTag: 'overseas-site-new-tag'
   },
   interimSite: {
     block: 'interim-site',
     name: 'interim-site-name',
+    line: 'interim-site-name',
     newTag: 'interim-site-new-tag'
   },
   authorityToIssueContact: {
@@ -1832,9 +1938,25 @@ export const NEW_FLAG_BLOCKS = {
     // than on block text keeps a name lookup from being satisfied by an email
     // that happens to contain the same string.
     name: 'authority-to-issue-contact-name',
+    // Unlike the two site kinds, the marker is a SIBLING of the name rather
+    // than inside it, so the name element reads "Harry Edge" with no prefix.
+    // The line the user reads is the contact block itself.
+    line: null,
     newTag: 'authority-to-issue-new-tag'
   }
 }
+
+/**
+ * RA-292. The literal text of the "new" marker element, and the prefix it
+ * produces on the rendered line once markup whitespace separates it from the
+ * name.
+ *
+ * The marker carries NO trailing space — the gap the user sees is whitespace
+ * between the marker element and the name — which is why these are two
+ * different constants rather than one trimmed comparison.
+ */
+export const NEW_MARKER = 'NEW:'
+export const NEW_PREFIX = 'NEW: '
 
 /**
  * RA-292 (AC04). The ORS data points the AC requires to be "clearly

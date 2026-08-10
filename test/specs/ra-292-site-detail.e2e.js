@@ -61,7 +61,53 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
     await login.logout()
   })
 
+  describe('AC04 — the two lines the design mock prescribes', () => {
+    // These two are the HIGH-CONFIDENCE core of AC04 and are pinned hard.
+    //
+    // The design mock shows an ORS as name + address, in that order, directly
+    // under one another. management-fe additionally renders twelve detail
+    // fields, and whether the mock is abbreviated or prescriptive is an open
+    // question with design. Whichever way that lands, THESE two lines survive
+    // — so they are asserted separately from the twelve, and a decision to
+    // strip the detail should not be able to take the whole AC's coverage
+    // down with it.
+    it('shows the site name and the full address beneath it', async () => {
+      const name = await detail.flaggedBlockNamed('overseasSite', ORS.NEW.name)
+      await expect(name).toHaveText(expect.stringContaining(ORS.NEW.name))
+
+      const address = await detail.blockFieldAllText(
+        'overseasSite',
+        ORS.NEW.name,
+        'overseas-site-address'
+      )
+      // Every line of it, not just the first. The address is the only piece
+      // of ORS identity the mock keeps besides the name, so a truncated one
+      // is a real loss even though it looks populated.
+      expect(address).toContain(ORS.NEW.address)
+      expect(address).toContain(ORS.NEW.town)
+      expect(address).toContain(ORS.NEW.country)
+    })
+
+    it('shows the interim site name under its parent ORS', async () => {
+      const interim = await detail.flaggedBlockNamed(
+        'interimSite',
+        INTERIM.NEW.name
+      )
+      await expect(interim).toHaveText(
+        expect.stringContaining(INTERIM.NEW.name)
+      )
+    })
+  })
+
   describe('AC04 — ORS site data', () => {
+    // ⚠ PROVISIONAL, by agreement with management-fe and the ticket lead.
+    // The twelve detail fields below go beyond the design mock, which shows
+    // name + address only. AC04's wording ("the specific site data details
+    // clearly displayed") is what justifies them, and design has been asked
+    // to confirm. If it comes back "name and address only", these rows get
+    // deleted in management-fe and this describe block goes with them — the
+    // mock's two lines are pinned separately above so that removal cannot
+    // quietly gut AC04's coverage.
     it('displays every ORS data point for the fully-populated new site', async () => {
       // Asserted as one map rather than thirteen separate expects so a
       // regression reports every field it dropped at once. Thirteen expects
@@ -83,7 +129,6 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
       const site = ORS.NEW
       const values = await detail.blockFields('overseasSite', site.name, [
         'overseas-site-ors-id',
-        'overseas-site-address',
         'overseas-site-coordinates',
         'overseas-site-contact-name',
         'overseas-site-contact-email',
@@ -91,8 +136,17 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
         'overseas-site-operation-code'
       ])
       expect(values['overseas-site-ors-id']).toBe(site.orsId)
-      expect(values['overseas-site-address']).toContain(site.address)
-      expect(values['overseas-site-address']).toContain(site.town)
+      // The address is read across ALL its elements: design moved it under
+      // the site name as one <p> per line, so a single-element read returns
+      // only "1 Havenstraat" and a town assertion fails against a page that
+      // is rendering perfectly.
+      const address = await detail.blockFieldAllText(
+        'overseasSite',
+        site.name,
+        'overseas-site-address'
+      )
+      expect(address).toContain(site.address)
+      expect(address).toContain(site.town)
       expect(values['overseas-site-coordinates']).toBe(site.coordinates)
       expect(values['overseas-site-contact-name']).toBe(site.contactName)
       expect(values['overseas-site-contact-email']).toBe(site.contactEmail)
@@ -288,11 +342,16 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
   describe('AC04 — a sparsely populated ORS omits rows rather than inventing them', () => {
     it('shows the fields the near-minimal site does have', async () => {
       const values = await detail.blockFields('overseasSite', ORS.LEGACY.name, [
-        'overseas-site-ors-id',
-        'overseas-site-address'
+        'overseas-site-ors-id'
       ])
       expect(values['overseas-site-ors-id']).toBe(ORS.LEGACY.orsId)
-      expect(values['overseas-site-address']).toContain(ORS.LEGACY.town)
+
+      const address = await detail.blockFieldAllText(
+        'overseasSite',
+        ORS.LEGACY.name,
+        'overseas-site-address'
+      )
+      expect(address).toContain(ORS.LEGACY.town)
     })
 
     it('omits the rows it has no data for', async () => {
