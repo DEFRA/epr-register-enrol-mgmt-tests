@@ -5,23 +5,23 @@ import detail from '../page-objects/work-item-detail.page.js'
 import { dulyMake } from '../support/re-accreditation-journey.js'
 
 /**
- * RA-132 — Rejecting a re-accreditation drives it to the Rejected terminal
+ * RA-132 — Rejecting a re-accreditation drives it to the Refused terminal
  * state and replaces the generic action panel with a read-only outcome.
  *
  * Approve is covered end-to-end (re-accreditation-approval.e2e.js); this is
  * the parallel reject outcome. Unlike approve, reject has no dedicated
  * interstitial — it is a warning-style action that posts straight through
  * the generic action engine (POST /work-items/{id}/actions/reject) and
- * PRG-redirects back to the detail page in the Rejected terminal state.
+ * PRG-redirects back to the detail page in the Refused terminal state.
  *
  * The journey to the Awaiting decision state (where reject becomes
  * available) mirrors the approval spec:
- *   1. Assign user creates a re-accreditation work item (Submitted).
+ *   1. A caseworker creates a re-accreditation work item (Not started).
  *   2. Tasks are completed and the item progressed (auto-duly-made ->
  *      payment-received -> submit-for-decision) up to Awaiting decision.
- *   3. The decision-maker completes the awaiting-decision task and rejects.
+ *   3. A caseworker completes the awaiting-decision task and rejects.
  *   4. The detail page surfaces the read-only "Outcome" panel + a red
- *      "Rejected" state tag, and the generic decision actions disappear.
+ *      "Refused" state tag, and the generic decision actions disappear.
  *
  * The archive-from-worklist behaviour of the reject path is covered
  * separately by RA-224 (ra-224-archived-items.e2e.js); this spec asserts
@@ -31,7 +31,7 @@ describe('RA-132 Reject action terminal flow', () => {
   let workItemId
 
   it('creates a re-accreditation and drives it to awaiting-decision', async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
@@ -45,7 +45,7 @@ describe('RA-132 Reject action terminal flow', () => {
     ).id
 
     await workItems.openWorkItem(workItemId)
-    await detail.assertState('Submitted')
+    await detail.assertState('Not started')
 
     // Submitted -> Duly made. RA-316 replaced the submitted tasks and
     // the auto-transition hook with the "Duly make" CTA and a payment
@@ -57,7 +57,7 @@ describe('RA-132 Reject action terminal flow', () => {
     await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
     await detail.gotoDetail()
     await detail.triggerAction('payment-received')
-    await detail.assertState('Assessment in progress')
+    await detail.assertState('Updated')
 
     // Assessment in progress -> Awaiting decision
     await detail.gotoTasks()
@@ -72,7 +72,7 @@ describe('RA-132 Reject action terminal flow', () => {
   })
 
   it('rejects the work item as the decision maker and surfaces the read-only outcome', async () => {
-    await login.loginAs('decision-maker')
+    await login.login()
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Awaiting decision')
 
@@ -84,11 +84,11 @@ describe('RA-132 Reject action terminal flow', () => {
     // Reject is a warning-style generic action — a single click posts
     // through the engine and redirects back to the detail page.
     await detail.triggerAction('reject')
-    await detail.assertState('Rejected')
+    await detail.assertState('Refused')
 
     // RA-132: the terminal state replaces the generic action panel with a
-    // read-only "Outcome" panel and a red "Rejected" state tag.
-    await detail.assertReadOnlyOutcomePanel('Rejected')
+    // read-only "Outcome" panel and a red "Refused" state tag.
+    await detail.assertReadOnlyOutcomePanel('Refused')
     await detail.assertNoDecisionActions()
 
     // No approval confirmation panel is rendered for a rejected item — that
@@ -101,10 +101,10 @@ describe('RA-132 Reject action terminal flow', () => {
   })
 
   it('keeps the read-only outcome on return — reject is terminal and idempotent', async () => {
-    await login.loginAs('decision-maker')
+    await login.login()
     await workItems.openWorkItem(workItemId)
-    await detail.assertState('Rejected')
-    await detail.assertReadOnlyOutcomePanel('Rejected')
+    await detail.assertState('Refused')
+    await detail.assertReadOnlyOutcomePanel('Refused')
     await detail.assertNoDecisionActions()
     await login.logout()
   })
