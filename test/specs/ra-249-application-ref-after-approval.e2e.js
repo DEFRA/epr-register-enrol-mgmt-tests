@@ -15,7 +15,7 @@ import detail from '../page-objects/work-item-detail.page.js'
  *
  * This journey drives a re-accreditation all the way to Approved and then
  * asserts the "Application ref" row and the page caption still show the
- * `RA-*` reference — never a UUID.
+ * `AP*` reference — never a UUID.
  */
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -36,12 +36,12 @@ describe('RA-249 — application reference survives approval', () => {
       tonnageBand: '500-5000'
     }))
 
-    // Sanity: the server-generated reference is a real RA-* ref, not the GUID.
-    expect(applicationReference).toMatch(/^RA-\d{9}$/)
+    // Sanity: the server-generated reference is a real AP* ref, not the GUID.
+    expect(applicationReference).toMatch(/^AP[A-Z0-9]+$/)
     expect(applicationReference).not.toBe(createdId)
 
     await workItems.openWorkItem(createdId)
-    await detail.assertState('Submitted')
+    await detail.assertState('Not started')
 
     // Submitted -> Duly made (auto-transition when the last submitted task completes)
     await detail.gotoTasks()
@@ -55,7 +55,7 @@ describe('RA-249 — application reference survives approval', () => {
     await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
     await detail.gotoDetail()
     await detail.triggerAction('payment-received')
-    await detail.assertState('Assessment in progress')
+    await detail.assertState('Updated')
 
     // Assessment in progress -> Awaiting decision
     await detail.gotoTasks()
@@ -69,7 +69,7 @@ describe('RA-249 — application reference survives approval', () => {
     await login.logout()
   })
 
-  it('keeps the RA-* application ref after the decision maker approves it', async () => {
+  it('keeps the AP* application ref after the decision maker approves it', async () => {
     await login.login()
     await workItems.openWorkItem(createdId)
     await detail.assertState('Awaiting decision')
@@ -80,14 +80,14 @@ describe('RA-249 — application reference survives approval', () => {
     await detail.triggerAction('approve')
     await detail.submitApproval()
 
-    await detail.assertState('Approved')
+    await detail.assertState('Granted')
     await detail.assertApprovalPanelVisible()
 
     // The core RA-249 assertion: the "Application ref" row must still be the
-    // human RA-* reference, never the internal GUID / a UUID.
+    // human AP* reference, never the internal GUID / a UUID.
     const value = await detail.getSummaryValueByKey('Application ref')
     expect(value).toBe(applicationReference)
-    expect(value).toMatch(/^RA-\d{9}$/)
+    expect(value).toMatch(/^AP[A-Z0-9]+$/)
     expect(value).not.toBe(createdId)
     expect(value).not.toMatch(UUID_RE)
 

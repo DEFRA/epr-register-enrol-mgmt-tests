@@ -44,7 +44,7 @@ describe('RA-132 Reject action terminal flow', () => {
     ).id
 
     await workItems.openWorkItem(workItemId)
-    await detail.assertState('Submitted')
+    await detail.assertState('Not started')
 
     // Submitted -> Duly made (auto-transition fires when last submitted task completes)
     await detail.gotoTasks()
@@ -58,7 +58,7 @@ describe('RA-132 Reject action terminal flow', () => {
     await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
     await detail.gotoDetail()
     await detail.triggerAction('payment-received')
-    await detail.assertState('Assessment in progress')
+    await detail.assertState('Updated')
 
     // Assessment in progress -> Awaiting decision
     await detail.gotoTasks()
@@ -85,7 +85,7 @@ describe('RA-132 Reject action terminal flow', () => {
     // Reject is a warning-style generic action — a single click posts
     // through the engine and redirects back to the detail page.
     await detail.triggerAction('reject')
-    await detail.assertState('Rejected')
+    await detail.assertState('Refused')
 
     // RA-132: the terminal state replaces the generic action panel with a
     // read-only "Outcome" panel and a red "Rejected" state tag.
@@ -104,7 +104,7 @@ describe('RA-132 Reject action terminal flow', () => {
   it('keeps the read-only outcome on return — reject is terminal and idempotent', async () => {
     await login.login()
     await workItems.openWorkItem(workItemId)
-    await detail.assertState('Rejected')
+    await detail.assertState('Refused')
     await detail.assertReadOnlyOutcomePanel('Rejected')
     await detail.assertNoDecisionActions()
     await login.logout()
