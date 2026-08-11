@@ -36,7 +36,7 @@ export const MANAGEMENT_BE_URL =
 /**
  * The CDP trust headers management-be authenticates on.
  *
- * `x-cdp-cognito-client-id` is what turns a 401 into a real request — the
+ * `x-cdp-client-id` is what turns a 401 into a real request — the
  * auth handler returns NoResult without it. The user headers carry the
  * acting identity into the audit log, so they are named for what is
  * genuinely acting here: the operator's service, not a caseworker. Naming
@@ -50,7 +50,7 @@ export const MANAGEMENT_BE_URL =
  */
 const OPERATOR_HEADERS = {
   'content-type': 'application/json',
-  'x-cdp-cognito-client-id': 'epr-register-enrol-mgmt-tests',
+  'x-cdp-client-id': 'epr-register-enrol-mgmt-tests',
   'x-cdp-user-id': 'operator-service',
   'x-cdp-user-name': 'Operator Service'
 }
