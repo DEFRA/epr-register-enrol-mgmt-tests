@@ -198,6 +198,28 @@ describe('RA-292: new ORS, interim site and authority-to-issue flags', () => {
       ).toBe(false)
     })
 
+    it('labels the interim block with the bold "Interim sites" sub-label', async () => {
+      // Design change (epr-dkvh): the interim site moved from an inline
+      // "Interim site: <name>" to a bold sub-label on its own line with the
+      // name beneath it.
+      //
+      // The PLURAL is deliberate and matches the signed-off mockup, even though
+      // the data model allows at most one interim site per ORS. Recorded here
+      // so the next person to notice the mismatch finds an answer instead of
+      // filing a bug — and so a well-meaning "fix" to the singular fails.
+      //
+      // The sub-label deliberately carries no testid (management-fe left a
+      // comment in the template saying why), so this reads the block text. That
+      // is safe here in a way it is not for the NEW: prefix: this asserts a
+      // string is PRESENT somewhere in the block, whereas the prefix assertions
+      // need to know which line carries it.
+      const interim = await detail.flaggedBlockNamed(
+        'interimSite',
+        INTERIM.NEW.name
+      )
+      await expect(interim).toHaveText(expect.stringContaining('Interim sites'))
+    })
+
     it('renders no interim site under the ORS that has none', async () => {
       const bilbao = await detail.flaggedBlockNamed(
         'overseasSite',

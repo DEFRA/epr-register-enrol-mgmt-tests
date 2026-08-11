@@ -80,22 +80,17 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
         ORS.NEW.name,
         'overseas-site-address'
       )
-      // EVERY line, not just the first. The address is the only piece of ORS
-      // identity the mock keeps besides the name, so a truncated one is a
-      // real loss even though it still looks populated on screen.
+      // The COMPLETE string, not substrings of it.
       //
-      // The middle line is the one that matters. A first-match read returns
-      // "1 Havenstraat" alone and a naive line-1-plus-town join produces
-      // "1 Havenstraat, Rotterdam" — both look like an address, and both have
-      // silently lost the industrial park that identifies which site this is.
-      expect(address).toContain(ORS.NEW.address)
-      expect(address).toContain(ORS.NEW.addressLine2)
-      expect(address).toContain(ORS.NEW.town)
-
-      // The country is NOT here — it renders on the name line as a
-      // parenthetical, and is asserted there. Worth stating, because
-      // "the address should contain the country" is an easy and wrong
-      // assumption that would fail against a perfectly correct page.
+      // This is the same bug twice over. The address once rendered one <p> per
+      // line and was read first-match-only, so "Europoort Industrial Park"
+      // vanished while "1 Havenstraat" made the page look right. Design has now
+      // joined it into a single comma-separated line — which reintroduces
+      // exactly that invisibility, because a dropped segment in a joined string
+      // passes every `toContain` check that could be written against it.
+      //
+      // Equality is the only assertion that fails when a segment goes missing.
+      expect(address).toBe(ORS.NEW.fullAddress)
     })
 
     it('shows the interim site name under its parent ORS', async () => {
@@ -220,9 +215,33 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
       }
     })
 
-    it('shows the country on the site name line', async () => {
-      const name = await detail.flaggedBlockNamed('overseasSite', ORS.NEW.name)
-      await expect(name).toHaveText(expect.stringContaining(ORS.NEW.country))
+    it('shows the country in the address, not on the site name line', async () => {
+      // Design moved the country out of a parenthetical after the site name and
+      // into the end of the address, where a country belongs.
+      //
+      // Both halves are asserted because only the pair pins the move. Checking
+      // the address alone would still pass if the name line ALSO kept its
+      // parenthetical, leaving the country rendered twice — which is what a
+      // half-applied change looks like.
+      const address = await detail.blockFieldAllText(
+        'overseasSite',
+        ORS.NEW.name,
+        'overseas-site-address'
+      )
+      expect(address).toContain(ORS.NEW.country)
+
+      // Read the NAME ELEMENT, not the block. `flaggedBlockNamed` returns the
+      // whole `overseas-site` block, whose text now contains the address — and
+      // therefore the country — so a block-scoped negative can never pass.
+      // Same class of mistake as scoping a NEW: check to block text: the
+      // container holds its children's text, and "absent from this line" is a
+      // question only the line itself can answer.
+      const nameLine = await detail.blockFieldText(
+        'overseasSite',
+        ORS.NEW.name,
+        'overseas-site-name'
+      )
+      expect(nameLine).not.toContain(ORS.NEW.country)
     })
 
     it('displays the established site data independently of the new one', async () => {
@@ -356,12 +375,21 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
       ])
       expect(values['overseas-site-ors-id']).toBe(ORS.LEGACY.orsId)
 
+      // Bilbao is the ONLY seeded site with no structured address lines, so it
+      // is the only one that exercises management-fe's segment-wise
+      // de-duplication: its legacy flat `siteAddress` already ends in "Bilbao",
+      // and joining that against `townOrCity` and `country` without de-duping
+      // renders "…, Bilbao, Bilbao, Spain".
+      //
+      // Asserted as the full string rather than "does not contain Bilbao twice"
+      // — a negative would pass against an address that had dropped a segment
+      // as readily as one that de-duplicated correctly.
       const address = await detail.blockFieldAllText(
         'overseasSite',
         ORS.LEGACY.name,
         'overseas-site-address'
       )
-      expect(address).toContain(ORS.LEGACY.town)
+      expect(address).toBe(ORS.LEGACY.fullAddress)
     })
 
     it('omits the rows it has no data for', async () => {
@@ -412,11 +440,16 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
         'interim-site-contact-phone'
       ])
       expect(values['interim-site-site-number']).toBe(site.siteNumber)
-      expect(values['interim-site-address']).toContain(site.address)
-      expect(values['interim-site-address']).toContain(site.town)
       expect(values['interim-site-contact-name']).toBe(site.contactName)
       expect(values['interim-site-contact-email']).toBe(site.contactEmail)
       expect(values['interim-site-contact-phone']).toBe(site.contactPhone)
+
+      // Full string, for the same reason as the ORS address: a segment dropped
+      // from a comma-joined line is invisible to any substring check. The
+      // interim wire shape carries stateOrRegion and postcode where the ORS
+      // shape has neither, so this is six segments rather than four — and the
+      // two extra ones are the likeliest to be lost.
+      expect(values['interim-site-address']).toBe(site.fullAddress)
     })
 
     it('displays the established interim site independently', async () => {
@@ -430,10 +463,15 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
         'interim-site-contact-name'
       ])
       expect(values['interim-site-site-number']).toBe(site.siteNumber)
-      expect(values['interim-site-address']).toContain(site.address)
-      expect(values['interim-site-address']).toContain(site.town)
-      expect(values['interim-site-address']).not.toContain(', ,')
       expect(values['interim-site-contact-name']).toBe(site.contactName)
+
+      // Bremen has no addressLine2, which is the case a naive join renders as
+      // "8 Speicherstrasse, , Bremen". The empty-segment guard is kept
+      // alongside the equality check rather than replaced by it: equality says
+      // WHAT is wrong, `', ,'` says WHY, and on a six-segment string that
+      // distinction is worth one extra line.
+      expect(values['interim-site-address']).not.toContain(', ,')
+      expect(values['interim-site-address']).toBe(site.fullAddress)
     })
 
     it('renders each interim site under its own ORS site', async () => {

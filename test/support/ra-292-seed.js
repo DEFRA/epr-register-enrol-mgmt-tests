@@ -48,10 +48,13 @@ export const ORS = {
     orsId: 'ORS-2026-0292',
     address: '1 Havenstraat',
     // The middle address line matters more than it looks: it is the line a
-    // first-match read or a naive two-field join silently drops, while the
-    // page still shows a plausible-looking address.
+    // first-match read or a naive join silently drops, while the page still
+    // shows a plausible-looking address. Asserted via `fullAddress` below,
+    // never as a substring, for exactly that reason.
     addressLine2: 'Europoort Industrial Park',
     town: 'Rotterdam',
+    fullAddress:
+      '1 Havenstraat, Europoort Industrial Park, Rotterdam, Netherlands',
     country: 'Netherlands',
     coordinates: '51.9244, 4.4777',
     contactName: 'Johan de Vries',
@@ -78,6 +81,7 @@ export const ORS = {
     address: '42 Hafenstrasse',
     addressLine2: 'Building C',
     town: 'Hamburg',
+    fullAddress: '42 Hafenstrasse, Building C, Hamburg, Germany',
     country: 'Germany',
     coordinates: '53.5511, 9.9937',
     contactName: 'Anna Schmidt',
@@ -119,6 +123,7 @@ export const ORS = {
     address: '88 Jalan Pelabuhan',
     addressLine2: 'Zone 3',
     town: 'Port Klang',
+    fullAddress: '88 Jalan Pelabuhan, Zone 3, Port Klang, Malaysia',
     country: 'Malaysia',
     coordinates: '3.0044, 101.3928',
     contactName: 'Aisyah Rahman',
@@ -140,7 +145,14 @@ export const ORS = {
     orsId: 'ORS-2023-0007',
     address: '7 Muelle Tomas Olabarri',
     town: 'Bilbao',
-    country: 'Spain'
+    country: 'Spain',
+    // The only seeded site with NO structured address lines — it carries the
+    // legacy flat `siteAddress` ("7 Muelle Tomas Olabarri, Bilbao") which
+    // already embeds its own town. Joining that against `townOrCity` and
+    // `country` naively would render "…, Bilbao, Bilbao, Spain", so this
+    // single string is the one assertion covering management-fe's segment-wise
+    // de-duplication. No other site can exercise it.
+    fullAddress: '7 Muelle Tomas Olabarri, Bilbao, Spain'
   }
 }
 
@@ -155,6 +167,9 @@ export const INTERIM = {
     address: '12 Scheldelaan',
     addressLine2: 'Unit 4',
     town: 'Antwerp',
+    // The interim wire shape carries stateOrRegion and postcode, which the ORS
+    // shape does not — hence the two extra segments here and none on any ORS.
+    fullAddress: '12 Scheldelaan, Unit 4, Antwerp, Flanders, 2030, Belgium',
     country: 'Belgium',
     contactName: 'Elke Janssens',
     contactEmail: 'elke.janssens@example.com',
@@ -165,6 +180,18 @@ export const INTERIM = {
     siteNumber: 'INT-002',
     address: '8 Speicherstrasse',
     town: 'Bremen',
+    // Bremen is a German CITY-STATE: `townOrCity` and `stateOrRegion` are both
+    // "Bremen" in the seed, and that is correct data rather than a duplicate to
+    // be cleaned. This is the one address whose expected value is a real
+    // question rather than a derivation — management-fe de-duplicates adjacent
+    // segments to stop the legacy flat `siteAddress` re-stating a part, and
+    // that same rule would collapse a legitimate repeat here (as it would for
+    // New York, New York or Luxembourg, Luxembourg).
+    //
+    // Pinned as the un-collapsed form, confirmed against the rendered page.
+    // Whichever way it renders, asserting it makes the behaviour a decision
+    // instead of a side effect.
+    fullAddress: '8 Speicherstrasse, Bremen, Bremen, 28217, Germany',
     country: 'Germany',
     contactName: 'Lukas Braun',
     contactEmail: 'lukas.braun@example.com',
