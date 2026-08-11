@@ -2,6 +2,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import slaExtend from '../page-objects/sla-extend.page.js'
+import { dulyMake } from '../support/re-accreditation-journey.js'
 
 /**
  * RA-248 — lifecycle emails carry the human application reference, not the
@@ -49,12 +50,10 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Not started')
 
-    // Submitted -> Duly made (auto-transition when the last submitted task completes)
-    await detail.gotoTasks()
-    await detail.setTaskStatus('verify-organisation-details', 'Completed')
-    await detail.setTaskStatus('confirm-application-completeness', 'Completed')
-    await detail.gotoDetail()
-    await detail.assertState('Duly made')
+    // Submitted -> Duly made. RA-316 replaced the submitted tasks and
+    // the auto-transition hook with the "Duly make" CTA and a payment
+    // date; the shared helper owns that journey.
+    await dulyMake(workItemId)
 
     // Duly made -> Assessment in progress. payment-received stamps the SLA
     // clock, without which the extend below would fail with "clock not started".

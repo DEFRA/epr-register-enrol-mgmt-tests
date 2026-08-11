@@ -4,6 +4,7 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import slaExtend from '../page-objects/sla-extend.page.js'
 import slaOverride from '../page-objects/sla-override.page.js'
+import { dulyMake } from '../support/re-accreditation-journey.js'
 
 /**
  * RA-131 — Extend SLA.
@@ -41,12 +42,10 @@ describe('RA-131 Extend SLA', () => {
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Not started')
 
-    // Submitted -> Duly made (auto-transition on last submitted task completion)
-    await detail.gotoTasks()
-    await detail.setTaskStatus('verify-organisation-details', 'Completed')
-    await detail.setTaskStatus('confirm-application-completeness', 'Completed')
-    await detail.gotoDetail()
-    await detail.assertState('Duly made')
+    // Submitted -> Duly made. RA-316 replaced the submitted tasks and
+    // the auto-transition hook with the "Duly make" CTA and a payment
+    // date; the shared helper owns that journey.
+    await dulyMake(workItemId)
 
     // Duly made -> Assessment in progress (sla-extend becomes available)
     await detail.gotoTasks()
@@ -176,12 +175,10 @@ describe('RA-131 Override SLA', () => {
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Not started')
 
-    // Submitted -> Duly made (auto-transition on last submitted task completion)
-    await detail.gotoTasks()
-    await detail.setTaskStatus('verify-organisation-details', 'Completed')
-    await detail.setTaskStatus('confirm-application-completeness', 'Completed')
-    await detail.gotoDetail()
-    await detail.assertState('Duly made')
+    // Submitted -> Duly made. RA-316 replaced the submitted tasks and
+    // the auto-transition hook with the "Duly make" CTA and a payment
+    // date; the shared helper owns that journey.
+    await dulyMake(workItemId)
 
     // Duly made -> Assessment in progress (sla-override becomes available)
     await detail.gotoTasks()

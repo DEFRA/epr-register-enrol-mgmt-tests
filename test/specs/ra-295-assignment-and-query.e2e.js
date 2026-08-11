@@ -4,6 +4,7 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import queryPage from '../page-objects/query.page.js'
 import withdrawPage from '../page-objects/withdraw.page.js'
+import { dulyMake } from '../support/re-accreditation-journey.js'
 
 /**
  * RA-295 (AC03 + AC04) — assignment stays reachable through the redesign, and
@@ -192,15 +193,9 @@ describe('RA-295 assignment panel and query assignment notice', () => {
       // would assert absence on links that had never rendered at any point —
       // the negative could not fail, and a regression where a terminal state
       // still projects `sla-extend` would sail through green.
-      await workItems.openWorkItem(closedItemId)
-      await detail.gotoTasks()
-      await detail.setTaskStatus('verify-organisation-details', 'Completed')
-      await detail.setTaskStatus(
-        'confirm-application-completeness',
-        'Completed'
-      )
-      await detail.gotoDetail()
-      await detail.assertState('Duly made')
+      // RA-316: submitted -> duly-made is the "Duly make" CTA plus a payment
+      // date, not the two submitted tasks and an auto-transition hook.
+      await dulyMake(closedItemId)
       await detail.gotoTasks()
       await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
       await detail.gotoDetail()

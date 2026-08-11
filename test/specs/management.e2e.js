@@ -2,6 +2,11 @@ import { browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
+import {
+  dulyMake,
+  driveToAssessmentInProgress,
+  ASSESSMENT_TASKS
+} from '../support/re-accreditation-journey.js'
 
 let assignedWorkItemId
 let progressedWorkItemId
@@ -48,35 +53,44 @@ describe('Assign user journey', () => {
 
     await detail.assertState('Not started')
 
+    // RA-316 deleted the two `submitted` tasks this block used to walk, and
+    // the tasks panel for that state with them, so there is nothing to drive
+    // there any more. The block's subject is a MULTI-task status walk, so it
+    // re-bases onto `assessment-in-progress` — the state that still declares
+    // three tasks — rather than onto the single-task `duly-made`.
+    await driveToAssessmentInProgress(progressedWorkItemId)
+
     // Task controls live on the /tasks sub-page
     await detail.gotoTasks()
 
-    await detail.assertTaskStatus('verify-organisation-details', 'Not started')
-    await detail.assertTaskStatus(
-      'confirm-application-completeness',
-      'Not started'
-    )
+    for (const task of ASSESSMENT_TASKS) {
+      await detail.assertTaskStatus(task, 'Not started')
+    }
 
-    await detail.setTaskStatus('verify-organisation-details', 'InProgress')
-    await detail.setTaskStatus('confirm-application-completeness', 'InProgress')
+    for (const task of ASSESSMENT_TASKS) {
+      await detail.setTaskStatus(task, 'InProgress')
+    }
 
-    await detail.assertTaskStatus('verify-organisation-details', 'In progress')
-    await detail.assertTaskStatus(
-      'confirm-application-completeness',
-      'In progress'
-    )
+    for (const task of ASSESSMENT_TASKS) {
+      await detail.assertTaskStatus(task, 'In progress')
+    }
 
-    await detail.setTaskStatus('verify-organisation-details', 'Completed')
-    // Completing the last submitted task auto-transitions to Duly made —
-    // the tasks page immediately shows duly-made tasks after this POST.
-    await detail.setTaskStatus('confirm-application-completeness', 'Completed')
+    for (const task of ASSESSMENT_TASKS) {
+      await detail.setTaskStatus(task, 'Completed')
+    }
+
+    // Completing every assessment task does NOT transition the item — RA-316
+    // removed the auto-transition hooks, and `submit-for-decision` is an
+    // explicit action — so the item is still here afterwards.
+    await detail.gotoDetail()
+    await detail.assertState('Updated')
 
     await login.logout()
   })
 })
 
 describe('Standard user journey', () => {
-  it('find assigned work item, complete tasks, select Duly Made and progress through duly-made stage', async () => {
+  it('find assigned work item, duly make it and progress through the duly-made stage', async () => {
     await login.login()
     expect(new URL(await browser.getUrl()).pathname).toBe('/work-items')
 
@@ -96,31 +110,10 @@ describe('Standard user journey', () => {
     await workItems.openWorkItem(assignedWorkItemId)
     await detail.assertState('Not started')
 
-    // Task controls live on the /tasks sub-page
-    await detail.gotoTasks()
-
-    await detail.assertTaskStatus('verify-organisation-details', 'Not started')
-    await detail.assertTaskStatus(
-      'confirm-application-completeness',
-      'Not started'
-    )
-
-    await detail.setTaskStatus('verify-organisation-details', 'InProgress')
-    await detail.setTaskStatus('confirm-application-completeness', 'InProgress')
-
-    await detail.assertTaskStatus('verify-organisation-details', 'In progress')
-    await detail.assertTaskStatus(
-      'confirm-application-completeness',
-      'In progress'
-    )
-
-    await detail.setTaskStatus('verify-organisation-details', 'Completed')
-    // Completing the last submitted task fires ReAccreditationDulyMadeHook,
-    // which auto-transitions to Duly made. The tasks page immediately flips
-    // to showing duly-made tasks — no further action needed.
-    await detail.setTaskStatus('confirm-application-completeness', 'Completed')
-
-    await detail.gotoDetail()
+    // RA-316: submitted -> duly-made is the "Duly make" CTA plus a payment
+    // date. There are no submitted tasks to complete first, and no hook to
+    // fire — the transition is the caseworker's explicit act.
+    await dulyMake(assignedWorkItemId)
     await detail.assertState('Duly made')
 
     // Task controls live on the /tasks sub-page

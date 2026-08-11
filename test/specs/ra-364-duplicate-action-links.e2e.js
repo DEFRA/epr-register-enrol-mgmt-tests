@@ -6,6 +6,7 @@ import query from '../page-objects/query.page.js'
 import withdrawPage from '../page-objects/withdraw.page.js'
 import {
   createReAccreditation,
+  dulyMake,
   ASSESSMENT_TASKS,
   DECISION_TASK
 } from '../support/re-accreditation-journey.js'
@@ -250,22 +251,18 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       await detail.assertActionsPanelWellFormed()
       await detail.assertNoDuplicateActionLabels()
 
-      // `submitted` has no primary action — submitted -> duly-made is an
-      // auto-transition on task completion, with no button — so the panel is
-      // the Query and Withdraw links alone.
+      // `submitted` has no generic primary action, so the actions panel is
+      // the Query and Withdraw links alone. RA-316's "Duly make" is NOT
+      // counted here: it is a type-specific CTA rendered outside the generic
+      // actions list, and `duly-make` is registered CallerInvocable:false so
+      // it never reaches `availableActions` at all.
       expect(await detail.countActionsWithId('query')).toBe(1)
       expect(await detail.countActionsWithId('withdraw')).toBe(1)
+      expect(await detail.countActionsWithId('duly-make')).toBe(0)
     })
 
     it('renders the duly-made actions once each, including the primary button', async () => {
-      await detail.gotoTasks()
-      await detail.setTaskStatus('verify-organisation-details', 'Completed')
-      await detail.setTaskStatus(
-        'confirm-application-completeness',
-        'Completed'
-      )
-      await detail.gotoDetail()
-      await detail.assertState('Duly made')
+      await dulyMake(workItemId)
 
       await detail.assertActionsPanelWellFormed()
       await detail.assertNoDuplicateActionLabels()

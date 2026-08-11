@@ -1,3 +1,4 @@
+import { expect } from '@wdio/globals'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import dulyMaking from '../page-objects/duly-making.page.js'
@@ -136,7 +137,13 @@ async function completeTasks(taskIds) {
  */
 export async function dulyMake(workItemId, { dayOffset = 0 } = {}) {
   await workItems.openWorkItem(workItemId)
-  await detail.assertState('Not started')
+  // The precondition is asserted as "the CTA is here", not as a state name,
+  // because duly making has TWO entry points: `submitted`, and `updated`
+  // where the projected tasks came from `submitted` (an application queried
+  // during duly-making and then resubmitted). Pinning a display name would
+  // make this helper unusable from the second one — and "Updated" is
+  // ambiguous anyway, since `assessment-in-progress` shares it.
+  expect(await detail.hasDulyMakeCta()).toBe(true)
   await detail.clickDulyMake()
   await dulyMaking.assertOnPage()
   await dulyMaking.setPaymentDate(ukDateParts(new Date(), dayOffset))

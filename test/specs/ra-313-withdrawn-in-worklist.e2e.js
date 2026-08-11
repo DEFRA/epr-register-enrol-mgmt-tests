@@ -3,6 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import withdraw from '../page-objects/withdraw.page.js'
+import { dulyMake } from '../support/re-accreditation-journey.js'
 
 /**
  * RA-313 AC01 — a withdrawn application is identifiable in the worklist.
@@ -45,12 +46,10 @@ async function driveToAwaitingDecision(suffix, material) {
   await workItems.openWorkItem(id)
   await detail.assertState('Not started')
 
-  // Submitted -> Duly made (auto-transition on last submitted task).
-  await detail.gotoTasks()
-  await detail.setTaskStatus('verify-organisation-details', 'Completed')
-  await detail.setTaskStatus('confirm-application-completeness', 'Completed')
-  await detail.gotoDetail()
-  await detail.assertState('Duly made')
+  // Submitted -> Duly made. RA-316 replaced the submitted tasks and
+  // the auto-transition hook with the "Duly make" CTA and a payment
+  // date; the shared helper owns that journey.
+  await dulyMake(id)
 
   // Duly made -> Assessment in progress.
   await detail.gotoTasks()

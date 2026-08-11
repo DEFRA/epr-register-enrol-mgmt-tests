@@ -3,6 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import notFound from '../page-objects/work-item-not-found.page.js'
+import { dulyMake } from '../support/re-accreditation-journey.js'
 
 /**
  * Error pages.
@@ -42,6 +43,13 @@ describe('Error pages', () => {
       material: 'plastic',
       tonnageBand: '0-500'
     }))
+
+    // RA-316 deleted the `submitted` tasks AND the tasks panel for that
+    // state, so this fixture must sit in `duly-made` for a tasks page to
+    // exist at all. Its single task, `confirm-registration-fee-paid`, is the
+    // vehicle for the returnTo/PRG cases below — this file is about the
+    // redirect guards, not about which task carries them.
+    await dulyMake(workItemId)
   })
 
   after(async () => {
@@ -73,7 +81,7 @@ describe('Error pages', () => {
     // The tasks form hardcodes returnTo to the whitelisted
     // "/work-items/{id}/tasks" path, so a successful status change must
     // PRG-redirect back to the tasks page.
-    await detail.setTaskStatus('verify-organisation-details', 'InProgress')
+    await detail.setTaskStatus('confirm-registration-fee-paid', 'InProgress')
 
     await browser.waitUntil(
       async () =>
@@ -95,7 +103,7 @@ describe('Error pages', () => {
     // (successRedirect) must reject this and fall back to the detail page.
     await browser.execute(() => {
       const select = document.querySelector(
-        '[data-testid="task-status-select-verify-organisation-details"]'
+        '[data-testid="task-status-select-confirm-registration-fee-paid"]'
       )
       const form = select && select.closest('form')
       const returnTo = form && form.querySelector('input[name="returnTo"]')
@@ -106,10 +114,10 @@ describe('Error pages', () => {
     })
 
     await $(
-      '[data-testid="task-status-select-verify-organisation-details"]'
+      '[data-testid="task-status-select-confirm-registration-fee-paid"]'
     ).selectByAttribute('value', 'Blocked')
     await $(
-      '[data-testid="set-task-status-verify-organisation-details"]'
+      '[data-testid="set-task-status-confirm-registration-fee-paid"]'
     ).click()
 
     await browser.waitUntil(
