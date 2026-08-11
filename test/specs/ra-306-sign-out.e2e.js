@@ -21,6 +21,23 @@ import detail from '../page-objects/work-item-detail.page.js'
  *     the previously rendered page straight out of the HTTP cache and the
  *     server never gets a say.
  *
+ * IMPORTANT — only AC03 below discriminates on this story's change. Run
+ * against a pre-RA-306 build, AC01 and AC02 still pass and only AC03 fails
+ * (verified against management-fe:latest while writing this). That is not a
+ * gap in these specs: the old `yar.clear('user')` already removed the `user`
+ * key the auth scheme reads, so the redirect-to-sign-in behaviour predates the
+ * story, and what `yar.reset()` adds on top — destroying the rest of the
+ * session (RA-299 filter state, in-flight OAuth state) and discarding the
+ * session id so a captured cookie stops being a valid handle — is not
+ * observable through the UI at all. It is pinned by unit tests in
+ * management-fe's `src/server/routes/auth/controller.test.js`, which assert
+ * `reset()` is called and `clear()` is not.
+ *
+ * So: AC01 and AC02 here are non-regression coverage, and a green AC01/AC02 is
+ * NOT evidence that sign-out is correctly implemented. If AC03 ever passes on
+ * a build with the `no-store` extension unwired, this spec has stopped testing
+ * anything — treat that as a failure, not a pass.
+ *
  * Deliberately NOT asserted here, because it would encode behaviour the story
  * does not deliver and the spec would fail:
  *   - federated/Entra sign-out. Only the local service session is destroyed;
