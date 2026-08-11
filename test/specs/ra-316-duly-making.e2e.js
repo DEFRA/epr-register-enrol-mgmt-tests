@@ -98,19 +98,24 @@ describe('RA-316 duly making', () => {
     })
 
     /**
-     * THESE TWO ASSERT THE VALUE, NOT THE ELEMENT — deliberately.
+     * THIS ASSERTS THE VALUE, NOT THE ELEMENT — deliberately.
      *
-     * `chargeAmountPence` and `paymentReference` have no consumer anywhere
-     * in management-fe: nothing has ever read a real byte of either, so the
-     * key names are assumed rather than verified on both sides. A sibling
-     * field (`isTaskWaypoint`) was assumed the same way and turned out never
-     * to be sent at all.
+     * `chargeAmountPence` is read from the work item payload by key. A
+     * sibling field (`isTaskWaypoint`) was assumed the same way and turned
+     * out never to be sent at all.
      *
-     * If the keys differ from what management-be emits, the frontend renders
-     * "Not provided" for both. No error, no crash — a payment panel showing
-     * nothing, on the page whose entire purpose is confirming a payment. A
-     * presence-only assertion passes cleanly against that, which is why
-     * these read the text and reject the placeholder explicitly.
+     * If the key differs from what management-be emits, the frontend renders
+     * "Not provided". No error, no crash — a payment panel showing nothing,
+     * on the page whose entire purpose is confirming a payment. A
+     * presence-only assertion passes cleanly against that, which is why this
+     * reads the text and rejects the placeholder explicitly.
+     *
+     * There is deliberately NO equivalent assertion for the payment
+     * reference. It has no fallback (RA-316, Tom's ruling): it renders only
+     * from `payload.paymentReference`, which no created item carries and no
+     * real submission carries either, so "Not provided" is the correct and
+     * near-universal result. Asserting a real value there would assert the
+     * fallback that was deliberately removed.
      */
     it('AC02: pre-populates the charge amount with a real figure', async () => {
       const charge = await dulyMaking.chargeAmountText()
@@ -134,17 +139,6 @@ describe('RA-316 duly making', () => {
       const pounds = await dulyMaking.chargeAmountPounds()
       expect(pounds).toBeGreaterThan(0)
       expect(pounds).toBeLessThan(50000)
-    })
-
-    it('AC02: pre-populates the payment reference with a real value', async () => {
-      const reference = await dulyMaking.paymentReferenceText()
-      // "Not provided" is non-empty, so the old non-empty check passed on
-      // exactly the failure this is here to catch.
-      expect(reference).not.toContain('Not provided')
-      expect(reference.trim()).not.toBe('')
-      // Some alphanumeric content, which a placeholder or a stray separator
-      // would not have.
-      expect(reference).toMatch(/[A-Za-z0-9]/)
     })
 
     it('AC02: offers a day/month/year payment date entry', async () => {
