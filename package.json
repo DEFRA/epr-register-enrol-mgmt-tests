@@ -23,10 +23,10 @@
     "test:github:browserstack": "npm run clean && wdio run wdio.github.browserstack.conf.js",
     "format": "prettier --write 'test/**/*.js' '**/*.{js,md,json,config.js}'",
     "format:check": "prettier --check 'test/**/*.js' '**/*.{js,md,json,config.js}'",
-    "git:pre-commit-hook": "npm run format:check && npm run lint",
+    "git:pre-commit-hook": "npm run security-audit && npm run format:check && npm run lint",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "postinstall": "npm run setup:husky",
+    "security-audit": "npm audit --audit-level=critical",
     "setup:husky": "node -e \"try { (await import('husky')).default() } catch (e) { if (e.code !== 'ERR_MODULE_NOT_FOUND') throw e }\" --input-type module",
     "report": "allure generate allure-results --single-file --clean",
     "report:publish": "npm run report; ./bin/publish-tests.sh"
