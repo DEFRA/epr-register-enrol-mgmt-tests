@@ -37,7 +37,13 @@ describe('RA-316 duly making', () => {
 
   before(async () => {
     await login.login()
-    workItemId = await createReAccreditation('Duly Making Ltd', 'SW1A 1DM')
+    // £546.00. Each RA-316 spec creates its item with a DIFFERENT real fee
+    // band, so no two render the same figure — see the AC02 charge test for
+    // why that matters, and `createReAccreditation` for the 50000-pence
+    // floor any new value has to clear.
+    workItemId = await createReAccreditation('Duly Making Ltd', 'SW1A 1DM', {
+      chargeAmountPence: 54600
+    })
     await login.logout()
   })
 

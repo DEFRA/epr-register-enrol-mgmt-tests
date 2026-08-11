@@ -98,7 +98,32 @@ export const DECISION_TASK = 'record-decision-rationale'
  * The organisation name is still timestamped so a human reading the
  * work-items list can tell runs apart.
  */
-export async function createReAccreditation(namePrefix, postcode) {
+/**
+ * `chargeAmountPence` (RA-316) is optional and passed straight through.
+ *
+ * OMITTING IT LEAVES THE ITEM WITH NO CHARGE AT ALL — there is no prefill
+ * and nothing defaults it, so the duly-making page renders "Not provided".
+ * That is correct for the many callers that never open that page, and it
+ * means a spec which asserts a charge but forgets to supply one FAILS
+ * rather than passing on a borrowed default.
+ *
+ * Supply it when the spec asserts on the rendered charge, and VARY IT
+ * between specs: the duly-making page divides
+ * by 100 to display, and a factor-of-100 slip is only conspicuous when
+ * different items show different figures. If every item rendered the same
+ * amount, a hardcoded value somewhere downstream could match it by accident
+ * and hide the very bug the magnitude assertion exists to catch.
+ *
+ * Keep any value at or above 50000 pence. Below that, an undivided render
+ * still lands under the £50,000 ceiling in
+ * `ra-316-duly-making.e2e.js` and the check silently loses its power —
+ * management-be enforces the same floor on its seeds for this reason.
+ */
+export async function createReAccreditation(
+  namePrefix,
+  postcode,
+  { chargeAmountPence } = {}
+) {
   await workItems.goto()
   const { id } = await workItems.createWorkItem({
     organisationName: `${namePrefix} ${Date.now()}`,
@@ -106,7 +131,8 @@ export async function createReAccreditation(namePrefix, postcode) {
     siteAddressTown: 'London',
     siteAddressPostcode: postcode,
     material: 'plastic',
-    tonnageBand: '0-500'
+    tonnageBand: '0-500',
+    chargeAmountPence
   })
   return id
 }

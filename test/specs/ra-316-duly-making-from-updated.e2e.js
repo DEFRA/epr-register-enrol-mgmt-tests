@@ -42,7 +42,11 @@ describe('RA-316 duly making from the updated state', () => {
     await login.login()
     workItemId = await createReAccreditation(
       'Duly Making From Updated Ltd',
-      'SW1A 5DU'
+      'SW1A 5DU',
+      // £3,604.00. NOT a typo for £3,965 and NOT a bare band — it is a
+      // COMPOSED fee, £3,276 plus one overseas reprocessing site at £328,
+      // which is a legitimate real-world total. Leave it alone.
+      { chargeAmountPence: 360400 }
     )
     // Query while the item is still pre-duly-made, so the query's origin —
     // and therefore the tasks it carries back — is `submitted`.
