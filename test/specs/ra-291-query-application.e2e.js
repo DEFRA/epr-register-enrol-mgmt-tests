@@ -3,6 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import query, { QUERY_SECTIONS } from '../page-objects/query.page.js'
+import { resumeFromQuery } from '../support/query-resubmission.js'
 
 /**
  * RA-291 — Query an application.
@@ -285,6 +286,67 @@ describe('RA-291 Query an application', () => {
       await query.waitForDetailUrl(workItemId)
       await expect($('[data-testid="query-form"]')).not.toExist()
       await detail.assertState('Queried')
+    })
+  })
+
+  /**
+   * Regression coverage for the stale-summary bug: ReAccreditationResumeService
+   * used to write a resubmitted section's value only into
+   * payload.latestSections, which nothing — including this page — ever read
+   * back, so the business plan row kept showing the pre-query value (or "—")
+   * after the operator had answered the query. The fix additionally merges
+   * the resubmitted value onto its canonical top-level payload field
+   * (payload.businessPlan), which is what application-summary.js's
+   * buildBusinessPlanPairs actually reads.
+   */
+  describe('CM summary reflects a resubmission after a query', () => {
+    let workItemId
+
+    before(async () => {
+      await login.login()
+      workItemId = await createSubmittedWorkItem(
+        uniqueOrg('Query Resubmit Ltd'),
+        'SW1A 1QF'
+      )
+    })
+
+    after(async () => {
+      await login.logout()
+    })
+
+    it('shows the resubmitted business plan values after resume-from-query', async () => {
+      await query.gotoFor(workItemId)
+      await query.selectSection('business-plan')
+      await query.fillReason('Please provide the missing business plan detail.')
+      await query.submit()
+      await query.waitForDetailUrl(workItemId)
+      await detail.assertState('Queried')
+
+      // Before resubmission the row exists but is empty (no business plan
+      // was collected via the "Create work item" form).
+      await workItems.openWorkItem(workItemId)
+      expect(await detail.applicationDetailRowText('business-plan')).toContain(
+        '—'
+      )
+
+      await resumeFromQuery(workItemId, {
+        sectionKeys: ['business-plan'],
+        sections: {
+          'business-plan': {
+            newInfrastructureDetail:
+              'RA-291 regression: resubmitted investment plan.',
+            newInfrastructurePercent: 42
+          }
+        }
+      })
+
+      await workItems.openWorkItem(workItemId)
+      const businessPlan =
+        await detail.applicationDetailRowText('business-plan')
+      expect(businessPlan).toContain(
+        'RA-291 regression: resubmitted investment plan.'
+      )
+      expect(businessPlan).toContain('42% of PRN income')
     })
   })
 })

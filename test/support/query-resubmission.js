@@ -64,11 +64,14 @@ const OPERATOR_HEADERS = {
  * and `fileReferences` are opaque to management-be — this build deliberately
  * does not validate resubmission completeness — so a minimal object is
  * enough and keeps the fixture honest about what is actually exercised.
+ * Callers that need to prove specific resubmitted values surface on the case
+ * management summary (RA-291 regression) pass `sections` explicitly; every
+ * other caller relies on the `{}` default.
  */
-function resubmissionBody(sectionKeys) {
+function resubmissionBody(sectionKeys, sections) {
   return {
     sectionKeys,
-    sections: {},
+    sections,
     fileReferences: [],
     responderContactDetails: {
       fullName: 'Olivia Operator',
@@ -111,11 +114,11 @@ async function postToBackend(path, body) {
  */
 export async function resumeFromQuery(
   workItemId,
-  { sectionKeys = ['business-plan'] } = {}
+  { sectionKeys = ['business-plan'], sections = {} } = {}
 ) {
   const result = await postToBackend(
     `/work-items/re-accreditation/${workItemId}/resume-from-query`,
-    resubmissionBody(sectionKeys)
+    resubmissionBody(sectionKeys, sections)
   )
   if (result.status !== 200) {
     throw new Error(

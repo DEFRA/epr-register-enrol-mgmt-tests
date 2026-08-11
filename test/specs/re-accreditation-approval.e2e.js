@@ -15,7 +15,7 @@ import detail from '../page-objects/work-item-detail.page.js'
  *      decision) up to the Awaiting decision state.
  *   3. A caseworker completes the awaiting-decision task and approves
  *      the work item (RA-323 — every caseworker holds the same role).
- *   4. The backend generates an `ACC-YYYY-M-XXXXXXXX` accreditation id
+ *   4. The backend generates a fixed 16-char accreditation id
  *      and stamps a start date + year onto the payload. The frontend
  *      renders a govukPanel confirmation and a summary list with all
  *      three values, which is what we assert here.
@@ -86,14 +86,17 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await detail.assertApprovalPanelAboveSummary()
 
     const accreditationId = await detail.getAccreditationId()
-    // Backend ID format: ACC-YYYY-<material initial>-<8 chars>.
-    // We used "plastic" as the material so the third segment must be P.
-    expect(accreditationId).toMatch(/^ACC-\d{4}-P-[A-Z0-9]{8}$/)
+    // Backend ID format (fixed 16 chars): A{YY}{Agency:1}{OperatorType:1}
+    // {OrgId:6}{PostcodeSuffix:3}{Material:2}. We used "plastic" as the
+    // material so the trailing segment must be PL.
+    expect(accreditationId).toMatch(
+      /^A\d{2}[ESNW][RX][A-Z0-9]{6}[A-Z0-9]{3}PL$/
+    )
 
     const year = await detail.getAccreditationYear()
     expect(year).toMatch(/^\d{4}$/)
-    // The accreditation id and the year must agree.
-    expect(accreditationId.startsWith(`ACC-${year}-`)).toBe(true)
+    // The accreditation id and the year must agree (the id embeds only YY).
+    expect(accreditationId.startsWith(`A${year.slice(-2)}`)).toBe(true)
 
     const startDate = await detail.getAccreditationStartDate()
     expect(startDate.length).toBeGreaterThan(0)
@@ -115,7 +118,9 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await detail.assertState('Granted')
     await detail.assertApprovalPanelVisible()
     const accreditationIdOnReturn = await detail.getAccreditationId()
-    expect(accreditationIdOnReturn).toMatch(/^ACC-\d{4}-P-[A-Z0-9]{8}$/)
+    expect(accreditationIdOnReturn).toMatch(
+      /^A\d{2}[ESNW][RX][A-Z0-9]{6}[A-Z0-9]{3}PL$/
+    )
     await login.logout()
   })
 })
