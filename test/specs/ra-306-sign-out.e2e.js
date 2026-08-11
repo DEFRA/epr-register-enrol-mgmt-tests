@@ -167,7 +167,11 @@ describe('RA-306 sign out of the service', () => {
       // `no-store` forces the back navigation to refetch, so the server gets
       // to reject the now-dead session and redirect. If the response were
       // cacheable the old HTML would repaint here and this would fail.
-      await login.waitForSignInPage()
+      //
+      // Longer timeout: this refetch-then-redirect is a slower round trip
+      // than the click-triggered redirects the other ACs wait on — see
+      // waitForSignInPage's doc comment.
+      await login.waitForSignInPage({ timeout: 20000 })
 
       expect(await detail.hasCaseHeader()).toBe(false)
       expect(await login.hasAuthenticatedNav()).toBe(false)
