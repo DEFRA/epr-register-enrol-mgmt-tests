@@ -202,6 +202,45 @@ checks that appear to exercise a path they never touch, each failing quietly and
 in the direction the author was hoping for. This trap is that pattern seen from
 the reproduction end, and it is listed there as one of the four instances.
 
+## Writing specs: ask each question of the element that can answer it
+
+A container's rendered text is the **union of its children's**. So a question
+phrased _"does this line say X"_ can only be asked of the line. A container can
+answer _"does this subtree contain X anywhere"_ — and nothing narrower.
+
+Both failure directions turned up on one story (RA-292), which is why this is
+written down rather than left to taste:
+
+| Scoped to a container                                                                   | What happens                                                                                                                                                           |
+| --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Absence** — "the country is not on the site name line", asked of the whole site block | Fails **immediately**, because the block also contains the address, which contains the country. False by construction. Annoying, but self-announcing.                  |
+| **Presence** — "this site is flagged new", asked of the whole site block                | **Passes for the wrong reason** and keeps passing. An interim site renders _inside_ its parent ORS block, so a new interim site makes its not-new parent look flagged. |
+
+The second is the dangerous one. It goes green on day one and stays green, so
+nothing ever prompts anyone to look; it was caught only by going looking for it.
+
+The rule in practice, using this suite's page object:
+
+```js
+// WRONG — flaggedBlockNamed() returns the whole block
+const block = await detail.flaggedBlockNamed('overseasSite', name)
+expect(await block.getText()).not.toContain(country)
+
+// RIGHT — read the specific line
+const line = await detail.blockFieldText(
+  'overseasSite',
+  name,
+  'overseas-site-name'
+)
+expect(line).not.toContain(country)
+```
+
+The same reasoning is why the `NEW: ` prefix helpers resolve a per-kind _line_
+element (`overseas-site-name`, `interim-site-name`) rather than reading block
+text, and why marker lookups use **exact** `data-testid` values — a suffix
+selector such as `[data-testid$="new-tag"]` scoped to an ORS also matches its
+nested interim site's marker.
+
 ## BrowserStack
 
 Two wdio configuration files are provided to help run the tests using BrowserStack in both a GitHub workflow (`wdio.github.browserstack.conf.js`) and from the CDP Portal (`wdio.browserstack.conf.js`).
