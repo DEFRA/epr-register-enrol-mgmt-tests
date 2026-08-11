@@ -25,7 +25,7 @@ describe('RA-249 — application reference survives approval', () => {
   let applicationReference
 
   it('creates a re-accreditation and drives it to awaiting-decision', async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     ;({ id: createdId, applicationReference } = await workItems.createWorkItem({
       organisationName: 'Persistent Reference Recyclers',
@@ -70,7 +70,7 @@ describe('RA-249 — application reference survives approval', () => {
   })
 
   it('keeps the RA-* application ref after the decision maker approves it', async () => {
-    await login.loginAs('decision-maker')
+    await login.login()
     await workItems.openWorkItem(createdId)
     await detail.assertState('Awaiting decision')
 

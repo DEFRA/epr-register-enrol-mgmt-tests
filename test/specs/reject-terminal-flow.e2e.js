@@ -30,7 +30,7 @@ describe('RA-132 Reject action terminal flow', () => {
   let workItemId
 
   it('creates a re-accreditation and drives it to awaiting-decision', async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
@@ -73,7 +73,7 @@ describe('RA-132 Reject action terminal flow', () => {
   })
 
   it('rejects the work item as the decision maker and surfaces the read-only outcome', async () => {
-    await login.loginAs('decision-maker')
+    await login.login()
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Awaiting decision')
 
@@ -102,7 +102,7 @@ describe('RA-132 Reject action terminal flow', () => {
   })
 
   it('keeps the read-only outcome on return — reject is terminal and idempotent', async () => {
-    await login.loginAs('decision-maker')
+    await login.login()
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Rejected')
     await detail.assertReadOnlyOutcomePanel('Rejected')
