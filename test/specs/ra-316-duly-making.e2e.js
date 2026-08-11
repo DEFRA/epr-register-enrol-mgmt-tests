@@ -91,20 +91,40 @@ describe('RA-316 duly making', () => {
       await login.logout()
     })
 
-    it('AC02: pre-populates the charge amount', async () => {
-      // Non-empty rather than a literal: the amount comes from the
-      // application payload (management-be sends `chargeAmountPence`, an
-      // integer in pence, and the frontend renders it), so pinning a figure
-      // here would assert the fixture rather than the behaviour. An unset
-      // field would render blank or as a dash, which this still catches.
+    /**
+     * THESE TWO ASSERT THE VALUE, NOT THE ELEMENT — deliberately.
+     *
+     * `chargeAmountPence` and `paymentReference` have no consumer anywhere
+     * in management-fe: nothing has ever read a real byte of either, so the
+     * key names are assumed rather than verified on both sides. A sibling
+     * field (`isTaskWaypoint`) was assumed the same way and turned out never
+     * to be sent at all.
+     *
+     * If the keys differ from what management-be emits, the frontend renders
+     * "Not provided" for both. No error, no crash — a payment panel showing
+     * nothing, on the page whose entire purpose is confirming a payment. A
+     * presence-only assertion passes cleanly against that, which is why
+     * these read the text and reject the placeholder explicitly.
+     */
+    it('AC02: pre-populates the charge amount with a real figure', async () => {
       const charge = await dulyMaking.chargeAmountText()
-      expect(charge.trim()).not.toBe('')
-      expect(charge).toMatch(/£/)
+      expect(charge).not.toContain('Not provided')
+      // A currency symbol followed by digits. No literal amount: it comes
+      // from the application payload, so pinning a figure would assert the
+      // fixture rather than the behaviour — but "£" plus a number is the
+      // difference between a rendered charge and an empty panel.
+      expect(charge).toMatch(/£\s*\d/)
     })
 
-    it('AC02: pre-populates the payment reference', async () => {
+    it('AC02: pre-populates the payment reference with a real value', async () => {
       const reference = await dulyMaking.paymentReferenceText()
+      // "Not provided" is non-empty, so the old non-empty check passed on
+      // exactly the failure this is here to catch.
+      expect(reference).not.toContain('Not provided')
       expect(reference.trim()).not.toBe('')
+      // Some alphanumeric content, which a placeholder or a stray separator
+      // would not have.
+      expect(reference).toMatch(/[A-Za-z0-9]/)
     })
 
     it('AC02: offers a day/month/year payment date entry', async () => {
