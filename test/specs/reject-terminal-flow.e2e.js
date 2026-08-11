@@ -4,23 +4,23 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 
 /**
- * RA-132 — Rejecting a re-accreditation drives it to the Rejected terminal
+ * RA-132 — Rejecting a re-accreditation drives it to the Refused terminal
  * state and replaces the generic action panel with a read-only outcome.
  *
  * Approve is covered end-to-end (re-accreditation-approval.e2e.js); this is
  * the parallel reject outcome. Unlike approve, reject has no dedicated
  * interstitial — it is a warning-style action that posts straight through
  * the generic action engine (POST /work-items/{id}/actions/reject) and
- * PRG-redirects back to the detail page in the Rejected terminal state.
+ * PRG-redirects back to the detail page in the Refused terminal state.
  *
  * The journey to the Awaiting decision state (where reject becomes
  * available) mirrors the approval spec:
- *   1. Assign user creates a re-accreditation work item (Submitted).
+ *   1. A caseworker creates a re-accreditation work item (Not started).
  *   2. Tasks are completed and the item progressed (auto-duly-made ->
  *      payment-received -> submit-for-decision) up to Awaiting decision.
- *   3. The decision-maker completes the awaiting-decision task and rejects.
+ *   3. A caseworker completes the awaiting-decision task and rejects.
  *   4. The detail page surfaces the read-only "Outcome" panel + a red
- *      "Rejected" state tag, and the generic decision actions disappear.
+ *      "Refused" state tag, and the generic decision actions disappear.
  *
  * The archive-from-worklist behaviour of the reject path is covered
  * separately by RA-224 (ra-224-archived-items.e2e.js); this spec asserts
@@ -88,7 +88,7 @@ describe('RA-132 Reject action terminal flow', () => {
     await detail.assertState('Refused')
 
     // RA-132: the terminal state replaces the generic action panel with a
-    // read-only "Outcome" panel and a red "Rejected" state tag.
+    // read-only "Outcome" panel and a red "Refused" state tag.
     await detail.assertReadOnlyOutcomePanel('Refused')
     await detail.assertNoDecisionActions()
 

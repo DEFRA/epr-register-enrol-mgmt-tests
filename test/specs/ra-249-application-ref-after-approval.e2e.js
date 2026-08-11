@@ -10,12 +10,14 @@ import detail from '../page-objects/work-item-detail.page.js'
  * from a model that ignored unmodelled keys, dropping
  * `payload.applicationReference`. With the human reference gone, the
  * frontend fell back to the internal work-item GUID and rendered that as
- * the "Application ref" (and page caption) — so an approved item showed
- * e.g. `88e380d5-74ff-4c86-bd8a-a56860a3c2b5` instead of `RA-000000123`.
+ * the "Application reference" (and page caption) — so an approved item
+ * showed e.g. `88e380d5-74ff-4c86-bd8a-a56860a3c2b5` instead of the
+ * server-generated `AP*` reference (RA-318 format: `AP` + year + agency +
+ * orgId + postcode suffix + material prefix).
  *
- * This journey drives a re-accreditation all the way to Approved and then
- * asserts the "Application ref" row and the page caption still show the
- * `AP*` reference — never a UUID.
+ * This journey drives a re-accreditation all the way to Granted and then
+ * asserts the "Application reference" row and the page caption still show
+ * the `AP*` reference — never a UUID.
  */
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -83,8 +85,8 @@ describe('RA-249 — application reference survives approval', () => {
     await detail.assertState('Granted')
     await detail.assertApprovalPanelVisible()
 
-    // The core RA-249 assertion: the "Application ref" row must still be the
-    // human AP* reference, never the internal GUID / a UUID.
+    // The core RA-249 assertion: the "Application reference" row must still
+    // be the human AP* reference, never the internal GUID / a UUID.
     const value = await detail.getSummaryValueByKey('Application reference')
     expect(value).toBe(applicationReference)
     expect(value).toMatch(/^AP[A-Z0-9]+$/)
@@ -94,7 +96,7 @@ describe('RA-249 — application reference survives approval', () => {
     // The page caption is driven by the same reference and must not regress
     // to the GUID either.
     const caption = await detail.getCaption()
-    expect(caption).toContain(applicationReference)
+    expect(caption).toBe(applicationReference)
     expect(caption).not.toContain(createdId)
 
     await login.logout()
