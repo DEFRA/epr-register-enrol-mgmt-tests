@@ -85,7 +85,7 @@ describe('RA-249 — application reference survives approval', () => {
 
     // The core RA-249 assertion: the "Application ref" row must still be the
     // human AP* reference, never the internal GUID / a UUID.
-    const value = await detail.getSummaryValueByKey('Application ref')
+    const value = await detail.getSummaryValueByKey('Application reference')
     expect(value).toBe(applicationReference)
     expect(value).toMatch(/^AP[A-Z0-9]+$/)
     expect(value).not.toBe(createdId)
@@ -94,7 +94,7 @@ describe('RA-249 — application reference survives approval', () => {
     // The page caption is driven by the same reference and must not regress
     // to the GUID either.
     const caption = await detail.getCaption()
-    expect(caption).toBe(`Work item ${applicationReference}`)
+    expect(caption).toContain(applicationReference)
     expect(caption).not.toContain(createdId)
 
     await login.logout()

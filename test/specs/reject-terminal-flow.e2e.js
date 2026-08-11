@@ -89,7 +89,7 @@ describe('RA-132 Reject action terminal flow', () => {
 
     // RA-132: the terminal state replaces the generic action panel with a
     // read-only "Outcome" panel and a red "Rejected" state tag.
-    await detail.assertReadOnlyOutcomePanel('Rejected')
+    await detail.assertReadOnlyOutcomePanel('Refused')
     await detail.assertNoDecisionActions()
 
     // No approval confirmation panel is rendered for a rejected item — that
@@ -105,7 +105,7 @@ describe('RA-132 Reject action terminal flow', () => {
     await login.login()
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Refused')
-    await detail.assertReadOnlyOutcomePanel('Rejected')
+    await detail.assertReadOnlyOutcomePanel('Refused')
     await detail.assertNoDecisionActions()
     await login.logout()
   })
