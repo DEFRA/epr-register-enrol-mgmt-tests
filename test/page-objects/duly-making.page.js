@@ -61,6 +61,26 @@ class DulyMakingPage extends Page {
     return this.chargeAmount().getText()
   }
 
+  /**
+   * The charge as a NUMBER of pounds, for the pounds/pence boundary.
+   *
+   * management-be stores the fee as `chargeAmountPence` (an integer) and
+   * management-fe divides by 100 to render it. If that division is ever
+   * dropped, the page renders "£54,600.00" where it should read "£546.00" —
+   * a hundredfold overstatement of a fee, displayed to a regulator on the
+   * page where they confirm the payment. Both strings match any sane
+   * "currency symbol followed by a digit" pattern, so the text assertion
+   * cannot see it and only the magnitude can.
+   *
+   * Commas and the symbol are stripped before parsing so the caller gets a
+   * number rather than a string that happens to look like one.
+   */
+  async chargeAmountPounds() {
+    const raw = await this.chargeAmountText()
+    const match = raw.replace(/,/g, '').match(/(\d+(?:\.\d+)?)/)
+    return match ? Number(match[1]) : Number.NaN
+  }
+
   async paymentReferenceText() {
     return this.paymentReference().getText()
   }

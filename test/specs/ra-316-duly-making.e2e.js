@@ -114,6 +114,20 @@ describe('RA-316 duly making', () => {
       // fixture rather than the behaviour — but "£" plus a number is the
       // difference between a rendered charge and an empty panel.
       expect(charge).toMatch(/£\s*\d/)
+
+      // The pounds/pence boundary, which the pattern above cannot see:
+      // "£546.00" and "£54,600.00" both satisfy it.
+      //
+      // The fee is stored as an integer number of PENCE and divided by 100
+      // for display. Real bands run £546 to £3,965 plus £328 per overseas
+      // reprocessing site, so anything at or above £50,000 is not a fee — it
+      // is the smallest possible band (54600p) rendered without the
+      // division. The ceiling deliberately sits in the wide gap between the
+      // two, so it discriminates without going brittle if a band is
+      // repriced. The floor catches a charge that rounded away to zero.
+      const pounds = await dulyMaking.chargeAmountPounds()
+      expect(pounds).toBeGreaterThan(0)
+      expect(pounds).toBeLessThan(50000)
     })
 
     it('AC02: pre-populates the payment reference with a real value', async () => {
