@@ -46,15 +46,26 @@ class LoginPage extends Page {
    * The path is asserted loosely (an /auth/ path containing "login") rather
    * than pinned to one route, because sign-out lands on the stub chooser while
    * a direct visit uses /auth/regulator/login, and both satisfy the AC.
+   *
+   * `timeout` defaults to the suite-wide waitforTimeout. AC03's back-button
+   * case passes a longer one: unlike a click-triggered redirect, that path is
+   * a full history-traversal refetch — browser back-nav, a server round trip
+   * that revalidates the destroyed session and 401s, then the redirect's own
+   * navigation — three network legs against the shared default's one, and
+   * this was observed timing out at the default under parallel CI load with
+   * no code change either side of the flake.
    */
-  async waitForSignInPage() {
-    await this.signInHeading().waitForDisplayed()
+  async waitForSignInPage({ timeout } = {}) {
+    await this.signInHeading().waitForDisplayed(
+      timeout ? { timeout } : undefined
+    )
     await browser.waitUntil(
       async () => {
         const { pathname } = new URL(await browser.getUrl())
         return pathname.startsWith('/auth/') && pathname.includes('login')
       },
       {
+        ...(timeout ? { timeout } : {}),
         timeoutMsg: `Expected to be redirected to the sign-in page, got ${await browser.getUrl()}`
       }
     )
