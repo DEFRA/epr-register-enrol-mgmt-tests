@@ -133,8 +133,13 @@ class DulyMakingPage extends Page {
     return candidates.length > 0
   }
 
+  /**
+   * Selected by testid, not by `.govuk-error-summary`, so this cannot latch
+   * onto some other error summary that happens to be on the page — and so a
+   * restyle of the GOV.UK component does not silently break the assertion.
+   */
   errorSummary() {
-    return $('.govuk-error-summary')
+    return $('[data-testid="duly-making-error-summary"]')
   }
 
   async hasErrorSummary() {
@@ -165,7 +170,7 @@ class DulyMakingPage extends Page {
    * renders but its links go nowhere useful.
    */
   async errorSummaryLinkHrefs() {
-    const links = await $$('.govuk-error-summary a')
+    const links = await $$('[data-testid="duly-making-error-summary"] a')
     const hrefs = []
     for (const link of links) {
       hrefs.push(await link.getAttribute('href'))
