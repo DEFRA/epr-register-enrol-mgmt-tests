@@ -263,12 +263,15 @@ class WorkItemsPage extends Page {
   }
 
   /**
-   * RA-224. Reveal archived (terminal-state) work items bounded by an
-   * organisation search so presence assertions stay pagination-safe. Drives
-   * `includeArchived=true` straight through the query string for a
-   * deterministic, one-navigation reveal. (The "Show archived items" checkbox
-   * in the Archived filter section — see checkArchived — sets the same param
-   * through the UI, exercised separately in the phase-2 filters spec.)
+   * Search by organisation with `includeArchived=true`, driven straight
+   * through the query string for a deterministic, one-navigation load. (The
+   * "Show archived items" checkbox in the Archived filter section — see
+   * checkArchived — sets the same param through the UI, exercised separately
+   * in the phase-2 filters spec.)
+   *
+   * RA-313 made the param inert: terminal-state items are on the default
+   * worklist now, so this returns the same set as searchByOrgName. Retained as
+   * the regression guard that ticking the box never SUBTRACTS results.
    */
   async searchArchivedByOrgName(value) {
     await this.open(
@@ -422,8 +425,10 @@ class WorkItemsPage extends Page {
    * Tick "Show archived items" in the Archived section. RA-324 phase-2 re-added
    * this as the 8th collapsible section; the control is unchanged from phase-1
    * (checkbox name=includeArchived, testid work-items-filter-include-archived)
-   * and still just sets includeArchived=true. (searchArchivedByOrgName drives
-   * the same param directly via the URL for the RA-224 reveal journey.)
+   * and still just sets includeArchived=true. RA-313 made the param inert
+   * (nothing is hidden any more, so nothing is left for it to reveal); the
+   * control stays because the Applications page UI is out of RA-313's scope.
+   * See epr-kenf for retiring it.
    */
   async checkArchived() {
     await this.expandSection('archived')

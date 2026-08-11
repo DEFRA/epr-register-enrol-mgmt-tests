@@ -34,7 +34,7 @@ import query from '../page-objects/query.page.js'
  * follows it automatically.
  *
  * The terminal-state badges "Granted" (approved) and "Refused" (rejected) are
- * proven on the archived tile list by ra-224-archived-items.e2e.js, so this
+ * proven on the tile list by ra-313-withdrawn-in-worklist.e2e.js, so this
  * spec drives the cheaper non-terminal states (Not started, Duly made,
  * Updated, Queried) to keep the run fast without leaving the badge ACs
  * unproven.
