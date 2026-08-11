@@ -36,12 +36,14 @@ export const MANAGEMENT_BE_URL =
 /**
  * The CDP trust headers management-be authenticates on.
  *
- * `x-cdp-cognito-client-id` is what turns a 401 into a real request — the
- * auth handler returns NoResult without it. The user headers carry the
- * acting identity into the audit log, so they are named for what is
- * genuinely acting here: the operator's service, not a caseworker. Naming
- * them after a caseworker would put a false attribution in the history the
- * later assertions read.
+ * `x-cdp-client-id` is what turns a 401 into a real request — the auth
+ * handler returns NoResult without it (renamed from `x-cdp-cognito-client-id`
+ * in management-be commit d8a05f0 — CDP doesn't validate a Cognito JWT here,
+ * trust comes from the HMAC signature, so the old name was misleading). The
+ * user headers carry the acting identity into the audit log, so they are
+ * named for what is genuinely acting here: the operator's service, not a
+ * caseworker. Naming them after a caseworker would put a false attribution
+ * in the history the later assertions read.
  *
  * The BFF additionally HMAC-signs these headers when a shared secret is
  * configured; the test stack configures none (see
@@ -50,7 +52,7 @@ export const MANAGEMENT_BE_URL =
  */
 const OPERATOR_HEADERS = {
   'content-type': 'application/json',
-  'x-cdp-cognito-client-id': 'epr-register-enrol-mgmt-tests',
+  'x-cdp-client-id': 'epr-register-enrol-mgmt-tests',
   'x-cdp-user-id': 'operator-service',
   'x-cdp-user-name': 'Operator Service'
 }
