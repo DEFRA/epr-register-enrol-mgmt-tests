@@ -3,6 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems, { TILE_FIELD_ORDER } from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import { formatUkDateGds } from '../support/uk-time.js'
+import { dulyMake } from '../support/re-accreditation-journey.js'
 
 /**
  * RA-370 — "WorkItem widget not having submitted on".
@@ -88,20 +89,18 @@ async function createFreshItem(organisationName, postcode) {
 }
 
 /**
- * Drive submitted -> duly-made. Completing the two submitted-state tasks fires
- * the auto-duly-made hook, which ALSO starts the SLA clock
- * (ReAccreditationDulyMadeHook) — so this lands the item in the one state that
- * satisfies both conditions at once: still pre-assessment (Submitted on shows)
- * and clock running (Due on shows). This is the both-dates fixture.
+ * Drive submitted -> duly-made, which ALSO starts the SLA clock — so this
+ * lands the item in the one state that satisfies both conditions at once:
+ * still pre-assessment (Submitted on shows) and clock running (Due on
+ * shows). This is the both-dates fixture.
+ *
+ * RA-316 replaced the task-driven route and its auto-duly-made hook with the
+ * "Duly make" CTA and a payment date; this delegates to the shared
+ * implementation. The clock now runs from the ENTERED payment date rather
+ * than from completion time — `dulyMake` defaults it to today, so Due on is
+ * still populated and the both-dates fixture is unaffected.
  */
-async function driveToDulyMade(id) {
-  await workItems.openWorkItem(id)
-  await detail.gotoTasks()
-  await detail.setTaskStatus('verify-organisation-details', 'Completed')
-  await detail.setTaskStatus('confirm-application-completeness', 'Completed')
-  await detail.gotoDetail()
-  await detail.assertState('Duly made')
-}
+const driveToDulyMade = (id) => dulyMake(id)
 
 /**
  * Drive duly-made -> assessment-in-progress via payment-received. This moves

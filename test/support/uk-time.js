@@ -65,6 +65,33 @@ export function formatUkDateGds(date) {
  * @param {number} [toleranceMinutes]
  * @returns {Set<string>}
  */
+/**
+ * Split a Date into the day/month/year numbers a GOV.UK date input expects,
+ * evaluated in Europe/London rather than the runner's TZ.
+ *
+ * RA-316 needs this for the payment-date field. Taking the parts from the
+ * runner's local calendar would put the boundary tests one day out for part
+ * of the year — "today" computed in UTC is already "tomorrow" in BST for an
+ * hour each evening, which would make the today-is-valid case fail as a
+ * future date. The offset is applied in whole days BEFORE formatting so the
+ * arithmetic never straddles a DST change.
+ *
+ * @param {Date} date
+ * @param {number} [dayOffset] days to add (negative for the past)
+ * @returns {{day: string, month: string, year: string}}
+ */
+export function ukDateParts(date, dayOffset = 0) {
+  const shifted = new Date(date.getTime() + dayOffset * 86_400_000)
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric'
+  }).formatToParts(shifted)
+  const get = (type) => parts.find((p) => p.type === type)?.value ?? ''
+  return { day: get('day'), month: get('month'), year: get('year') }
+}
+
 export function recentUkDateTimeGdsWindow(now, toleranceMinutes = 5) {
   const window = new Set()
   for (let minutesAgo = 0; minutesAgo <= toleranceMinutes; minutesAgo++) {

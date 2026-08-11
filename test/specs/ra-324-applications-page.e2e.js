@@ -3,6 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems, { TILE_FIELD_ORDER } from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import query from '../page-objects/query.page.js'
+import { dulyMake } from '../support/re-accreditation-journey.js'
 
 /**
  * RA-324 — Applications page.
@@ -65,18 +66,15 @@ async function createFreshItem(organisationName, postcode) {
 }
 
 /**
- * Submitted → Duly made. Completing the two submitted-state tasks fires the
- * auto-duly-made hook, which starts the SLA clock (so the card's SLA footer,
- * with Due on and Assigned to, appears).
+ * Submitted → Duly made, which starts the SLA clock (so the card's SLA
+ * footer, with Due on and Assigned to, appears).
+ *
+ * RA-316 deleted the two submitted-state tasks and the auto-duly-made hook
+ * that fired off them; the route is now the "Duly make" CTA plus a payment
+ * date, and this delegates to the shared implementation. The clock runs from
+ * the entered payment date, which `dulyMake` defaults to today.
  */
-async function driveToDulyMade(id) {
-  await workItems.openWorkItem(id)
-  await detail.gotoTasks()
-  await detail.setTaskStatus('verify-organisation-details', 'Completed')
-  await detail.setTaskStatus('confirm-application-completeness', 'Completed')
-  await detail.gotoDetail()
-  await detail.assertState('Duly made')
-}
+const driveToDulyMade = (id) => dulyMake(id)
 
 /** Duly made → Updated (assessment-in-progress) via payment-received. */
 async function driveToUpdated(id) {

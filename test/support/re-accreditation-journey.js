@@ -1,5 +1,7 @@
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
+import dulyMaking from '../page-objects/duly-making.page.js'
+import { ukDateParts } from './uk-time.js'
 
 /**
  * Shared re-accreditation journey steps (RA-346).
@@ -17,10 +19,21 @@ import detail from '../page-objects/work-item-detail.page.js'
  * than repeating string literals.
  */
 
-export const SUBMITTED_TASKS = [
-  'verify-organisation-details',
-  'confirm-application-completeness'
-]
+/**
+ * RA-316 deleted the `submitted`-state tasks
+ * (`verify-organisation-details`, `confirm-application-completeness`) and
+ * the hook that auto-transitioned to `duly-made` when the last of them was
+ * ticked. `submitted` now has an EMPTY task list and the only route into
+ * `duly-made` is the "Duly make" CTA plus a payment date.
+ *
+ * The constant is deliberately gone rather than emptied: an empty array
+ * would let `completeTasks(SUBMITTED_TASKS)` keep compiling and silently do
+ * nothing, leaving items stranded in `submitted` and failing specs several
+ * steps later for a reason with no connection to the cause.
+ *
+ * Tasks still exist for the OTHER states — their removal is RA-410 — so the
+ * task machinery below stays.
+ */
 
 export const DULY_MADE_TASKS = ['confirm-registration-fee-paid']
 
@@ -106,20 +119,45 @@ async function completeTasks(taskIds) {
 }
 
 /**
+ * Submitted -> Duly made, via the RA-316 CTA and payment-date page.
+ *
+ * THE CANONICAL duly-making step for the whole suite. Every journey that
+ * needs an item past `submitted` should call this rather than re-deriving
+ * the flow, so when the page moves again there is one place to change.
+ *
+ * The payment date defaults to TODAY, which is valid — the rule is "today
+ * or in the past". Callers wanting a back-dated SLA clock pass `dayOffset`
+ * (negative days); the floor is 12 months before today.
+ *
+ * NOTE FOR SLA ASSERTIONS: the 12-week clock now runs from the ENTERED
+ * payment date at midnight UTC, not from the moment of completion. An SLA
+ * expectation computed from the test clock will be wrong by however far the
+ * payment date is back-dated.
+ */
+export async function dulyMake(workItemId, { dayOffset = 0 } = {}) {
+  await workItems.openWorkItem(workItemId)
+  await detail.assertState('Not started')
+  await detail.clickDulyMake()
+  await dulyMaking.assertOnPage()
+  await dulyMaking.setPaymentDate(ukDateParts(new Date(), dayOffset))
+  await dulyMaking.submit()
+  await dulyMaking.waitForDetailUrl(workItemId)
+  await detail.assertState('Duly made')
+}
+
+/**
  * Submitted -> Duly made -> Assessment in progress.
  *
- * The submitted -> duly-made hop is an auto-transition that fires when the
- * last submitted task completes (there is no button for it); duly-made ->
- * assessment-in-progress needs the explicit `payment-received` action.
+ * `duly-made -> assessment-in-progress` still needs the explicit
+ * `payment-received` action; RA-316 kept that transition untouched and only
+ * changed the route INTO `duly-made`.
  *
  * Leaves the browser on the detail page with every
  * `assessment-in-progress` task still incomplete — which is exactly the
  * state RA-346 issue 1 is about.
  */
 export async function driveToAssessmentInProgress(workItemId) {
-  await workItems.openWorkItem(workItemId)
-  await completeTasks(SUBMITTED_TASKS)
-  await detail.assertState('Duly made')
+  await dulyMake(workItemId)
 
   await completeTasks(DULY_MADE_TASKS)
   await detail.triggerAction('payment-received')
