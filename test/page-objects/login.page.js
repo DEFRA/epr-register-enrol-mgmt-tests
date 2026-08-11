@@ -27,6 +27,61 @@ class LoginPage extends Page {
   }
 
   /**
+   * RA-306. The stub sign-in page — where an unauthenticated visitor and a
+   * just-signed-out user must both end up. Matched on the H1 because the stub
+   * chooser carries no `data-testid` of its own; every other selector in this
+   * suite prefers a testid.
+   */
+  signInHeading() {
+    return $('h1=Stub Login')
+  }
+
+  /**
+   * RA-306 (AC01/AC02/AC03). Assert we are on the sign-in page: both the
+   * heading AND an /auth/…login URL. The URL check matters because a stale
+   * authenticated page that merely failed to repaint would still be sitting on
+   * its own path — asserting the heading alone would not catch a back-button
+   * regression where the browser served the previous page from cache.
+   *
+   * The path is asserted loosely (an /auth/ path containing "login") rather
+   * than pinned to one route, because sign-out lands on the stub chooser while
+   * a direct visit uses /auth/regulator/login, and both satisfy the AC.
+   */
+  async waitForSignInPage() {
+    await this.signInHeading().waitForDisplayed()
+    await browser.waitUntil(
+      async () => {
+        const { pathname } = new URL(await browser.getUrl())
+        return pathname.startsWith('/auth/') && pathname.includes('login')
+      },
+      {
+        timeoutMsg: `Expected to be redirected to the sign-in page, got ${await browser.getUrl()}`
+      }
+    )
+  }
+
+  /**
+   * RA-306 (AC01). Sign out the way a real user does — the "Sign out" item in
+   * the service nav, present on every authenticated page (the hook lives on
+   * the base Page). Deliberately distinct from `logout()` above, which GETs
+   * /auth/logout directly and exists for test teardown: only this path proves
+   * the AC that the nav control terminates the session.
+   */
+  async signOutViaNav() {
+    await this.navSignOut().click()
+    await this.waitForSignInPage()
+  }
+
+  /**
+   * RA-306 (AC01). Whether the session-bearing service nav is on the page at
+   * all. A signed-out visitor must not see the "Sign out" control, so this is
+   * the cheap positive signal that a page is rendering authenticated content.
+   */
+  async hasAuthenticatedNav() {
+    return this.navSignOut().isExisting()
+  }
+
+  /**
    * RA-335. Stub sign-in as the read-only support user, via the "Sign in
    * as support user" button on the stub chooser — a separate form from the
    * caseworker login above, so there is no nation to select.
