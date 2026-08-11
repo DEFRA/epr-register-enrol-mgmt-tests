@@ -15,22 +15,23 @@ import detail from '../page-objects/work-item-detail.page.js'
  *
  * The journey to the Awaiting decision state (where reject becomes
  * available) mirrors the approval spec:
- *   1. Assign user creates a re-accreditation work item (Submitted).
+ *   1. A caseworker creates a re-accreditation work item (Submitted).
  *   2. Tasks are completed and the item progressed (auto-duly-made ->
  *      payment-received -> submit-for-decision) up to Awaiting decision.
- *   3. The decision-maker completes the awaiting-decision task and rejects.
+ *   3. A caseworker completes the awaiting-decision task and rejects
+ *      (RA-323 — every caseworker holds the same role).
  *   4. The detail page surfaces the read-only "Outcome" panel + a red
  *      "Rejected" state tag, and the generic decision actions disappear.
  *
  * The archive-from-worklist behaviour of the reject path is covered
- * separately by RA-224 (ra-224-archived-items.e2e.js); this spec asserts
+ * separately by ra-313-withdrawn-in-worklist.e2e.js; this spec asserts
  * the terminal detail-page outcome instead of duplicating that.
  */
 describe('RA-132 Reject action terminal flow', () => {
   let workItemId
 
   it('creates a re-accreditation and drives it to awaiting-decision', async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
@@ -73,7 +74,7 @@ describe('RA-132 Reject action terminal flow', () => {
   })
 
   it('rejects the work item as the decision maker and surfaces the read-only outcome', async () => {
-    await login.loginAs('decision-maker')
+    await login.login()
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Awaiting decision')
 
@@ -102,7 +103,7 @@ describe('RA-132 Reject action terminal flow', () => {
   })
 
   it('keeps the read-only outcome on return — reject is terminal and idempotent', async () => {
-    await login.loginAs('decision-maker')
+    await login.login()
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Rejected')
     await detail.assertReadOnlyOutcomePanel('Rejected')
