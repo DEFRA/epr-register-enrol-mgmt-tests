@@ -14,8 +14,8 @@ import detail from '../page-objects/work-item-detail.page.js'
  * e.g. `88e380d5-74ff-4c86-bd8a-a56860a3c2b5` instead of `RA-000000123`.
  *
  * This journey drives a re-accreditation all the way to Approved and then
- * asserts the "Application ref" row and the page caption still show the
- * `RA-*` reference — never a UUID.
+ * asserts the "Application reference" row and the page identity still show
+ * the `RA-*` reference — never a UUID.
  */
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -25,7 +25,7 @@ describe('RA-249 — application reference survives approval', () => {
   let applicationReference
 
   it('creates a re-accreditation and drives it to awaiting-decision', async () => {
-    await login.loginAs('assign')
+    await login.login()
     await workItems.goto()
     ;({ id: createdId, applicationReference } = await workItems.createWorkItem({
       organisationName: 'Persistent Reference Recyclers',
@@ -70,7 +70,7 @@ describe('RA-249 — application reference survives approval', () => {
   })
 
   it('keeps the RA-* application ref after the decision maker approves it', async () => {
-    await login.loginAs('decision-maker')
+    await login.login()
     await workItems.openWorkItem(createdId)
     await detail.assertState('Awaiting decision')
 
@@ -83,18 +83,22 @@ describe('RA-249 — application reference survives approval', () => {
     await detail.assertState('Approved')
     await detail.assertApprovalPanelVisible()
 
-    // The core RA-249 assertion: the "Application ref" row must still be the
-    // human RA-* reference, never the internal GUID / a UUID.
-    const value = await detail.getSummaryValueByKey('Application ref')
+    // The core RA-249 assertion: the reference row must still be the human
+    // RA-* reference, never the internal GUID / a UUID. RA-295 moved that row
+    // into the reference block at the foot of the page and relabelled it
+    // "Application reference".
+    const value = await detail.getSummaryValueByKey('Application reference')
     expect(value).toBe(applicationReference)
     expect(value).toMatch(/^RA-\d{9}$/)
     expect(value).not.toBe(createdId)
     expect(value).not.toMatch(UUID_RE)
 
-    // The page caption is driven by the same reference and must not regress
-    // to the GUID either.
+    // The page identity is driven by the same reference and must not regress
+    // to the GUID either. RA-295 removed the detail page's appHeading, so this
+    // is the case header's bare reference rather than the old "Work item
+    // {ref}" caption text.
     const caption = await detail.getCaption()
-    expect(caption).toBe(`Work item ${applicationReference}`)
+    expect(caption).toBe(applicationReference)
     expect(caption).not.toContain(createdId)
 
     await login.logout()
