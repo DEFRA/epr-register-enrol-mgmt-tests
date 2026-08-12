@@ -70,7 +70,14 @@ describe('RA-410 Tasks are removed from Case Management', () => {
     // AC01: no nav item, tab, link or button labelled "Tasks".
     expect(await detail.hasTasksLink()).toBe(false)
     const labelled = await detail.elementsLabelledTasks()
-    expect(labelled, `"Tasks" labels found in ${stateLabel}`).toEqual([])
+    // `expect(value, message)` is Jest/Vitest style — expect-webdriverio takes
+    // ONE argument and throws "Expect takes at most one argument." Folding the
+    // state into the compared value keeps the diagnostic this helper exists
+    // for (see the file header) without the second argument.
+    expect({ state: stateLabel, labelled }).toEqual({
+      state: stateLabel,
+      labelled: []
+    })
   }
 
   describe('AC01/AC02 — no task surfaces on the work item detail page', () => {
