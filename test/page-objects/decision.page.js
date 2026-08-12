@@ -90,7 +90,7 @@ class DecisionPage extends Page {
    */
   async selectOutcome(outcome) {
     const radio = this.outcomeRadio(outcome)
-    await radio.waitForExisting({
+    await radio.waitForExist({
       timeout: 10000,
       timeoutMsg: `Expected a "${outcome}" radio on the Log decision page`
     })
