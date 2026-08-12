@@ -9,6 +9,17 @@ import {
 /**
  * epr-r9oy — duly making must work for MORE THAN ONE application.
  *
+ * ┌───────────────────────────────────────────────────────────────────────────┐
+ * │ MERGE ORDER: this spec depends on management-be#93 (the index move). Merge  │
+ * │ that first. If this file reaches `main` while `management-be:latest` still  │
+ * │ predates the fix, the second `it` fails with a real E11000 on EVERY PR to   │
+ * │ this repo — not just this one — because an unrelated PR's branch won't      │
+ * │ match a management-be branch, so `Run Journey Tests` builds against         │
+ * │ `latest`. If you are staring at a red `Run Journey Tests` on a change that   │
+ * │ has nothing to do with duly making, this is why: management-be#93 has not    │
+ * │ merged and republished `latest` yet.                                        │
+ * └───────────────────────────────────────────────────────────────────────────┘
+ *
  * <h3>Why a second application is the whole test</h3>
  *
  * On dev, duly making returned 500 for every regulator who tried it, while
