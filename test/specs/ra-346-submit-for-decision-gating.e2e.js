@@ -7,6 +7,7 @@ import {
   createReAccreditation,
   driveToAssessmentInProgress
 } from '../support/re-accreditation-journey.js'
+import { raiseQuery } from '../support/query-resubmission.js'
 
 /**
  * RA-346 (issue 1), re-pointed by RA-410 — the route to a determination is
@@ -148,8 +149,12 @@ describe('RA-346/RA-410 The decision route is gated on state, not on tasks', () 
     // assessment once". A guard written as a one-way latch would pass every
     // assertion above and fail only here.
     before(async () => {
-      await workItems.openWorkItem(workItemId)
-      await detail.triggerAction('query-during-assessment')
+      // Not `triggerAction('query-during-assessment')`: management-fe collapses
+      // every `query-*` variant into ONE secondary link with the fixed testid
+      // `action-query` (detail.njk), so the per-variant testid never exists.
+      // `raiseQuery` drives the real affordance — the query page — which is
+      // also what the caseworker actually does.
+      await raiseQuery(workItemId)
     })
 
     it('withdraws the Log decision CTA again', async () => {

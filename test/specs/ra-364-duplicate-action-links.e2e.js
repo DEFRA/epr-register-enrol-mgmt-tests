@@ -265,16 +265,18 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       await detail.assertActionsPanelWellFormed()
       await detail.assertNoDuplicateActionLabels()
 
-      // RA-410 removed `RequiresAllTasksComplete` from every transition, so
-      // `payment-received` is now offered immediately in `duly-made` rather
-      // than waiting on `confirm-registration-fee-paid`. This assertion used
-      // to read 0 here and 1 only after the task was ticked.
+      // RA-410: `payment-received` is no longer an action button at all. The
+      // transition is folded into "Assign to yourself and start" — that IS
+      // step 2 of the CTA lifecycle — so it must render ZERO times here. An
+      // earlier draft of this spec expected 1, which was written against the
+      // pre-RA-410 action panel.
       //
-      // The AC06 subject is unchanged and is what the `1` protects: a
-      // genuinely caller-invocable action renders EXACTLY ONCE. Losing the
-      // gate removed a precondition, not the duplication guard.
-      expect(await detail.countActionsWithId('payment-received')).toBe(1)
-      expect(await detail.countActionsLabelled('Payment received')).toBe(1)
+      // The AC06 subject is unchanged: a genuinely caller-invocable action
+      // renders EXACTLY ONCE, which the `query` and `withdraw` counts below
+      // still protect. Asserting 0 here also guards the regression that would
+      // reintroduce the button beside the CTA and give two doors to one hop.
+      expect(await detail.countActionsWithId('payment-received')).toBe(0)
+      expect(await detail.countActionsLabelled('Payment received')).toBe(0)
       expect(await detail.countActionsWithId('query')).toBe(1)
       expect(await detail.countActionsWithId('withdraw-during-duly-made')).toBe(
         1
@@ -282,7 +284,9 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
     })
 
     it('renders the assessment actions once each', async () => {
-      await detail.triggerAction('payment-received')
+      // Step 2 of the CTA lifecycle: self-assign applies `payment-received`.
+      // The old `triggerAction('payment-received')` button no longer exists.
+      await detail.selfAssignAndStart()
 
       // `assessment-in-progress` displays as "Updated" — see the trap note at
       // the top of this file. The state is pinned by the action id below, not
