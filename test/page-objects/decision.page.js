@@ -10,9 +10,9 @@ import { Page } from './page.js'
  * ONLY way a caseworker records an outcome is:
  *
  *   1. Green "Log decision" CTA on the detail page (assessment-in-progress only)
- *   2. GET  /work-items/re-accreditation/{id}/log-decision
+ *   2. GET  /work-items/re-accreditation/{id}/decision
  *   3. Pick Approved or Refused
- *   4. POST /work-items/re-accreditation/{id}/log-decision
+ *   4. POST /work-items/re-accreditation/{id}/decision
  *
  * Same path for GET and POST, and NOTE THE `re-accreditation` SEGMENT: like
  * duly making, this is a module-specific route namespaced under
@@ -29,7 +29,7 @@ import { Page } from './page.js'
  */
 class DecisionPage extends Page {
   path(workItemId) {
-    return `/work-items/re-accreditation/${workItemId}/log-decision`
+    return `/work-items/re-accreditation/${workItemId}/decision`
   }
 
   /**

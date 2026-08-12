@@ -76,7 +76,7 @@ describe('RA-346/RA-410 The decision route is gated on state, not on tasks', () 
       await decision.gotoFor(workItemId)
 
       await expect(browser).not.toHaveUrl(
-        expect.stringContaining('/log-decision')
+        expect.stringContaining('/decision')
       )
       expect(await decision.hasOutcomeRadio('approved')).toBe(false)
     })

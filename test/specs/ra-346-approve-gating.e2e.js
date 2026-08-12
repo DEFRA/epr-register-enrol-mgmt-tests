@@ -114,7 +114,7 @@ describe('RA-346/RA-410 A determination can be logged only once', () => {
       await decision.gotoFor(workItemId)
 
       await expect(browser).not.toHaveUrl(
-        expect.stringContaining('/log-decision')
+        expect.stringContaining('/decision')
       )
       expect(await decision.hasOutcomeRadio('refused')).toBe(false)
     })
@@ -130,7 +130,7 @@ describe('RA-346/RA-410 A determination can be logged only once', () => {
       // management-fe surfaces management-be's 409 or follows this app's PRG
       // convention and redirects. Both are refusals; what must NOT happen is a
       // success that leaves the browser on a second decision confirmation.
-      const refused = status >= 400 || !url.includes('/log-decision')
+      const refused = status >= 400 || !url.includes('/decision')
       expect(refused).toBe(true)
     })
 
