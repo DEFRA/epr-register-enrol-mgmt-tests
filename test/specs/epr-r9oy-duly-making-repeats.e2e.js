@@ -32,16 +32,33 @@ import {
  * another `it` inside the RA-316 file: the assertion is not "duly making
  * works", it is "duly making works AGAIN".
  *
- * <h3>What makes it a real guard</h3>
+ * <h3>This spec is only a guard against a build that creates the index</h3>
  *
- * The index is created by `WorkItemPersistence.DefineIndexes` at startup, so
- * every stack this suite runs against carries it. It previously lived on
- * `AccreditationIdLookup`, a lazily constructed singleton nothing resolves
- * during startup — which meant CI had no such index at all, and this spec
- * would have passed against the very build that was failing on dev. If that
- * definition ever migrates back onto a lazily constructed type, this spec goes
- * green again while dev breaks, so treat a change to where the index is
- * defined as a change to whether this test means anything.
+ * It asserts nothing on its own. Both writes succeed trivially against any
+ * build where the `payload.accreditationId` index is absent, because there is
+ * then no unique constraint to collide with — and "absent" is the normal state
+ * for a duly-making-only journey unless the index is created at STARTUP.
+ * `WorkItemPersistence.DefineIndexes` does that. `AccreditationIdLookup`, where
+ * the definition used to live, does not: it is a lazily constructed singleton
+ * nothing resolves during startup, so nothing creates its indexes until the
+ * first approval.
+ *
+ * Two consequences, both live rather than hypothetical:
+ *
+ *  1. CI has to build management-be FROM THE PAIRED BRANCH. `run-journey-tests`
+ *     resolves it with `git ls-remote --heads .../management-be "$BRANCH"`
+ *     against this PR's own head ref — an EXACT name match. A mismatch is not
+ *     an error: the step is skipped and the run silently falls back to
+ *     `defradigital/epr-register-enrol-management-be:latest`. If `latest`
+ *     predates the index move, this spec passes and has proved nothing. So the
+ *     branch name here must match the management-be branch carrying the fix.
+ *  2. If the definition ever migrates back onto a lazily constructed type, this
+ *     spec goes green while dev breaks.
+ *
+ * Treat a change to WHERE the index is defined, or to the branch pairing, as a
+ * change to whether this test means anything. Verified by reverting the index
+ * to unique + sparse with the code untouched: the second `it` then fails on the
+ * production symptom. Absent that control, a green run here is not evidence.
  *
  * <h3>Ordering is load-bearing</h3>
  *
