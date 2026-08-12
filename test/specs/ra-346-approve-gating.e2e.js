@@ -164,8 +164,11 @@ describe('RA-346 Approve is gated on the decision rationale task', () => {
 
       await detail.assertState('Granted')
       await detail.assertApprovalPanelVisible()
+      // Backend ID format (fixed 16 chars): A{YY}{Agency:1}{OperatorType:1}
+      // {OrgId:6}{PostcodeSuffix:3}{Material:2}. createReAccreditation always
+      // uses "plastic", so the trailing segment must be PL.
       expect(await detail.getAccreditationId()).toMatch(
-        /^ACC-\d{4}-P-[A-Z0-9]{8}$/
+        /^A\d{2}[ESNW][RX][A-Z0-9]{6}[A-Z0-9]{3}PL$/
       )
     })
   })

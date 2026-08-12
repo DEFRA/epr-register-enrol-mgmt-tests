@@ -3,6 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import query, { QUERY_SECTIONS } from '../page-objects/query.page.js'
+import { resumeFromQuery } from '../support/query-resubmission.js'
 
 /**
  * RA-291 — Query an application.
@@ -285,6 +286,111 @@ describe('RA-291 Query an application', () => {
       await query.waitForDetailUrl(workItemId)
       await expect($('[data-testid="query-form"]')).not.toExist()
       await detail.assertState('Queried')
+    })
+  })
+
+  /**
+   * Regression coverage for the stale-summary bug: ReAccreditationResumeService
+   * used to write a resubmitted section's value only into
+   * payload.latestSections, which nothing — including this page — ever read
+   * back, so the business plan / PRN tonnage / sampling plan rows kept
+   * showing the pre-query value (or "—") after the operator had answered the
+   * query. The first fix merged the resubmitted value onto its canonical
+   * top-level payload field (e.g. payload.businessPlan), but keyed that merge
+   * map by the kebab-case query-section key ("business-plan"). Real traffic
+   * never matches that: the operator backend's HttpCaseWorkingApiAdapter
+   * .BuildSectionsPayload keys `sections` by its own OperatorSection enum
+   * name — "BusinessPlan", "Prns", "SamplingPlan" — so the merge silently
+   * missed every time. The second fix rekeyed the map to match. This spec
+   * sends `sections` with those same PascalCase keys, exactly as the real
+   * operator backend does, across all three affected fields in one
+   * resubmission.
+   */
+  describe('CM summary reflects a resubmission after a query', () => {
+    let workItemId
+
+    before(async () => {
+      await login.login()
+      workItemId = await createSubmittedWorkItem(
+        uniqueOrg('Query Resubmit Ltd'),
+        'SW1A 1QF'
+      )
+    })
+
+    after(async () => {
+      await login.logout()
+    })
+
+    it('shows the resubmitted business plan, PRN tonnage and sampling plan values after resume-from-query', async () => {
+      await query.gotoFor(workItemId)
+      await query.selectSections([
+        'business-plan',
+        'prn-tonnage',
+        'sampling-and-inspection-plan'
+      ])
+      await query.fillReason(
+        'Please provide the missing business plan, PRN tonnage and sampling plan detail.'
+      )
+      await query.submit()
+      await query.waitForDetailUrl(workItemId)
+      await detail.assertState('Queried')
+
+      // Before resubmission the rows exist but are empty (none of these were
+      // collected via the "Create work item" form).
+      await workItems.openWorkItem(workItemId)
+      expect(await detail.applicationDetailRowText('business-plan')).toContain(
+        '—'
+      )
+      expect(await detail.applicationDetailRowText('prn-tonnage')).toContain(
+        '—'
+      )
+      expect(
+        await detail.applicationDetailRowText('sampling-inspection-plan')
+      ).toContain('No documents uploaded.')
+
+      await resumeFromQuery(workItemId, {
+        sectionKeys: [
+          'business-plan',
+          'prn-tonnage',
+          'sampling-and-inspection-plan'
+        ],
+        sections: {
+          BusinessPlan: {
+            newInfrastructureDetail:
+              'RA-291 regression: resubmitted investment plan.',
+            newInfrastructurePercent: 42
+          },
+          Prns: {
+            plannedTonnageBand: 'UpTo1000'
+          },
+          SamplingPlan: {
+            files: [
+              {
+                fileId: 'ra-291-regression-file',
+                filename: 'ra-291-regression-sampling-plan.pdf',
+                scanStatus: 'Clean',
+                uploadedAt: new Date().toISOString()
+              }
+            ]
+          }
+        }
+      })
+
+      await workItems.openWorkItem(workItemId)
+      const businessPlan =
+        await detail.applicationDetailRowText('business-plan')
+      expect(businessPlan).toContain(
+        'RA-291 regression: resubmitted investment plan.'
+      )
+      expect(businessPlan).toContain('42% of PRN income')
+
+      expect(await detail.applicationDetailRowText('prn-tonnage')).toContain(
+        'Up to 1,000 tonnes'
+      )
+
+      expect(await detail.supportingDocumentNames()).toContain(
+        'ra-291-regression-sampling-plan.pdf'
+      )
     })
   })
 })
