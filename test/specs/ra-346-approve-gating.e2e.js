@@ -113,9 +113,7 @@ describe('RA-346/RA-410 A determination can be logged only once', () => {
       // another tab is the realistic version of this request.
       await decision.gotoFor(workItemId)
 
-      await expect(browser).not.toHaveUrl(
-        expect.stringContaining('/decision')
-      )
+      await expect(browser).not.toHaveUrl(expect.stringContaining('/decision'))
       expect(await decision.hasOutcomeRadio('refused')).toBe(false)
     })
 

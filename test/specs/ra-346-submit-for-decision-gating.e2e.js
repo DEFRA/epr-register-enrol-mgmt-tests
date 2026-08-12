@@ -75,9 +75,7 @@ describe('RA-346/RA-410 The decision route is gated on state, not on tasks', () 
       // refuse on its own account.
       await decision.gotoFor(workItemId)
 
-      await expect(browser).not.toHaveUrl(
-        expect.stringContaining('/decision')
-      )
+      await expect(browser).not.toHaveUrl(expect.stringContaining('/decision'))
       expect(await decision.hasOutcomeRadio('approved')).toBe(false)
     })
 
