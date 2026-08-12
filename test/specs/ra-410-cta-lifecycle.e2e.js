@@ -149,8 +149,8 @@ describe('RA-410 The green CTA lifecycle', () => {
     let workItemId
 
     before(async () => {
-      // `SW1A 1AL` is unused elsewhere — see `createReAccreditation`.
-      workItemId = await createReAccreditation('CTA Refused Path', 'SW1A 1AL')
+      // `SW1A 1AW` is unused elsewhere — see `createReAccreditation`.
+      workItemId = await createReAccreditation('CTA Refused Path', 'SW1A 1AW')
       await driveToAssessmentInProgress(workItemId)
     })
 
@@ -251,6 +251,90 @@ describe('RA-410 The green CTA lifecycle', () => {
     })
   })
 
+  describe('the Log decision page rejects an over-long note', () => {
+    // NOT REQUESTED by management-fe — added because the bug it guards was a
+    // silent data-loss regression that already happened once. When the note
+    // was first restored its length check lived in the service, whose failure
+    // path redirects with a generic banner, so an over-run discarded the
+    // caseworker's entire rationale and did not say why.
+    //
+    // Reachable without JavaScript, and reachable WITH it too:
+    // `govukCharacterCount` sets `data-maxlength`, not the HTML `maxlength`
+    // attribute (verified in govuk-frontend's template), so the browser does
+    // not stop the over-run — the counter is progressive enhancement, not a
+    // guard.
+    //
+    // The shape matters as much as the failure: "renders in place, note
+    // survives" rather than "redirects". A spec that only looked for an error
+    // banner somewhere would have passed against the broken version.
+    let workItemId
+    const OVER_LONG_NOTE = 'x'.repeat(2001)
+
+    before(async () => {
+      // `SW1A 1AY` is unused elsewhere — see `createReAccreditation`.
+      workItemId = await createReAccreditation('CTA Long Note', 'SW1A 1AY')
+      await driveToAssessmentInProgress(workItemId)
+      await detail.clickLogDecision()
+      await decision.assertOnPage()
+    })
+
+    it('rejects the note in place rather than redirecting away', async () => {
+      await decision.selectOutcome('approved')
+      await decision.setNote(OVER_LONG_NOTE)
+      await decision.submit()
+
+      await decision.assertErrorSummary(
+        'Decision note must be 2000 characters or fewer'
+      )
+      // Still on the form, not bounced to the detail page with a generic
+      // banner — which is precisely what the regression did.
+      await decision.waitForDecisionUrl(workItemId)
+    })
+
+    it('preserves the note the caseworker typed', async () => {
+      // The whole point. Throwing away 2000 characters of reasoning because
+      // the user over-ran by one is the failure being guarded.
+      expect(await decision.noteText()).toBe(OVER_LONG_NOTE)
+    })
+
+    it('anchors the error at the note field', async () => {
+      expect(await decision.errorSummaryLinkHrefs()).toContain(
+        '#field-decisionNote'
+      )
+    })
+
+    it('leaves the work item in assessment', async () => {
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('assessment-in-progress')
+    })
+
+    it('reports a missing radio AND an over-long note together, in field order', async () => {
+      // Both fields are validated up front, so a user who got both wrong sees
+      // both problems at once rather than fixing one, resubmitting, and being
+      // told about the next. GDS requires summary links in FIELD order, which
+      // is an accessibility requirement rather than a nicety — a screen-reader
+      // user works down the list expecting it to match the form.
+      await detail.clickLogDecision()
+      await decision.setNote(OVER_LONG_NOTE)
+      await decision.submit()
+
+      const hrefs = await decision.errorSummaryLinkHrefs()
+      expect(hrefs).toContain('#decision-approved')
+      expect(hrefs).toContain('#field-decisionNote')
+      expect(hrefs.indexOf('#decision-approved')).toBeLessThan(
+        hrefs.indexOf('#field-decisionNote')
+      )
+    })
+
+    it('still does not echo the decision back, even with the note preserved', async () => {
+      // The contrast that keeps the note-retention fix honest: prose the user
+      // typed is repopulated, a decision never is.
+      expect(await decision.noteText()).toBe(OVER_LONG_NOTE)
+      expect(await decision.isOutcomeSelected('approved')).toBe(false)
+      expect(await decision.isOutcomeSelected('refused')).toBe(false)
+    })
+  })
+
   describe('self-assign from a non-duly-made state does not transition', () => {
     // management-fe renders the assignment panel in EVERY non-closed state,
     // so "Assign to yourself and start" is on screen far more often than the
@@ -263,8 +347,8 @@ describe('RA-410 The green CTA lifecycle', () => {
     let submittedId
 
     before(async () => {
-      // `SW1A 1AN` is unused elsewhere — see `createReAccreditation`.
-      submittedId = await createReAccreditation('CTA Self Assign', 'SW1A 1AN')
+      // `SW1A 1AX` is unused elsewhere — see `createReAccreditation`.
+      submittedId = await createReAccreditation('CTA Self Assign', 'SW1A 1AX')
     })
 
     it('assigns from submitted without changing state', async () => {

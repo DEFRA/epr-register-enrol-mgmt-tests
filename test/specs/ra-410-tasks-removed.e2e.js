@@ -44,7 +44,7 @@ describe('RA-410 Tasks are removed from Case Management', () => {
     // failing against the item it had just created. `elementsLabelledTasks`
     // now excludes operator-supplied link text as well, but a fixture that
     // walks into its own assertion is worth not having either way.
-    workItemId = await createReAccreditation('Checklist Sweep', 'SW1A 1AJ')
+    workItemId = await createReAccreditation('Checklist Sweep', 'SW1A 1AU')
   })
 
   after(async () => {
