@@ -1,5 +1,8 @@
+import { expect } from '@wdio/globals'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
+import dulyMaking from '../page-objects/duly-making.page.js'
+import { ukDateParts } from './uk-time.js'
 
 /**
  * Shared re-accreditation journey steps (RA-346).
@@ -17,10 +20,21 @@ import detail from '../page-objects/work-item-detail.page.js'
  * than repeating string literals.
  */
 
-export const SUBMITTED_TASKS = [
-  'verify-organisation-details',
-  'confirm-application-completeness'
-]
+/**
+ * RA-316 deleted the `submitted`-state tasks
+ * (`verify-organisation-details`, `confirm-application-completeness`) and
+ * the hook that auto-transitioned to `duly-made` when the last of them was
+ * ticked. `submitted` now has an EMPTY task list and the only route into
+ * `duly-made` is the "Duly make" CTA plus a payment date.
+ *
+ * The constant is deliberately gone rather than emptied: an empty array
+ * would let `completeTasks(SUBMITTED_TASKS)` keep compiling and silently do
+ * nothing, leaving items stranded in `submitted` and failing specs several
+ * steps later for a reason with no connection to the cause.
+ *
+ * Tasks still exist for the OTHER states — their removal is RA-410 — so the
+ * task machinery below stays.
+ */
 
 export const DULY_MADE_TASKS = ['confirm-registration-fee-paid']
 
@@ -84,7 +98,32 @@ export const DECISION_TASK = 'record-decision-rationale'
  * The organisation name is still timestamped so a human reading the
  * work-items list can tell runs apart.
  */
-export async function createReAccreditation(namePrefix, postcode) {
+/**
+ * `chargeAmountPence` (RA-316) is optional and passed straight through.
+ *
+ * OMITTING IT LEAVES THE ITEM WITH NO CHARGE AT ALL — there is no prefill
+ * and nothing defaults it, so the duly-making page renders "Not provided".
+ * That is correct for the many callers that never open that page, and it
+ * means a spec which asserts a charge but forgets to supply one FAILS
+ * rather than passing on a borrowed default.
+ *
+ * Supply it when the spec asserts on the rendered charge, and VARY IT
+ * between specs: the duly-making page divides
+ * by 100 to display, and a factor-of-100 slip is only conspicuous when
+ * different items show different figures. If every item rendered the same
+ * amount, a hardcoded value somewhere downstream could match it by accident
+ * and hide the very bug the magnitude assertion exists to catch.
+ *
+ * Keep any value at or above 50000 pence. Below that, an undivided render
+ * still lands under the £50,000 ceiling in
+ * `ra-316-duly-making.e2e.js` and the check silently loses its power —
+ * management-be enforces the same floor on its seeds for this reason.
+ */
+export async function createReAccreditation(
+  namePrefix,
+  postcode,
+  { chargeAmountPence } = {}
+) {
   await workItems.goto()
   const { id } = await workItems.createWorkItem({
     organisationName: `${namePrefix} ${Date.now()}`,
@@ -92,7 +131,8 @@ export async function createReAccreditation(namePrefix, postcode) {
     siteAddressTown: 'London',
     siteAddressPostcode: postcode,
     material: 'plastic',
-    tonnageBand: '0-500'
+    tonnageBand: '0-500',
+    chargeAmountPence
   })
   return id
 }
@@ -106,20 +146,51 @@ async function completeTasks(taskIds) {
 }
 
 /**
+ * Submitted -> Duly made, via the RA-316 CTA and payment-date page.
+ *
+ * THE CANONICAL duly-making step for the whole suite. Every journey that
+ * needs an item past `submitted` should call this rather than re-deriving
+ * the flow, so when the page moves again there is one place to change.
+ *
+ * The payment date defaults to TODAY, which is valid — the rule is "today
+ * or in the past". Callers wanting a back-dated SLA clock pass `dayOffset`
+ * (negative days); the floor is 12 months before today.
+ *
+ * NOTE FOR SLA ASSERTIONS: the 12-week clock now runs from the ENTERED
+ * payment date at midnight UTC, not from the moment of completion. An SLA
+ * expectation computed from the test clock will be wrong by however far the
+ * payment date is back-dated.
+ */
+export async function dulyMake(workItemId, { dayOffset = 0 } = {}) {
+  await workItems.openWorkItem(workItemId)
+  // The precondition is asserted as "the CTA is here", not as a state name,
+  // because duly making has TWO entry points: `submitted`, and `updated`
+  // where the projected tasks came from `submitted` (an application queried
+  // during duly-making and then resubmitted). Pinning a display name would
+  // make this helper unusable from the second one — and "Updated" is
+  // ambiguous anyway, since `assessment-in-progress` shares it.
+  expect(await detail.hasDulyMakeCta()).toBe(true)
+  await detail.clickDulyMake()
+  await dulyMaking.assertOnPage()
+  await dulyMaking.setPaymentDate(ukDateParts(new Date(), dayOffset))
+  await dulyMaking.submit()
+  await dulyMaking.waitForDetailUrl(workItemId)
+  await detail.assertState('Duly made')
+}
+
+/**
  * Submitted -> Duly made -> Assessment in progress.
  *
- * The submitted -> duly-made hop is an auto-transition that fires when the
- * last submitted task completes (there is no button for it); duly-made ->
- * assessment-in-progress needs the explicit `payment-received` action.
+ * `duly-made -> assessment-in-progress` still needs the explicit
+ * `payment-received` action; RA-316 kept that transition untouched and only
+ * changed the route INTO `duly-made`.
  *
  * Leaves the browser on the detail page with every
  * `assessment-in-progress` task still incomplete — which is exactly the
  * state RA-346 issue 1 is about.
  */
 export async function driveToAssessmentInProgress(workItemId) {
-  await workItems.openWorkItem(workItemId)
-  await completeTasks(SUBMITTED_TASKS)
-  await detail.assertState('Duly made')
+  await dulyMake(workItemId)
 
   await completeTasks(DULY_MADE_TASKS)
   await detail.triggerAction('payment-received')

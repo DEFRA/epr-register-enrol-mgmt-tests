@@ -164,19 +164,15 @@ export async function createApplication({ organisationName, postcode }) {
 }
 
 /**
- * Drive a freshly created application to `duly-made` by completing both
- * `submitted` tasks — the transition is automatic (there is no caller-
- * invocable duly-make action), fired by the backend's duly-made hook on the
- * last submitted task.
+ * Drive a freshly created application to `duly-made`.
+ *
+ * RA-316 replaced the task-driven route (tick both `submitted` tasks, let
+ * the backend hook auto-transition) with the explicit "Duly make" CTA and a
+ * payment-date page. Both those tasks and the hook are deleted, so this
+ * delegates to the one canonical implementation rather than keeping a
+ * second copy of the flow in sync.
  */
-export async function driveToDulyMade(workItemId) {
-  await workItems.openWorkItem(workItemId)
-  await detail.gotoTasks()
-  await detail.setTaskStatus('verify-organisation-details', 'Completed')
-  await detail.setTaskStatus('confirm-application-completeness', 'Completed')
-  await detail.gotoDetail()
-  await detail.assertState('Duly made')
-}
+export { dulyMake as driveToDulyMade } from './re-accreditation-journey.js'
 
 /**
  * Drive a `duly-made` application on to `assessment-in-progress`.

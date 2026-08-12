@@ -106,6 +106,33 @@ class WorkItemsPage extends Page {
     await $('#field-siteAddress-postcode').setValue(opts.siteAddressPostcode)
     await $('#field-material').selectByAttribute('value', opts.material)
     await $('#field-tonnageBand').selectByAttribute('value', opts.tonnageBand)
+    // RA-316. The charge is an optional passthrough field taking an INTEGER
+    // NUMBER OF PENCE — no fee arithmetic happens anywhere in the stack, so
+    // whatever a caller supplies is exactly what the duly-making page later
+    // renders (divided by 100).
+    //
+    // THERE IS NO PREFILL. The field is empty by default and nothing
+    // defaults it anywhere in the stack, so an item created without this
+    // renders "Not provided" as its charge. That is deliberate: a demo item
+    // has no charge to populate FROM, and inventing one would put a
+    // plausible fabricated figure on the screen where a regulator confirms
+    // payment. Any spec asserting a charge must therefore supply one — and
+    // if it forgets, the charge assertion fails rather than passing on a
+    // borrowed default, which is the right way round.
+    //
+    // Left untouched when the caller says nothing, so the many existing
+    // callers that never mention a charge are unaffected — same contract as
+    // `operatorEmail` above.
+    //
+    // A real visible input rather than schema-only passthrough, deliberately:
+    // the create schema validates with `stripUnknown: true`, so a value with
+    // no matching form control would be dropped silently, with no error and
+    // no way for this form-driving page object to reach it.
+    if (opts.chargeAmountPence !== undefined) {
+      await $('#field-chargeAmountPence').setValue(
+        String(opts.chargeAmountPence)
+      )
+    }
     await $('[data-testid="create-work-item-submit"]').click()
     const banner = await $('[data-testid="work-item-success-banner"]')
     await expect(banner).toBeDisplayed()

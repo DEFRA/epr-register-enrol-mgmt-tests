@@ -1,7 +1,7 @@
 import { $, browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
-import detail from '../page-objects/work-item-detail.page.js'
+import { dulyMake } from '../support/re-accreditation-journey.js'
 
 /**
  * RA-324 phase-2 — Applications filter/sort overhaul.
@@ -33,15 +33,15 @@ const createItem = (organisationName, postcode, material) =>
     })
   )
 
-/** Submitted → Duly made (starts the SLA clock, so the card gets a Due on). */
-async function driveToDulyMade(id) {
-  await workItems.openWorkItem(id)
-  await detail.gotoTasks()
-  await detail.setTaskStatus('verify-organisation-details', 'Completed')
-  await detail.setTaskStatus('confirm-application-completeness', 'Completed')
-  await detail.gotoDetail()
-  await detail.assertState('Duly made')
-}
+/**
+ * Submitted → Duly made (starts the SLA clock, so the card gets a Due on).
+ *
+ * RA-316 replaced the task-driven route with the "Duly make" CTA and a
+ * payment-date page; this now delegates to the shared implementation. The
+ * clock runs from the ENTERED payment date, and `dulyMake` defaults that to
+ * today, so a Due on still appears here as before.
+ */
+const driveToDulyMade = (id) => dulyMake(id)
 
 describe('RA-324 phase-2 Applications filters and sort', () => {
   // Two items under a shared token so facet/sort assertions can be bounded to

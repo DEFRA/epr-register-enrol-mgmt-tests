@@ -44,10 +44,6 @@ const UPDATED_TAG = 'govuk-tag--turquoise'
 const ASSESSMENT_TAG = 'govuk-tag--blue'
 const DULY_MADE_TAG = 'govuk-tag--purple'
 
-const SUBMITTED_TASKS = [
-  'verify-organisation-details',
-  'confirm-application-completeness'
-]
 const DULY_MADE_TASKS = ['confirm-registration-fee-paid']
 const ASSESSMENT_TASKS = [
   'review-compliance-history',
@@ -130,11 +126,10 @@ describe('RA-372 Tasks after a query response', () => {
       await workItems.openWorkItem(workItemId)
       await detail.gotoTasks()
 
-      for (const task of [
-        ...SUBMITTED_TASKS,
-        ...DULY_MADE_TASKS,
-        ...AWAITING_DECISION_TASKS
-      ]) {
+      // `SUBMITTED_TASKS` is gone from this list because those two tasks no
+      // longer exist anywhere (RA-316) — a leak check against ids that
+      // cannot be projected by any state would assert nothing.
+      for (const task of [...DULY_MADE_TASKS, ...AWAITING_DECISION_TASKS]) {
         expect(await detail.hasTask(task)).toBe(false)
       }
     })
@@ -342,30 +337,35 @@ describe('RA-372 Tasks after a query response', () => {
       await login.logout()
     })
 
-    it('AC01: offers the duly-making task list while updated', async () => {
+    it('AC01: offers the Duly make CTA while updated, and no task list', async () => {
       await workItems.openWorkItem(workItemId)
       await detail.assertStateTagClass(UPDATED_TAG)
-      await detail.gotoTasks()
+      // The raw id, not the tag or the label: `assessment-in-progress` also
+      // displays "Updated", so only `data-state-id` proves which of the two
+      // this is.
+      await detail.assertStateId('updated')
 
-      expect(await detail.hasNoTasksMessage()).toBe(false)
-      expect(sorted(await detail.taskIds())).toEqual(sorted(SUBMITTED_TASKS))
+      // RA-316 deleted the `submitted` tasks this block used to complete,
+      // and suppresses the tasks panel wherever duly making is the next
+      // action — which includes here, because this item carries
+      // `submitted`'s (now empty) checklist. The CTA replaces the list.
+      expect(await detail.hasTasksPanel()).toBe(false)
+      expect(await detail.hasDulyMakeCta()).toBe(true)
     })
 
-    it('AC03: completes the last duly-making task without showing an error', async () => {
+    it('AC03: completes duly making without showing an error', async () => {
       // The failure-mode assertion, and the property that actually broke.
-      // Whatever the application does next, a caseworker who completes this
-      // task must not be left looking at a problem — so this asserts the
+      // Whatever the application does next, a caseworker who completes duly
+      // making must not be left looking at a problem — so this asserts the
       // shape of the outcome, not any wording: the redirect lands, and no
       // error summary renders. The copy belongs to management-fe and
       // `epr-ewv8` is filed to change it; pinning it here would cement
       // wording another repo intends to move.
-      await workItems.openWorkItem(workItemId)
-      await detail.gotoTasks()
-      await detail.setTaskStatus('verify-organisation-details', 'Completed')
-      await detail.setTaskStatus(
-        'confirm-application-completeness',
-        'Completed'
-      )
+      //
+      // The MECHANISM changed with RA-316 — CTA and payment date, not the
+      // last task — but the property under test did not: discharging this
+      // waypoint must not strand the application.
+      await driveToDulyMade(workItemId)
 
       expect(await detail.hasErrorSummary()).toBe(false)
     })

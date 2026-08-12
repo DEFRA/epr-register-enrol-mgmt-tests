@@ -1698,6 +1698,96 @@ class WorkItemDetailPage extends Page {
     return $('[data-testid="re-accreditation-approve-cta"]')
   }
 
+  /**
+   * RA-316. The "Duly make" CTA, rendered in the actions panel while the
+   * item is in `submitted` and ABSENT FROM THE DOM in every other state
+   * (management-fe removes it rather than hiding it, so presence — not
+   * visibility — is the assertion that means anything here).
+   *
+   * `duly-make` is registered `CallerInvocable: false` in management-be, so
+   * it never appears in `availableActions` and the generic
+   * `/work-items/{id}/actions/duly-make` route cannot drive it — same shape
+   * as `approve`. That is why this is a bespoke CTA accessor and not a
+   * `triggerAction('duly-make')` call.
+   */
+  dulyMakeCta() {
+    return $('[data-testid="duly-make-cta"]')
+  }
+
+  async hasDulyMakeCta() {
+    return this.dulyMakeCta().isExisting()
+  }
+
+  async clickDulyMake() {
+    await this.dulyMakeCta().click()
+  }
+
+  /**
+   * RA-316. The tasks panel is REMOVED ENTIRELY for the `submitted` state,
+   * not rendered as an empty state.
+   *
+   * With both submitted tasks deleted, an empty panel would render "No tasks
+   * are required..." plus a link to a tasks page with nothing on it — a dead
+   * end sitting right beside the Duly make CTA that is the real next step.
+   * So `tasks-panel`, `work-item-no-tasks`, `work-item-task-progress` and
+   * `work-item-tasks-link` are all absent in `submitted`.
+   *
+   * THE RULE IS NOT "the submitted state". The panel is suppressed wherever
+   * DULY MAKING IS THE NEXT ACTION — i.e. exactly where the CTA appears:
+   *
+   *   stateId 'submitted'                            -> suppressed
+   *   stateId 'updated' AND taskStateId 'submitted'  -> suppressed
+   *   everything else                                -> unchanged
+   *
+   * The second case matters: an application queried DURING duly-making and
+   * then resubmitted carries the originating state's checklist, which is
+   * `submitted`'s and therefore empty. Gating on the state literal would
+   * have left the dead-end panel showing on precisely that path.
+   *
+   * `duly-made`, `assessment-in-progress`, `awaiting-decision`, and
+   * `updated` reached from assessment or decision all keep their panels
+   * exactly as today. Removing tasks more broadly is RA-410.
+   */
+  /**
+   * RA-316. The RAW state id, from `data-state-id` on the re-accreditation
+   * detail root.
+   *
+   * This exists because the visible status CANNOT distinguish
+   * `assessment-in-progress` from `updated` — RA-324 gives both the display
+   * name "Updated". Before this hook the raw id reached no part of the DOM,
+   * so `assertState('Updated')` would happily pass against the wrong one of
+   * the two. Assert on this wherever the distinction matters; it is a
+   * contract with management-fe, not an incidental attribute.
+   */
+  async stateId() {
+    return $('[data-testid="re-accreditation-detail"]').getAttribute(
+      'data-state-id'
+    )
+  }
+
+  async assertStateId(expected) {
+    await expect($('[data-testid="re-accreditation-detail"]')).toHaveAttribute(
+      'data-state-id',
+      expected
+    )
+  }
+
+  tasksPanel() {
+    return $('[data-testid="tasks-panel"]')
+  }
+
+  async hasTasksPanel() {
+    return this.tasksPanel().isExisting()
+  }
+
+  async hasTasksLink() {
+    return $('[data-testid="work-item-tasks-link"]').isExisting()
+  }
+
+  async hasTaskProgress() {
+    return $('[data-testid="work-item-task-progress"]').isExisting()
+  }
+
   async hasApproveCta() {
     return this.approveCta().isExisting()
   }

@@ -6,6 +6,7 @@ import detail, {
 } from '../page-objects/work-item-detail.page.js'
 import slaOverride from '../page-objects/sla-override.page.js'
 import { formatUkDateGds } from '../support/uk-time.js'
+import { dulyMake } from '../support/re-accreditation-journey.js'
 
 /**
  * RA-295 (AC01) — the case header on an individual work item page, plus the
@@ -223,13 +224,14 @@ describe('RA-295 case header on the work item detail page', () => {
 
       // Submitted -> Duly made -> Assessment in progress; payment-received is
       // the transition that stamps the SLA clock (see RA-131).
-      await workItems.openWorkItem(workItemId)
+      //
+      // RA-316 replaced the submitted tasks and the auto-transition hook with
+      // the "Duly make" CTA and a payment date. The fee task is now set in a
+      // SEPARATE visit to the tasks page: it only appears once the item is in
+      // duly-made, so it can no longer be ticked in the same pass as the
+      // submitted ones.
+      await dulyMake(workItemId)
       await detail.gotoTasks()
-      await detail.setTaskStatus('verify-organisation-details', 'Completed')
-      await detail.setTaskStatus(
-        'confirm-application-completeness',
-        'Completed'
-      )
       await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
       await detail.gotoDetail()
       await detail.triggerAction('payment-received')
