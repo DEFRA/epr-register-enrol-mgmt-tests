@@ -1,3 +1,4 @@
+import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
@@ -6,6 +7,14 @@ import {
   logDecision,
   startAssessment
 } from '../support/re-accreditation-journey.js'
+
+/**
+ * The decision rationale. Distinctive prose rather than "test note": it is
+ * asserted as a substring of an audit entry, so a generic phrase risks
+ * matching boilerplate elsewhere on the page and passing vacuously.
+ */
+const DECISION_NOTE =
+  'Application meets all re-accreditation criteria; capacity evidence verified.'
 
 /**
  * RA-203 — Approving a re-accreditation sends the operator the decision
@@ -28,7 +37,7 @@ import {
 describe('RA-203 Approval sends operator decision notification', () => {
   let workItemId
 
-  it('drives a re-accreditation to awaiting-decision', async () => {
+  it('drives a re-accreditation to assessment-in-progress', async () => {
     await login.login()
     await workItems.goto()
     workItemId = (
@@ -68,19 +77,10 @@ describe('RA-203 Approval sends operator decision notification', () => {
     await workItems.openWorkItem(workItemId)
     await detail.assertStateId('assessment-in-progress')
 
-    // RA-410 removed the approve interstitial that carried the optional
-    // decision-note textarea (`approval-decision-note` / `approval-submit`).
-    // The determination is now the Log decision page, which management-fe's
-    // contract describes as radios and a submit button only.
-    //
-    // COVERAGE NOTE: this case therefore no longer exercises the
-    // `decision_notes` placeholder — it proves the decision notification
-    // fires and is audited, which is the AC01 half of RA-203, but not that a
-    // caseworker's note reaches the email. Raised with management-fe; if a
-    // note field lands on the Log decision page, add it here rather than
-    // leaving the placeholder covered only at unit level. Tracked as
-    // follow-up work.
-    await logDecision(workItemId, 'approved')
+    // RA-410 moved the decision note from the approve interstitial onto the
+    // Log decision page. The field is what feeds `decision_notes`, so a
+    // decision WITHOUT one is not the case this spec is about.
+    await logDecision(workItemId, 'approved', { note: DECISION_NOTE })
     await detail.assertState('Granted')
 
     // The notification hook fired and the send succeeded, so the audit
@@ -89,6 +89,52 @@ describe('RA-203 Approval sends operator decision notification', () => {
     await detail.gotoAudit()
     await detail.expandAllAuditEntryDetails()
     await detail.assertAuditEntry('Decision recorded: approved email sent')
+
+    // The note reached the work item as a note in its own right. This is the
+    // link in the chain the e2e can actually see: management-be builds
+    // `decision_notes` from the work item's LATEST note, so "the note was
+    // recorded before the decision" is the observable precondition for the
+    // email carrying it. The personalisation value itself is not surfaced in
+    // the audit log, so that last hop stays management-be's unit-level
+    // concern (NotifyTemplateContractTests) — asserted here as far as the UI
+    // honestly reaches, and no further.
+    await detail.assertAuditEntry('Note added')
+    await detail.assertAuditEntry(DECISION_NOTE)
+
+    await login.logout()
+  })
+
+  it('records the note BEFORE the decision, not after', async () => {
+    // ORDERING IS THE WHOLE MECHANISM, not an implementation detail. The
+    // notification hook fires DURING the decision write and reads whatever is
+    // then the latest note. A note posted after the decision would leave the
+    // email carrying the previous note or a blank rationale — and because
+    // management-be falls back to an empty string rather than failing, that
+    // regression sends silently: no error, no failed notification, nothing in
+    // the audit log to notice. Exactly how `decision_notes` came to be dead
+    // before RA-410 restored the field.
+    //
+    // So the ONLY thing standing between a correct email and a silently blank
+    // one is the order of two writes, which makes it worth an explicit
+    // assertion rather than trusting the happy path above.
+    await login.login()
+    await workItems.openWorkItem(workItemId)
+    await detail.gotoAudit()
+
+    const noteIndex = await detail.auditEntryIndex('Note added')
+    const decisionIndex = await detail.auditEntryIndex(
+      'Decision recorded: approved email sent'
+    )
+
+    expect(noteIndex).toBeGreaterThanOrEqual(0)
+    expect(decisionIndex).toBeGreaterThanOrEqual(0)
+    // The audit log arrives from the backend already sorted OLDEST-FIRST and
+    // is rendered as a top-to-bottom timeline (see `decorateAuditLog` in
+    // management-fe), so "written first" means a LOWER index. Checked against
+    // that source rather than assumed — the first draft of this assertion had
+    // it backwards on a guess that the log was newest-first, which would have
+    // failed in CI looking like a product bug rather than a test bug.
+    expect(noteIndex).toBeLessThan(decisionIndex)
 
     await login.logout()
   })

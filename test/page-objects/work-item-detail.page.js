@@ -517,6 +517,33 @@ class WorkItemDetailPage extends Page {
     return (await this.tab(name).getAttribute('aria-current')) === 'page'
   }
 
+  /**
+   * The DOM position of the first audit entry containing `text`, or -1.
+   *
+   * Exists so a spec can assert the ORDER of two audit entries, not merely
+   * that both exist. That matters wherever ordering is the mechanism rather
+   * than a detail — RA-203's decision note has to be written BEFORE the
+   * decision, because the notification hook reads the latest note during the
+   * decision write and a note posted afterwards silently yields a blank
+   * rationale.
+   *
+   * Entries arrive from the backend sorted OLDEST-FIRST and render as a
+   * top-to-bottom timeline (`decorateAuditLog` in management-fe), so a lower
+   * index means written earlier. Callers must not assume the opposite.
+   *
+   * Returns an index rather than asserting, so the caller states the
+   * relationship it wants and gets a failure message naming both positions.
+   */
+  async auditEntryIndex(text) {
+    const entries = await $$('[data-testid="work-item-audit-log"] li')
+    for (let i = 0; i < entries.length; i++) {
+      if ((await entries[i].getText()).includes(text)) {
+        return i
+      }
+    }
+    return -1
+  }
+
   async assertAuditEntry(action) {
     await expect(
       $(`//*[@data-testid="work-item-audit-log"]//*[contains(.,"${action}")]`)

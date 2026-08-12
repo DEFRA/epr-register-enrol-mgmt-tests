@@ -31,7 +31,7 @@ describe('RA-249 — application reference survives approval', () => {
   let createdId
   let applicationReference
 
-  it('creates a re-accreditation and drives it to awaiting-decision', async () => {
+  it('creates a re-accreditation and drives it to assessment-in-progress', async () => {
     await login.login()
     await workItems.goto()
     ;({ id: createdId, applicationReference } = await workItems.createWorkItem({

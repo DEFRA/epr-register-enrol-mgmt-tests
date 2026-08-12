@@ -34,6 +34,9 @@ import {
  * change that "tidied" one to match the other would break a contract in one
  * direction or a regulator's screen in the other.
  */
+/** Prose distinctive enough that a substring assertion cannot pass by accident. */
+const RETAINED_NOTE = 'Capacity evidence checked against the 2024 return.'
+
 describe('RA-410 The green CTA lifecycle', () => {
   before(async () => {
     await login.login()
@@ -197,6 +200,30 @@ describe('RA-410 The green CTA lifecycle', () => {
 
     it('renders an inline error against the radio group', async () => {
       expect(await decision.hasInlineError()).toBe(true)
+    })
+
+    it('keeps a typed decision note across the validation error', async () => {
+      // Losing a caseworker's typed rationale because they missed a radio is
+      // the kind of small cruelty that makes people avoid the note field
+      // altogether — and a blank note is exactly the failure RA-203 exists to
+      // prevent, since management-be falls back to an empty `decision_notes`
+      // rather than complaining.
+      await decision.setNote(RETAINED_NOTE)
+      await decision.submit()
+      await decision.assertErrorSummary()
+
+      expect(await decision.noteText()).toBe(RETAINED_NOTE)
+    })
+
+    it('does not echo a decision back after the validation error', async () => {
+      // Deliberately the OPPOSITE expectation to the note above, and the
+      // contrast is the point. Prose the user typed should survive a
+      // re-render; a *decision* must never be reflected back, or a forged or
+      // stale value could arrive pre-selected and be confirmed with one
+      // unthinking click. Repopulating the whole form uniformly would pass the
+      // note assertion and quietly fail this one.
+      expect(await decision.isOutcomeSelected('approved')).toBe(false)
+      expect(await decision.isOutcomeSelected('refused')).toBe(false)
     })
 
     it('stays on the Log decision page', async () => {

@@ -28,7 +28,7 @@ import {
 describe('RA-133 approval generates accreditation id, start date and year', () => {
   let workItemId
 
-  it('creates a re-accreditation and drives it to awaiting-decision', async () => {
+  it('creates a re-accreditation and drives it to assessment-in-progress', async () => {
     await login.login()
     await workItems.goto()
     workItemId = (

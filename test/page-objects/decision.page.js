@@ -118,6 +118,61 @@ class DecisionPage extends Page {
     return $(`label[for="${testIds[outcome]}"]`).getText()
   }
 
+  // ── RA-203 / RA-410: the decision note ───────────────────────────────────── //
+
+  /**
+   * The optional decision-note textarea (a `govukCharacterCount`, 2000 chars).
+   *
+   * THIS IS NOT COSMETIC AND MUST NOT BE DROPPED AGAIN. management-be's
+   * notification hook builds the Decision email's `decision_notes`
+   * personalisation from the work item's LATEST note, falling back to an empty
+   * string when there is none. That fallback means a missing note never errors
+   * — Notify only rejects an ABSENT key, never a blank one — so the email
+   * simply sends with a blank rationale and nothing anywhere reports it.
+   *
+   * RA-410 briefly removed this field with the approve interstitial, and
+   * because the withdraw note is the only other note source in the service
+   * (and a withdrawn item never reaches a Decision email), that left no path
+   * at all that put a note on a work item before a decision. `decision_notes`
+   * was silently dead. This page object is the e2e guard against a repeat.
+   *
+   * ORDERING IS LOAD-BEARING: management-fe posts the note to the notes
+   * endpoint BEFORE `/decision`, because the notification hook fires during
+   * the decision write and reads the latest note. Posted after, the email
+   * would carry the previous note or none — which is why the spec asserts the
+   * audit ordering rather than merely that both entries exist.
+   */
+  noteField() {
+    return $('[data-testid="log-decision-note"]')
+  }
+
+  async hasNoteField() {
+    return this.noteField().isExisting()
+  }
+
+  /**
+   * Value operations go through the `id`, not the testid.
+   *
+   * `govukCharacterCount` wraps its textarea in a div that carries the
+   * component's own markup, so depending on where the testid is stamped
+   * `getValue()` on it may resolve to the wrapper and return an empty string —
+   * a silent false pass for the "note survives validation" assertion, which is
+   * precisely the case that needs to be trustworthy. The id is the textarea
+   * itself and is also what the error-summary links target, so it is the
+   * stabler handle. Same reasoning as the duly-making date inputs.
+   */
+  noteInput() {
+    return $('#field-decisionNote')
+  }
+
+  async setNote(text) {
+    await this.noteInput().setValue(text)
+  }
+
+  async noteText() {
+    return this.noteInput().getValue()
+  }
+
   async submit() {
     await $('[data-testid="log-decision-submit"]').click()
   }

@@ -185,7 +185,7 @@ export async function startAssessmentViaAction(workItemId) {
  * the single call, so there is no intermediate page and nothing to assert
  * between them.
  */
-export async function logDecision(workItemId, outcome) {
+export async function logDecision(workItemId, outcome, { note } = {}) {
   const terminalStateId = { approved: 'approved', refused: 'rejected' }[outcome]
   if (!terminalStateId) {
     throw new Error(
@@ -197,6 +197,14 @@ export async function logDecision(workItemId, outcome) {
   await detail.clickLogDecision()
   await decision.assertOnPage()
   await decision.selectOutcome(outcome)
+  // The note is OPTIONAL and most callers omit it — they only want the item
+  // parked in a terminal state. RA-203 is the spec that cares, and it passes
+  // one so the Decision email's `decision_notes` personalisation has something
+  // to carry. See the ordering note on `decision.page.js`: management-fe posts
+  // the note before the decision precisely so the notification hook reads it.
+  if (note !== undefined) {
+    await decision.setNote(note)
+  }
   await decision.submit()
   await decision.waitForDetailUrl(workItemId)
   await detail.assertStateId(terminalStateId)
