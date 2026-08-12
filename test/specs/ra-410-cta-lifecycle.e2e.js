@@ -90,7 +90,7 @@ describe('RA-410 The green CTA lifecycle', () => {
       await detail.assertState('Updated')
       // The button both assigns AND transitions; a version that only
       // transitioned would pass the state assertions and still be wrong.
-      await detail.assertAssignedTo('Stub Caseworker')
+      await detail.assertAssignedTo('Stub Caseworker One')
     })
 
     it('step 3: Log decision offers both outcomes', async () => {
@@ -250,7 +250,7 @@ describe('RA-410 The green CTA lifecycle', () => {
       // bug as a timeout rather than reporting it as a wrong state.
       await detail.selfAssign()
 
-      await detail.assertAssignedTo('Stub Caseworker')
+      await detail.assertAssignedTo('Stub Caseworker One')
       await detail.assertStateId('submitted')
       // The Duly make CTA is still the next step, which is the user-visible
       // consequence of the state not having moved.
@@ -274,7 +274,7 @@ describe('RA-410 The green CTA lifecycle', () => {
       await detail.selfAssign()
       // ...and still in assessment after being taken again, rather than
       // having been advanced to a determination.
-      await detail.assertAssignedTo('Stub Caseworker')
+      await detail.assertAssignedTo('Stub Caseworker One')
       await detail.assertStateId('assessment-in-progress')
       expect(await detail.hasLogDecisionCta()).toBe(true)
     })
