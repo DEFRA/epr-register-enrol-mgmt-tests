@@ -1860,9 +1860,25 @@ class WorkItemDetailPage extends Page {
         (await this.stateId()) === 'assessment-in-progress',
       {
         timeout: 10000,
+        // Spelled out because this timeout has three quite different causes
+        // and the browser state at the moment it fires tells them apart:
+        //
+        //  - Detail page, 200, still `duly-made`, error banner naming the
+        //    assignment and the transition -> the transition FAILED. The
+        //    handler awaits `applyAction` before redirecting, so a failure
+        //    renders in place rather than redirecting; this is not lag.
+        //  - Redirected to the detail page, assigned, but the state id trails
+        //    -> read-your-own-write in management-be: the transition
+        //    committed and the immediately-following GET did not observe it.
+        //  - Never assigned at all -> the self-assign button was not rendered
+        //    or not clickable, usually because the item was already assigned.
         timeoutMsg:
           'Expected the work item to become assigned AND move to ' +
-          'assessment-in-progress after "Assign to yourself and start"'
+          'assessment-in-progress after "Assign to yourself and start". ' +
+          'If the page shows `duly-made` with an error banner the transition ' +
+          'failed (management-fe renders in place on failure, so this is not ' +
+          'a race); if it redirected and is assigned but the state trails, ' +
+          'suspect backend read-your-own-write.'
       }
     )
   }

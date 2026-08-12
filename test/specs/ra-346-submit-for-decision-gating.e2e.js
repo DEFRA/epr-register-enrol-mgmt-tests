@@ -114,6 +114,20 @@ describe('RA-346/RA-410 The decision route is gated on state, not on tasks', () 
       // an undeclared action as a 400 (unknown action) or a 409 (not
       // invocable from here) and both are correct refusals. What this suite is
       // entitled to assert is that it did not succeed.
+      //
+      // IF THIS FAILS, THE FIX BELONGS IN management-be, NOT management-fe.
+      // management-fe's declaration filter governs RENDERING only; the generic
+      // `POST /work-items/{id}/actions/{actionId}` route forwards straight
+      // through without consulting `canApplyAction`, deliberately and by the
+      // framework rule documented in its `core/engine.js`: the backend is
+      // authoritative for state changes and the frontend must not
+      // re-implement authorisation. So this request reaches management-be and
+      // ITS guard is the only thing that can refuse it.
+      //
+      // A 200 here therefore means a missing backend guard. "Fixing" it by
+      // adding a check to management-fe would make the spec green while
+      // putting an authorisation decision in the wrong tier — and would leave
+      // the route just as open to any other caller.
       const { status } = await detail.postFromPage(
         `/work-items/${workItemId}/actions/submit-for-decision`
       )
