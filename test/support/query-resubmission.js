@@ -67,6 +67,15 @@ const OPERATOR_HEADERS = {
  * Callers that need to prove specific resubmitted values surface on the case
  * management summary (RA-291 regression) pass `sections` explicitly; every
  * other caller relies on the `{}` default.
+ *
+ * `sections`, if supplied, must be keyed by the operator backend's
+ * `OperatorSection` enum name — `BusinessPlan` / `Prns` / `SamplingPlan` —
+ * NOT by the kebab-case `sectionKeys` values. That is what
+ * `HttpCaseWorkingApiAdapter.BuildSectionsPayload` actually sends in real
+ * traffic, and `ReAccreditationResumeService`'s canonical-field merge looks
+ * the key up verbatim (`Dictionary<string, JsonElement>`, ordinal-cased) — a
+ * kebab-case key here silently fails to merge, exactly the bug this
+ * fixture's callers exist to catch.
  */
 function resubmissionBody(sectionKeys, sections) {
   return {
