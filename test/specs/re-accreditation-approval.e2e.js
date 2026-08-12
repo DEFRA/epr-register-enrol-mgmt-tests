@@ -2,7 +2,11 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import { dulyMake } from '../support/re-accreditation-journey.js'
+import {
+  dulyMake,
+  logDecision,
+  startAssessment
+} from '../support/re-accreditation-journey.js'
 
 /**
  * RA-133 — Approving a re-accreditation surfaces a generated
@@ -47,19 +51,10 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await dulyMake(workItemId)
 
     // Duly made -> Assessment in progress
-    await detail.gotoTasks()
-    await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('payment-received')
+    await startAssessment(workItemId)
     await detail.assertState('Updated')
 
     // Assessment in progress -> Awaiting decision
-    await detail.gotoTasks()
-    await detail.setTaskStatus('review-compliance-history', 'Completed')
-    await detail.setTaskStatus('assess-technical-capacity', 'Completed')
-    await detail.setTaskStatus('assess-financial-capacity', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('submit-for-decision')
     await detail.assertState('Awaiting decision')
 
     await login.logout()
@@ -71,11 +66,7 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await detail.assertState('Awaiting decision')
 
     // Complete the awaiting-decision task before approving.
-    await detail.gotoTasks()
-    await detail.setTaskStatus('record-decision-rationale', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('approve')
-    await detail.submitApproval()
+    await logDecision(workItemId, 'approved')
 
     await detail.assertState('Granted')
     await detail.assertApprovalPanelVisible()

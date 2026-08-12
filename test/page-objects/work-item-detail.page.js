@@ -264,26 +264,6 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * Navigate from the work item detail page to the tasks sub-page.
-   * Task status controls live at /work-items/{id}/tasks, not on the
-   * detail page itself.
-   */
-  async gotoTasks() {
-    await $('[data-testid="work-item-tasks-link"]').click()
-    // RA-372: wait for the navigation to land. Callers that go straight into
-    // an auto-waiting matcher never noticed the gap, but a caller that reads
-    // the DOM once — counting the rendered tasks, say — would otherwise race
-    // the click and read the detail page it just left.
-    await browser.waitUntil(
-      async () => /\/work-items\/[^/]+\/tasks$/.test(await browser.getUrl()),
-      {
-        timeout: 10000,
-        timeoutMsg: 'Expected to land on the tasks page'
-      }
-    )
-  }
-
-  /**
    * Navigate from the tasks sub-page back to the work item detail page.
    * Extracts the work item id from the current URL.
    */
@@ -291,91 +271,6 @@ class WorkItemDetailPage extends Page {
     const url = await browser.getUrl()
     const match = url.match(/\/work-items\/([^/]+)/)
     await this.open(`/work-items/${match[1]}`)
-  }
-
-  async setTaskStatus(task, status) {
-    await $(`[data-testid="task-status-select-${task}"]`).selectByAttribute(
-      'value',
-      status
-    )
-    await $(`[data-testid="set-task-status-${task}"]`).click()
-    // Wait for the PRG redirect to land back on the tasks page.  When the
-    // full suite runs concurrently the default page-load wait can return
-    // before the redirect has fully settled, so we poll the URL explicitly.
-    await browser.waitUntil(
-      async () => /\/work-items\/[^/]+\/tasks$/.test(await browser.getUrl()),
-      {
-        timeout: 10000,
-        timeoutMsg: `Expected tasks page URL after setting "${task}" to "${status}"`
-      }
-    )
-  }
-
-  async assertTaskStatus(task, expectedText) {
-    await expect($(`[data-testid="task-status-tag-${task}"]`)).toHaveText(
-      expect.stringContaining(expectedText)
-    )
-  }
-
-  /**
-   * RA-372. Complete a task via its "Mark complete" button rather than the
-   * status select.
-   *
-   * Both routes end at the same place, but this one is the affordance a
-   * caseworker actually reaches for, and it is the route that has to keep
-   * working while the application sits in `updated` — the whole point of the
-   * bug. Waits for the PRG redirect for the same reason setTaskStatus does.
-   */
-  async completeTask(task) {
-    await $(`[data-testid="complete-task-${task}"]`).click()
-    await browser.waitUntil(
-      async () => /\/work-items\/[^/]+\/tasks$/.test(await browser.getUrl()),
-      {
-        timeout: 10000,
-        timeoutMsg: `Expected tasks page URL after completing "${task}"`
-      }
-    )
-  }
-
-  /**
-   * RA-372. Whether a given task is rendered on the tasks page at all.
-   *
-   * The tasks page groups by status, so a task can move between headings
-   * between visits; `work-item-task-<taskId>` is on the list item itself and
-   * is therefore stable across those moves.
-   */
-  async hasTask(task) {
-    return $(`[data-testid="work-item-task-${task}"]`).isExisting()
-  }
-
-  /**
-   * RA-372. Every task id currently rendered on the tasks page, in DOM order.
-   *
-   * Returned rather than asserted so a spec can prove BOTH halves of "the
-   * tasks of the state the query was raised from": the expected ids are
-   * present AND no other state's ids have leaked in. Asserting presence alone
-   * would pass against a page that rendered the union of every state's tasks.
-   */
-  async taskIds() {
-    // Scoped to `li` on purpose: the DETAIL page carries
-    // `work-item-task-progress`, which a bare prefix match would happily
-    // report as a task called "progress".
-    const items = await $$('li[data-testid^="work-item-task-"]')
-    const ids = []
-    for (const item of items) {
-      const testId = await item.getAttribute('data-testid')
-      ids.push(testId.replace('work-item-task-', ''))
-    }
-    return ids
-  }
-
-  /**
-   * RA-372. The "No tasks are required for this work item in its current
-   * state." message. This is exactly what the bug rendered for an `updated`
-   * application, so its ABSENCE is the primary regression assertion.
-   */
-  async hasNoTasksMessage() {
-    return $('[data-testid="work-item-no-tasks"]').isExisting()
   }
 
   /**
@@ -643,17 +538,6 @@ class WorkItemDetailPage extends Page {
    */
   async flashBannerText() {
     return $('[data-testid="work-item-flash-banner"]').getText()
-  }
-
-  /**
-   * RA-372. The detail page's read-only "N of M tasks complete." line.
-   *
-   * The detail page and the tasks page render the empty case with the SAME
-   * `work-item-no-tasks` testid, so this is the positive counterpart on the
-   * detail side — it exists only when the work item has tasks at all.
-   */
-  async taskProgressText() {
-    return $('[data-testid="work-item-task-progress"]').getText()
   }
 
   /**
@@ -1723,32 +1607,6 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * RA-316. The tasks panel is REMOVED ENTIRELY for the `submitted` state,
-   * not rendered as an empty state.
-   *
-   * With both submitted tasks deleted, an empty panel would render "No tasks
-   * are required..." plus a link to a tasks page with nothing on it — a dead
-   * end sitting right beside the Duly make CTA that is the real next step.
-   * So `tasks-panel`, `work-item-no-tasks`, `work-item-task-progress` and
-   * `work-item-tasks-link` are all absent in `submitted`.
-   *
-   * THE RULE IS NOT "the submitted state". The panel is suppressed wherever
-   * DULY MAKING IS THE NEXT ACTION — i.e. exactly where the CTA appears:
-   *
-   *   stateId 'submitted'                            -> suppressed
-   *   stateId 'updated' AND taskStateId 'submitted'  -> suppressed
-   *   everything else                                -> unchanged
-   *
-   * The second case matters: an application queried DURING duly-making and
-   * then resubmitted carries the originating state's checklist, which is
-   * `submitted`'s and therefore empty. Gating on the state literal would
-   * have left the dead-end panel showing on precisely that path.
-   *
-   * `duly-made`, `assessment-in-progress`, `awaiting-decision`, and
-   * `updated` reached from assessment or decision all keep their panels
-   * exactly as today. Removing tasks more broadly is RA-410.
-   */
-  /**
    * RA-316. The RAW state id, from `data-state-id` on the re-accreditation
    * detail root.
    *
@@ -1772,6 +1630,39 @@ class WorkItemDetailPage extends Page {
     )
   }
 
+  // ── RA-410: Tasks are gone ───────────────────────────────────────────────── //
+
+  /**
+   * RA-410 (AC02). Every `data-testid` the tasks feature ever stamped on a
+   * work-item screen, as confirmed by management-fe when the templates and
+   * routes were deleted.
+   *
+   * The first four were on the DETAIL page; the rest were on the tasks page
+   * that no longer exists. Both sets are listed because AC02 is about work-item
+   * SCREENS, not just the one page — a partial revert that restored the panel
+   * without the sub-page would still be a failure, and vice versa.
+   *
+   * Held as one exported-by-accessor list rather than as a hand-kept literal in
+   * a spec so that "did we get them all?" has exactly one answer. The last five
+   * are PREFIXES: they were stamped per task id (`task-status-tag-verify-…`),
+   * so an exact-match assertion on them could never fail.
+   */
+  static TASK_TESTIDS = [
+    'tasks-panel',
+    'work-item-tasks-link',
+    'work-item-task-progress',
+    'work-item-no-tasks'
+  ]
+
+  static TASK_TESTID_PREFIXES = [
+    'work-item-task-',
+    'task-group-',
+    'task-status-tag-',
+    'task-status-select-',
+    'set-task-status-',
+    'complete-task-'
+  ]
+
   tasksPanel() {
     return $('[data-testid="tasks-panel"]')
   }
@@ -1786,6 +1677,147 @@ class WorkItemDetailPage extends Page {
 
   async hasTaskProgress() {
     return $('[data-testid="work-item-task-progress"]').isExisting()
+  }
+
+  async hasNoTasksMessage() {
+    return $('[data-testid="work-item-no-tasks"]').isExisting()
+  }
+
+  /**
+   * RA-410 (AC02). Every task-related testid still present on the current page.
+   *
+   * Returns the offenders rather than a boolean so a failure NAMES what
+   * survived instead of just saying "something did" — the difference between a
+   * one-minute fix and a hunt through the templates.
+   *
+   * Covers both the exact ids and the per-task prefixes, so a leftover
+   * `task-status-select-assess-financial-capacity` is caught even though no
+   * spec knows that task id any more.
+   */
+  async residualTaskTestIds() {
+    const exact = WorkItemDetailPage.TASK_TESTIDS
+    const prefixes = WorkItemDetailPage.TASK_TESTID_PREFIXES
+    return browser.execute(
+      (exactIds, prefixIds) => {
+        const found = []
+        for (const el of document.querySelectorAll('[data-testid]')) {
+          const id = el.getAttribute('data-testid') ?? ''
+          if (
+            exactIds.includes(id) ||
+            prefixIds.some((p) => id.startsWith(p))
+          ) {
+            found.push(id)
+          }
+        }
+        return [...new Set(found)]
+      },
+      exact,
+      prefixes
+    )
+  }
+
+  /**
+   * RA-410 (AC01). Whether any nav item, tab, link or button on the page is
+   * labelled "Tasks".
+   *
+   * Deliberately a TEXT search over interactive elements rather than a testid
+   * check: AC01 is about what a regulator can read and click, so a link that
+   * still says "Tasks" fails the AC whatever its markup is called — and a
+   * testid-only assertion would pass against exactly that.
+   *
+   * Word-boundary matched so "Tasks" is caught but a legitimate word containing
+   * it is not, and case-insensitive so "TASKS" in a nav cannot slip through.
+   * Returns the offending labels for the same diagnostic reason as above.
+   */
+  async elementsLabelledTasks() {
+    return browser.execute(() => {
+      const found = []
+      const selector = 'a, button, [role="tab"], nav *, .govuk-tabs__tab'
+      for (const el of document.querySelectorAll(selector)) {
+        const text = (el.textContent ?? '').trim()
+        if (text && /\btasks?\b/i.test(text) && text.length < 60) {
+          found.push(text.replace(/\s+/g, ' '))
+        }
+      }
+      return [...new Set(found)]
+    })
+  }
+
+  /**
+   * RA-410 (AC03). GET a path from inside the browser session and report the
+   * status, so the cookie carries over and the URL resolves against whatever
+   * host the current environment's baseUrl points at.
+   *
+   * Used to prove `/work-items/{id}/tasks` is genuinely GONE. Driving this with
+   * fetch rather than a navigation is deliberate: management-fe deletes the
+   * route outright so Hapi 404s it, and a browser navigation would render the
+   * generic error page and swallow the status — 404 versus a 302-to-detail is
+   * exactly the distinction AC03 turns on.
+   */
+  async fetchStatus(path) {
+    return browser.execute(async (url) => {
+      const response = await fetch(url)
+      return { status: response.status, url: response.url }
+    }, path)
+  }
+
+  // ── RA-410: the green call-to-action lifecycle ───────────────────────────── //
+
+  /**
+   * RA-410. The "Log decision" CTA, rendered in the actions panel while the
+   * item is in `assessment-in-progress` and ABSENT FROM THE DOM in every other
+   * state (management-fe removes it rather than hiding it, so presence — not
+   * visibility — is the assertion that means anything here).
+   *
+   * Shaped like `dulyMakeCta` above and for the same reason: the decision is
+   * driven by a bespoke module route, not by a generic
+   * `/work-items/{id}/actions/...` call. management-be no longer lists
+   * `submit-for-decision` or `reject` in `availableActions` at all, so
+   * `triggerAction('reject')` cannot reach a determination any more.
+   */
+  logDecisionCta() {
+    return $('[data-testid="log-decision-cta"]')
+  }
+
+  async hasLogDecisionCta() {
+    return this.logDecisionCta().isExisting()
+  }
+
+  async clickLogDecision() {
+    await this.logDecisionCta().click()
+  }
+
+  /**
+   * RA-410. "Assign to yourself and start" — the `duly-made` →
+   * `assessment-in-progress` step.
+   *
+   * THE SAME BUTTON AS `selfAssign()`, deliberately. management-fe reuses
+   * `self-assign-submit` and renders it in every non-closed state; what RA-410
+   * adds is server-side, and only from `duly-made`: the handler applies
+   * `payment-received` as well as taking the item.
+   *
+   * So this is not a different control, it is the same control with a
+   * state-dependent side effect — which is precisely why it needs its own
+   * method. `selfAssign()` waits only for the assignee to change and would
+   * return happily before the transition landed, giving a caller that then
+   * asserts the new state an intermittent failure. This waits for BOTH.
+   *
+   * Use `selfAssign()` from any other state, where no transition is expected.
+   */
+  async selfAssignAndStart() {
+    await this.assignmentControl('selfAssign').click()
+    await browser.waitUntil(
+      async () =>
+        (await this.assignmentCurrent().isExisting()) &&
+        !(await this.assignmentCurrent().getText()).includes('Unassigned') &&
+        (await this.stateId()) === 'assessment-in-progress',
+      {
+        timeout: 10000,
+        timeoutMsg:
+          'Expected the work item to become assigned AND move to ' +
+          'assessment-in-progress after "Assign to yourself and start"'
+      }
+    )
   }
 
   async hasApproveCta() {

@@ -6,7 +6,10 @@ import detail, {
 } from '../page-objects/work-item-detail.page.js'
 import slaOverride from '../page-objects/sla-override.page.js'
 import { formatUkDateGds } from '../support/uk-time.js'
-import { dulyMake } from '../support/re-accreditation-journey.js'
+import {
+  dulyMake,
+  startAssessment
+} from '../support/re-accreditation-journey.js'
 
 /**
  * RA-295 (AC01) — the case header on an individual work item page, plus the
@@ -231,10 +234,7 @@ describe('RA-295 case header on the work item detail page', () => {
       // duly-made, so it can no longer be ticked in the same pass as the
       // submitted ones.
       await dulyMake(workItemId)
-      await detail.gotoTasks()
-      await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
-      await detail.gotoDetail()
-      await detail.triggerAction('payment-received')
+      await startAssessment(workItemId)
 
       // Pin the clock so the due date is deterministic. Without this the
       // expected value depends on the backend's default target duration, which

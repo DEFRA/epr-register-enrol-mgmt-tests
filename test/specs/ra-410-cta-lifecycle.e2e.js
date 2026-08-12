@@ -1,0 +1,291 @@
+import { expect } from '@wdio/globals'
+import login from '../page-objects/login.page.js'
+import workItems from '../page-objects/work-items.page.js'
+import detail from '../page-objects/work-item-detail.page.js'
+import dulyMaking from '../page-objects/duly-making.page.js'
+import decision from '../page-objects/decision.page.js'
+import {
+  createReAccreditation,
+  driveToAssessmentInProgress,
+  dulyMake,
+  logDecision
+} from '../support/re-accreditation-journey.js'
+
+/**
+ * RA-410 — the three green call-to-action buttons that replace Tasks.
+ *
+ * Tasks used to drive progress and status updates. That job now belongs to
+ * three explicit CTAs on the work item detail page:
+ *
+ *   1. "Duly make"                  submitted              -> duly-made
+ *   2. "Assign to yourself and start"  duly-made -> assessment-in-progress
+ *   3. "Log decision" + Approved/Refused
+ *                          assessment-in-progress -> approved / rejected
+ *
+ * `awaiting-decision` still exists in management-be's state machine but is an
+ * INTERNAL HOP applied server-side inside the single decision call. One click
+ * goes from assessment straight to a terminal state, so no assertion in this
+ * file expects to observe it — and one deliberately proves it is not stopped
+ * at.
+ *
+ * "REFUSED" IS A LABEL CHANGE ONLY. The underlying state id is still
+ * `rejected`. Anything user-visible reads "Refused"; anything addressing the
+ * backend keeps `rejected`. Both are asserted below, on purpose, because a
+ * change that "tidied" one to match the other would break a contract in one
+ * direction or a regulator's screen in the other.
+ */
+describe('RA-410 The green CTA lifecycle', () => {
+  before(async () => {
+    await login.login()
+  })
+
+  after(async () => {
+    await login.logout()
+  })
+
+  describe('the full happy path, end to end', () => {
+    let workItemId
+
+    before(async () => {
+      // The postcode must be unique across the whole suite — see
+      // `createReAccreditation`. `SW1A 1AK` is unused elsewhere.
+      workItemId = await createReAccreditation('CTA Happy Path', 'SW1A 1AK')
+    })
+
+    it('starts in submitted, offering only the Duly make CTA', async () => {
+      await workItems.openWorkItem(workItemId)
+
+      await detail.assertStateId('submitted')
+      expect(await detail.hasDulyMakeCta()).toBe(true)
+      // The later CTAs must not be offered out of order — a caseworker who
+      // could log a decision on an unassessed application is the whole reason
+      // these are sequenced.
+      expect(await detail.hasLogDecisionCta()).toBe(false)
+    })
+
+    it('step 1: Duly make takes it to duly-made', async () => {
+      await detail.clickDulyMake()
+      await dulyMaking.assertOnPage()
+      await dulyMaking.setPaymentDate({
+        day: new Date().getDate(),
+        month: new Date().getMonth() + 1,
+        year: new Date().getFullYear()
+      })
+      await dulyMaking.submit()
+      await dulyMaking.waitForDetailUrl(workItemId)
+
+      await detail.assertStateId('duly-made')
+      await detail.assertState('Duly made')
+      expect(await detail.hasDulyMakeCta()).toBe(false)
+    })
+
+    it('step 2: Assign to yourself and start takes it to assessment', async () => {
+      expect(await detail.hasAssignmentControl('selfAssign')).toBe(true)
+      await detail.selfAssignAndStart()
+
+      await detail.assertStateId('assessment-in-progress')
+      // `assessment-in-progress` and `updated` deliberately share the display
+      // name "Updated" (RA-324), so the label alone cannot tell them apart —
+      // hence the state-id assertion above carrying the real weight.
+      await detail.assertState('Updated')
+      // The button both assigns AND transitions; a version that only
+      // transitioned would pass the state assertions and still be wrong.
+      await detail.assertAssignedTo('Stub Caseworker')
+    })
+
+    it('step 3: Log decision offers both outcomes', async () => {
+      expect(await detail.hasLogDecisionCta()).toBe(true)
+      await detail.clickLogDecision()
+      await decision.assertOnPage()
+
+      expect(await decision.hasOutcomeRadio('approved')).toBe(true)
+      expect(await decision.hasOutcomeRadio('refused')).toBe(true)
+      // Neither is preselected: a default would let a distracted caseworker
+      // submit a determination they never chose.
+      expect(await decision.isOutcomeSelected('approved')).toBe(false)
+      expect(await decision.isOutcomeSelected('refused')).toBe(false)
+    })
+
+    it('step 3: Approved reaches the Granted terminal state', async () => {
+      await decision.selectOutcome('approved')
+      await decision.submit()
+      await decision.waitForDetailUrl(workItemId)
+
+      await detail.assertStateId('approved')
+      await detail.assertState('Granted')
+      await detail.assertApprovalPanelVisible()
+      expect(await detail.getAccreditationId()).toMatch(
+        /^ACC-\d{4}-P-[A-Z0-9]{8}$/
+      )
+    })
+
+    it('does not park the item in awaiting-decision on the way', async () => {
+      // The waypoint is discharged inside the same call, so it must appear in
+      // the audit history as a declared edge rather than as a state the user
+      // was left in. Reading the rendered transitions is the only way to see
+      // this: the start and end states are identical whether the hop was
+      // taken through its declared edge or jumped across.
+      await detail.gotoAudit()
+      const transitions = await detail.appliedTransitions()
+
+      expect(transitions.join(' | ')).toContain('Awaiting decision')
+      // ...and the item is emphatically not sitting there now.
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('approved')
+    })
+
+    it('withdraws every CTA once terminal', async () => {
+      expect(await detail.hasDulyMakeCta()).toBe(false)
+      expect(await detail.hasLogDecisionCta()).toBe(false)
+      await detail.assertNoDecisionActions()
+      await detail.assertReadOnlyOutcomePanel('Granted')
+    })
+  })
+
+  describe('Refused reaches the rejected terminal state', () => {
+    let workItemId
+
+    before(async () => {
+      // `SW1A 1AL` is unused elsewhere — see `createReAccreditation`.
+      workItemId = await createReAccreditation('CTA Refused Path', 'SW1A 1AL')
+      await driveToAssessmentInProgress(workItemId)
+    })
+
+    it('records the refusal', async () => {
+      await logDecision(workItemId, 'refused')
+      // The state id is the backend contract and is unchanged by RA-410...
+      await detail.assertStateId('rejected')
+      // ...while what the regulator reads is the new label. Asserting both is
+      // the point: the rename must be skin-deep.
+      await detail.assertState('Refused')
+    })
+
+    it('issues no accreditation', async () => {
+      // The two outcomes must not have been wired to the same handler. A slip
+      // that approved on both radios would satisfy a state assertion alone if
+      // the state were read from the request rather than the result.
+      await detail.assertReadOnlyOutcomePanel('Refused')
+      await expect(detail.approveCta()).not.toBeExisting()
+    })
+  })
+
+  describe('the Log decision page rejects a submit with no option chosen', () => {
+    let workItemId
+
+    before(async () => {
+      // `SW1A 1AM` is unused elsewhere — see `createReAccreditation`.
+      workItemId = await createReAccreditation('CTA Validation', 'SW1A 1AM')
+      await driveToAssessmentInProgress(workItemId)
+      await detail.clickLogDecision()
+      await decision.assertOnPage()
+    })
+
+    it('shows an error summary rather than recording a decision', async () => {
+      await decision.submit()
+      await decision.assertErrorSummary()
+    })
+
+    it('links the error summary at the first radio', async () => {
+      // GOV.UK convention: the summary link targets the FIRST radio in the
+      // group. Asserting it stops a regression where the summary renders but
+      // its link goes nowhere useful — the failure mode that makes an error
+      // summary decorative rather than an accessibility feature.
+      const hrefs = await decision.errorSummaryLinkHrefs()
+      expect(hrefs.length).toBeGreaterThan(0)
+      expect(hrefs).toContain('#decision-approved')
+    })
+
+    it('renders an inline error against the radio group', async () => {
+      expect(await decision.hasInlineError()).toBe(true)
+    })
+
+    it('stays on the Log decision page', async () => {
+      await decision.waitForDecisionUrl(workItemId)
+      expect(await decision.hasOutcomeRadio('approved')).toBe(true)
+    })
+
+    it('leaves the work item in assessment', async () => {
+      // The assertion that makes the rest of this block matter: a validation
+      // error that had nonetheless applied a transition would still be a
+      // determination the caseworker never made.
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('assessment-in-progress')
+      expect(await detail.hasLogDecisionCta()).toBe(true)
+    })
+
+    it('accepts the form once an option is chosen', async () => {
+      // The validation must not have been implemented by breaking submit.
+      await detail.clickLogDecision()
+      await decision.selectOutcome('approved')
+      await decision.submit()
+      await decision.waitForDetailUrl(workItemId)
+
+      await detail.assertStateId('approved')
+    })
+  })
+
+  describe('self-assign from a non-duly-made state does not transition', () => {
+    // management-fe renders the assignment panel in EVERY non-closed state,
+    // so "Assign to yourself and start" is on screen far more often than the
+    // transition is legal. The handler applies `payment-received` ONLY from
+    // `duly-made`; everywhere else it must take the case and nothing more.
+    //
+    // This is the trickiest guard in the story: the natural implementation —
+    // "self-assign, then advance" — passes the happy path above and quietly
+    // corrupts every other state.
+    let submittedId
+
+    before(async () => {
+      // `SW1A 1AN` is unused elsewhere — see `createReAccreditation`.
+      submittedId = await createReAccreditation('CTA Self Assign', 'SW1A 1AN')
+    })
+
+    it('assigns from submitted without changing state', async () => {
+      await workItems.openWorkItem(submittedId)
+      await detail.assertStateId('submitted')
+      expect(await detail.hasAssignmentControl('selfAssign')).toBe(true)
+
+      // Deliberately `selfAssign()`, not `selfAssignAndStart()` — the latter
+      // waits for a transition that must not happen here and would mask the
+      // bug as a timeout rather than reporting it as a wrong state.
+      await detail.selfAssign()
+
+      await detail.assertAssignedTo('Stub Caseworker')
+      await detail.assertStateId('submitted')
+      // The Duly make CTA is still the next step, which is the user-visible
+      // consequence of the state not having moved.
+      expect(await detail.hasDulyMakeCta()).toBe(true)
+    })
+
+    it('assigns from assessment-in-progress without changing state', async () => {
+      // The other side of the guard: an item PAST `duly-made` must not be
+      // pushed on again by a reassignment.
+      await detail.unassign()
+      await dulyMake(submittedId)
+      await workItems.openWorkItem(submittedId)
+      await detail.selfAssignAndStart()
+      await detail.assertStateId('assessment-in-progress')
+
+      await detail.unassign()
+      await detail.assertUnassigned()
+      // Still in assessment after being released...
+      await detail.assertStateId('assessment-in-progress')
+
+      await detail.selfAssign()
+      // ...and still in assessment after being taken again, rather than
+      // having been advanced to a determination.
+      await detail.assertAssignedTo('Stub Caseworker')
+      await detail.assertStateId('assessment-in-progress')
+      expect(await detail.hasLogDecisionCta()).toBe(true)
+    })
+
+    it('records no spurious transition in the audit history', async () => {
+      // A transition applied and immediately reverted would satisfy the state
+      // assertions above. The history is where that would show.
+      await detail.gotoAudit()
+      const transitions = await detail.appliedTransitions()
+      const toDecision = transitions.filter((t) => /Granted|Refused/.test(t))
+      expect(toDecision).toEqual([])
+    })
+  })
+})

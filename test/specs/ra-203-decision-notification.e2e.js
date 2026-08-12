@@ -1,7 +1,11 @@
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import { dulyMake } from '../support/re-accreditation-journey.js'
+import {
+  dulyMake,
+  logDecision,
+  startAssessment
+} from '../support/re-accreditation-journey.js'
 
 /**
  * RA-203 — Approving a re-accreditation sends the operator the decision
@@ -48,19 +52,10 @@ describe('RA-203 Approval sends operator decision notification', () => {
     await dulyMake(workItemId)
 
     // Duly made -> Assessment in progress
-    await detail.gotoTasks()
-    await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('payment-received')
+    await startAssessment(workItemId)
     await detail.assertState('Updated')
 
     // Assessment in progress -> Awaiting decision
-    await detail.gotoTasks()
-    await detail.setTaskStatus('review-compliance-history', 'Completed')
-    await detail.setTaskStatus('assess-technical-capacity', 'Completed')
-    await detail.setTaskStatus('assess-financial-capacity', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('submit-for-decision')
     await detail.assertState('Awaiting decision')
 
     await login.logout()
@@ -71,10 +66,7 @@ describe('RA-203 Approval sends operator decision notification', () => {
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Awaiting decision')
 
-    await detail.gotoTasks()
-    await detail.setTaskStatus('record-decision-rationale', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('approve')
+    await logDecision(workItemId, 'approved')
 
     // The decision note is posted as a work-item note before the approve
     // transition; the notification hook reads it for the Decision email's

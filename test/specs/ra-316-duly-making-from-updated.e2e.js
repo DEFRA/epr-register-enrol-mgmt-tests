@@ -134,13 +134,16 @@ describe('RA-316 duly making from the updated state', () => {
       await detail.assertState('Duly made')
     })
 
-    it('withdraws the CTA and restores the tasks panel', async () => {
+    it('withdraws the CTA and brings back no tasks panel', async () => {
       await workItems.openWorkItem(workItemId)
       expect(await detail.hasDulyMakeCta()).toBe(false)
-      // `duly-made` has its own task (`confirm-registration-fee-paid`), so
-      // the panel comes back — the suppression tracks "duly making is next",
-      // not the item having passed through `updated`.
-      expect(await detail.hasTasksPanel()).toBe(true)
+      // RA-410 removed Tasks outright. This assertion used to read `true` —
+      // `duly-made` declared `confirm-registration-fee-paid` and the panel
+      // came back once duly making was no longer the next action. There is
+      // now no state in which it returns, so the flip is the point: kept
+      // rather than deleted so a partial revert that restored the panel in
+      // `duly-made` specifically is caught here.
+      expect(await detail.hasTasksPanel()).toBe(false)
     })
 
     it('records the two-step path in the audit history', async () => {

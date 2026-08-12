@@ -3,7 +3,11 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import withdraw from '../page-objects/withdraw.page.js'
-import { dulyMake } from '../support/re-accreditation-journey.js'
+import {
+  dulyMake,
+  logDecision,
+  startAssessment
+} from '../support/re-accreditation-journey.js'
 
 /**
  * RA-313 AC01 — a withdrawn application is identifiable in the worklist.
@@ -31,7 +35,7 @@ const token = `RA313Worklist${Date.now()}`
  * through its task journey to the Awaiting decision state, ready for a
  * decision-maker to approve or reject. Returns the work item id.
  */
-async function driveToAwaitingDecision(suffix, material) {
+async function driveToDecisionReady(suffix, material) {
   await login.login()
   await workItems.goto()
   const { id } = await workItems.createWorkItem({
@@ -52,19 +56,10 @@ async function driveToAwaitingDecision(suffix, material) {
   await dulyMake(id)
 
   // Duly made -> Assessment in progress.
-  await detail.gotoTasks()
-  await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
-  await detail.gotoDetail()
-  await detail.triggerAction('payment-received')
+  await startAssessment(id)
   await detail.assertState('Updated')
 
   // Assessment in progress -> Awaiting decision.
-  await detail.gotoTasks()
-  await detail.setTaskStatus('review-compliance-history', 'Completed')
-  await detail.setTaskStatus('assess-technical-capacity', 'Completed')
-  await detail.setTaskStatus('assess-financial-capacity', 'Completed')
-  await detail.gotoDetail()
-  await detail.triggerAction('submit-for-decision')
   await detail.assertState('Awaiting decision')
 
   await login.logout()
@@ -107,31 +102,20 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
   })
 
   it('drives a work item to the Rejected terminal state', async () => {
-    rejectedId = await driveToAwaitingDecision('Rejected', 'paper')
+    rejectedId = await driveToDecisionReady('Rejected', 'paper')
 
     await login.login()
-    await workItems.openWorkItem(rejectedId)
-    await detail.assertState('Awaiting decision')
-    await detail.gotoTasks()
-    await detail.setTaskStatus('record-decision-rationale', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('reject')
+    await logDecision(rejectedId, 'refused')
     await detail.assertState('Refused')
 
     await login.logout()
   })
 
   it('drives a work item to the Approved terminal state', async () => {
-    approvedId = await driveToAwaitingDecision('Approved', 'plastic')
+    approvedId = await driveToDecisionReady('Approved', 'plastic')
 
     await login.login()
-    await workItems.openWorkItem(approvedId)
-    await detail.assertState('Awaiting decision')
-    await detail.gotoTasks()
-    await detail.setTaskStatus('record-decision-rationale', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('approve')
-    await detail.submitApproval()
+    await logDecision(approvedId, 'approved')
     await detail.assertState('Granted')
 
     await login.logout()

@@ -1,41 +1,43 @@
-import { expect } from '@wdio/globals'
+import { browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
+import decision from '../page-objects/decision.page.js'
 import {
-  ASSESSMENT_TASKS,
   createReAccreditation,
   driveToAssessmentInProgress
 } from '../support/re-accreditation-journey.js'
 
 /**
- * RA-346 (issue 1) — "Submit for decision" is gated on task completion.
+ * RA-346 (issue 1), re-pointed by RA-410 — the route to a determination is
+ * gated on STATE, not on task completion.
  *
- * The reported bug was that "Submit for decision seems redundant" now the
- * regulator RBACs are gone. The team's decision (confirmed with Tom) is
- * that the button STAYS but is only offered once every
- * `assessment-in-progress` task is complete — it is not being replaced by
- * an automatic transition, so a spec asserting an auto-hop to
- * `awaiting-decision` would be asserting the wrong design.
+ * WHAT THIS SPEC USED TO ASSERT: that "Submit for decision" was withheld
+ * until every `assessment-in-progress` task was complete, that completing two
+ * of three did not unlock it, and that a direct POST to
+ * `/actions/submit-for-decision` returned 409 while any task was outstanding.
  *
- * The `submit-for-decision` transition carries
- * `requiresAllTasksComplete: true`, so it is withheld from
- * `availableActions` while any assessment task is outstanding and the
- * affordance is ABSENT rather than disabled — distinct from the read-only
- * support-user case (RA-335), where controls render inert.
+ * WHY IT CHANGED: RA-410 deleted Tasks, so `requiresAllTasksComplete` is gone
+ * from every transition and there is no task gate left to test. The file is
+ * kept rather than deleted because the UNDERLYING concern survives and is
+ * still worth an end-to-end regression: a caseworker must not reach a
+ * determination from a state that has no business producing one, and hiding a
+ * button is not a control if the route behind it still answers.
  *
- * On the rendered detail page that filtering is done by the BACKEND, not
- * the frontend: the detail controller's `decorate` passes `availableActions`
- * through verbatim and never calls `projectWorkItem`, so the frontend
- * engine's equivalent filter is not what is being exercised here
- * (confirmed with the management-fe owner). Stated explicitly because the
- * frontend DOES gate `approve` in the sibling RA-346 spec, and assuming the
- * same mechanism covers both would be wrong.
+ * WHAT IT ASSERTS NOW:
+ *   1. `submit-for-decision` is no longer caller-invocable — absent from
+ *      `availableActions`, and the generic apply-action route refuses it.
+ *   2. The "Log decision" CTA appears ONLY in `assessment-in-progress`.
+ *   3. The Log decision route itself refuses from the wrong state, not just
+ *      the CTA.
  *
- * This is the end-to-end regression for that gate; management-fe and
- * management-be carry the unit-level ones.
+ * management-be now applies `assessment-in-progress -> awaiting-decision ->
+ * approved/rejected` inside one call, so `submit-for-decision` has no caller
+ * left to invoke it: a manual button parking an item in `awaiting-decision`
+ * would strand it, since the Log decision CTA is gated on
+ * `assessment-in-progress`.
  */
-describe('RA-346 Submit for decision is gated on assessment task completion', () => {
+describe('RA-346/RA-410 The decision route is gated on state, not on tasks', () => {
   let workItemId
 
   before(async () => {
@@ -46,86 +48,99 @@ describe('RA-346 Submit for decision is gated on assessment task completion', ()
       'Submit For Decision Gate',
       'SW1A 1AG'
     )
-    await driveToAssessmentInProgress(workItemId)
   })
 
   after(async () => {
     await login.logout()
   })
 
-  it('does not offer Submit for decision while every assessment task is outstanding', async () => {
-    expect(await detail.hasAction('submit-for-decision')).toBe(false)
+  describe('while the item is still in submitted', () => {
+    it('does not offer the Log decision CTA', async () => {
+      await workItems.openWorkItem(workItemId)
+      expect(await detail.hasLogDecisionCta()).toBe(false)
+    })
+
+    it('still offers the actions that belong to this state', async () => {
+      // Negative control. "Log decision is missing" only means the gate works
+      // if the page rendered its actions at all — otherwise a template that
+      // failed to render would satisfy every assertion in this file.
+      const actionIds = await detail.availableActionIds()
+      expect(actionIds).toContain('withdraw')
+      expect(actionIds).not.toContain('submit-for-decision')
+    })
+
+    it('refuses a direct GET to the Log decision route', async () => {
+      // Hiding a CTA is not a control: the route is guessable and has to
+      // refuse on its own account.
+      await decision.gotoFor(workItemId)
+
+      await expect(browser).not.toHaveUrl(
+        expect.stringContaining('/log-decision')
+      )
+      expect(await decision.hasOutcomeRadio('approved')).toBe(false)
+    })
+
+    it('leaves the work item in submitted after the refused GET', async () => {
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('submitted')
+    })
   })
 
-  it('still offers the actions that are not gated on task completion', async () => {
-    // Negative control. "Submit for decision is missing" only means the
-    // gate works if the actions panel rendered at all — otherwise a
-    // template that failed to render would pass the assertion above.
-    //
-    // `withdraw-during-assessment` is the control because it is
-    // `requiresAllTasksComplete: false` AND genuinely comes from
-    // `availableActions`. Deliberately NOT `sla-extend`: despite its
-    // `action-` testid it is rendered by the assignment panel and is
-    // filtered out of `availableActions` by the detail controller, so it
-    // would still be present even if the actions panel vanished — a
-    // control that cannot fail is not a control.
-    const actionIds = await detail.availableActionIds()
-    expect(actionIds).toContain('withdraw-during-assessment')
-    expect(actionIds).not.toContain('submit-for-decision')
+  describe('once the item reaches assessment-in-progress', () => {
+    before(async () => {
+      await driveToAssessmentInProgress(workItemId)
+    })
+
+    it('offers the Log decision CTA', async () => {
+      expect(await detail.hasLogDecisionCta()).toBe(true)
+    })
+
+    it('still does not offer submit-for-decision or reject as actions', async () => {
+      // The transition management-be applies internally must not ALSO be
+      // exposed as a button. Two routes to `awaiting-decision`, one of which
+      // strands the item there, is the failure mode this guards.
+      const actionIds = await detail.availableActionIds()
+      expect(actionIds).not.toContain('submit-for-decision')
+      expect(actionIds).not.toContain('reject')
+      expect(actionIds).toContain('withdraw-during-assessment')
+    })
+
+    it('refuses a direct POST to the submit-for-decision apply-action route', async () => {
+      // Defence in depth. The action is no longer declared caller-invocable,
+      // so the generic route must refuse it rather than quietly applying a
+      // transition no affordance offers.
+      //
+      // The exact status is deliberately not pinned: management-be may treat
+      // an undeclared action as a 400 (unknown action) or a 409 (not
+      // invocable from here) and both are correct refusals. What this suite is
+      // entitled to assert is that it did not succeed.
+      const { status } = await detail.postFromPage(
+        `/work-items/${workItemId}/actions/submit-for-decision`
+      )
+
+      expect(status).toBeGreaterThanOrEqual(400)
+    })
+
+    it('leaves the work item in assessment after the rejected POST', async () => {
+      // The status code above proves the request was refused; this proves the
+      // refusal happened BEFORE any transition was applied.
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('assessment-in-progress')
+    })
   })
 
-  it('still does not offer it when only some assessment tasks are complete', async () => {
-    // The gate is "all tasks", not "any task" — completing two of three
-    // must not unlock it. This is the assertion that would catch a
-    // predicate accidentally written as `.some()` instead of `.every()`.
-    await detail.gotoTasks()
-    await detail.setTaskStatus(ASSESSMENT_TASKS[0], 'Completed')
-    await detail.setTaskStatus(ASSESSMENT_TASKS[1], 'Completed')
-    await detail.gotoDetail()
+  describe('once the item is queried away from assessment', () => {
+    // The CTA must track the STATE, not merely "this item has been to
+    // assessment once". A guard written as a one-way latch would pass every
+    // assertion above and fail only here.
+    before(async () => {
+      await workItems.openWorkItem(workItemId)
+      await detail.triggerAction('query-during-assessment')
+    })
 
-    expect(await detail.hasAction('submit-for-decision')).toBe(false)
-  })
-
-  it('rejects a direct POST to the apply-action route with 409 while a task is outstanding', async () => {
-    // Defence in depth. Hiding the button is a UI affordance; the route
-    // behind it has to refuse too, or a stale form or a crafted request
-    // walks straight through the gate.
-    //
-    // Enforced by the BACKEND, which rejects with 409 while any
-    // `assessment-in-progress` task is outstanding. The frontend only
-    // surfaces that 409 — `toResult` maps the status to a `not-allowed`
-    // reason and the detail controller re-renders with it. There is no
-    // independent frontend gate on this path: `canApplyAction` exists but
-    // has a single production caller, the `approve` eligibility check,
-    // which is a different action entirely. That asymmetry is why the
-    // sibling RA-346 approve spec can assert a frontend-rendered guard and
-    // this one cannot. (Chain verified by the management-fe owner.)
-    //
-    // Unlike the approve route, this one does NOT redirect: the generic
-    // apply-action route re-renders the detail page in place with an error
-    // notice, so the status is readable directly.
-    const { status } = await detail.postFromPage(
-      `/work-items/${workItemId}/actions/submit-for-decision`
-    )
-
-    expect(status).toBe(409)
-  })
-
-  it('leaves the work item in assessment after the rejected POST', async () => {
-    // The status code above proves the request was refused; this proves
-    // the refusal happened BEFORE the transition was applied.
-    await workItems.openWorkItem(workItemId)
-    await detail.assertState('Updated')
-  })
-
-  it('offers Submit for decision once the last assessment task completes, and the transition works', async () => {
-    await detail.gotoTasks()
-    await detail.setTaskStatus(ASSESSMENT_TASKS[2], 'Completed')
-    await detail.gotoDetail()
-
-    expect(await detail.hasAction('submit-for-decision')).toBe(true)
-
-    await detail.triggerAction('submit-for-decision')
-    await detail.assertState('Awaiting decision')
+    it('withdraws the Log decision CTA again', async () => {
+      await workItems.openWorkItem(workItemId)
+      expect(await detail.hasLogDecisionCta()).toBe(false)
+    })
   })
 })

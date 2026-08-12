@@ -22,12 +22,13 @@ import { Page } from './page.js'
  * Cancel is a PLAIN LINK back to the detail page — it never reaches the
  * backend, so there is no state change by construction.
  *
- * SELECTOR PREFIXES ARE LOAD-BEARING. Everything here is under
- * `duly-make-*` / `duly-making-*` and nothing under `work-item-task*`,
- * because `work-item-detail.page.js` selects tasks with the PREFIX match
- * `li[data-testid^="work-item-task-"]`. A hook named `work-item-task-...`
- * would silently fold into that task-list match and corrupt `taskIds()`.
- * See the RA-372 comment in management-fe's `detail.njk`.
+ * SELECTOR PREFIXES ARE STILL LOAD-BEARING, for a new reason. Everything
+ * here is under `duly-make-*` / `duly-making-*` and nothing under
+ * `work-item-task*`. That used to be because the task-list selector matched
+ * on the `work-item-task-` prefix; RA-410 deleted Tasks, and
+ * `residualTaskTestIds()` in `work-item-detail.page.js` now matches the same
+ * prefixes to prove NOTHING carries them. A hook named `work-item-task-...`
+ * here would therefore fail the AC02 sweep as a phantom survivor.
  */
 class DulyMakingPage extends Page {
   path(workItemId) {

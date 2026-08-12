@@ -2,8 +2,6 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import { dulyMake } from '../support/re-accreditation-journey.js'
-
 /**
  * RA-196: Replace ID with Application Ref across pages.
  *
@@ -100,32 +98,9 @@ describe('RA-196 — application reference shown instead of internal id', () => 
     })
   })
 
-  describe('tasks sub-page', () => {
-    before(async () => {
-      // RA-316 suppresses the tasks panel — and with it the tasks LINK —
-      // wherever duly making is the next action, which includes `submitted`
-      // where this item starts. There is no longer any route to the tasks
-      // page from here, so `gotoTasks()` fails in this hook rather than in a
-      // test, which is what made it look like a page-object fault.
-      //
-      // Duly make it first: `duly-made` still declares a task, so the panel
-      // and its link are back. This block is about the CAPTION carrying the
-      // application reference rather than the internal id, and the caption is
-      // identical in either state — so the state change costs the assertions
-      // nothing. It runs last of the four describes, so the earlier blocks
-      // still see the item in `submitted`.
-      await dulyMake(createdId)
-      await detail.gotoTasks()
-    })
-
-    it('shows the application reference in the caption', async () => {
-      const caption = await detail.getCaption()
-      expect(caption).toContain(`Work item ${applicationReference}`)
-    })
-
-    it('does not show the internal id in the caption', async () => {
-      const caption = await detail.getCaption()
-      expect(caption).not.toContain(createdId)
-    })
-  })
+  // RA-410 removed the tasks sub-page, and with it the fourth describe block
+  // that lived here. It asserted the caption carried the application
+  // reference on /work-items/{id}/tasks — a page that now 404s. The caption
+  // rule itself is unchanged and is still covered by the detail-page and
+  // audit-log blocks above, so nothing was lost with the page.
 })

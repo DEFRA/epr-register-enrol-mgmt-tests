@@ -6,9 +6,7 @@ import query from '../page-objects/query.page.js'
 import withdrawPage from '../page-objects/withdraw.page.js'
 import {
   createReAccreditation,
-  dulyMake,
-  ASSESSMENT_TASKS,
-  DECISION_TASK
+  dulyMake
 } from '../support/re-accreditation-journey.js'
 
 /**
@@ -267,28 +265,20 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       await detail.assertActionsPanelWellFormed()
       await detail.assertNoDuplicateActionLabels()
 
-      // `payment-received` carries the default RequiresAllTasksComplete, and
-      // `confirm-registration-fee-paid` is still outstanding, so it is
-      // correctly ABSENT here. Asserted rather than skipped past, because the
-      // two filters must not be confused: this one suppresses an action that
-      // IS caller-invocable but whose task gate is unmet, whereas RA-364
-      // suppresses actions the caller may never invoke at all. A change that
-      // collapsed the two would show up right here.
-      expect(await detail.countActionsWithId('payment-received')).toBe(0)
+      // RA-410 removed `RequiresAllTasksComplete` from every transition, so
+      // `payment-received` is now offered immediately in `duly-made` rather
+      // than waiting on `confirm-registration-fee-paid`. This assertion used
+      // to read 0 here and 1 only after the task was ticked.
+      //
+      // The AC06 subject is unchanged and is what the `1` protects: a
+      // genuinely caller-invocable action renders EXACTLY ONCE. Losing the
+      // gate removed a precondition, not the duplication guard.
+      expect(await detail.countActionsWithId('payment-received')).toBe(1)
+      expect(await detail.countActionsLabelled('Payment received')).toBe(1)
       expect(await detail.countActionsWithId('query')).toBe(1)
       expect(await detail.countActionsWithId('withdraw-during-duly-made')).toBe(
         1
       )
-
-      // Meeting the gate is the regression guard AC06 is really about: a
-      // genuinely caller-invocable action must still render, exactly once.
-      await detail.gotoTasks()
-      await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
-      await detail.gotoDetail()
-
-      await detail.assertNoDuplicateActionLabels()
-      expect(await detail.countActionsWithId('payment-received')).toBe(1)
-      expect(await detail.countActionsLabelled('Payment received')).toBe(1)
     })
 
     it('renders the assessment actions once each', async () => {
@@ -308,8 +298,11 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       ).toBe(1)
       expect(await detail.countActionsWithId('withdraw-during-updated')).toBe(0)
 
-      // RA-346 gates `submit-for-decision` on the assessment tasks, which are
-      // still incomplete here, so it is correctly absent rather than duplicated.
+      // RA-410 removed `submit-for-decision` from `availableActions`
+      // altogether — the `awaiting-decision` hop is applied server-side inside
+      // the single Log decision call and is not caller-invocable. It is still
+      // asserted absent, but for a stronger reason than before: it is not a
+      // gated action waiting to appear, it no longer exists as one.
       expect(await detail.countActionsWithId('submit-for-decision')).toBe(0)
 
       // `sla-extend` is filtered out of availableActions by the detail
@@ -320,32 +313,33 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       expect(await detail.countActionsWithId('sla-extend')).toBe(0)
     })
 
-    it('renders the decision actions once each when their gate is met', async () => {
-      await detail.gotoTasks()
-      for (const task of ASSESSMENT_TASKS) {
-        await detail.setTaskStatus(task, 'Completed')
-      }
-      await detail.gotoDetail()
-      await detail.triggerAction('submit-for-decision')
-      await detail.assertState('Awaiting decision')
+    it('renders the Log decision CTA once, and no decision actions in the panel', async () => {
+      // RA-410 replaced both decision actions with a single green CTA. This
+      // case used to complete the assessment tasks, apply
+      // `submit-for-decision`, complete the rationale task and then assert
+      // that `approve` and `reject` each rendered exactly once in the actions
+      // panel. Neither is in `availableActions` any more.
+      //
+      // The AC06 subject survives intact — "a caller-invocable affordance
+      // renders exactly once" — so it re-points at the affordance that
+      // actually carries the decision now. The two absence assertions are the
+      // other half: a revert that put the old buttons back ALONGSIDE the CTA
+      // would give a caseworker two routes to a determination, which is
+      // exactly the duplication this file exists to catch.
+      await detail.assertStateId('assessment-in-progress')
 
       await detail.assertActionsPanelWellFormed()
       await detail.assertNoDuplicateActionLabels()
 
-      // RA-346 gates both decision actions on the rationale task. Completing it
-      // makes two genuinely caller-invocable actions appear at once — the
-      // strongest available evidence for AC06, since the fix must not suppress
-      // them while suppressing the non-invocable ones.
-      await detail.gotoTasks()
-      await detail.setTaskStatus(DECISION_TASK, 'Completed')
-      await detail.gotoDetail()
-
-      await detail.assertNoDuplicateActionLabels()
-      expect(await detail.countActionsWithId('approve')).toBe(1)
-      expect(await detail.countActionsWithId('reject')).toBe(1)
+      expect(await detail.hasLogDecisionCta()).toBe(true)
+      expect(await detail.countActionsWithId('approve')).toBe(0)
+      expect(await detail.countActionsWithId('reject')).toBe(0)
       expect(await detail.countActionsWithId('withdraw-during-decision')).toBe(
-        1
+        0
       )
+      expect(
+        await detail.countActionsWithId('withdraw-during-assessment')
+      ).toBe(1)
     })
   })
 })

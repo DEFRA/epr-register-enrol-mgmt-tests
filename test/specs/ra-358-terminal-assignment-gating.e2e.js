@@ -6,7 +6,7 @@ import withdraw from '../page-objects/withdraw.page.js'
 import {
   approveWorkItem,
   createWithdrawnWorkItem,
-  driveToAwaitingDecision,
+  driveToDecisionReady,
   rejectWorkItem
 } from '../support/terminal-states.js'
 
@@ -156,7 +156,7 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
     before(async () => {
       await login.login()
       await workItems.goto()
-      workItemId = await driveToAwaitingDecision({
+      workItemId = await driveToDecisionReady({
         organisationName: 'Terminal Gating Approved Ltd',
         material: 'paper'
       })
@@ -180,7 +180,7 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
     before(async () => {
       await login.login()
       await workItems.goto()
-      workItemId = await driveToAwaitingDecision({
+      workItemId = await driveToDecisionReady({
         organisationName: 'Terminal Gating Rejected Ltd',
         material: 'aluminium'
       })
