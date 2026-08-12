@@ -32,7 +32,7 @@ const token = `RA313Worklist${Date.now()}`
 
 /**
  * Create a re-accreditation work item under the shared token and drive it
- * through its task journey to the Awaiting decision state, ready for a
+ * through the CTA journey to assessment-in-progress, ready for a
  * decision-maker to approve or reject. Returns the work item id.
  */
 async function driveToDecisionReady(suffix, material) {
@@ -57,10 +57,12 @@ async function driveToDecisionReady(suffix, material) {
 
   // Duly made -> Assessment in progress.
   await startAssessment(id)
-  await detail.assertState('Updated')
-
-  // Assessment in progress -> Awaiting decision.
-  await detail.assertState('Awaiting decision')
+  // `assessment-in-progress` displays as "Updated" (RA-324), so the
+  // raw id is what pins the state. RA-410 removed the
+  // `submit-for-decision` step that used to follow: `awaiting-decision`
+  // is now an internal hop inside the Log decision call, so this is
+  // where the item waits.
+  await detail.assertStateId('assessment-in-progress')
 
   await login.logout()
   return id

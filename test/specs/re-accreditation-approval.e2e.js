@@ -17,7 +17,7 @@ import {
  *      Submitted).
  *   2. Tasks for each state are completed and the work item is
  *      progressed (auto-duly-made -> payment-received -> submit-for-
- *      decision) up to the Awaiting decision state.
+ *      "Assign to yourself and start") up to assessment-in-progress.
  *   3. A caseworker completes the awaiting-decision task and approves
  *      the work item (RA-323 — every caseworker holds the same role).
  *   4. The backend generates a fixed 16-char accreditation id
@@ -52,10 +52,12 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
 
     // Duly made -> Assessment in progress
     await startAssessment(workItemId)
-    await detail.assertState('Updated')
-
-    // Assessment in progress -> Awaiting decision
-    await detail.assertState('Awaiting decision')
+    // `assessment-in-progress` displays as "Updated" (RA-324), so the
+    // raw id is what pins the state. RA-410 removed the
+    // `submit-for-decision` step that used to follow: `awaiting-decision`
+    // is now an internal hop inside the Log decision call, so this is
+    // where the item waits.
+    await detail.assertStateId('assessment-in-progress')
 
     await login.logout()
   })
@@ -63,9 +65,8 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
   it('approves the work item as the decision maker and renders the accreditation id, start date and year', async () => {
     await login.login()
     await workItems.openWorkItem(workItemId)
-    await detail.assertState('Awaiting decision')
+    await detail.assertStateId('assessment-in-progress')
 
-    // Complete the awaiting-decision task before approving.
     await logDecision(workItemId, 'approved')
 
     await detail.assertState('Granted')

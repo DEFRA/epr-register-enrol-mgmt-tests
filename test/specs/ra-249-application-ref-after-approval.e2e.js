@@ -57,10 +57,12 @@ describe('RA-249 — application reference survives approval', () => {
 
     // Duly made -> Assessment in progress
     await startAssessment(createdId)
-    await detail.assertState('Updated')
-
-    // Assessment in progress -> Awaiting decision
-    await detail.assertState('Awaiting decision')
+    // `assessment-in-progress` displays as "Updated" (RA-324), so the
+    // raw id is what pins the state. RA-410 removed the
+    // `submit-for-decision` step that used to follow: `awaiting-decision`
+    // is now an internal hop inside the Log decision call, so this is
+    // where the item waits.
+    await detail.assertStateId('assessment-in-progress')
 
     await login.logout()
   })
@@ -68,7 +70,7 @@ describe('RA-249 — application reference survives approval', () => {
   it('keeps the AP* application ref after the decision maker approves it', async () => {
     await login.login()
     await workItems.openWorkItem(createdId)
-    await detail.assertState('Awaiting decision')
+    await detail.assertStateId('assessment-in-progress')
 
     await logDecision(createdId, 'approved')
 

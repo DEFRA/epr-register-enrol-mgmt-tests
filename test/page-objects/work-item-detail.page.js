@@ -1734,6 +1734,26 @@ class WorkItemDetailPage extends Page {
       const found = []
       const selector = 'a, button, [role="tab"], nav *, .govuk-tabs__tab'
       for (const el of document.querySelectorAll(selector)) {
+        // OPERATOR-SUPPLIED TEXT IS NOT SERVICE CHROME. The work-items list
+        // renders each organisation's name as the tile link, so an operator
+        // legitimately called "Task Force Recycling Ltd" would otherwise be
+        // reported as an AC01 violation — and the assertion would be policing
+        // a regulator's own data rather than this service's labels.
+        //
+        // This is not hypothetical: it fired on THIS suite's own fixture. A
+        // work item created as "Tasks Removed <timestamp>" renders a matching
+        // anchor, so the negative spec failed against the item it had just
+        // created. The fixture was renamed too, but renaming alone would have
+        // left a test that breaks the first time a real operator name
+        // contains the word.
+        //
+        // Matched on `work-item-link-` specifically, NOT the broader
+        // `work-item-` prefix: `work-item-tasks-link` shares that broader
+        // prefix and is exactly the affordance AC01 is about, so excluding it
+        // would open a hole precisely where the coverage is needed.
+        if (el.closest('[data-testid^="work-item-link-"]')) {
+          continue
+        }
         const text = (el.textContent ?? '').trim()
         if (text && /\btasks?\b/i.test(text) && text.length < 60) {
           found.push(text.replace(/\s+/g, ' '))

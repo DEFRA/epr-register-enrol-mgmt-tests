@@ -53,10 +53,12 @@ describe('RA-203 Approval sends operator decision notification', () => {
 
     // Duly made -> Assessment in progress
     await startAssessment(workItemId)
-    await detail.assertState('Updated')
-
-    // Assessment in progress -> Awaiting decision
-    await detail.assertState('Awaiting decision')
+    // `assessment-in-progress` displays as "Updated" (RA-324), so the
+    // raw id is what pins the state. RA-410 removed the
+    // `submit-for-decision` step that used to follow: `awaiting-decision`
+    // is now an internal hop inside the Log decision call, so this is
+    // where the item waits.
+    await detail.assertStateId('assessment-in-progress')
 
     await login.logout()
   })
@@ -64,17 +66,21 @@ describe('RA-203 Approval sends operator decision notification', () => {
   it('records a "Decision recorded: approved email sent" audit entry after approval with a note', async () => {
     await login.login()
     await workItems.openWorkItem(workItemId)
-    await detail.assertState('Awaiting decision')
+    await detail.assertStateId('assessment-in-progress')
 
+    // RA-410 removed the approve interstitial that carried the optional
+    // decision-note textarea (`approval-decision-note` / `approval-submit`).
+    // The determination is now the Log decision page, which management-fe's
+    // contract describes as radios and a submit button only.
+    //
+    // COVERAGE NOTE: this case therefore no longer exercises the
+    // `decision_notes` placeholder — it proves the decision notification
+    // fires and is audited, which is the AC01 half of RA-203, but not that a
+    // caseworker's note reaches the email. Raised with management-fe; if a
+    // note field lands on the Log decision page, add it here rather than
+    // leaving the placeholder covered only at unit level. Tracked as
+    // follow-up work.
     await logDecision(workItemId, 'approved')
-
-    // The decision note is posted as a work-item note before the approve
-    // transition; the notification hook reads it for the Decision email's
-    // decision_notes placeholder (RA-203).
-    await detail.setDecisionNote(
-      'Application meets all re-accreditation criteria.'
-    )
-    await detail.submitApproval()
     await detail.assertState('Granted')
 
     // The notification hook fired and the send succeeded, so the audit
