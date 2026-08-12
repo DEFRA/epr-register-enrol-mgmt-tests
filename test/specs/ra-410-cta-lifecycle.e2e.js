@@ -258,11 +258,17 @@ describe('RA-410 The green CTA lifecycle', () => {
     // path redirects with a generic banner, so an over-run discarded the
     // caseworker's entire rationale and did not say why.
     //
-    // Reachable without JavaScript, and reachable WITH it too:
-    // `govukCharacterCount` sets `data-maxlength`, not the HTML `maxlength`
-    // attribute (verified in govuk-frontend's template), so the browser does
-    // not stop the over-run — the counter is progressive enhancement, not a
-    // guard.
+    // THE SERVER CHECK IS THE ONLY ENFORCEMENT THAT EXISTS, in every browser
+    // — not a fallback for the no-JS path RA-94 mandates.
+    // `govukCharacterCount` passes `maxlength` through as `data-maxlength` and
+    // never sets the HTML `maxlength` attribute (verified in govuk-frontend's
+    // own template), so with JavaScript running the counter turns red, reports
+    // how far over you are, and submits anyway.
+    //
+    // Stated this way round deliberately. Describing the check as covering the
+    // degraded case implies a JS-enabled browser blocks the over-run, and a
+    // reader who believes that could reasonably deprioritise the check — which
+    // is how this regresses a second time.
     //
     // The shape matters as much as the failure: "renders in place, note
     // survives" rather than "redirects". A spec that only looked for an error
