@@ -19,15 +19,15 @@ import {
  * application reference `payload.applicationReference` (RA-318 format:
  * `AP` + year + agency + orgId + postcode suffix + material prefix).
  *
- * The email body itself is not observable through the case-management UI, and
- * since RA-422 disabled Case Management emails behind the Notify:Enabled flag
- * (default false) no notification is even sent from the e2e stack. The value
- * the email WOULD use is observable independently, though: it is exactly the
- * application reference shown as the work-item detail page caption (RA-196).
- * This spec proves that reference is the human `AP`-prefixed form (never a
- * Guid) while the extend-SLA lifecycle journey still succeeds. The
- * management-be ReAccreditation*HookTests / PaymentService tests assert the
- * `((reference))` personalisation itself carries this same reference.
+ * The email body itself is not observable through the case-management UI —
+ * in the e2e stack NOTIFY_API_KEY is absent so the NoOpNotifyClient stands
+ * in and discards the personalisation. The value the email now uses IS
+ * observable, though: it is exactly the application reference shown as the
+ * work-item detail page caption (RA-196). This spec proves that reference
+ * is the human `AP`-prefixed form (never a Guid) and that the extend-SLA
+ * notification journey still fires end-to-end. The management-be
+ * ReAccreditation*HookTests / PaymentService tests assert the `((reference))`
+ * personalisation now carries this same application reference.
  */
 describe('RA-248 lifecycle email reference is the application reference', () => {
   let workItemId
@@ -70,13 +70,13 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
     await login.logout()
   })
 
-  it('surfaces the AP application reference on the detail caption', async () => {
+  it('surfaces the RA-######### application reference and still fires the extend-SLA notification', async () => {
     await login.login()
     await workItems.openWorkItem(workItemId)
 
     // The detail-page caption reads "Work item AP..." (RA-196); the
     // bare reference after the "Work item " prefix is the exact value the
-    // lifecycle emails put in the ((reference)) placeholder. It must be
+    // lifecycle emails now put in the ((reference)) placeholder. It must be
     // the human application reference, not the internal work-item Guid.
     const applicationReference = (await detail.getCaption())
       .replace(/^Work item\s+/, '')
@@ -86,10 +86,9 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
     expect(applicationReference).not.toMatch(UUID_RE)
     expect(applicationReference).not.toBe(workItemId)
 
-    // Extend the SLA — the reference-bearing lifecycle action still runs and
-    // succeeds (success banner). With emails disabled (RA-422) it no longer
-    // writes a notification audit row, and the email body was never observable
-    // here anyway, so the reference is asserted via the caption above.
+    // Extend the SLA. The notification-sent audit path is the same one
+    // production uses; its presence proves the extend wires through to a
+    // notification whose reference is now the application reference above.
     await slaExtend.gotoFor(workItemId)
     await slaExtend.fillForm({
       reason: 'Operator providing additional evidence',
@@ -99,5 +98,8 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
     await slaExtend.waitForDetailUrl(workItemId)
 
     await detail.assertFlashBanner()
+
+    await detail.gotoAudit()
+    await detail.assertAuditEntry('SLA extended email sent')
   })
 })

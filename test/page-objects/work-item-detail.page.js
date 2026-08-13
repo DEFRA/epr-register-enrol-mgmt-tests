@@ -571,25 +571,6 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * RA-422. Assert the audit log does NOT contain an entry matching `text` —
-   * the counterpart of `assertAuditEntry`.
-   *
-   * Case Management emails are gated behind the `Notify:Enabled` feature flag
-   * (default false), which the e2e stack runs with OFF. The flag gates the
-   * single post-action hook that BOTH sends the emails AND writes the
-   * `notification-sent` / `-skipped` / `-failed` audit rows (display names
-   * "<description> email sent|skipped|failed"), so with it off those rows are
-   * never written. Asserts the audit log has rendered first, so "entry absent"
-   * cannot pass vacuously against a not-yet-loaded page.
-   */
-  async assertNoAuditEntry(text) {
-    await expect($('[data-testid="work-item-audit-log"]')).toBeDisplayed()
-    await expect(
-      $(`//*[@data-testid="work-item-audit-log"]//*[contains(.,"${text}")]`)
-    ).not.toBeExisting()
-  }
-
-  /**
    * Assert the post-redirect flash banner is shown on the detail page
    * (e.g. after an SLA extend/override). Kept here so specs don't reach
    * for the inline selector.

@@ -8,20 +8,25 @@ import {
 } from '../support/re-accreditation-journey.js'
 
 /**
- * RA-201 — Extend SLA no longer emails the operator once Case Management
- * emails are disabled behind the Notify:Enabled feature flag (RA-422,
- * default false — the e2e stack runs with it off).
+ * RA-201 — Extend SLA sends the operator a "SLA extended" email.
  *
- * The flag gates the single post-action hook that BOTH sends the
- * "SLA extended" email AND writes its notification audit entry, so with the
- * flag off the extend still succeeds (success banner) but the audit log gains
- * NO "SLA extended email" entry. This spec proves that new default.
+ * Regression cover for the bug where extend-SLA emails never sent: the
+ * SlaExtended GOV.UK Notify template requires an ((sla_deadline))
+ * placeholder that the notification hook never supplied, so Notify
+ * rejected the send with "Missing personalisation: sla_deadline".
  *
- * The extend itself only succeeds once an SLA clock exists, so the work item
- * is driven to "Assessment in progress" first (payment-received stamps the
- * clock).
+ * Observed through the UI: after a team leader extends the SLA on a
+ * re-accreditation work item (which has an operator email and an SLA
+ * clock started at payment-received), the audit log gains an
+ * "SLA extended email sent" entry. In the e2e stack NOTIFY_API_KEY is
+ * absent so the NoOpNotifyClient stands in and reports success, which
+ * exercises the same notification-sent audit path as production.
+ *
+ * The extend itself only succeeds once an SLA clock exists, so the
+ * work item is driven to "Assessment in progress" first (payment-received
+ * stamps the clock).
  */
-describe('RA-201 Extend SLA records no operator email (Notify flag off)', () => {
+describe('RA-201 Extend SLA sends operator notification', () => {
   let workItemId
 
   before(async () => {
@@ -49,7 +54,7 @@ describe('RA-201 Extend SLA records no operator email (Notify flag off)', () => 
 
     // Duly made -> Assessment in progress. payment-received stamps the
     // SLA clock, without which the extend below would fail with
-    // "clock not started" and the success banner would not show.
+    // "clock not started" and no notification would fire.
     await startAssessment(workItemId)
     await detail.assertState('Updated')
 
@@ -60,7 +65,7 @@ describe('RA-201 Extend SLA records no operator email (Notify flag off)', () => 
     await login.logout()
   })
 
-  it('records NO "SLA extended email" audit entry after a successful extend', async () => {
+  it('records an "SLA extended email sent" audit entry after a successful extend', async () => {
     await login.login()
 
     await slaExtend.gotoFor(workItemId)
@@ -71,16 +76,17 @@ describe('RA-201 Extend SLA records no operator email (Notify flag off)', () => 
     await slaExtend.submitForm()
     await slaExtend.waitForDetailUrl(workItemId)
 
-    // The extend itself still succeeds (clock present) so a success banner
-    // shows — the lifecycle action is unaffected by the Notify flag.
+    // The extend succeeded (clock present) so a success banner shows.
     await detail.assertFlashBanner()
 
-    // With Notify:Enabled off (the e2e default), the post-action hook that
-    // BOTH sends the email AND writes the notification audit row never fires,
-    // so no "SLA extended email" entry appears in the audit log.
+    // The notification hook fired and the send succeeded, so the audit
+    // log carries the "SLA extended email sent" entry — proving the
+    // extend wires through to a notification end-to-end. (In this stack
+    // NOTIFY_API_KEY is absent so the NoOpNotifyClient stands in; the
+    // sla_deadline placeholder-contract regression itself is guarded by
+    // the management-be NotifyTemplateContractTests, which the real
+    // GovukNotifyClient would otherwise have 400'd on.)
     await detail.gotoAudit()
-    await detail.assertNoAuditEntry('SLA extended email sent')
-    await detail.assertNoAuditEntry('SLA extended email skipped')
-    await detail.assertNoAuditEntry('SLA extended email failed')
+    await detail.assertAuditEntry('SLA extended email sent')
   })
 })
