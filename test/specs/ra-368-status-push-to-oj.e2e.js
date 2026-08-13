@@ -17,11 +17,14 @@ import { dulyMake } from '../support/re-accreditation-journey.js'
  * `status-push-skipped` entry (labelled "Status not sent to OJ (disabled)")
  * for both call sites:
  *   - the submitted -> duly-made transition, which bypasses the generic
- *     `WorkItemService.ApplyActionAsync` path and so needed the hook wired
- *     in explicitly (`ReAccreditationDulyMadeHook`). RA-316 replaced the
- *     task-driven auto-transition into this state with the explicit "Duly
- *     make" CTA and payment-date page (see `dulyMake` below); the hook still
- *     fires off that path the same way it did off the deleted one;
+ *     `WorkItemService.ApplyActionAsync` path and so needs the hook invoked
+ *     explicitly (`ReAccreditationDulyMakingService.InvokeActionAppliedHooksAsync`).
+ *     RA-316 deleted the old auto-transition (`ReAccreditationDulyMadeHook`,
+ *     which fired once the last `submitted`-state task was completed) and
+ *     replaced it with the "Duly make" CTA + payment-date route exercised via
+ *     the shared `dulyMake()` journey helper below — the bypass-and-invoke
+ *     shape this test cares about is unchanged, only how a caseworker
+ *     reaches it;
  *   - an ordinary action (`payment-received`), which goes through the
  *     generic `ApplyActionAsync` path the hook is registered against.
  * Both must produce their own `status-push-skipped` entry.
@@ -48,7 +51,7 @@ describe('RA-368 CM status push to OJ', () => {
     await login.logout()
   })
 
-  it('records a status-push-skipped entry for the submitted -> duly-made transition', async () => {
+  it('records a status-push-skipped entry for the duly-made transition', async () => {
     await dulyMake(workItemId)
 
     await detail.gotoAudit()
