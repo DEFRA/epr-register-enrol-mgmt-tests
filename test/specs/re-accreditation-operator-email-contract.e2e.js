@@ -11,18 +11,28 @@ import detail from '../page-objects/work-item-detail.page.js'
  * field is correctly passed from the frontend form to the backend and
  * eventually reaches the ReAccreditationNotificationHook.
  *
- * Acceptance criteria (as observable with Case Management emails disabled by
- * the Notify:Enabled flag — RA-422, default false, the e2e default):
- * 1. The form submits operatorEmail in the payload (not email)
- * 2. The backend accepts the operatorEmail field
- * 3. The work item is created successfully
- * 4. With the flag off, the post-action notification hook does not fire, so
- *    NO "Submission confirmation email" audit entry is written (neither sent
- *    nor skipped). AC1-3 stay observable via the successful create and the
- *    issued AP reference, which payload deserialization gates.
+ * Scope note (RA-422). Case Management emails are now disabled by default via
+ * the Notify:Enabled flag, and the e2e stack runs with it off. The post-action
+ * notification hook then never fires, so the "Submission confirmation email"
+ * audit row this spec used to assert on is no longer written — there is no
+ * longer any e2e-observable side effect of operatorEmail reaching the backend.
  *
- * This still guards the field-name contract (operatorEmail vs email): a
- * mismatch would fail deserialization and so the create/reference above.
+ * As a result this spec NO LONGER guards the operatorEmail-vs-email field-name
+ * contract on its own: OperatorEmail is an optional (string?) payload field, so
+ * a mis-named field just binds to null — the work item is still created and an
+ * AP reference is still issued. Do not read the create + reference below as
+ * proof the field name is correct.
+ *
+ * The field-name contract is now guarded at the backend deserialisation
+ * boundary in management-be, ReAccreditationEndpointTests:
+ *   - Submit_persists_every_field_from_a_real_operator_submission_payload
+ *     (operatorEmail binds to OperatorEmail), and
+ *   - Submit_does_not_bind_OperatorEmail_from_a_misnamed_email_field
+ *     (a mis-named `email` leaves OperatorEmail null).
+ *
+ * What this spec still covers e2e: the operator create journey completes and
+ * issues an AP reference, and — with Notify disabled — no "Submission
+ * confirmation email" audit row (sent or skipped) is written.
  */
 describe('RA-123 contract: operatorEmail field in re-accreditation submission', () => {
   before(async () => {
@@ -60,9 +70,10 @@ describe('RA-123 contract: operatorEmail field in re-accreditation submission', 
 
     // RA-219 / RA-318: the reference is generated server-side and surfaced
     // on the success banner — confirm it has the expected AP-prefixed shape.
-    // The create only succeeds if the backend deserialized the operatorEmail
-    // payload, so this is the observable proof of the field-name contract now
-    // that the notification audit row is gone (RA-422).
+    // This proves the create journey completes; it does NOT prove the
+    // operatorEmail field name (an optional field binds to null when mis-named
+    // — see the header note; the field-name contract is pinned in management-be
+    // ReAccreditationEndpointTests).
     const applicationReference = (await successBanner.getText()).match(
       /AP[A-Z0-9]+\b/
     )?.[0]
@@ -83,15 +94,17 @@ describe('RA-123 contract: operatorEmail field in re-accreditation submission', 
     // With Notify:Enabled off (the e2e default, RA-422), the post-action hook
     // that BOTH sends the submission-confirmation email AND writes its
     // notification audit row never fires — so no "Submission confirmation
-    // email" entry (sent OR skipped) is written. The operatorEmail fe->be
-    // contract is already proven by the successful create + AP reference above.
+    // email" entry (sent OR skipped) is written. (The operatorEmail fe->be
+    // field-name contract itself is pinned in management-be
+    // ReAccreditationEndpointTests — see the header note.)
     await detail.assertNoAuditEntry('Submission confirmation email sent')
     await detail.assertNoAuditEntry('Submission confirmation email skipped')
   })
 
   it('uses default test@defra.gov.uk email when not overridden and still creates the work item', async () => {
-    // This test verifies the happy path where the form's default email is used
-    // and the backend correctly deserializes it as operatorEmail
+    // Happy path: the form pre-fills the default operatorEmail and the create
+    // journey completes. (Backend field-name binding is covered in management-be
+    // ReAccreditationEndpointTests — see the header note.)
     const defaultTestEmail = 'test@defra.gov.uk'
 
     await workItems.goto()
