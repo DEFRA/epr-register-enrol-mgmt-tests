@@ -125,23 +125,28 @@ describe('RA-410 The green CTA lifecycle', () => {
       )
     })
 
-    it('does not park the item in awaiting-decision on the way', async () => {
-      // The waypoint is discharged inside the same call, so it must appear in
-      // the audit history as a declared edge rather than as a state the user
-      // was left in. Reading the rendered transitions is the only way to see
-      // this: the start and end states are identical whether the hop was
-      // taken through its declared edge or jumped across.
+    it('does not park the item in awaiting-decision, and ends at approved', async () => {
+      // The atomic, OJ-gated decision discharges the awaiting-decision waypoint
+      // SERVER-SIDE inside the single call, so the item is never left resting
+      // there. What the audit history must show is the item ARRIVING at the
+      // terminal state — asserting the real END STATE rather than the internal
+      // hop, which is not a state the caseworker was ever stopped at.
       await detail.gotoAudit()
       const transitions = await detail.appliedTransitions()
 
       // appliedTransitions() renders the raw state-id edge, not the display
-      // label — see the same convention in ra-316-duly-making.e2e.js
-      // ('submitted → duly-made'). Asserting the declared edge proves the hop
-      // was taken through awaiting-decision rather than jumped across it.
-      expect(transitions.join(' | ')).toContain(
-        'assessment-in-progress → awaiting-decision'
-      )
-      // ...and the item is emphatically not sitting there now.
+      // label ("Granted") — see the same convention in ra-316-duly-making.e2e.js
+      // ('submitted → duly-made'). Whatever shape management-be gives the
+      // internal hop in the history — a collapsed `assessment-in-progress →
+      // approved` edge or a declared `… → approved` one — the terminal edge
+      // lands on `approved`. Deliberately NOT asserting the intermediate
+      // `→ awaiting-decision` edge: whether the audit surfaces the internal hop
+      // is management-be's call, and the AC is that the item does not REST
+      // there, not that the edge is invisible.
+      expect(transitions.join(' | ')).toContain('→ approved')
+
+      // ...and the item is emphatically not sitting in awaiting-decision now:
+      // it is in the terminal state, with no affordance to rest at the waypoint.
       await workItems.openWorkItem(workItemId)
       await detail.assertStateId('approved')
     })

@@ -568,6 +568,27 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * epr-p86e. Assert the ERROR variant of the post-redirect flash banner.
+   *
+   * When the atomic, OJ-gated decision fails (management-be returns 500 with
+   * no state change), management-fe PRG-redirects back to the detail page and
+   * flashes a generic error notification banner — the `--error` variant of the
+   * same `work-item-flash-banner`, not a `.govuk-error-summary` and not a
+   * full-page error template. Asserting the `--error` modifier rather than the
+   * bare test id keeps this from latching onto a SUCCESS flash (create,
+   * SLA-extend) that shares the id. The copy belongs to management-fe, so this
+   * asserts the component and variant, never the wording.
+   */
+  async assertErrorFlashBanner() {
+    await expect($('[data-testid="work-item-flash-banner"]')).toBeDisplayed()
+    await expect(
+      $(
+        '[data-testid="work-item-flash-banner"].govuk-notification-banner--error'
+      )
+    ).toBeExisting()
+  }
+
+  /**
    * Assert the detail page no longer surfaces the payload pre block or
    * the template version summary row. RA-186 moved the payload into the
    * submitted audit log entry and removed template version from the
