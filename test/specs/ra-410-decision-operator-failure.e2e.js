@@ -81,8 +81,9 @@ describe('RA-410 The OJ-gated decision fails atomically', () => {
     // not the internal `awaiting-decision` waypoint — still assessment.
     await detail.assertStateId('assessment-in-progress')
     // ...and there is no approval panel / accreditation id, because nothing
-    // was granted.
-    await expect(detail.approveCta()).not.toBeExisting()
+    // was granted. The approval panel renders only for an approved item, so
+    // its absence is a real signal (unlike the retired approve-cta testid).
+    await detail.assertNoApprovalPanel()
   })
 
   it('leaves the item decidable — the Log decision CTA is still offered', async () => {

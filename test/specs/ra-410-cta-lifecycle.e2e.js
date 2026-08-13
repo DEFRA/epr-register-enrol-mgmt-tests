@@ -185,7 +185,10 @@ describe('RA-410 The green CTA lifecycle', () => {
       // that approved on both radios would satisfy a state assertion alone if
       // the state were read from the request rather than the result.
       await detail.assertReadOnlyOutcomePanel('Refused')
-      await expect(detail.approveCta()).not.toBeExisting()
+      // No approval confirmation panel — and so no accreditation id — is
+      // rendered for a refused item; that panel is built only for the
+      // approved state, so its absence is what proves nothing was granted.
+      await detail.assertNoApprovalPanel()
     })
   })
 

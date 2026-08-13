@@ -359,6 +359,26 @@ class WorkItemDetailPage extends Page {
     ).toBeDisplayed()
   }
 
+  /**
+   * The inverse of {@link assertApprovalPanelVisible}: assert the approval
+   * confirmation panel — and so the generated accreditation id — is NOT
+   * rendered. That panel is built only for the `approved` state, so its
+   * absence is what genuinely proves a refused or still-undecided item
+   * granted nothing.
+   *
+   * This replaces an earlier `approveCta()` check against the retired RA-132
+   * `re-accreditation-approve-cta` testid, which management-fe deletes: an
+   * absence assertion on a testid no code path can emit is vacuously true and
+   * would pass even if a stray approval control were reintroduced. The
+   * approval panel is a live testid, so this catches that regression. Same
+   * idiom as reject-terminal-flow / ra-346-approve-gating.
+   */
+  async assertNoApprovalPanel() {
+    await expect(
+      $('[data-testid="re-accreditation-approval-panel"]')
+    ).not.toBeExisting()
+  }
+
   async getAccreditationId() {
     return $('[data-testid="re-accreditation-approval-panel-id"]').getText()
   }
@@ -1642,17 +1662,6 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * RA-132 / RA-346. The re-accreditation "Approve" CTA is not a generic
-   * action button — it is a type-specific link rendered by the
-   * `approveAction` block in `re-accreditation/detail-v1.njk`, wrapped in
-   * this container. RA-346 gates that container on the awaiting-decision
-   * tasks being complete, so its presence is the thing under test.
-   */
-  approveCta() {
-    return $('[data-testid="re-accreditation-approve-cta"]')
-  }
-
-  /**
    * RA-316. The "Duly make" CTA, rendered in the actions panel while the
    * item is in `submitted` and ABSENT FROM THE DOM in every other state
    * (management-fe removes it rather than hiding it, so presence — not
@@ -1924,10 +1933,6 @@ class WorkItemDetailPage extends Page {
           'suspect backend read-your-own-write.'
       }
     )
-  }
-
-  async hasApproveCta() {
-    return this.approveCta().isExisting()
   }
 
   /**
