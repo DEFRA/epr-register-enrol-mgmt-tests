@@ -455,8 +455,17 @@ describe('RA-370 — application card field order and Submitted on', () => {
     })
 
     it('AC4: still shows Assigned to', async () => {
+      // RA-410: reaching assessment-in-progress now goes through "Assign to
+      // yourself and start" (`startAssessment` -> `selfAssignAndStart`), which
+      // assigns the item as it transitions — the old standalone `payment-received`
+      // path that could reach assessment while unassigned is gone. So an
+      // assessment-in-progress card is always held by the caseworker who started
+      // it. AC4's subject is unchanged (the Assigned to field is present in this
+      // state); only its value moved from "Unassigned" to the officer name.
       await listCardsFor(org)
-      await expect(workItems.tileAssignedTo(itemId)).toHaveText('Unassigned')
+      await expect(workItems.tileAssignedTo(itemId)).toHaveText(
+        'Stub Caseworker One'
+      )
     })
 
     it('AC1: keeps the canonical field order', async () => {
