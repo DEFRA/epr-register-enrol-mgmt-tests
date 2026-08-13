@@ -572,20 +572,23 @@ class WorkItemDetailPage extends Page {
    *
    * When the atomic, OJ-gated decision fails (management-be returns 500 with
    * no state change), management-fe PRG-redirects back to the detail page and
-   * flashes a generic error notification banner — the `--error` variant of the
-   * same `work-item-flash-banner`, not a `.govuk-error-summary` and not a
-   * full-page error template. Asserting the `--error` modifier rather than the
-   * bare test id keeps this from latching onto a SUCCESS flash (create,
-   * SLA-extend) that shares the id. The copy belongs to management-fe, so this
-   * asserts the component and variant, never the wording.
+   * flashes a generic error notification banner on the same
+   * `work-item-flash-banner` test id — not a `.govuk-error-summary` and not a
+   * full-page error template.
+   *
+   * GOV.UK's notification banner has only a DEFAULT and a `--success` variant —
+   * there is no `--error` modifier class — so an error flash renders as the
+   * default variant. Asserting the ABSENCE of `--success` is what keeps this
+   * from latching onto a SUCCESS flash (create, SLA-extend) that shares the id,
+   * without asserting management-fe's copy.
    */
   async assertErrorFlashBanner() {
     await expect($('[data-testid="work-item-flash-banner"]')).toBeDisplayed()
     await expect(
       $(
-        '[data-testid="work-item-flash-banner"].govuk-notification-banner--error'
+        '[data-testid="work-item-flash-banner"].govuk-notification-banner--success'
       )
-    ).toBeExisting()
+    ).not.toBeExisting()
   }
 
   /**
