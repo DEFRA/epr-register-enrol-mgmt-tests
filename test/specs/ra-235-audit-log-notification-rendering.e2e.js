@@ -5,41 +5,36 @@ import detail from '../page-objects/work-item-detail.page.js'
 import withdraw from '../page-objects/withdraw.page.js'
 
 /**
- * RA-235 — E2E: audit-log notification rendering.
+ * RA-235 — E2E: audit-log notification rendering, under the RA-422 default.
  *
- * Counterpart to management-fe PR #100 (RA-234), which makes the audit-log
- * page render the regulator-notification audit actions
- * (`notification-sent` / `notification-skipped` / `notification-failed`)
- * with their structured detail rows (Recipient, Notification type,
- * Reference, Reason, Error) and renders FAILURE entries visually distinct
- * (a red GOV.UK "Failed" tag plus the `app-audit-entry--failure` red
- * left-border class).
+ * management-fe PR #100 (RA-234) made the audit-log page render the
+ * regulator-notification audit actions (`notification-sent` /
+ * `notification-skipped` / `notification-failed`) with their structured
+ * detail rows and distinct failure styling. RA-422 then put all Case
+ * Management email functionality behind the `Notify:Enabled` feature flag
+ * (default false), and the e2e stack runs with it OFF.
+ *
+ * The flag gates the single post-action hook that BOTH sends the emails AND
+ * writes those notification audit entries, so with it off NO `notification-*`
+ * rows are written at all — there is nothing for the RA-234 rendering to
+ * render. The rendering itself stays covered by the management-fe unit tests
+ * (audit-log.js / audit-log.njk); end-to-end, the honest assertion under the
+ * current default is that a lifecycle action records no notification entry.
+ *
+ * The SENT path used to be exercised through the withdraw flow (RA-204): the
+ * withdraw still succeeds (state -> Withdrawn), it simply no longer notifies.
  *
  * Part of epic RA-227.
- *
- * SENT path is exercised through the withdraw flow (RA-204): withdrawing a
- * re-accreditation work item with the seeded default operator email
- * (test@defra.gov.uk) sends the "Withdrawn" email, which the backend
- * records as a `notification-sent` audit entry carrying the recipient,
- * notification type (templateKey) and reference (the work item id).
- *
- * The failure path is documented as a known gap below — see the pending
- * test — because the e2e stack cannot force a failed send (NOTIFY_API_KEY
- * is absent so the always-successful NoOpNotifyClient stands in, and the
- * harness exposes no failure-injection mechanism). Faking a failed send
- * would not exercise the real backend audit path, so it is deliberately
- * left pending rather than stubbed.
  */
-describe('RA-235 audit-log notification rendering', () => {
-  describe('notification-sent entry renders with its detail rows', () => {
+describe('RA-235 audit-log notification rendering (disabled by RA-422)', () => {
+  describe('a lifecycle action records no notification audit entry', () => {
     let workItemId
 
     before(async () => {
       await login.login()
       await workItems.goto()
-      // operatorEmail left at the seeded default (test@defra.gov.uk) so the
-      // withdraw send succeeds rather than being skipped — that default is
-      // therefore the recipient we assert on below.
+      // operatorEmail left at the seeded default (test@defra.gov.uk); with the
+      // Notify flag off it is moot, but keeps the fixture realistic.
       workItemId = (
         await workItems.createWorkItem({
           organisationName: 'Audit Notify Render Ltd',
@@ -53,7 +48,7 @@ describe('RA-235 audit-log notification rendering', () => {
 
       await withdraw.gotoFor(workItemId, 'withdraw')
       await withdraw.fillNote(
-        'Withdrawn to exercise the notification audit entry'
+        'Withdrawn to exercise the (now disabled) notification audit entry'
       )
       await withdraw.submit()
       await withdraw.waitForDetailUrl(workItemId)
@@ -67,77 +62,23 @@ describe('RA-235 audit-log notification rendering', () => {
       await login.logout()
     })
 
-    it('records a notification-sent audit entry', async () => {
+    it('records no notification-sent audit entry after the withdraw', async () => {
       const sentEntries =
         await detail.auditEntriesForAction('notification-sent')
-      expect(sentEntries.length).toBeGreaterThan(0)
+      expect(sentEntries.length).toBe(0)
     })
 
-    it('shows the recipient detail row on the notification-sent entry', async () => {
-      await detail.assertNotificationDetailRow(
-        'notification-sent',
-        'Recipient',
-        'test@defra.gov.uk'
-      )
+    it('records no notification-skipped or notification-failed entry either', async () => {
+      const skipped = await detail.auditEntriesForAction('notification-skipped')
+      const failed = await detail.auditEntriesForAction('notification-failed')
+      expect(skipped.length).toBe(0)
+      expect(failed.length).toBe(0)
     })
 
-    it('shows the notification-type detail row on the notification-sent entry', async () => {
-      await detail.assertNotificationDetailRow(
-        'notification-sent',
-        'Notification type',
-        'Withdrawn'
-      )
-    })
-
-    it('shows the reference detail row on the notification-sent entry', async () => {
-      // The backend stamps the work item id as the Notify client reference.
-      await detail.assertNotificationDetailRow(
-        'notification-sent',
-        'Reference',
-        workItemId
-      )
-    })
-  })
-
-  describe('notification-failed entry renders with error styling', () => {
-    /**
-     * KNOWN GAP (deliberately pending, not skipped silently).
-     *
-     * RA-234 makes a `notification-failed` audit entry render visually
-     * distinct: the `app-audit-entry--failure` red-left-border class on
-     * the `<li>` and a red GOV.UK "Failed" tag inside it. The page-object
-     * helper `detail.assertNotificationFailureStyling()` asserts exactly
-     * that markup and is ready to drive this test.
-     *
-     * It cannot run end-to-end in this harness: a `notification-failed`
-     * entry is only written when GOV.UK Notify rejects a send, but the
-     * e2e stack runs with NOTIFY_API_KEY absent, so management-be wires the
-     * NoOpNotifyClient — which always returns NotifySendResult.Success.
-     * There is no env var, stub, or seed in this repo's test harness to
-     * force a failed send. Producing a failure would require either a real
-     * Notify rejection or a backend test-only failure-injection hook, and
-     * the task explicitly forbids faking the outcome.
-     *
-     * The failure RENDERING is already covered by the management-fe unit
-     * tests for audit-log.js / audit-log.njk on PR #100 (isFailure → the
-     * "Failed" tag + failure class). This pending test marks the e2e gap
-     * so it is visible in the report rather than silently absent; unskip it
-     * once the harness can inject a failed send (tracked under RA-227).
-     */
-    it.skip('renders a failed notification with the red "Failed" tag and failure class', async () => {
-      // Pseudocode for when failure injection exists in the harness:
-      //   await ...force a notification-failed entry for a work item...
-      //   await detail.gotoAudit()
-      //   await detail.expandAllAuditEntryDetails()
-      //   const failedEntries =
-      //     await detail.auditEntriesForAction('notification-failed')
-      //   expect(failedEntries.length).toBeGreaterThan(0)
-      //   await detail.assertNotificationFailureStyling()
-      //   await detail.assertNotificationDetailRow(
-      //     'notification-failed',
-      //     'Error',
-      //     '<expected Notify error text>'
-      //   )
+    it('does not render an "Application withdrawn email" audit row', async () => {
+      await detail.assertNoAuditEntry('Application withdrawn email sent')
+      await detail.assertNoAuditEntry('Application withdrawn email skipped')
+      await detail.assertNoAuditEntry('Application withdrawn email failed')
     })
   })
 })
