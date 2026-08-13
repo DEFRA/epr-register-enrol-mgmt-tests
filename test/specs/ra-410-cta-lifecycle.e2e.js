@@ -117,8 +117,11 @@ describe('RA-410 The green CTA lifecycle', () => {
       await detail.assertStateId('approved')
       await detail.assertState('Granted')
       await detail.assertApprovalPanelVisible()
+      // RA-415 reworked the accreditation id format (was `ACC-2027-P-XXXXXXXX`).
+      // Mirror the pattern management-be now generates — see the matching
+      // assertion in re-accreditation-approval.e2e.js.
       expect(await detail.getAccreditationId()).toMatch(
-        /^ACC-\d{4}-P-[A-Z0-9]{8}$/
+        /^A\d{2}[ESNW][RX][A-Z0-9]{6}[A-Z0-9]{3}PL$/
       )
     })
 
@@ -131,13 +134,22 @@ describe('RA-410 The green CTA lifecycle', () => {
       await detail.gotoAudit()
       const transitions = await detail.appliedTransitions()
 
-      expect(transitions.join(' | ')).toContain('Awaiting decision')
+      // appliedTransitions() renders the raw state-id edge, not the display
+      // label — see the same convention in ra-316-duly-making.e2e.js
+      // ('submitted → duly-made'). Asserting the declared edge proves the hop
+      // was taken through awaiting-decision rather than jumped across it.
+      expect(transitions.join(' | ')).toContain(
+        'assessment-in-progress → awaiting-decision'
+      )
       // ...and the item is emphatically not sitting there now.
       await workItems.openWorkItem(workItemId)
       await detail.assertStateId('approved')
     })
 
     it('withdraws every CTA once terminal', async () => {
+      // Re-open the detail page: the previous `it` may have left the browser on
+      // the audit log, and these assertions read the detail page directly.
+      await workItems.openWorkItem(workItemId)
       expect(await detail.hasDulyMakeCta()).toBe(false)
       expect(await detail.hasLogDecisionCta()).toBe(false)
       await detail.assertNoDecisionActions()
