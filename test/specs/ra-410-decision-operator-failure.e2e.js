@@ -70,8 +70,11 @@ describe('RA-410 The OJ-gated decision fails atomically', () => {
     await decision.submit()
 
     // fe PRG-redirects back to the detail page on the 500 — not a full error
-    // page, not a stay-on-form field error.
-    await decision.waitForDetailUrl(workItemId)
+    // page, not a stay-on-form field error. The push is a PRE-COMMIT GATE that
+    // retries (~28s worst case per management-be) before the request returns
+    // 500, so the redirect can be well over the default 10s wait — hence the
+    // longer timeout here, still comfortably inside Mocha's 60s per-test limit.
+    await decision.waitForDetailUrl(workItemId, { timeout: 45000 })
     await detail.assertErrorFlashBanner()
 
     // The whole point of "atomic": the state did not move. Not `approved`,
