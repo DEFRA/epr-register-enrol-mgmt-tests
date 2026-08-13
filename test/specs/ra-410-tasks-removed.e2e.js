@@ -4,7 +4,6 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import {
   createReAccreditation,
-  driveToAssessmentInProgress,
   dulyMake
 } from '../support/re-accreditation-journey.js'
 
