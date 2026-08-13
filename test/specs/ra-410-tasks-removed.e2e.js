@@ -180,7 +180,12 @@ describe('RA-410 Tasks are removed from Case Management', () => {
 
   describe('AC03 — no task actions survive as work item actions', () => {
     it('offers no task-shaped action in any state', async () => {
-      await driveToAssessmentInProgress(workItemId)
+      // The shared workItemId was already driven to assessment-in-progress and
+      // self-assigned by the 'in assessment-in-progress' test above. Re-driving
+      // it would call selfAssignAndStart on an item that is already assigned,
+      // where the self-assign control is (correctly) absent. Just re-open it —
+      // it is already in the state this assertion needs.
+      await workItems.openWorkItem(workItemId)
 
       const actionIds = await detail.availableActionIds()
       const taskShaped = actionIds.filter((id) => /task/i.test(id))
