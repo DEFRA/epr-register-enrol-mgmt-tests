@@ -2,6 +2,7 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
+import { dulyMake } from '../support/re-accreditation-journey.js'
 
 /**
  * RA-368 — CM pushes work item status changes to OJ.
@@ -15,9 +16,15 @@ import detail from '../page-objects/work-item-detail.page.js'
  * assert deterministically is that the hook still fires and records its own
  * `status-push-skipped` entry (labelled "Status not sent to OJ (disabled)")
  * for both call sites:
- *   - the submitted -> duly-made auto-transition, which bypasses the
- *     generic `WorkItemService.ApplyActionAsync` path and so needed the
- *     hook wired in explicitly (`ReAccreditationDulyMadeHook`);
+ *   - the submitted -> duly-made transition, which bypasses the generic
+ *     `WorkItemService.ApplyActionAsync` path and so needs the hook invoked
+ *     explicitly (`ReAccreditationDulyMakingService.InvokeActionAppliedHooksAsync`).
+ *     RA-316 deleted the old auto-transition (`ReAccreditationDulyMadeHook`,
+ *     which fired once the last `submitted`-state task was completed) and
+ *     replaced it with the "Duly make" CTA + payment-date route exercised via
+ *     the shared `dulyMake()` journey helper below — the bypass-and-invoke
+ *     shape this test cares about is unchanged, only how a caseworker
+ *     reaches it;
  *   - an ordinary action (`payment-received`), which goes through the
  *     generic `ApplyActionAsync` path the hook is registered against.
  * Both must produce their own `status-push-skipped` entry.
@@ -44,18 +51,8 @@ describe('RA-368 CM status push to OJ', () => {
     await login.logout()
   })
 
-  it('records a status-push-skipped entry for the auto duly-made transition', async () => {
-    await workItems.openWorkItem(workItemId)
-    // Under full-suite parallel load the detail page can render slower than
-    // gotoTasks()'s own implicit click-wait allows for, so wait for it
-    // explicitly rather than racing the navigation (same fix as RA-358's
-    // beforeEach).
-    await workItems.waitForDetailPage()
-    await detail.gotoTasks()
-    await detail.setTaskStatus('verify-organisation-details', 'Completed')
-    await detail.setTaskStatus('confirm-application-completeness', 'Completed')
-    await detail.gotoDetail()
-    await detail.assertState('Duly made')
+  it('records a status-push-skipped entry for the duly-made transition', async () => {
+    await dulyMake(workItemId)
 
     await detail.gotoAudit()
     const skippedEntries = await detail.auditEntriesForAction(
@@ -67,7 +64,6 @@ describe('RA-368 CM status push to OJ', () => {
 
   it('records a second status-push-skipped entry for the payment-received action', async () => {
     await workItems.openWorkItem(workItemId)
-    await workItems.waitForDetailPage()
     await detail.gotoTasks()
     await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
     await detail.gotoDetail()
