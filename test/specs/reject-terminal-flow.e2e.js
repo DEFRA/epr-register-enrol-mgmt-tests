@@ -2,25 +2,28 @@ import { $, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import { dulyMake } from '../support/re-accreditation-journey.js'
+import {
+  dulyMake,
+  logDecision,
+  startAssessment
+} from '../support/re-accreditation-journey.js'
 
 /**
  * RA-132 — Rejecting a re-accreditation drives it to the Refused terminal
  * state and replaces the generic action panel with a read-only outcome.
  *
  * Approve is covered end-to-end (re-accreditation-approval.e2e.js); this is
- * the parallel reject outcome. Unlike approve, reject has no dedicated
- * interstitial — it is a warning-style action that posts straight through
- * the generic action engine (POST /work-items/{id}/actions/reject) and
- * PRG-redirects back to the detail page in the Refused terminal state.
+ * the parallel Refused outcome. Both now go through the same Log decision
+ * page and differ only in which radio is chosen, which is exactly why they
+ * are worth asserting separately — a wiring slip that sent both outcomes to
+ * the same terminal state would satisfy either spec alone.
  *
- * The journey to the Awaiting decision state (where reject becomes
- * available) mirrors the approval spec:
+ * RA-410 rebuilt the journey onto the three green CTAs and removed Tasks:
  *   1. A caseworker creates a re-accreditation work item (Not started).
- *   2. Tasks are completed and the item progressed (auto-duly-made ->
- *      payment-received -> submit-for-decision) up to Awaiting decision.
- *   3. A caseworker completes the awaiting-decision task and rejects.
- *   4. The detail page surfaces the read-only "Outcome" panel + a red
+ *   2. "Duly make" + payment ref/date          -> Duly made.
+ *   3. "Assign to yourself and start"          -> Assessment in progress.
+ *   4. "Log decision" + the Refused radio      -> Refused.
+ *   5. The detail page surfaces the read-only "Outcome" panel + a red
  *      "Refused" state tag, and the generic decision actions disappear.
  *
  * The archive-from-worklist behaviour of the reject path is covered
@@ -30,7 +33,7 @@ import { dulyMake } from '../support/re-accreditation-journey.js'
 describe('RA-132 Reject action terminal flow', () => {
   let workItemId
 
-  it('creates a re-accreditation and drives it to awaiting-decision', async () => {
+  it('creates a re-accreditation and drives it to assessment-in-progress', async () => {
     await login.login()
     await workItems.goto()
     workItemId = (
@@ -53,37 +56,23 @@ describe('RA-132 Reject action terminal flow', () => {
     await dulyMake(workItemId)
 
     // Duly made -> Assessment in progress
-    await detail.gotoTasks()
-    await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('payment-received')
-    await detail.assertState('Updated')
-
-    // Assessment in progress -> Awaiting decision
-    await detail.gotoTasks()
-    await detail.setTaskStatus('review-compliance-history', 'Completed')
-    await detail.setTaskStatus('assess-technical-capacity', 'Completed')
-    await detail.setTaskStatus('assess-financial-capacity', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('submit-for-decision')
-    await detail.assertState('Awaiting decision')
+    await startAssessment(workItemId)
+    await detail.assertStateId('assessment-in-progress')
 
     await login.logout()
   })
 
-  it('rejects the work item as the decision maker and surfaces the read-only outcome', async () => {
+  it('refuses the work item as the decision maker and surfaces the read-only outcome', async () => {
     await login.login()
-    await workItems.openWorkItem(workItemId)
-    await detail.assertState('Awaiting decision')
 
-    // The reject transition requires all awaiting-decision tasks complete.
-    await detail.gotoTasks()
-    await detail.setTaskStatus('record-decision-rationale', 'Completed')
-    await detail.gotoDetail()
-
-    // Reject is a warning-style generic action — a single click posts
-    // through the engine and redirects back to the detail page.
-    await detail.triggerAction('reject')
+    // RA-410: the determination is logged through the "Log decision" CTA and
+    // an Approved/Refused radio. `reject` is no longer a caller-invocable
+    // action — management-be does not list it in `availableActions` at all —
+    // so the old `triggerAction('reject')` route cannot reach this state.
+    //
+    // "Refused" is the LABEL only: the state id underneath is still
+    // `rejected`, which is what `logDecision` asserts on the way through.
+    await logDecision(workItemId, 'refused')
     await detail.assertState('Refused')
 
     // RA-132: the terminal state replaces the generic action panel with a

@@ -75,6 +75,40 @@ services:
       retries: 5
 
   ################################################################################
+  # Operator-journey (OJ) backend stand-in.
+  #
+  # management-be's decision is atomic and OJ-gated: it pushes the status change
+  # to the operator-journey backend and only completes the transition once that
+  # push is acknowledged. That backend (epr-register-enrol-backend) is NOT in
+  # this stack, so without something answering the push every decision strands
+  # the item. This lightweight node stub answers 200 by default and can be
+  # armed — per work-item id, over its published control port — to return 500
+  # for the failure-path spec. See docker/stubs/operator-backend-stub.mjs.
+  operator-backend-stub:
+    image: node:22-alpine
+    command: ['node', '/opt/stub/operator-backend-stub.mjs']
+    volumes:
+      - ./docker/stubs:/opt/stub:ro
+    environment:
+      - PORT=8080
+    # Published so the TEST RUNNER (a host Node process, as it is for the
+    # management-be leg) can arm/clear a failure for one work item before
+    # submitting its decision. Overridable to coexist with a local 8090.
+    ports:
+      - ${OPERATOR_BACKEND_STUB_PORT:-8090}:8080
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 5s
+      start_period: 3s
+      retries: 5
+
+  ################################################################################
   epr-register-enrol-management-be:
     image: defradigital/epr-register-enrol-management-be:${MANAGEMENT_BE:-latest}
     env_file:
@@ -85,6 +119,8 @@ services:
         condition: service_healthy
       floci:
         condition: service_started
+      operator-backend-stub:
+        condition: service_healthy
     # RA-372. Published so the TEST RUNNER — a host Node process in every
     # configuration, `npm run test:github` included — can reach the backend
     # directly. One leg of the query lifecycle has no case-management UI at

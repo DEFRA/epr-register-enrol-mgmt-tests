@@ -4,7 +4,10 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import slaExtend from '../page-objects/sla-extend.page.js'
 import slaOverride from '../page-objects/sla-override.page.js'
-import { dulyMake } from '../support/re-accreditation-journey.js'
+import {
+  dulyMake,
+  startAssessment
+} from '../support/re-accreditation-journey.js'
 
 /**
  * RA-131 — Extend SLA.
@@ -48,10 +51,7 @@ describe('RA-131 Extend SLA', () => {
     await dulyMake(workItemId)
 
     // Duly made -> Assessment in progress (sla-extend becomes available)
-    await detail.gotoTasks()
-    await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('payment-received')
+    await startAssessment(workItemId)
     await detail.assertState('Updated')
 
     await login.logout()
@@ -181,10 +181,7 @@ describe('RA-131 Override SLA', () => {
     await dulyMake(workItemId)
 
     // Duly made -> Assessment in progress (sla-override becomes available)
-    await detail.gotoTasks()
-    await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('payment-received')
+    await startAssessment(workItemId)
     await detail.assertState('Updated')
 
     await login.logout()

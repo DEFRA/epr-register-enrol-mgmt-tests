@@ -2,57 +2,44 @@ import { expect } from '@wdio/globals'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import dulyMaking from '../page-objects/duly-making.page.js'
+import decision from '../page-objects/decision.page.js'
 import { ukDateParts } from './uk-time.js'
 
 /**
- * Shared re-accreditation journey steps (RA-346).
+ * Shared re-accreditation journey steps.
  *
- * Driving a freshly created work item down to `awaiting-decision` takes
- * three states' worth of task completion and two transitions. Both RA-346
- * specs need the same run-up before they can assert anything interesting,
- * and getting a step wrong there would fail the spec for a reason that has
- * nothing to do with the behaviour under test — so the run-up lives here
+ * THE CANONICAL LIFECYCLE FOR THE WHOLE SUITE. Most specs need a work item
+ * parked in some particular state before they can assert anything
+ * interesting, and getting a step wrong there fails the spec for a reason
+ * with no connection to the behaviour under test — so the run-up lives here
  * once rather than being copied per spec.
  *
- * The task ids mirror `TASKS_BY_STATE` in management-fe's re-accreditation
- * module (and `ReAccreditationType` in management-be, which is the shared
- * contract). Exported so the specs name the gate they are testing rather
- * than repeating string literals.
- */
-
-/**
- * RA-316 deleted the `submitted`-state tasks
- * (`verify-organisation-details`, `confirm-application-completeness`) and
- * the hook that auto-transitioned to `duly-made` when the last of them was
- * ticked. `submitted` now has an EMPTY task list and the only route into
- * `duly-made` is the "Duly make" CTA plus a payment date.
+ * RA-410 removed Tasks entirely. The journey is now three green
+ * call-to-action buttons and nothing else:
  *
- * The constant is deliberately gone rather than emptied: an empty array
- * would let `completeTasks(SUBMITTED_TASKS)` keep compiling and silently do
- * nothing, leaving items stranded in `submitted` and failing specs several
- * steps later for a reason with no connection to the cause.
+ *   submitted              --[ "Duly make" + payment ref/date ]--> duly-made
+ *   duly-made  --[ "Assign to yourself and start" ]--> assessment-in-progress
+ *   assessment-in-progress --[ "Log decision" + Approved/Refused ]--> approved
+ *                                                                  / rejected
  *
- * Tasks still exist for the OTHER states — their removal is RA-410 — so the
- * task machinery below stays.
+ * WHAT WENT, AND WHY THE CONSTANTS ARE DELETED RATHER THAN EMPTIED:
+ * `DULY_MADE_TASKS`, `ASSESSMENT_TASKS` and `DECISION_TASK` are gone, as is
+ * `completeTasks`. Emptying them would let `completeTasks(ASSESSMENT_TASKS)`
+ * keep compiling and silently do nothing, stranding items and failing specs
+ * several steps later for a reason with no connection to the cause. A
+ * deleted export fails at import, immediately and legibly.
+ *
+ * `driveToAwaitingDecision` is deleted for a different reason: the state
+ * still exists in management-be's machine but is an INTERNAL HOP applied
+ * server-side inside the single decision call. No affordance parks an item
+ * there, so a helper offering to do so would model a journey no caseworker
+ * can take. Specs that used it want `driveToAssessmentInProgress` (the
+ * pre-decision state) or `driveToApproved` / `driveToRefused` (the outcome).
+ *
+ * All transitions are now UNGATED in management-be — `payment-received` no
+ * longer fails with `IncompleteTasks` — so there is nothing to complete
+ * before a step, only the step itself.
  */
-
-export const DULY_MADE_TASKS = ['confirm-registration-fee-paid']
-
-/**
- * The `assessment-in-progress` tasks that gate `submit-for-decision`
- * (RA-346 issue 1).
- */
-export const ASSESSMENT_TASKS = [
-  'review-compliance-history',
-  'assess-technical-capacity',
-  'assess-financial-capacity'
-]
-
-/**
- * The single `awaiting-decision` task that gates `approve` (RA-346 issue
- * 2 — the actual bug: approve ran outside the all-tasks-complete gate).
- */
-export const DECISION_TASK = 'record-decision-rationale'
 
 /**
  * Create a re-accreditation work item and return its id.
@@ -87,18 +74,6 @@ export const DECISION_TASK = 'record-decision-rationale'
  * failure is therefore by accumulation across runs, not a pairwise clash,
  * which is why a clean database passes and a reused one fails.
  *
- * This is not hypothetical headroom. As of RA-346 the tuple
- * `(EA, '1AA', 'PL')` already has exactly 5 members (ra-235, ra-238,
- * ra-295-assignment-and-query, ra-295-case-header,
- * re-accreditation-operator-email-contract), so it is AT the ceiling: a
- * clean run consumes all 5 slots and every one of those specs fails on any
- * subsequent run against the same database. See epr-p5rt for the fixture
- * hygiene and epr-s9uc for the generator defect underneath it.
- *
- * The organisation name is still timestamped so a human reading the
- * work-items list can tell runs apart.
- */
-/**
  * `chargeAmountPence` (RA-316) is optional and passed straight through.
  *
  * OMITTING IT LEAVES THE ITEM WITH NO CHARGE AT ALL — there is no prefill
@@ -108,16 +83,11 @@ export const DECISION_TASK = 'record-decision-rationale'
  * rather than passing on a borrowed default.
  *
  * Supply it when the spec asserts on the rendered charge, and VARY IT
- * between specs: the duly-making page divides
- * by 100 to display, and a factor-of-100 slip is only conspicuous when
- * different items show different figures. If every item rendered the same
- * amount, a hardcoded value somewhere downstream could match it by accident
- * and hide the very bug the magnitude assertion exists to catch.
- *
- * Keep any value at or above 50000 pence. Below that, an undivided render
- * still lands under the £50,000 ceiling in
- * `ra-316-duly-making.e2e.js` and the check silently loses its power —
- * management-be enforces the same floor on its seeds for this reason.
+ * between specs: the duly-making page divides by 100 to display, and a
+ * factor-of-100 slip is only conspicuous when different items show
+ * different figures. Keep any value at or above 50000 pence — below that,
+ * an undivided render still lands under the £50,000 ceiling in
+ * `ra-316-duly-making.e2e.js` and the check silently loses its power.
  */
 export async function createReAccreditation(
   namePrefix,
@@ -137,27 +107,15 @@ export async function createReAccreditation(
   return id
 }
 
-async function completeTasks(taskIds) {
-  await detail.gotoTasks()
-  for (const taskId of taskIds) {
-    await detail.setTaskStatus(taskId, 'Completed')
-  }
-  await detail.gotoDetail()
-}
-
 /**
- * Submitted -> Duly made, via the RA-316 CTA and payment-date page.
- *
- * THE CANONICAL duly-making step for the whole suite. Every journey that
- * needs an item past `submitted` should call this rather than re-deriving
- * the flow, so when the page moves again there is one place to change.
+ * Step 1. Submitted -> Duly made, via the RA-316 CTA and payment-date page.
  *
  * The payment date defaults to TODAY, which is valid — the rule is "today
  * or in the past". Callers wanting a back-dated SLA clock pass `dayOffset`
  * (negative days); the floor is 12 months before today.
  *
- * NOTE FOR SLA ASSERTIONS: the 12-week clock now runs from the ENTERED
- * payment date at midnight UTC, not from the moment of completion. An SLA
+ * NOTE FOR SLA ASSERTIONS: the 12-week clock runs from the ENTERED payment
+ * date at midnight UTC, not from the moment of completion. An SLA
  * expectation computed from the test clock will be wrong by however far the
  * payment date is back-dated.
  */
@@ -165,10 +123,10 @@ export async function dulyMake(workItemId, { dayOffset = 0 } = {}) {
   await workItems.openWorkItem(workItemId)
   // The precondition is asserted as "the CTA is here", not as a state name,
   // because duly making has TWO entry points: `submitted`, and `updated`
-  // where the projected tasks came from `submitted` (an application queried
-  // during duly-making and then resubmitted). Pinning a display name would
-  // make this helper unusable from the second one — and "Updated" is
-  // ambiguous anyway, since `assessment-in-progress` shares it.
+  // where the application was queried during duly-making and then
+  // resubmitted. Pinning a display name would make this helper unusable from
+  // the second one — and "Updated" is ambiguous anyway, since
+  // `assessment-in-progress` shares it.
   expect(await detail.hasDulyMakeCta()).toBe(true)
   await detail.clickDulyMake()
   await dulyMaking.assertOnPage()
@@ -179,39 +137,98 @@ export async function dulyMake(workItemId, { dayOffset = 0 } = {}) {
 }
 
 /**
- * Submitted -> Duly made -> Assessment in progress.
+ * Step 2. Duly made -> Assessment in progress, via "Assign to yourself and
+ * start".
  *
- * `duly-made -> assessment-in-progress` still needs the explicit
- * `payment-received` action; RA-316 kept that transition untouched and only
- * changed the route INTO `duly-made`.
+ * REQUIRES THE ITEM TO BE UNASSIGNED — management-fe only renders the
+ * self-assign button when nobody holds the case. A caller that has already
+ * assigned the item to someone must unassign first, or drive the transition
+ * with `startAssessmentViaAction` below.
  *
- * Leaves the browser on the detail page with every
- * `assessment-in-progress` task still incomplete — which is exactly the
- * state RA-346 issue 1 is about.
+ * Asserts the RAW state id rather than the display name, because RA-324
+ * gives `assessment-in-progress` and `updated` the same display name
+ * ("Updated"): `assertState('Updated')` cannot tell them apart and would
+ * pass against the wrong one.
  */
-export async function driveToAssessmentInProgress(workItemId) {
-  await dulyMake(workItemId)
-
-  await completeTasks(DULY_MADE_TASKS)
-  await detail.triggerAction('payment-received')
-  // `assessment-in-progress` deliberately displays as "Updated" (RA-324).
-  await detail.assertState('Updated')
+export async function startAssessment(workItemId) {
+  await workItems.openWorkItem(workItemId)
+  expect(await detail.hasAssignmentControl('selfAssign')).toBe(true)
+  await detail.selfAssignAndStart()
+  await detail.assertStateId('assessment-in-progress')
 }
 
 /**
- * Assessment in progress -> Awaiting decision, completing every
- * assessment task first because `submit-for-decision` is gated on them.
+ * Step 2, without taking the case.
  *
- * Leaves the browser on the detail page with `record-decision-rationale`
- * still incomplete — the state RA-346 issue 2 is about.
+ * `payment-received` survives RA-410 as an ordinary caller-invocable action,
+ * so this drives the same transition while leaving assignment alone. Use it
+ * where the spec is about something else and self-assigning would change the
+ * assignee out from under an assertion — the RA-335 read-only user, say, or
+ * a spec that has deliberately assigned the case to another officer.
  */
-export async function driveToAwaitingDecision(workItemId) {
-  await driveToAssessmentInProgress(workItemId)
-  await completeTasks(ASSESSMENT_TASKS)
-  await detail.triggerAction('submit-for-decision')
-  await detail.assertState('Awaiting decision')
+export async function startAssessmentViaAction(workItemId) {
+  await workItems.openWorkItem(workItemId)
+  await detail.triggerAction('payment-received')
+  await detail.assertStateId('assessment-in-progress')
 }
 
-export async function completeDecisionTask() {
-  await completeTasks([DECISION_TASK])
+/**
+ * Step 3. Assessment in progress -> Approved / Refused, via "Log decision".
+ *
+ * `outcome` is `'approved'` or `'refused'` — the words on the RADIOS, which
+ * is what a spec author is reading off the screen. "REFUSED" IS A LABEL
+ * CHANGE ONLY: the state underneath is still `rejected`, which is why the
+ * state-id assertion below maps the two. Do not "fix" that mapping to match.
+ *
+ * One click covers both hops. management-be applies
+ * `assessment-in-progress -> awaiting-decision -> approved/rejected` inside
+ * the single call, so there is no intermediate page and nothing to assert
+ * between them.
+ */
+export async function logDecision(workItemId, outcome, { note } = {}) {
+  const terminalStateId = { approved: 'approved', refused: 'rejected' }[outcome]
+  if (!terminalStateId) {
+    throw new Error(
+      `Unknown decision outcome "${outcome}" (expected "approved" or "refused")`
+    )
+  }
+  await workItems.openWorkItem(workItemId)
+  expect(await detail.hasLogDecisionCta()).toBe(true)
+  await detail.clickLogDecision()
+  await decision.assertOnPage()
+  await decision.selectOutcome(outcome)
+  // The note is OPTIONAL and most callers omit it — they only want the item
+  // parked in a terminal state. RA-203 is the spec that cares, and it passes
+  // one so the Decision email's `decision_notes` personalisation has something
+  // to carry. See the ordering note on `decision.page.js`: management-fe posts
+  // the note before the decision precisely so the notification hook reads it.
+  if (note !== undefined) {
+    await decision.setNote(note)
+  }
+  await decision.submit()
+  await decision.waitForDetailUrl(workItemId)
+  await detail.assertStateId(terminalStateId)
+}
+
+/**
+ * Submitted -> Duly made -> Assessment in progress.
+ *
+ * Leaves the browser on the detail page with the "Log decision" CTA
+ * available and the case assigned to the logged-in user.
+ */
+export async function driveToAssessmentInProgress(workItemId) {
+  await dulyMake(workItemId)
+  await startAssessment(workItemId)
+}
+
+/** The whole journey through to `approved` ("Granted" on screen). */
+export async function driveToApproved(workItemId) {
+  await driveToAssessmentInProgress(workItemId)
+  await logDecision(workItemId, 'approved')
+}
+
+/** The whole journey through to `rejected` ("Refused" on screen). */
+export async function driveToRefused(workItemId) {
+  await driveToAssessmentInProgress(workItemId)
+  await logDecision(workItemId, 'refused')
 }

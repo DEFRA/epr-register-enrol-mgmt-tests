@@ -1,32 +1,41 @@
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import withdrawPage from '../page-objects/withdraw.page.js'
-import { dulyMake } from './re-accreditation-journey.js'
+import {
+  dulyMake,
+  logDecision,
+  startAssessment
+} from './re-accreditation-journey.js'
 
 /**
  * Journeys that drive a re-accreditation work item into each of the three
  * terminal states (RA-358 assignment gating).
  *
  * These live here rather than in a page object because they are not knowledge
- * about a screen — they are multi-page journeys that cross the tasks list, the
- * detail page and the withdraw interstitial. `support/` already holds this
- * kind of cross-cutting helper (see uk-time.js).
+ * about a screen — they are multi-page journeys across the detail page, the
+ * duly-making page, the Log decision page and the withdraw interstitial.
+ * `support/` already holds this kind of cross-cutting helper (see uk-time.js).
  *
- * NOTE: ra-313-withdrawn-in-worklist.e2e.js (formerly ra-224-archived-items)
- * contains a near-identical `driveToAwaitingDecision`. It is deliberately NOT
- * refactored to use this module here: that spec is passing and unrelated to
- * RA-358, and rewriting its setup to prove a point about duplication would
- * risk a green spec for no behavioural gain. Deduplicating the two is filed
- * as follow-up work.
+ * RA-410 rebuilt every step onto the green CTA flow; the task-completion
+ * run-up these functions used to carry is gone along with the feature.
+ *
+ * NOTE: ra-313-withdrawn-in-worklist.e2e.js contains a near-identical
+ * pre-decision drive. Deduplicating the two is filed as follow-up work.
  */
 
 /**
- * Create a work item and drive it to `Awaiting decision`, the state from which
- * both `approve` and `reject` are available.
+ * Create a work item and drive it to `assessment-in-progress` — the state
+ * from which a decision can be logged.
  *
- * Assumes the caller is already logged in and on the work-items list.
+ * REPLACES `driveToAwaitingDecision`. `awaiting-decision` still exists in
+ * management-be's state machine, but RA-410 made it an internal hop applied
+ * server-side inside the single decision call: no affordance parks an item
+ * there, so a helper offering to do so would model a journey no caseworker
+ * can take.
+ *
+ * Assumes the caller is already logged in.
  */
-export async function driveToAwaitingDecision({ organisationName, material }) {
+export async function driveToDecisionReady({ organisationName, material }) {
   const { id } = await workItems.createWorkItem({
     organisationName,
     siteAddressLine1: '1 Terminal Way',
@@ -36,35 +45,17 @@ export async function driveToAwaitingDecision({ organisationName, material }) {
     tonnageBand: '0-500'
   })
 
-  // Submitted -> Duly made. RA-316 replaced the auto-transition off the
-  // last submitted task with the explicit "Duly make" CTA and a payment
-  // date; both submitted tasks and the hook behind them are deleted.
-  // `dulyMake` opens the item and asserts "Not started" on the way in.
+  // Submitted -> Duly made, via the "Duly make" CTA and a payment date.
   await dulyMake(id)
-
-  // Duly made -> Assessment in progress.
-  await detail.gotoTasks()
-  await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
-  await detail.gotoDetail()
-  await detail.triggerAction('payment-received')
-  await detail.assertState('Updated')
-
-  // Assessment in progress -> Awaiting decision.
-  await detail.gotoTasks()
-  await detail.setTaskStatus('review-compliance-history', 'Completed')
-  await detail.setTaskStatus('assess-technical-capacity', 'Completed')
-  await detail.setTaskStatus('assess-financial-capacity', 'Completed')
-  await detail.gotoDetail()
-  await detail.triggerAction('submit-for-decision')
-  await detail.assertState('Awaiting decision')
+  // Duly made -> Assessment in progress, via "Assign to yourself and start".
+  await startAssessment(id)
 
   return id
 }
 
 /**
  * Create a work item and withdraw it straight from `submitted` — the shortest
- * route to a terminal state, one interstitial rather than the whole approval
- * journey.
+ * route to a terminal state, one interstitial rather than the whole journey.
  */
 export async function createWithdrawnWorkItem({ organisationName, material }) {
   const { id, applicationReference } = await workItems.createWorkItem({
@@ -86,36 +77,25 @@ export async function createWithdrawnWorkItem({ organisationName, material }) {
 }
 
 /**
- * Complete the decision-rationale task, which RA-346 made a precondition of
- * both decision actions — without it `approve` and `reject` are not projected
- * onto the detail page at all.
- */
-async function completeDecisionRationale(id) {
-  await workItems.openWorkItem(id)
-  await detail.assertState('Awaiting decision')
-  await detail.gotoTasks()
-  await detail.setTaskStatus('record-decision-rationale', 'Completed')
-  await detail.gotoDetail()
-}
-
-/**
- * Drive an `Awaiting decision` item to `Granted`.
- *
- * `approve` is a two-step action: the action opens the approval panel and the
- * transition only happens on submit, unlike `reject` which applies directly.
+ * Drive an `assessment-in-progress` item to `Granted`, via "Log decision" ->
+ * Approved.
  */
 export async function approveWorkItem(id) {
-  await completeDecisionRationale(id)
-  await detail.triggerAction('approve')
-  await detail.submitApproval()
+  await logDecision(id, 'approved')
   await detail.assertState('Granted')
   return id
 }
 
-/** Drive an `Awaiting decision` item to `Refused`. */
+/**
+ * Drive an `assessment-in-progress` item to `Refused`, via "Log decision" ->
+ * Refused.
+ *
+ * The visible status reads "Refused" and the underlying state id is still
+ * `rejected` — RA-410 renamed the label only. `logDecision` asserts the id;
+ * this asserts what the regulator actually sees.
+ */
 export async function rejectWorkItem(id) {
-  await completeDecisionRationale(id)
-  await detail.triggerAction('reject')
+  await logDecision(id, 'refused')
   await detail.assertState('Refused')
   return id
 }

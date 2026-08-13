@@ -4,8 +4,7 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import {
   dulyMake,
-  driveToAssessmentInProgress,
-  ASSESSMENT_TASKS
+  startAssessment
 } from '../support/re-accreditation-journey.js'
 
 let assignedWorkItemId
@@ -53,37 +52,27 @@ describe('Assign user journey', () => {
 
     await detail.assertState('Not started')
 
-    // RA-316 deleted the two `submitted` tasks this block used to walk, and
-    // the tasks panel for that state with them, so there is nothing to drive
-    // there any more. The block's subject is a MULTI-task status walk, so it
-    // re-bases onto `assessment-in-progress` — the state that still declares
-    // three tasks — rather than onto the single-task `duly-made`.
-    await driveToAssessmentInProgress(progressedWorkItemId)
+    // RA-410 deleted Tasks. This block used to walk three assessment tasks
+    // through Not started -> In progress -> Completed; its subject was the
+    // task status machinery, which no longer exists. It re-bases onto the
+    // thing that REPLACED that machinery — the two green CTAs that carry an
+    // item from `submitted` to `assessment-in-progress` — so the block still
+    // earns its place as the broad "a caseworker can move a case along"
+    // regression rather than being deleted with the feature.
+    await dulyMake(progressedWorkItemId)
+    await detail.assertState('Duly made')
 
-    // Task controls live on the /tasks sub-page
-    await detail.gotoTasks()
-
-    for (const task of ASSESSMENT_TASKS) {
-      await detail.assertTaskStatus(task, 'Not started')
-    }
-
-    for (const task of ASSESSMENT_TASKS) {
-      await detail.setTaskStatus(task, 'InProgress')
-    }
-
-    for (const task of ASSESSMENT_TASKS) {
-      await detail.assertTaskStatus(task, 'In progress')
-    }
-
-    for (const task of ASSESSMENT_TASKS) {
-      await detail.setTaskStatus(task, 'Completed')
-    }
-
-    // Completing every assessment task does NOT transition the item — RA-316
-    // removed the auto-transition hooks, and `submit-for-decision` is an
-    // explicit action — so the item is still here afterwards.
-    await detail.gotoDetail()
+    await startAssessment(progressedWorkItemId)
+    // `assessment-in-progress` and `updated` share the display name "Updated"
+    // (RA-324), so the raw id is the only assertion that can tell them apart.
+    await detail.assertStateId('assessment-in-progress')
     await detail.assertState('Updated')
+
+    // AC02: no task panel, link or progress line survives on the detail page
+    // in the state that used to carry the most tasks of any.
+    expect(await detail.hasTasksPanel()).toBe(false)
+    expect(await detail.hasTasksLink()).toBe(false)
+    expect(await detail.hasTaskProgress()).toBe(false)
 
     await login.logout()
   })
@@ -116,24 +105,20 @@ describe('Standard user journey', () => {
     await dulyMake(assignedWorkItemId)
     await detail.assertState('Duly made')
 
-    // Task controls live on the /tasks sub-page
-    await detail.gotoTasks()
+    // RA-410: `duly-made` used to declare `confirm-registration-fee-paid`,
+    // and this block walked it through its three statuses. The task is gone
+    // and the transition it gated is ungated, so the step a caseworker
+    // actually takes from here is the green "Assign to yourself and start".
+    //
+    // NOTE this item was assigned to Stub Caseworker One above, so it has to
+    // be released before the self-assign CTA is offered at all — which is
+    // itself worth exercising, since it is the ordinary case of picking up
+    // somebody else's unstarted work.
+    await detail.unassign()
+    await detail.assertUnassigned()
 
-    await detail.assertTaskStatus(
-      'confirm-registration-fee-paid',
-      'Not started'
-    )
-
-    await detail.setTaskStatus('confirm-registration-fee-paid', 'InProgress')
-
-    await detail.assertTaskStatus(
-      'confirm-registration-fee-paid',
-      'In progress'
-    )
-
-    await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
-
-    await detail.assertTaskStatus('confirm-registration-fee-paid', 'Completed')
+    await startAssessment(assignedWorkItemId)
+    await detail.assertStateId('assessment-in-progress')
 
     await login.logout()
   })

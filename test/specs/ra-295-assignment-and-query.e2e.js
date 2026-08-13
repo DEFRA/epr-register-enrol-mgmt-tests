@@ -4,7 +4,10 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import queryPage from '../page-objects/query.page.js'
 import withdrawPage from '../page-objects/withdraw.page.js'
-import { dulyMake } from '../support/re-accreditation-journey.js'
+import {
+  dulyMake,
+  startAssessment
+} from '../support/re-accreditation-journey.js'
 
 /**
  * RA-295 (AC03 + AC04) — assignment stays reachable through the redesign, and
@@ -196,10 +199,7 @@ describe('RA-295 assignment panel and query assignment notice', () => {
       // RA-316: submitted -> duly-made is the "Duly make" CTA plus a payment
       // date, not the two submitted tasks and an auto-transition hook.
       await dulyMake(closedItemId)
-      await detail.gotoTasks()
-      await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
-      await detail.gotoDetail()
-      await detail.triggerAction('payment-received')
+      await startAssessment(closedItemId)
 
       // The precondition, asserted rather than assumed: the links must be
       // present here, or the absence check below proves nothing.

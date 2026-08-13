@@ -2,7 +2,11 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import { dulyMake } from '../support/re-accreditation-journey.js'
+import {
+  dulyMake,
+  logDecision,
+  startAssessment
+} from '../support/re-accreditation-journey.js'
 
 /**
  * RA-249 — the application reference must survive approval.
@@ -27,7 +31,7 @@ describe('RA-249 — application reference survives approval', () => {
   let createdId
   let applicationReference
 
-  it('creates a re-accreditation and drives it to awaiting-decision', async () => {
+  it('creates a re-accreditation and drives it to assessment-in-progress', async () => {
     await login.login()
     await workItems.goto()
     ;({ id: createdId, applicationReference } = await workItems.createWorkItem({
@@ -52,20 +56,13 @@ describe('RA-249 — application reference survives approval', () => {
     await dulyMake(createdId)
 
     // Duly made -> Assessment in progress
-    await detail.gotoTasks()
-    await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('payment-received')
-    await detail.assertState('Updated')
-
-    // Assessment in progress -> Awaiting decision
-    await detail.gotoTasks()
-    await detail.setTaskStatus('review-compliance-history', 'Completed')
-    await detail.setTaskStatus('assess-technical-capacity', 'Completed')
-    await detail.setTaskStatus('assess-financial-capacity', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('submit-for-decision')
-    await detail.assertState('Awaiting decision')
+    await startAssessment(createdId)
+    // `assessment-in-progress` displays as "Updated" (RA-324), so the
+    // raw id is what pins the state. RA-410 removed the
+    // `submit-for-decision` step that used to follow: `awaiting-decision`
+    // is now an internal hop inside the Log decision call, so this is
+    // where the item waits.
+    await detail.assertStateId('assessment-in-progress')
 
     await login.logout()
   })
@@ -73,13 +70,9 @@ describe('RA-249 — application reference survives approval', () => {
   it('keeps the AP* application ref after the decision maker approves it', async () => {
     await login.login()
     await workItems.openWorkItem(createdId)
-    await detail.assertState('Awaiting decision')
+    await detail.assertStateId('assessment-in-progress')
 
-    await detail.gotoTasks()
-    await detail.setTaskStatus('record-decision-rationale', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('approve')
-    await detail.submitApproval()
+    await logDecision(createdId, 'approved')
 
     await detail.assertState('Granted')
     await detail.assertApprovalPanelVisible()

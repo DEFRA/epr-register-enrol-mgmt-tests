@@ -1,7 +1,6 @@
-import { $, browser, expect } from '@wdio/globals'
+import { browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
-import detail from '../page-objects/work-item-detail.page.js'
 import notFound from '../page-objects/work-item-not-found.page.js'
 import { dulyMake } from '../support/re-accreditation-journey.js'
 
@@ -44,11 +43,10 @@ describe('Error pages', () => {
       tonnageBand: '0-500'
     }))
 
-    // RA-316 deleted the `submitted` tasks AND the tasks panel for that
-    // state, so this fixture must sit in `duly-made` for a tasks page to
-    // exist at all. Its single task, `confirm-registration-fee-paid`, is the
-    // vehicle for the returnTo/PRG cases below — this file is about the
-    // redirect guards, not about which task carries them.
+    // The fixture sits in `duly-made` because that is where a real
+    // caller-invocable action (`payment-received`) is available to carry the
+    // returnTo guard case below. This file is about the redirect guards, not
+    // about which action carries them.
     await dulyMake(workItemId)
   })
 
@@ -74,64 +72,39 @@ describe('Error pages', () => {
     await notFound.assertRendered()
   })
 
-  it('honours a whitelisted returnTo and redirects to the tasks page', async () => {
+  it('ignores a forged returnTo (open-redirect guard) and falls back to the detail page', async () => {
+    // RA-410 deleted the tasks page, and with it the only form that carried a
+    // hidden `returnTo` field. TWO cases used to live here: a whitelisted
+    // returnTo landing on /work-items/{id}/tasks, and a forged one being
+    // rejected. The first is gone with its destination — there is no second
+    // whitelisted target left to redirect to, so a test asserting one would be
+    // asserting a route that does not exist.
+    //
+    // The GUARD itself survives (`successRedirect` in management-fe's
+    // detail.controller.js) and is still reachable, so the security case is
+    // kept and re-pointed at the generic apply-action route. That is a
+    // STRONGER test than the one it replaces: the old version tampered with a
+    // field the server had just rendered, whereas this forges the payload
+    // outright, which is what an attacker actually does.
     await workItems.openWorkItem(workItemId)
-    await detail.gotoTasks()
 
-    // The tasks form hardcodes returnTo to the whitelisted
-    // "/work-items/{id}/tasks" path, so a successful status change must
-    // PRG-redirect back to the tasks page.
-    await detail.setTaskStatus('confirm-registration-fee-paid', 'InProgress')
+    // The fixture sits in `duly-made`, where `payment-received` is a real
+    // caller-invocable action — RA-410 ungated it. Using a genuine action
+    // matters: the guard runs on the SUCCESS path, so an action that failed
+    // would never reach it and the test could not fail.
+    const forged = await browser.execute(async (id) => {
+      const crumb = document.querySelector('input[name="crumb"]')?.value ?? ''
+      const res = await fetch(`/work-items/${id}/actions/payment-received`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body:
+          `crumb=${encodeURIComponent(crumb)}` +
+          `&returnTo=${encodeURIComponent('https://evil.example.com/phish')}`
+      })
+      return { status: res.status, url: res.url }
+    }, workItemId)
 
-    await browser.waitUntil(
-      async () =>
-        new URL(await browser.getUrl()).pathname ===
-        `/work-items/${workItemId}/tasks`,
-      {
-        timeout: 10000,
-        timeoutMsg: 'Expected whitelisted returnTo to land on the tasks page'
-      }
-    )
-  })
-
-  it('ignores a non-whitelisted returnTo (open-redirect guard) and falls back to the detail page', async () => {
-    await workItems.openWorkItem(workItemId)
-    await detail.gotoTasks()
-
-    // Tamper the hidden returnTo on the first task's status form to an
-    // external URL, keeping the real crumb in place. The server-side guard
-    // (successRedirect) must reject this and fall back to the detail page.
-    await browser.execute(() => {
-      const select = document.querySelector(
-        '[data-testid="task-status-select-confirm-registration-fee-paid"]'
-      )
-      const form = select && select.closest('form')
-      const returnTo = form && form.querySelector('input[name="returnTo"]')
-      if (!returnTo) {
-        throw new Error('Could not find returnTo input on task status form')
-      }
-      returnTo.value = 'https://evil.example.com/phish'
-    })
-
-    await $(
-      '[data-testid="task-status-select-confirm-registration-fee-paid"]'
-    ).selectByAttribute('value', 'Blocked')
-    await $(
-      '[data-testid="set-task-status-confirm-registration-fee-paid"]'
-    ).click()
-
-    await browser.waitUntil(
-      async () =>
-        new URL(await browser.getUrl()).pathname ===
-        `/work-items/${workItemId}`,
-      {
-        timeout: 10000,
-        timeoutMsg:
-          'Expected forged returnTo to be ignored and fall back to the detail page'
-      }
-    )
-
-    const finalUrl = new URL(await browser.getUrl())
+    const finalUrl = new URL(forged.url)
     expect(finalUrl.host).not.toBe('evil.example.com')
     expect(finalUrl.pathname).toBe(`/work-items/${workItemId}`)
   })

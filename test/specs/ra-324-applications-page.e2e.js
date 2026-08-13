@@ -3,7 +3,10 @@ import login from '../page-objects/login.page.js'
 import workItems, { TILE_FIELD_ORDER } from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import query from '../page-objects/query.page.js'
-import { dulyMake } from '../support/re-accreditation-journey.js'
+import {
+  dulyMake,
+  startAssessment
+} from '../support/re-accreditation-journey.js'
 
 /**
  * RA-324 — Applications page.
@@ -79,10 +82,7 @@ const driveToDulyMade = (id) => dulyMake(id)
 /** Duly made → Updated (assessment-in-progress) via payment-received. */
 async function driveToUpdated(id) {
   await workItems.openWorkItem(id)
-  await detail.gotoTasks()
-  await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
-  await detail.gotoDetail()
-  await detail.triggerAction('payment-received')
+  await startAssessment(id)
   await detail.assertState('Updated')
 }
 

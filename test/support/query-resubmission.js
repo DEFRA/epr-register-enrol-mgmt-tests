@@ -1,6 +1,7 @@
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import query from '../page-objects/query.page.js'
+import { startAssessment } from './re-accreditation-journey.js'
 
 /**
  * RA-372 — driving the query → resubmission → continue-review lifecycle.
@@ -189,15 +190,18 @@ export { dulyMake as driveToDulyMade } from './re-accreditation-journey.js'
 /**
  * Drive a `duly-made` application on to `assessment-in-progress`.
  *
- * `payment-received` requires all duly-made tasks complete, so the fee task
- * is completed first.
+ * RA-410 removed the `confirm-registration-fee-paid` task and ungated the
+ * transition, so this is now the "Assign to yourself and start" CTA and
+ * nothing else. Delegates to the canonical implementation rather than
+ * keeping a second copy of the flow in sync.
+ *
+ * The blue-tag assertion is retained on top of the state-id check
+ * `startAssessment` already makes: `assessment-in-progress` and `updated`
+ * share the display name "Updated" (RA-324) and the badge colour is the only
+ * thing a regulator can see that tells them apart.
  */
 export async function driveToAssessment(workItemId) {
-  await workItems.openWorkItem(workItemId)
-  await detail.gotoTasks()
-  await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
-  await detail.gotoDetail()
-  await detail.triggerAction('payment-received')
+  await startAssessment(workItemId)
   await detail.assertStateTagClass('govuk-tag--blue')
 }
 

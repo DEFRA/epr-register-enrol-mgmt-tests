@@ -66,14 +66,12 @@ describe('RA-316 duly making', () => {
 
     it('no longer offers submitted-state tasks to drive the transition', async () => {
       await workItems.openWorkItem(workItemId)
-      // The two submitted tasks are deleted AND the panel comes out with
-      // them — an empty panel would point the regulator at a tasks page with
-      // nothing on it, right beside the CTA that is the real next step. So
-      // this asserts absence of the whole affordance, not an empty state.
-      //
-      // Deliberately not navigating to the tasks page first: there is no
-      // longer a link to it from `submitted`, so `gotoTasks()` would fail
-      // here for the right reason but with a useless message.
+      // RA-316 removed the panel from `submitted`; RA-410 then removed Tasks
+      // outright, so these three now hold in EVERY state rather than just
+      // this one. Kept here rather than folded into
+      // ra-410-tasks-removed.e2e.js because this file owns the `submitted`
+      // shape of the duly-making screen, and a revert that restored the panel
+      // beside the Duly make CTA is exactly the dead end RA-316 fixed.
       expect(await detail.hasTasksPanel()).toBe(false)
       expect(await detail.hasTasksLink()).toBe(false)
       expect(await detail.hasTaskProgress()).toBe(false)

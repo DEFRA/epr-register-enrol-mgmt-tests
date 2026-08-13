@@ -2,7 +2,11 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import { dulyMake } from '../support/re-accreditation-journey.js'
+import {
+  dulyMake,
+  logDecision,
+  startAssessment
+} from '../support/re-accreditation-journey.js'
 
 /**
  * RA-133 — Approving a re-accreditation surfaces a generated
@@ -13,7 +17,7 @@ import { dulyMake } from '../support/re-accreditation-journey.js'
  *      Submitted).
  *   2. Tasks for each state are completed and the work item is
  *      progressed (auto-duly-made -> payment-received -> submit-for-
- *      decision) up to the Awaiting decision state.
+ *      "Assign to yourself and start") up to assessment-in-progress.
  *   3. A caseworker completes the awaiting-decision task and approves
  *      the work item (RA-323 — every caseworker holds the same role).
  *   4. The backend generates a fixed 16-char accreditation id
@@ -24,7 +28,7 @@ import { dulyMake } from '../support/re-accreditation-journey.js'
 describe('RA-133 approval generates accreditation id, start date and year', () => {
   let workItemId
 
-  it('creates a re-accreditation and drives it to awaiting-decision', async () => {
+  it('creates a re-accreditation and drives it to assessment-in-progress', async () => {
     await login.login()
     await workItems.goto()
     workItemId = (
@@ -47,20 +51,13 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await dulyMake(workItemId)
 
     // Duly made -> Assessment in progress
-    await detail.gotoTasks()
-    await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('payment-received')
-    await detail.assertState('Updated')
-
-    // Assessment in progress -> Awaiting decision
-    await detail.gotoTasks()
-    await detail.setTaskStatus('review-compliance-history', 'Completed')
-    await detail.setTaskStatus('assess-technical-capacity', 'Completed')
-    await detail.setTaskStatus('assess-financial-capacity', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('submit-for-decision')
-    await detail.assertState('Awaiting decision')
+    await startAssessment(workItemId)
+    // `assessment-in-progress` displays as "Updated" (RA-324), so the
+    // raw id is what pins the state. RA-410 removed the
+    // `submit-for-decision` step that used to follow: `awaiting-decision`
+    // is now an internal hop inside the Log decision call, so this is
+    // where the item waits.
+    await detail.assertStateId('assessment-in-progress')
 
     await login.logout()
   })
@@ -68,14 +65,9 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
   it('approves the work item as the decision maker and renders the accreditation id, start date and year', async () => {
     await login.login()
     await workItems.openWorkItem(workItemId)
-    await detail.assertState('Awaiting decision')
+    await detail.assertStateId('assessment-in-progress')
 
-    // Complete the awaiting-decision task before approving.
-    await detail.gotoTasks()
-    await detail.setTaskStatus('record-decision-rationale', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('approve')
-    await detail.submitApproval()
+    await logDecision(workItemId, 'approved')
 
     await detail.assertState('Granted')
     await detail.assertApprovalPanelVisible()

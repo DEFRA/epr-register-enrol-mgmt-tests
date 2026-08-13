@@ -3,7 +3,10 @@ import login from '../page-objects/login.page.js'
 import workItems, { TILE_FIELD_ORDER } from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import { formatUkDateGds } from '../support/uk-time.js'
-import { dulyMake } from '../support/re-accreditation-journey.js'
+import {
+  dulyMake,
+  startAssessment
+} from '../support/re-accreditation-journey.js'
 
 /**
  * RA-370 — "WorkItem widget not having submitted on".
@@ -111,13 +114,9 @@ const driveToDulyMade = (id) => dulyMake(id)
  * `assessment-in-progress` (verified against the running stack) — so this is
  * NOT the `updated` state that RA-370 deliberately leaves uncovered.
  */
-async function driveToAssessmentInProgress(id) {
+async function driveToAssessment(id) {
   await driveToDulyMade(id)
-  await workItems.openWorkItem(id)
-  await detail.gotoTasks()
-  await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
-  await detail.gotoDetail()
-  await detail.triggerAction('payment-received')
+  await startAssessment(id)
 }
 
 /** Bound the list to one organisation token so the assertions are pagination-safe. */
@@ -435,7 +434,7 @@ describe('RA-370 — application card field order and Submitted on', () => {
     before(async () => {
       await login.login()
       itemId = await createFreshItem(org, 'SW1A 9AE')
-      await driveToAssessmentInProgress(itemId)
+      await driveToAssessment(itemId)
     })
 
     after(async () => {
@@ -456,8 +455,17 @@ describe('RA-370 — application card field order and Submitted on', () => {
     })
 
     it('AC4: still shows Assigned to', async () => {
+      // RA-410: reaching assessment-in-progress now goes through "Assign to
+      // yourself and start" (`startAssessment` -> `selfAssignAndStart`), which
+      // assigns the item as it transitions — the old standalone `payment-received`
+      // path that could reach assessment while unassigned is gone. So an
+      // assessment-in-progress card is always held by the caseworker who started
+      // it. AC4's subject is unchanged (the Assigned to field is present in this
+      // state); only its value moved from "Unassigned" to the officer name.
       await listCardsFor(org)
-      await expect(workItems.tileAssignedTo(itemId)).toHaveText('Unassigned')
+      await expect(workItems.tileAssignedTo(itemId)).toHaveText(
+        'Stub Caseworker One'
+      )
     })
 
     it('AC1: keeps the canonical field order', async () => {

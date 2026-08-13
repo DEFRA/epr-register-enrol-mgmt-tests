@@ -141,15 +141,14 @@ describe('RA-335 Support user read-only view', () => {
     // any authenticated session, including a read-only support user,
     // could reach them. self-assign (above) already had requireStandard
     // beforehand, so it alone doesn't prove this fix; these do.
+    //
+    // RA-410 deleted two of the original five — `complete task` and `set task
+    // status` — along with the whole Tasks feature. They are removed rather
+    // than kept as 404 assertions: a deleted route returns 404 to EVERY user,
+    // so a support user getting one proves nothing about the scope check this
+    // block is about, and would pass just as happily if the guard were
+    // stripped from the three that remain.
     const previouslyUngatedRoutes = [
-      [
-        'complete task',
-        (id) => `/work-items/${id}/tasks/placeholder-task/complete`
-      ],
-      [
-        'set task status',
-        (id) => `/work-items/${id}/tasks/placeholder-task/status`
-      ],
       ['apply action', (id) => `/work-items/${id}/actions/placeholder-action`],
       [
         'withdraw confirm',

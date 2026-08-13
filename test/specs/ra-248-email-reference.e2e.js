@@ -2,7 +2,10 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import slaExtend from '../page-objects/sla-extend.page.js'
-import { dulyMake } from '../support/re-accreditation-journey.js'
+import {
+  dulyMake,
+  startAssessment
+} from '../support/re-accreditation-journey.js'
 
 /**
  * RA-248 — lifecycle emails carry the human application reference, not the
@@ -57,10 +60,7 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
 
     // Duly made -> Assessment in progress. payment-received stamps the SLA
     // clock, without which the extend below would fail with "clock not started".
-    await detail.gotoTasks()
-    await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
-    await detail.gotoDetail()
-    await detail.triggerAction('payment-received')
+    await startAssessment(workItemId)
     await detail.assertState('Updated')
 
     await login.logout()
