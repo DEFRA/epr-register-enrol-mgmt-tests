@@ -103,17 +103,12 @@ async function driveToDulyMade({ organisationName, material, postcode }) {
     tonnageBand: '0-500'
   })
 
-  await workItems.openWorkItem(id)
-  await detail.assertState('Not started')
-
-  // Submitted -> Duly made is an auto-transition that fires when the last
-  // submitted task completes (there is no button for it). The SLA clock
-  // starts on this hop.
-  await detail.gotoTasks()
-  await detail.setTaskStatus('verify-organisation-details', 'Completed')
-  await detail.setTaskStatus('confirm-application-completeness', 'Completed')
-  await detail.gotoDetail()
-  await detail.assertState('Duly made')
+  // Submitted -> Duly made via the shared journey helper. RA-316 removed the
+  // old submitted-state tasks and the auto-duly-made hook; the route is now
+  // the "Duly make" CTA plus a payment date (dulyMake defaults it to today).
+  // The SLA clock starts on this hop, so the item now carries a real due
+  // date. dulyMake opens the item and asserts it reaches "Duly made".
+  await dulyMake(id)
 
   return { id, applicationReference }
 }
