@@ -46,6 +46,11 @@ describe('RA-368 CM status push to OJ', () => {
 
   it('records a status-push-skipped entry for the auto duly-made transition', async () => {
     await workItems.openWorkItem(workItemId)
+    // Under full-suite parallel load the detail page can render slower than
+    // gotoTasks()'s own implicit click-wait allows for, so wait for it
+    // explicitly rather than racing the navigation (same fix as RA-358's
+    // beforeEach).
+    await workItems.waitForDetailPage()
     await detail.gotoTasks()
     await detail.setTaskStatus('verify-organisation-details', 'Completed')
     await detail.setTaskStatus('confirm-application-completeness', 'Completed')
@@ -62,6 +67,7 @@ describe('RA-368 CM status push to OJ', () => {
 
   it('records a second status-push-skipped entry for the payment-received action', async () => {
     await workItems.openWorkItem(workItemId)
+    await workItems.waitForDetailPage()
     await detail.gotoTasks()
     await detail.setTaskStatus('confirm-registration-fee-paid', 'Completed')
     await detail.gotoDetail()
