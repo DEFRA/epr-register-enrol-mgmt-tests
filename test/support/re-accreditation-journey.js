@@ -3,7 +3,7 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import dulyMaking from '../page-objects/duly-making.page.js'
 import decision from '../page-objects/decision.page.js'
-import { ukDateParts } from './uk-time.js'
+import { utcDateParts } from './uk-time.js'
 
 /**
  * Shared re-accreditation journey steps.
@@ -130,7 +130,7 @@ export async function dulyMake(workItemId, { dayOffset = 0 } = {}) {
   expect(await detail.hasDulyMakeCta()).toBe(true)
   await detail.clickDulyMake()
   await dulyMaking.assertOnPage()
-  await dulyMaking.setPaymentDate(ukDateParts(new Date(), dayOffset))
+  await dulyMaking.setPaymentDate(utcDateParts(new Date(), dayOffset))
   await dulyMaking.submit()
   await dulyMaking.waitForDetailUrl(workItemId)
   await detail.assertState('Duly made')

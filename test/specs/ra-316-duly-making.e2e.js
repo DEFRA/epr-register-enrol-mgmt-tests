@@ -4,7 +4,7 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import dulyMaking from '../page-objects/duly-making.page.js'
 import { createReAccreditation } from '../support/re-accreditation-journey.js'
-import { ukDateParts } from '../support/uk-time.js'
+import { utcDateParts } from '../support/uk-time.js'
 
 /**
  * RA-316 — CM: Duly making alignment.
@@ -202,7 +202,7 @@ describe('RA-316 duly making', () => {
       await dulyMaking.assertOnPage()
       // Today is a VALID payment date — the rule is "today or in the past",
       // so this is the boundary case that must pass.
-      await dulyMaking.setPaymentDate(ukDateParts(new Date()))
+      await dulyMaking.setPaymentDate(utcDateParts(new Date()))
       await dulyMaking.submit()
 
       await dulyMaking.waitForDetailUrl(workItemId)

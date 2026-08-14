@@ -5,7 +5,7 @@ import detail from '../page-objects/work-item-detail.page.js'
 import dulyMaking from '../page-objects/duly-making.page.js'
 import { createReAccreditation } from '../support/re-accreditation-journey.js'
 import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
-import { ukDateParts } from '../support/uk-time.js'
+import { utcDateParts } from '../support/uk-time.js'
 
 /**
  * RA-316 — duly making the SECOND entry point: an application queried
@@ -114,7 +114,7 @@ describe('RA-316 duly making from the updated state', () => {
     })
 
     it('rejects a future payment date here too', async () => {
-      await dulyMaking.setPaymentDate(ukDateParts(new Date(), 1))
+      await dulyMaking.setPaymentDate(utcDateParts(new Date(), 1))
       await dulyMaking.submit()
       await dulyMaking.assertErrorSummary(
         'Payment date must be today or in the past'
@@ -122,7 +122,7 @@ describe('RA-316 duly making from the updated state', () => {
     })
 
     it('lands directly in duly-made, with no observable intermediate state', async () => {
-      await dulyMaking.setPaymentDate(ukDateParts(new Date()))
+      await dulyMaking.setPaymentDate(utcDateParts(new Date()))
       await dulyMaking.submit()
       await dulyMaking.waitForDetailUrl(workItemId)
 

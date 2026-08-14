@@ -67,23 +67,26 @@ export function formatUkDateGds(date) {
  */
 /**
  * Split a Date into the day/month/year numbers a GOV.UK date input expects,
- * evaluated in Europe/London rather than the runner's TZ.
+ * evaluated in UTC.
  *
- * RA-316 needs this for the payment-date field. Taking the parts from the
- * runner's local calendar would put the boundary tests one day out for part
- * of the year — "today" computed in UTC is already "tomorrow" in BST for an
- * hour each evening, which would make the today-is-valid case fail as a
- * future date. The offset is applied in whole days BEFORE formatting so the
- * arithmetic never straddles a DST change.
+ * RA-316 needs this for the payment-date field, and it MUST be UTC to match
+ * the field's validation: management-fe's `validatePaymentDate` computes
+ * "today" in UTC deliberately, "to match the backend's notion of 'today'".
+ * Evaluating the parts in Europe/London instead puts them a day AHEAD of UTC
+ * for the ~1h each evening that BST leads UTC into the next date (23:00–24:00
+ * UTC) — so the today-is-valid case would submit what the backend sees as a
+ * FUTURE date and be rejected with 400. (That timezone mismatch is what broke
+ * every duly-making journey spec overnight.) The offset is applied in whole
+ * days so the arithmetic never straddles a boundary.
  *
  * @param {Date} date
  * @param {number} [dayOffset] days to add (negative for the past)
  * @returns {{day: string, month: string, year: string}}
  */
-export function ukDateParts(date, dayOffset = 0) {
+export function utcDateParts(date, dayOffset = 0) {
   const shifted = new Date(date.getTime() + dayOffset * 86_400_000)
   const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/London',
+    timeZone: 'UTC',
     day: 'numeric',
     month: 'numeric',
     year: 'numeric'
