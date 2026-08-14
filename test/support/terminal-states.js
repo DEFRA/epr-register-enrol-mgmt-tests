@@ -77,6 +77,78 @@ export async function createWithdrawnWorkItem({ organisationName, material }) {
 }
 
 /**
+ * Create a work item and drive it to `Duly made` — the first state whose SLA
+ * clock is running, so the item carries a real due date from here on.
+ *
+ * RA-359 (part 2) leans on this: an item withdrawn straight from `submitted`
+ * never had a running SLA, so suppressing its due date proves nothing. A
+ * caller that wants a MEANINGFUL "terminal item that USED to have a live SLA"
+ * has to reach `Duly made` first — that is where the SLA clock starts and the
+ * "Due on" fields begin rendering a date (see ra-324 AC05).
+ *
+ * `postcode` is a required argument for the RA-318 application-reference
+ * collision rules documented in re-accreditation-journey.js: the reference
+ * tuple keys on the LAST 3 postcode characters and the FIRST 2 material
+ * characters, so a caller has to pick a combination no other spec in the run
+ * uses. Starts from the list (`goto`) so it is safe to call from any page.
+ */
+async function driveToDulyMade({ organisationName, material, postcode }) {
+  await workItems.goto()
+  const { id, applicationReference } = await workItems.createWorkItem({
+    organisationName,
+    siteAddressLine1: '1 Terminal Way',
+    siteAddressTown: 'York',
+    siteAddressPostcode: postcode,
+    material,
+    tonnageBand: '0-500'
+  })
+
+  // Submitted -> Duly made via the shared journey helper. RA-316 removed the
+  // old submitted-state tasks and the auto-duly-made hook; the route is now
+  // the "Duly make" CTA plus a payment date (dulyMake defaults it to today).
+  // The SLA clock starts on this hop, so the item now carries a real due
+  // date. dulyMake opens the item and asserts it reaches "Duly made".
+  await dulyMake(id)
+
+  return { id, applicationReference }
+}
+
+/**
+ * A non-terminal work item whose SLA clock is running — the RA-359 regression
+ * fixture. Its list card shows "Due on" and its case header shows a real due
+ * date, both of which the Cancelled-SLA suppression must leave alone.
+ */
+export async function createDulyMadeWorkItem(fixture) {
+  const { id } = await driveToDulyMade(fixture)
+  return id
+}
+
+/**
+ * A withdrawn work item that HAD a running SLA before it was withdrawn — the
+ * RA-359 (part 2) fixture. The backend now reports `SlaState = "Cancelled"`
+ * with `SlaRemaining = null` (the retained `SlaDueDate` notwithstanding), and
+ * the frontend must stop advertising the due date: hidden on the list card,
+ * an em dash in the case header.
+ *
+ * The withdraw action from `duly-made` is `withdraw-during-duly-made`, NOT the
+ * bare `withdraw` used from `submitted` (see the transition table in
+ * management-be's ReAccreditationType). Withdrawing straight from `submitted`
+ * — as `createWithdrawnWorkItem` above does — would produce a terminal item
+ * that never had a due date, which could not distinguish the fix from the old
+ * behaviour.
+ */
+export async function createWithdrawnWorkItemWithRunningSla(fixture) {
+  const { id, applicationReference } = await driveToDulyMade(fixture)
+
+  await detail.triggerAction('withdraw-during-duly-made')
+  await withdrawPage.submit()
+  await withdrawPage.waitForDetailUrl(id)
+  await detail.assertState('Withdrawn')
+
+  return { id, applicationReference }
+}
+
+/**
  * Drive an `assessment-in-progress` item to `Granted`, via "Log decision" ->
  * Approved.
  */
