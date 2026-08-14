@@ -190,9 +190,14 @@ describe('RA-410 Tasks are removed from Case Management', () => {
       const taskShaped = actionIds.filter((id) => /task/i.test(id))
       expect(taskShaped).toEqual([])
 
-      // Positive control: the panel rendered and carries the actions this
-      // state genuinely has.
-      expect(actionIds).toContain('withdraw-during-assessment')
+      // Positive control: the page rendered its affordances, so the empty
+      // task-shaped filter above means something rather than passing vacuously.
+      // RA-317 removed the withdraw action that used to serve as this anchor
+      // (assessment-in-progress now projects no panel action), so the Log
+      // decision CTA is the control the state genuinely still has.
+      expect(await detail.hasLogDecisionCta()).toBe(true)
+      // RA-317: withdraw is no longer a case-management action.
+      expect(actionIds).not.toContain('withdraw-during-assessment')
     })
   })
 })
