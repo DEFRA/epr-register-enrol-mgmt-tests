@@ -95,6 +95,10 @@ describe('RA-317 — withdraw hidden from case management', () => {
     let workItemId
 
     before(async () => {
+      // Start from the list: creating a work item clicks the create link,
+      // which only renders on the work-items list page, and the previous
+      // describe left the browser on a detail page.
+      await workItems.goto()
       workItemId = await driveToDecisionReady({
         organisationName: 'RA-317 Decision No Withdraw Ltd',
         material: 'paper'
@@ -133,6 +137,9 @@ describe('RA-317 — withdraw hidden from case management', () => {
     let workItemId
 
     before(async () => {
+      // Start from the list: the create link only renders there, and the
+      // previous describe left the browser on a detail / decision page.
+      await workItems.goto()
       const created = await workItems.createWorkItem({
         organisationName: 'RA-317 Operator Withdrawn Ltd',
         siteAddressLine1: '1 Operator Way',

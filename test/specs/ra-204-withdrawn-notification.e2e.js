@@ -20,8 +20,9 @@ import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
  * on the old CM journey, so the sent entry is still recorded — which is itself
  * AC03 (an operator withdrawal surfaces in case management). The withdrawal
  * `reason` supplied to the endpoint becomes the note that feeds the email's
- * `withdrawal_notes` personalisation and is empty-safe, so both the with-note
- * and without-note paths must still produce the sent entry.
+ * `withdrawal_notes` personalisation. Unlike the old CM flow's OPTIONAL note,
+ * the operator endpoint mandates a non-empty reason, so the former
+ * "without a note" path is no longer reachable (see the note where it was).
  */
 describe('RA-204 Withdrawal notification', () => {
   describe('withdraw with a note', () => {
@@ -68,42 +69,12 @@ describe('RA-204 Withdrawal notification', () => {
     })
   })
 
-  describe('withdraw without a note', () => {
-    let workItemId
-
-    before(async () => {
-      await login.login()
-      await workItems.goto()
-      workItemId = (
-        await workItems.createWorkItem({
-          organisationName: 'Withdraw Notify No Note Ltd',
-          siteAddressLine1: '2 Notify Way',
-          siteAddressTown: 'London',
-          siteAddressPostcode: 'SW1A 1AS',
-          material: 'plastic',
-          tonnageBand: '0-500'
-        })
-      ).id
-    })
-
-    after(async () => {
-      await login.logout()
-    })
-
-    it('still sends the operator email when no withdrawal note is given', async () => {
-      // No reason passed: the note is blank, which the hook is empty-safe
-      // against. This is the path most likely to regress the recipient/skip
-      // logic, so it is exercised end-to-end too.
-      await withdrawAsOperatorOrThrow(workItemId)
-      await workItems.openWorkItem(workItemId)
-      await detail.assertState('Withdrawn')
-
-      await detail.gotoAudit()
-      await detail.assertAuditEntry('Application withdrawn email sent')
-
-      const auditLog = await $('[data-testid="work-item-audit-log"]').getText()
-      expect(auditLog).not.toContain('Application withdrawn email skipped')
-      expect(auditLog).not.toContain('Application withdrawn email failed')
-    })
-  })
+  // The old CM withdraw flow had an OPTIONAL note, so a "without a note" case
+  // used to exercise the empty-note send path. The operator endpoint that
+  // replaces it (RA-317) REQUIRES a non-empty reason —
+  // `ReAccreditationWithdrawValidator` rejects a blank one with a 400 "Enter a
+  // reason for the withdrawal" — so an empty-reason withdrawal is not reachable
+  // through the surviving route, and that case is removed rather than made to
+  // pass a reason it is meant to omit. The with-a-note case above already
+  // proves the Withdrawn email sends.
 })
