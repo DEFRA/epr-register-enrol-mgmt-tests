@@ -3,7 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import query, { QUERY_SECTIONS } from '../page-objects/query.page.js'
-import { resumeFromQuery } from '../support/query-resubmission.js'
+import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
 
 /**
  * RA-291 — Query an application.
@@ -361,7 +361,7 @@ describe('RA-291 Query an application', () => {
             newInfrastructurePercent: 42
           },
           Prns: {
-            plannedTonnageBand: 'UpTo1000'
+            plannedTonnageBand: 'UpTo5000'
           },
           SamplingPlan: {
             files: [
@@ -385,11 +385,37 @@ describe('RA-291 Query an application', () => {
       expect(businessPlan).toContain('42% of PRN income')
 
       expect(await detail.applicationDetailRowText('prn-tonnage')).toContain(
-        'Up to 1,000 tonnes'
+        'Up to 5,000 tonnes'
       )
 
       expect(await detail.supportingDocumentNames()).toContain(
         'ra-291-regression-sampling-plan.pdf'
+      )
+    })
+
+    it('shows the "More than 10,000 tonnes" label for the highest PRN tonnage band after resume-from-query', async () => {
+      const highTonnageWorkItemId = await createSubmittedWorkItem(
+        uniqueOrg('Query Resubmit High Tonnage Ltd'),
+        'SW1A 1QH'
+      )
+
+      await raiseQuery(highTonnageWorkItemId, {
+        sections: ['prn-tonnage'],
+        reason: 'Please confirm the planned PRN tonnage band.'
+      })
+
+      await resumeFromQuery(highTonnageWorkItemId, {
+        sectionKeys: ['prn-tonnage'],
+        sections: {
+          Prns: {
+            plannedTonnageBand: 'Over10000'
+          }
+        }
+      })
+
+      await workItems.openWorkItem(highTonnageWorkItemId)
+      expect(await detail.applicationDetailRowText('prn-tonnage')).toContain(
+        'More than 10,000 tonnes'
       )
     })
   })
