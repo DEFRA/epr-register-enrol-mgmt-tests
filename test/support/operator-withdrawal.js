@@ -44,9 +44,11 @@ const OPERATOR_HEADERS = {
  *
  * `reason` becomes the withdrawal note the backend records before
  * transitioning, and feeds the "Withdrawn" GOV.UK Notify email's
- * `withdrawal_notes` personalisation (RA-204). It is optional on the DTO
- * (`WithdrawApplicationRequest(string? Reason)`), so an omitted reason is
- * still a valid call — the note is simply blank.
+ * `withdrawal_notes` personalisation (RA-204). Although `Reason` is nullable
+ * on the DTO (`WithdrawApplicationRequest(string? Reason)`), it is mandatory
+ * at runtime: `ReAccreditationWithdrawValidator` rejects a blank/whitespace
+ * reason with a 400 "Enter a reason for the withdrawal", so callers must pass
+ * a non-empty reason.
  *
  * Returns `{ status, body }` so guard callers can assert on the raw outcome
  * (e.g. a refusal from the wrong state), rather than throwing. Callers that
