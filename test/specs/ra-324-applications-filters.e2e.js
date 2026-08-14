@@ -191,13 +191,17 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
   // ── Filtering by facet ───────────────────────────────────────────────────── //
 
   describe('filtering by facet', () => {
-    it('Type: Exporter matches nothing (no exporter data)', async () => {
+    // RA-412 wired this facet to the real `payload.wasteProcessingType` field
+    // (previously a stub typeId that could never match, so this asserted "no
+    // exporter data" — see ra-412-exporter-applicant-type.e2e.js for the
+    // fuller positive-case coverage against a specific seeded org).
+    // ReAccreditationSeeder seeds several exporter-flagged work items, so the
+    // filter now returns results.
+    it('Type: Exporter returns applications', async () => {
       await workItems.resetFilters()
       await workItems.checkType('exporter')
       await workItems.applyFilters()
-      await expect($('[data-testid="work-items-summary"]')).toHaveText(
-        expect.stringContaining('No work items match your filters')
-      )
+      expect(await workItems.getTileCount()).toBeGreaterThan(0)
     })
 
     it('Type: Reprocessor reaccreditation returns applications', async () => {
