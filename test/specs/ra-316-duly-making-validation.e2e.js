@@ -7,7 +7,7 @@ import {
   createReAccreditation,
   dulyMake
 } from '../support/re-accreditation-journey.js'
-import { ukDateParts } from '../support/uk-time.js'
+import { utcDateParts } from '../support/uk-time.js'
 
 /**
  * RA-316 — payment date validation and guards.
@@ -58,7 +58,7 @@ describe('RA-316 duly making — payment date validation', () => {
     })
 
     it('rejects a payment date in the future', async () => {
-      await dulyMaking.setPaymentDate(ukDateParts(new Date(), 1))
+      await dulyMaking.setPaymentDate(utcDateParts(new Date(), 1))
       await dulyMaking.submit()
       await dulyMaking.assertErrorSummary(
         'Payment date must be today or in the past'
@@ -90,7 +90,7 @@ describe('RA-316 duly making — payment date validation', () => {
       // 400 days rather than 366: comfortably past the floor whatever the
       // rounding, and immune to a leap year shifting the boundary under the
       // test.
-      await dulyMaking.setPaymentDate(ukDateParts(new Date(), -400))
+      await dulyMaking.setPaymentDate(utcDateParts(new Date(), -400))
       await dulyMaking.submit()
       await dulyMaking.assertErrorSummary(
         'Payment date must be within the last 12 months'
@@ -98,7 +98,7 @@ describe('RA-316 duly making — payment date validation', () => {
     })
 
     it('points every error summary link at the first date field', async () => {
-      await dulyMaking.setPaymentDate(ukDateParts(new Date(), 1))
+      await dulyMaking.setPaymentDate(utcDateParts(new Date(), 1))
       await dulyMaking.submit()
       await dulyMaking.assertErrorSummary(
         'Payment date must be today or in the past'
@@ -124,7 +124,7 @@ describe('RA-316 duly making — payment date validation', () => {
 
     it('leaves the work item in "Not started" after a rejected date', async () => {
       await dulyMaking.gotoFor(workItemId)
-      await dulyMaking.setPaymentDate(ukDateParts(new Date(), 1))
+      await dulyMaking.setPaymentDate(utcDateParts(new Date(), 1))
       await dulyMaking.submit()
       await dulyMaking.assertErrorSummary(
         'Payment date must be today or in the past'
@@ -163,7 +163,7 @@ describe('RA-316 duly making — payment date validation', () => {
       await workItems.openWorkItem(backdatedId)
       await detail.clickDulyMake()
       await dulyMaking.assertOnPage()
-      await dulyMaking.setPaymentDate(ukDateParts(new Date(), -30))
+      await dulyMaking.setPaymentDate(utcDateParts(new Date(), -30))
       await dulyMaking.submit()
 
       await dulyMaking.waitForDetailUrl(backdatedId)
