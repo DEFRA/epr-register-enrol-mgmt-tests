@@ -3,7 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import queryPage from '../page-objects/query.page.js'
-import withdrawPage from '../page-objects/withdraw.page.js'
+import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
 import {
   dulyMake,
   startAssessment
@@ -178,7 +178,7 @@ describe('RA-295 assignment panel and query assignment notice', () => {
     // Uses its OWN work item, deliberately: withdrawing is irreversible, so
     // reusing the item above would leave every later block in this file
     // operating on a closed case. Withdraw is the shortest route to a terminal
-    // state — one interstitial, rather than the whole approval journey.
+    // state (RA-317: an operator-backend call, not a CM journey).
     let closedItemId
 
     before(async () => {
@@ -206,14 +206,15 @@ describe('RA-295 assignment panel and query assignment notice', () => {
       await expect($('[data-testid="action-sla-extend"]')).toBeExisting()
       await expect($('[data-testid="action-sla-override"]')).toBeExisting()
 
-      // `withdraw` is the action id from `submitted` only — each later state
-      // has its own (`withdraw-during-assessment` here). Now that this block
-      // drives the item to Assessment in progress first, the default id no
-      // longer resolves and the confirm page renders nothing.
-      await withdrawPage.gotoFor(closedItemId, 'withdraw-during-assessment')
-      await withdrawPage.fillNote('Closing the case to check the SLA gating')
-      await withdrawPage.submit()
-      await detail.waitForDetailUrl()
+      // The operator withdraws the case (RA-317 removed the CM affordance).
+      // The backend derives the correct transition for the item's current
+      // state (`withdraw-during-assessment`) server-side. Re-open the item so
+      // the assertions below run against the withdrawn detail page.
+      await withdrawAsOperatorOrThrow(
+        closedItemId,
+        'Closing the case to check the SLA gating'
+      )
+      await workItems.openWorkItem(closedItemId)
       await detail.assertState('Withdrawn')
     })
 

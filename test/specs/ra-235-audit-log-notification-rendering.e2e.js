@@ -2,7 +2,7 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import withdraw from '../page-objects/withdraw.page.js'
+import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
 
 /**
  * RA-235 — E2E: audit-log notification rendering.
@@ -22,6 +22,11 @@ import withdraw from '../page-objects/withdraw.page.js'
  * (test@defra.gov.uk) sends the "Withdrawn" email, which the backend
  * records as a `notification-sent` audit entry carrying the recipient,
  * notification type (templateKey) and reference (the work item id).
+ *
+ * RA-317 removed the CM withdraw affordance, so the withdrawal is driven
+ * through management-be's operator withdraw endpoint. The notification hook
+ * fires identically on that transition, so the sent entry is produced the
+ * same way.
  *
  * The failure path is documented as a known gap below — see the pending
  * test — because the e2e stack cannot force a failed send (NOTIFY_API_KEY
@@ -51,12 +56,11 @@ describe('RA-235 audit-log notification rendering', () => {
         })
       ).id
 
-      await withdraw.gotoFor(workItemId, 'withdraw')
-      await withdraw.fillNote(
+      await withdrawAsOperatorOrThrow(
+        workItemId,
         'Withdrawn to exercise the notification audit entry'
       )
-      await withdraw.submit()
-      await withdraw.waitForDetailUrl(workItemId)
+      await workItems.openWorkItem(workItemId)
       await detail.assertState('Withdrawn')
 
       await detail.gotoAudit()

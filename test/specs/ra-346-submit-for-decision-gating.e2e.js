@@ -64,10 +64,14 @@ describe('RA-346/RA-410 The decision route is gated on state, not on tasks', () 
     it('still offers the actions that belong to this state', async () => {
       // Negative control. "Log decision is missing" only means the gate works
       // if the page rendered its actions at all — otherwise a template that
-      // failed to render would satisfy every assertion in this file.
+      // failed to render would satisfy every assertion in this file. Query is
+      // the positive anchor in `submitted` (RA-317 removed the withdraw action
+      // that used to serve as it), so its presence proves the panel rendered.
       const actionIds = await detail.availableActionIds()
-      expect(actionIds).toContain('withdraw')
+      expect(actionIds).toContain('query')
       expect(actionIds).not.toContain('submit-for-decision')
+      // RA-317: withdraw is no longer a case-management action.
+      expect(actionIds).not.toContain('withdraw')
     })
 
     it('refuses a direct GET to the Log decision route', async () => {
@@ -98,10 +102,17 @@ describe('RA-346/RA-410 The decision route is gated on state, not on tasks', () 
       // The transition management-be applies internally must not ALSO be
       // exposed as a button. Two routes to `awaiting-decision`, one of which
       // strands the item there, is the failure mode this guards.
+      //
+      // Render anchor: RA-317 removed the withdraw action that used to prove
+      // the page rendered its affordances (assessment-in-progress now projects
+      // no panel action at all), so the Log decision CTA is the positive
+      // control instead — without it these absences could pass vacuously.
+      expect(await detail.hasLogDecisionCta()).toBe(true)
       const actionIds = await detail.availableActionIds()
       expect(actionIds).not.toContain('submit-for-decision')
       expect(actionIds).not.toContain('reject')
-      expect(actionIds).toContain('withdraw-during-assessment')
+      // RA-317: withdraw is no longer a case-management action.
+      expect(actionIds).not.toContain('withdraw-during-assessment')
     })
 
     it('refuses a direct POST to the submit-for-decision apply-action route', async () => {
