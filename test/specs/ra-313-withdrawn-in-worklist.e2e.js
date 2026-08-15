@@ -2,7 +2,7 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import withdraw from '../page-objects/withdraw.page.js'
+import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
 import {
   dulyMake,
   logDecision,
@@ -87,17 +87,16 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
       })
     ).id
 
-    // RA-313 is about OPERATOR-initiated withdrawal, but this suite only
-    // drives the case management UI — and both routes land the work item in
-    // the same `withdrawn` state, which is all AC01 turns on. The CM-side
-    // withdraw journey used here is RA-188's and is expected to be retired;
-    // when it goes, seed the withdrawn state some other way rather than
-    // dropping the assertions below.
+    // RA-313 is about OPERATOR-initiated withdrawal, and RA-317 retired the
+    // CM withdraw journey this used to drive — so the item is now withdrawn
+    // exactly the way the AC describes, through the operator backend. Both
+    // routes land it in the same `withdrawn` state, which is all AC01 turns
+    // on; the assertions below are unchanged.
+    await withdrawAsOperatorOrThrow(
+      withdrawnId,
+      'Withdrawn by the operator (test fixture)'
+    )
     await workItems.openWorkItem(withdrawnId)
-    await detail.triggerAction('withdraw')
-    await withdraw.assertOnConfirmPage()
-    await withdraw.submit()
-    await withdraw.waitForDetailUrl(withdrawnId)
     await detail.assertState('Withdrawn')
 
     await login.logout()

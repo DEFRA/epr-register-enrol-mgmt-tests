@@ -2,7 +2,7 @@ import { browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import withdraw from '../page-objects/withdraw.page.js'
+import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
 import notFound, {
   UNKNOWN_WORK_ITEM_ID
 } from '../page-objects/work-item-not-found.page.js'
@@ -56,16 +56,18 @@ describe('RA-358 — withdrawn work item message and not-found page', () => {
           tonnageBand: '0-500'
         }))
 
-      // Drive the item through the real RA-188 withdraw journey rather than
-      // seeding a withdrawn fixture: the AC is about what a regulator sees
-      // AFTER withdrawing, and the suite has no shared withdrawn fixture to
-      // reuse (every withdrawal spec creates its own item, because the list
-      // hides terminal states and a shared one could not be found again).
+      // Withdraw as the operator (RA-317 removed the CM withdraw affordance),
+      // then open the item: the AC is about what a regulator sees AFTER an
+      // application is withdrawn — which is exactly AC03, an operator
+      // withdrawal surfacing in case management — and the suite has no shared
+      // withdrawn fixture to reuse (every withdrawal spec creates its own
+      // item, because the list hides terminal states and a shared one could
+      // not be found again).
+      await withdrawAsOperatorOrThrow(
+        workItemId,
+        'Withdrawn by the operator (test fixture)'
+      )
       await workItems.openWorkItem(workItemId)
-      await detail.triggerAction('withdraw')
-      await withdraw.assertOnConfirmPage()
-      await withdraw.submit()
-      await withdraw.waitForDetailUrl(workItemId)
       await detail.assertState('Withdrawn')
     })
 
@@ -179,13 +181,13 @@ describe('RA-358 — withdrawn work item message and not-found page', () => {
       await expect(notFound.backLink()).toHaveAttribute('href', '/work-items')
     })
 
-    it('renders the same not-found page from the action confirmation route', async () => {
-      // /work-items/{id}/actions/{actionId}/confirm shares not-found.njk, so
-      // a reworded page has to be reworded for this entry point too — this is
-      // the route a regulator hits by following a stale "Withdraw" link.
-      await notFound.gotoActionConfirm(unknownId, 'withdraw')
-      await notFound.assertRendered()
-      await notFound.assertIdNotPresentedToUser(unknownId)
-    })
+    // RA-317 deleted the generic action-confirmation route
+    // `/work-items/{id}/actions/{actionId}/confirm` (withdraw was its only
+    // user). It no longer shares not-found.njk — an unknown id there now 404s
+    // at the router itself — so the former "renders the same not-found page
+    // from the action confirmation route" case is removed rather than kept as
+    // a router-404 assertion that would prove nothing about not-found.njk.
+    // The unknown-id not-found rendering is still fully covered above via
+    // GET /work-items/{unknownId}.
   })
 })

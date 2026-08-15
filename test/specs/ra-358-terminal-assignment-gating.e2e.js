@@ -2,7 +2,7 @@ import { browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import withdraw from '../page-objects/withdraw.page.js'
+import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
 import {
   approveWorkItem,
   createWithdrawnWorkItem,
@@ -105,9 +105,9 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
       //
       // Models the real race rather than a synthetic request: the page is
       // opened while the case is still open (so the button and its crumb
-      // exist), the case is withdrawn, and the stale form is then submitted.
-      // Once the button is hidden this is the only way the route can still
-      // be reached by a real user.
+      // exist), the case is withdrawn OUT FROM UNDER the open page, and the
+      // stale form is then submitted. Once the button is hidden this is the
+      // only way the route can still be reached by a real user.
       // Its own work item: this one has to be observed while still OPEN, and
       // the shared item above is already withdrawn by the time this runs.
       await workItems.goto()
@@ -128,9 +128,14 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
       const staleCrumb = await detail.readCrumb()
       expect(staleCrumb).toBeTruthy()
 
-      await detail.triggerAction('withdraw')
-      await withdraw.submit()
-      await withdraw.waitForDetailUrl(staleId)
+      // The operator withdraws the case behind the open page (RA-317). This
+      // models the race even better than the old CM journey did: the browser
+      // never leaves the stale open-case page, so the crumb it holds is
+      // genuinely stale when the POST below fires.
+      await withdrawAsOperatorOrThrow(
+        staleId,
+        'Withdrawn by the operator (test fixture)'
+      )
 
       const result = await detail.postSelfAssign(staleId, staleCrumb)
 

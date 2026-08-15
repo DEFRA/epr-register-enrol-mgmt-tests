@@ -4,12 +4,14 @@ import { Page } from './page.js'
 /**
  * RA-358 — the work-item "not found" page.
  *
- * management-fe renders `routes/work-items/not-found.njk` from two places:
- *   1. GET /work-items/{id}                              — unknown work item
- *   2. GET /work-items/{id}/actions/{actionId}/confirm   — unknown work item
- *      reached via a withdraw/query confirmation link
- * Both branches share the same view, so both are exercised through this one
- * page object rather than duplicating selectors per route.
+ * management-fe renders `routes/work-items/not-found.njk` on
+ * `GET /work-items/{id}` for an unknown work item.
+ *
+ * RA-317 removed the second entry point — the generic action-confirmation
+ * route `GET /work-items/{id}/actions/{actionId}/confirm`, whose only user was
+ * the withdraw interstitial. An unknown id there now 404s at the router rather
+ * than rendering this view, so this page object covers the surviving route
+ * only.
  *
  * The point of RA-358 (AC2) is that this page must be worded in APPLICATION
  * terms and must stop parading the system-generated work-item GUID at the
@@ -43,10 +45,6 @@ class WorkItemNotFoundPage extends Page {
 
   async gotoWorkItem(id) {
     await this.open(`/work-items/${id}`)
-  }
-
-  async gotoActionConfirm(id, actionId = 'withdraw') {
-    await this.open(`/work-items/${id}/actions/${actionId}/confirm`)
   }
 
   /**

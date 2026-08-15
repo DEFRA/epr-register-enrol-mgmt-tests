@@ -3,7 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import query from '../page-objects/query.page.js'
-import withdrawPage from '../page-objects/withdraw.page.js'
+import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
 import {
   createReAccreditation,
   dulyMake
@@ -29,12 +29,25 @@ import {
  *
  * ── Why these assertions are counts, not presence ────────────────────────────
  *
- * A spec asserting "a Withdraw link exists" would have passed against the bug
- * — the Withdraw link was there the whole time, sitting under four broken
+ * A spec asserting "a Query link exists" would have passed against the bug —
+ * the surviving controls were there the whole time, sitting under four broken
  * Resume buttons. Every assertion below is therefore count-based and would
  * have FAILED before the fix: `countActionsLabelled('Resume')` returned 4, the
- * total control count was 5 rather than 1, and the duplicate-label check
- * reported "Resume ×4".
+ * total control count was inflated rather than the expected minimum, and the
+ * duplicate-label check reported "Resume ×4".
+ *
+ * ── RA-317: withdraw is no longer a case-management action ───────────────────
+ *
+ * When this spec was written, the surviving control in `queried` was
+ * `withdraw-during-query`, and the withdraw action id was also the reliable
+ * discriminator between states that share a status label (see the trap note
+ * below). RA-317 removed the withdraw affordance from case management
+ * entirely — it is an operator action now — so the panel in `queried` and
+ * `assessment-in-progress` (whose ONLY panel action was withdraw) renders the
+ * generic "No actions are currently available" empty state, and the state
+ * discriminator is now the raw state id (`assertStateId`), not a withdraw id.
+ * Reaching the terminal `withdrawn` state is done through the operator backend
+ * (`withdrawAsOperatorOrThrow`), the way it genuinely happens now.
  *
  * ── Coverage boundary: state `updated` is NOT reachable from this suite ──────
  *
@@ -68,8 +81,7 @@ import {
  * management-fe instead. See the hand-off note on epr-7uaq. If an operator-side
  * service is ever added to compose.yml, AC3/AC4 become reachable and belong
  * here — the assertions would mirror the `queried` block exactly, swapping
- * "Resume" for "Continue review" and `withdraw-during-query` for
- * `withdraw-during-updated`.
+ * "Resume" for "Continue review".
  *
  * ── Trap: "Updated" is an ambiguous status label ─────────────────────────────
  *
@@ -78,10 +90,11 @@ import {
  * `assessment-in-progress` AND `updated` the display label "Updated" (RA-324
  * AC06: "that clash is accepted, not reconciled"). `assertState('Updated')`
  * cannot tell them apart, so a spec written that way would silently assert
- * against `assessment-in-progress` and prove nothing about this bug. The
- * reliable discriminator is the withdraw action id — `withdraw-during-updated`
- * appears only in `updated`, `withdraw-during-assessment` only in
- * `assessment-in-progress`.
+ * against `assessment-in-progress` and prove nothing about this bug. Until
+ * RA-317 the reliable discriminator was the withdraw action id
+ * (`withdraw-during-assessment` vs `withdraw-during-updated`); with withdraw
+ * gone the discriminator is the raw state id, so this spec uses
+ * `assertStateId('assessment-in-progress')` where the state must be pinned.
  *
  * "Queried" carries no such ambiguity — it belongs to `queried` alone — so
  * `assertState('Queried')` below is safe.
@@ -164,21 +177,27 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       }
     })
 
-    it('renders exactly one Withdraw link, and it is withdraw-during-query', async () => {
+    it('renders no Withdraw affordance (RA-317)', async () => {
+      // Withdraw is no longer a case-management action. It was the one control
+      // `queried` used to project, so its absence is asserted explicitly here
+      // rather than left implicit in the empty-panel check below.
       await workItems.openWorkItem(workItemId)
 
-      expect(await detail.countActionsLabelled('Withdraw')).toBe(1)
-      expect(await detail.countActionsWithId('withdraw-during-query')).toBe(1)
+      expect(await detail.countActionsLabelled('Withdraw')).toBe(0)
+      expect(await detail.countActionsWithId('withdraw-during-query')).toBe(0)
     })
 
-    it('renders exactly one action control in total', async () => {
+    it('renders no action control at all', async () => {
       await workItems.openWorkItem(workItemId)
 
       // The whole-panel assertion, and the one that most directly pins the
       // ticket: pre-fix this returned five ids (four resume-during-* plus the
-      // withdraw). Asserting the exact array rather than just the length means
-      // a regression reports WHICH controls came back.
-      expect(await detail.actionControlIds()).toEqual(['withdraw-during-query'])
+      // withdraw). Post-RA-317 the surviving `withdraw-during-query` is gone
+      // too, so `queried` projects nothing — the panel renders the
+      // "No actions available" empty state (asserted well-formed above) and
+      // holds zero controls. Asserting the exact array rather than just the
+      // length means a regression reports WHICH controls came back.
+      expect(await detail.actionControlIds()).toEqual([])
     })
 
     it('has no duplicate action labels', async () => {
@@ -195,17 +214,18 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       expect(await detail.countActionsWithId('query')).toBe(0)
     })
 
-    it('the surviving Withdraw link actually works', async () => {
-      // The four Resume buttons were not merely duplicated, they were broken —
-      // the action endpoint rejects `CallerInvocable: false` transitions. So
-      // "exactly one control remains" is only half the story; the control that
-      // remains has to be one the caseworker can actually use. This proves the
-      // filter kept the functional action rather than trimming the list to an
-      // arbitrary survivor.
+    it('reaches the terminal withdrawn state via the operator backend', async () => {
+      // Pre-RA-317 this step clicked the surviving Withdraw link to prove the
+      // filter kept a FUNCTIONAL action rather than an arbitrary survivor. With
+      // withdraw removed from case management, `queried` has no caller-invocable
+      // action left, so the shared item is driven to `withdrawn` the way it
+      // genuinely happens now — the operator backend — purely to set up the
+      // terminal-panel assertion that follows.
+      await withdrawAsOperatorOrThrow(
+        workItemId,
+        'RA-364: withdrawn to inspect the terminal actions panel'
+      )
       await workItems.openWorkItem(workItemId)
-      await detail.triggerAction('withdraw-during-query')
-      await withdrawPage.submit()
-      await withdrawPage.waitForDetailUrl(workItemId)
       await detail.assertState('Withdrawn')
     })
 
@@ -249,13 +269,13 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       await detail.assertActionsPanelWellFormed()
       await detail.assertNoDuplicateActionLabels()
 
-      // `submitted` has no generic primary action, so the actions panel is
-      // the Query and Withdraw links alone. RA-316's "Duly make" is NOT
-      // counted here: it is a type-specific CTA rendered outside the generic
-      // actions list, and `duly-make` is registered CallerInvocable:false so
-      // it never reaches `availableActions` at all.
+      // `submitted` has no generic primary action, and RA-317 removed the
+      // Withdraw link, so the actions panel is the Query link alone. RA-316's
+      // "Duly make" is NOT counted here: it is a type-specific CTA rendered
+      // outside the generic actions list, and `duly-make` is registered
+      // CallerInvocable:false so it never reaches `availableActions` at all.
       expect(await detail.countActionsWithId('query')).toBe(1)
-      expect(await detail.countActionsWithId('withdraw')).toBe(1)
+      expect(await detail.countActionsWithId('withdraw')).toBe(0)
       expect(await detail.countActionsWithId('duly-make')).toBe(0)
     })
 
@@ -272,14 +292,15 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       // pre-RA-410 action panel.
       //
       // The AC06 subject is unchanged: a genuinely caller-invocable action
-      // renders EXACTLY ONCE, which the `query` and `withdraw` counts below
-      // still protect. Asserting 0 here also guards the regression that would
-      // reintroduce the button beside the CTA and give two doors to one hop.
+      // renders EXACTLY ONCE, which the `query` count below still protects.
+      // Asserting 0 here also guards the regression that would reintroduce the
+      // button beside the CTA and give two doors to one hop.
       expect(await detail.countActionsWithId('payment-received')).toBe(0)
       expect(await detail.countActionsLabelled('Payment received')).toBe(0)
       expect(await detail.countActionsWithId('query')).toBe(1)
+      // RA-317: withdraw is gone from `duly-made` too.
       expect(await detail.countActionsWithId('withdraw-during-duly-made')).toBe(
-        1
+        0
       )
     })
 
@@ -289,18 +310,23 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       await detail.selfAssignAndStart()
 
       // `assessment-in-progress` displays as "Updated" — see the trap note at
-      // the top of this file. The state is pinned by the action id below, not
+      // the top of this file. The state is pinned by the state id below, not
       // by this label.
       await detail.assertState('Updated')
       await detail.assertActionsPanelWellFormed()
       await detail.assertNoDuplicateActionLabels()
 
       // The unambiguous discriminator between `assessment-in-progress` and the
-      // `updated` state that shares its label.
+      // `updated` state that shares its label. Pre-RA-317 this was the withdraw
+      // action id; with withdraw removed from case management, the raw state id
+      // is the discriminator. There is no caller-invocable panel action left in
+      // `assessment-in-progress` (Log decision is a separate CTA), so the panel
+      // renders the "No actions available" empty state — asserted well-formed
+      // above.
+      await detail.assertStateId('assessment-in-progress')
       expect(
         await detail.countActionsWithId('withdraw-during-assessment')
-      ).toBe(1)
-      expect(await detail.countActionsWithId('withdraw-during-updated')).toBe(0)
+      ).toBe(0)
 
       // RA-410 removed `submit-for-decision` from `availableActions`
       // altogether — the `awaiting-decision` hop is applied server-side inside
@@ -338,12 +364,13 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       expect(await detail.hasLogDecisionCta()).toBe(true)
       expect(await detail.countActionsWithId('approve')).toBe(0)
       expect(await detail.countActionsWithId('reject')).toBe(0)
+      // RA-317: no withdraw affordance remains in this state either.
       expect(await detail.countActionsWithId('withdraw-during-decision')).toBe(
         0
       )
       expect(
         await detail.countActionsWithId('withdraw-during-assessment')
-      ).toBe(1)
+      ).toBe(0)
     })
   })
 })
