@@ -73,12 +73,17 @@ class QueryPage extends Page {
   /**
    * RA-434. The "The reason you provide is for internal use only." hint
    * under the Reason field. Always shown — unlike assignmentNotice() below,
-   * it does not depend on assignment state. Scoped inside the
-   * `query-reason` character-count component so a hint with similar wording
-   * elsewhere on the page could not satisfy this.
+   * it does not depend on assignment state.
+   *
+   * Its own `query-reason-hint` testid, not a `[data-testid="query-reason"]
+   * .govuk-hint` descendant selector: govukCharacterCount's `attributes`
+   * param lands on the `<textarea>` itself (confirmed against
+   * govuk-frontend's textarea template), and the hint renders as that
+   * textarea's SIBLING inside the form group — never its descendant — so a
+   * descendant selector off `query-reason` can never match.
    */
   reasonHint() {
-    return $('[data-testid="query-reason"] .govuk-hint')
+    return $('[data-testid="query-reason-hint"]')
   }
 
   async submit() {
