@@ -10,13 +10,18 @@
  * Two fixtures, covering the tab's one real conditional (the Site address
  * row's reprocessor/exporter fallback):
  *
- *   - REPROCESSOR reuses the existing `full-payload-verification` seed item
- *     (org "Full Payload Verification Ltd"), which RA-434 extended with the
- *     three new fields. It carries no `wasteProcessingType`, so it also
- *     covers the "absent defaults to reprocessor" branch — every seed item
- *     predates RA-412/RA-434 except the exporter fixture below, so there is
- *     no separate "explicit reprocessor" fixture to point at.
- *   - EXPORTER is a new seed item (own seedKey `additional-information-exporter`,
+ *   - REPROCESSOR has its own seed item, seedKey
+ *     `additional-information-reprocessor` (org "Thames Reprocessing
+ *     Verification Ltd"), which carries NO `wasteProcessingType` at all —
+ *     RA-434-processortype's whole point is the "absent defaults to
+ *     reprocessor" branch, so the fixture proving it must genuinely lack the
+ *     field. This used to reuse `full-payload-verification` on the strength
+ *     of THAT seed predating `wasteProcessingType` too, but
+ *     RA-434-processortype gave it an explicit `wasteProcessingType:
+ *     "exporter"` for its own BES/ORS fixture (management-fe now gates
+ *     those sections on the real field, not on `overseasSites` presence),
+ *     which removed the one seed item that had genuinely never set it.
+ *   - EXPORTER is a separate seed item (own seedKey `additional-information-exporter`,
  *     per the insert-only seeding rule — see README.md's "Stale seed data"
  *     section) carrying `wasteProcessingType: "exporter"` and, the point of
  *     the fixture, NO `siteAddress` at all — re-ex has no site for an
@@ -25,19 +30,19 @@
  */
 
 export const REPROCESSOR = {
-  ORG_NAME: 'Full Payload Verification Ltd',
-  COMPANIES_HOUSE_NUMBER: '12345678',
-  COMPANY_REGISTERED_ADDRESS: '100 Registered Office Road, London, EC1A 1AB',
+  ORG_NAME: 'Thames Reprocessing Verification Ltd',
+  COMPANIES_HOUSE_NUMBER: '13579246',
+  COMPANY_REGISTERED_ADDRESS: '200 Registered Office Road, London, SE1 9AA',
   // Rendered joined with the postcode by the same site-address formatting the
   // Application summary tab uses; asserted with toContain() on both
   // fragments rather than pinning the exact join, matching the precedent in
   // application-details-full-payload.e2e.js.
-  SITE_ADDRESS_LINE: '1 Full Payload Lane',
-  SITE_ADDRESS_POSTCODE: 'EC1A 1BB',
+  SITE_ADDRESS_LINE: '1 Thames Reprocessing Way',
+  SITE_ADDRESS_POSTCODE: 'SE1 9GF',
   // companyRegisteredAddress and siteAddress are deliberately DIFFERENT
   // values in the seed — a template that accidentally aliases the two
   // fields would otherwise pass unnoticed.
-  PERMIT_NUMBERS_JOINED: 'WML999000, PPC888777'
+  PERMIT_NUMBERS_JOINED: 'WML135792, PPC468024'
 }
 
 export const EXPORTER = {
