@@ -23,10 +23,6 @@ import { REPROCESSOR, EXPORTER } from '../support/ra-434-seed.js'
  * expected behaviour, not a gap in either fixture.
  */
 describe('RA-434: Additional information tab', () => {
-  after(async () => {
-    await login.logout()
-  })
-
   describe('reprocessor fixture (no wasteProcessingType)', () => {
     before(async () => {
       await login.login()
@@ -83,10 +79,16 @@ describe('RA-434: Additional information tab', () => {
       expect(siteAddress).toContain(REPROCESSOR.SITE_ADDRESS_LINE)
       expect(siteAddress).toContain(REPROCESSOR.SITE_ADDRESS_POSTCODE)
 
-      const registeredAddress = await detail.additionalInformationRowText(
-        'company-registered-address'
-      )
-      expect(siteAddress).not.toBe(registeredAddress)
+      // Compared as VALUES ONLY (not full row text): the two rows' labels
+      // ("Site address" vs "Registered address") differ regardless, which
+      // would make a row-text comparison here vacuously true.
+      const siteAddressValue = await detail
+        .additionalInformationValue('site-address')
+        .getText()
+      const registeredAddressValue = await detail
+        .additionalInformationValue('company-registered-address')
+        .getText()
+      expect(siteAddressValue).not.toBe(registeredAddressValue)
     })
 
     it('shows the comma-joined permit numbers on one line', async () => {
@@ -97,6 +99,10 @@ describe('RA-434: Additional information tab', () => {
 
     it('omits the Site name row — there is no producer field for it', async () => {
       expect(await detail.hasAdditionalInformationRow('site-name')).toBe(false)
+    })
+
+    after(async () => {
+      await login.logout()
     })
   })
 
@@ -134,17 +140,26 @@ describe('RA-434: Additional information tab', () => {
       expect(await detail.hasAdditionalInformationRow('site-address')).toBe(
         true
       )
-      const siteAddress =
-        await detail.additionalInformationRowText('site-address')
-      const registeredAddress = await detail.additionalInformationRowText(
-        'company-registered-address'
-      )
+      // Compared as VALUES ONLY (not full row text): the rows' labels
+      // ("Site address" vs "Registered address") always differ, so
+      // comparing row text here would fail even though the underlying
+      // values are genuinely equal.
+      const siteAddress = await detail
+        .additionalInformationValue('site-address')
+        .getText()
+      const registeredAddress = await detail
+        .additionalInformationValue('company-registered-address')
+        .getText()
       expect(siteAddress).toBe(registeredAddress)
-      expect(siteAddress).toContain(EXPORTER.COMPANY_REGISTERED_ADDRESS)
+      expect(siteAddress).toBe(EXPORTER.COMPANY_REGISTERED_ADDRESS)
     })
 
     it('still omits the Site name row', async () => {
       expect(await detail.hasAdditionalInformationRow('site-name')).toBe(false)
+    })
+
+    after(async () => {
+      await login.logout()
     })
   })
 })
