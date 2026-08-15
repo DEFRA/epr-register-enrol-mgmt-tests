@@ -94,6 +94,24 @@ describe('RA-291 Query an application', () => {
       await query.waitForDetailUrl(workItemId)
       await detail.assertState('Not started')
     })
+
+    // RA-434: content-design copy update. "This will be included in the
+    // email to the operator." became "The reason you provide is for
+    // internal use only." (always shown), and the assignment inset became
+    // "The operator query status will be updated." (shown only while the
+    // application is unassigned — this freshly-created item qualifies; the
+    // conditionality itself is covered by ra-295-assignment-and-query.e2e.js).
+    it('shows the RA-434 reason guidance and query status notice', async () => {
+      await query.gotoFor(workItemId)
+      await expect(query.reasonHint()).toHaveText(
+        expect.stringContaining(
+          'The reason you provide is for internal use only.'
+        )
+      )
+      await expect(query.assignmentNotice()).toHaveText(
+        expect.stringContaining('The operator query status will be updated.')
+      )
+    })
   })
 
   describe('AC03 — selecting sections', () => {
