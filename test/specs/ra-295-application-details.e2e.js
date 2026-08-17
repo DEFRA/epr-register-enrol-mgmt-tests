@@ -21,20 +21,15 @@ import detail, {
  * authorisers, a sampling & inspection plan, a business plan, and overseas
  * site / BES evidence.
  *
- * KNOWN LIMITATION on AC02 items 9 and 10 (BES / Overseas Reprocessing Site,
- * "only show if application type = Exporter"). There is no Exporter
- * discriminator anywhere in the stack: management-be confirmed that the
- * upstream ReEx `wasteProcessingType` is never written into the work item
- * payload and `typeId` is hard-coded "re-accreditation" for both operator
- * types, so no Exporter fixture exists or can exist in this story.
- * management-fe therefore gates the two sections on a non-empty
- * `overseasSites.sites[]` as an explicit PROXY for Exporter.
- *
- * That means these specs can only prove the proxy, not the AC: they assert the
- * sections appear when overseas data is present and are absent when it is not.
- * A genuine Exporter/Reprocessor test is impossible until the payload carries
- * the real discriminator — flagged to the lead as a follow-up, and called out
- * again on the negative test below so nobody mistakes it for full coverage.
+ * AC02 items 9 and 10 (BES / Overseas Reprocessing Site, "only show if
+ * application type = Exporter") gate on `payload.wasteProcessingType`
+ * (RA-434-processortype's `isExporterApplication`) — the real Exporter
+ * discriminator, not a proxy. This fixture's `wasteProcessingType` is seeded
+ * as `"exporter"` alongside its `overseasSites` data specifically so this is
+ * a genuine Exporter/Reprocessor test rather than a proxy for one: see
+ * ReAccreditationSeeder's `full-payload-verification` item and its
+ * RA-434-processortype comment. The negative test below (a reprocessor with
+ * no overseas data) is the other half of the AC.
  */
 describe('RA-295 application details on a single page', () => {
   before(async () => {
@@ -166,14 +161,12 @@ describe('RA-295 application details on a single page', () => {
     })
 
     describe('an application with no overseas site data', () => {
-      // "Belfast Fibres Co" is a seeded re-accreditation item with no
-      // overseasSites in its payload, and its org name is unique to the seed
-      // data (no spec creates it), so the search resolves to exactly one row.
-      //
-      // NB this proves the PROXY described in the file header, not AC02's
-      // actual "only if Exporter" rule — both fixtures are Reprocessors,
-      // because no Exporter fixture can exist yet. Re-point this at a real
-      // Exporter fixture once the payload carries the discriminator.
+      // "Belfast Fibres Co" is a seeded re-accreditation item with neither
+      // `wasteProcessingType` nor `overseasSites` in its payload — a genuine
+      // Reprocessor, and the other half of the real Exporter/Reprocessor test
+      // this describe block runs (see the file header) — and its org name is
+      // unique to the seed data (no spec creates it), so the search resolves
+      // to exactly one row.
       before(async () => {
         await workItems.resetFilters()
         await workItems.searchByOrgName('Belfast Fibres Co')
