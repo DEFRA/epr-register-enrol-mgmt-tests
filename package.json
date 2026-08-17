@@ -58,6 +58,7 @@
     "uuid": ">=11.1.1",
     "serialize-javascript": ">=7.0.5",
     "@grpc/grpc-js": ">=1.13.5",
-    "diff": ">=8.0.3"
+    "diff": ">=8.0.3",
+    "deepmerge-ts": ">=8.0.0"
   }
 }
