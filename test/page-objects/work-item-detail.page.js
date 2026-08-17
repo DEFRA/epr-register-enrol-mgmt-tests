@@ -71,6 +71,23 @@ export const APPLICATION_DETAIL_ROWS = [
 /** RA-295 (AC02). The Exporter-only rows, split out for the negative test. */
 export const EXPORTER_ONLY_ROWS = ['bes', 'ors']
 
+/**
+ * RA-434. The "Additional information" tab's rows, in the fixed order
+ * `buildAdditionalInformationRows` (management-fe) builds them in: Registered
+ * name, Companies house number, Registered address, Site name, Site address,
+ * Permit numbers. `site-name` has no producer field anywhere in the chain
+ * today, so it is always omitted — every fixture's rendered row set is this
+ * list minus `site-name`.
+ */
+export const ADDITIONAL_INFORMATION_ROWS = [
+  'organisation-name',
+  'companies-house-number',
+  'company-registered-address',
+  'site-name',
+  'site-address',
+  'permit-numbers'
+]
+
 class WorkItemDetailPage extends Page {
   /**
    * The user-facing application reference shown as the page identity.
@@ -472,6 +489,25 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * Open the "Additional information" tab (RA-434).
+   *
+   * Same pattern as gotoAudit(): its own bookmarkable page at
+   * /work-items/{id}/additional-information rather than a JS widget.
+   */
+  async gotoAdditionalInformation() {
+    await this.tab('additionalInformation').click()
+    await browser.waitUntil(
+      async () =>
+        /\/work-items\/[^/]+\/additional-information/.test(
+          await browser.getUrl()
+        ),
+      {
+        timeoutMsg: 'Expected additional-information URL after clicking the tab'
+      }
+    )
+  }
+
+  /**
    * RA-372. The state transitions the audit log shows, in order — one entry
    * per `action-applied`, each as `"<from> → <to>"`.
    *
@@ -524,7 +560,8 @@ class WorkItemDetailPage extends Page {
   tab(name) {
     const testIds = {
       summary: 'tab-application-summary',
-      history: 'tab-application-history'
+      history: 'tab-application-history',
+      additionalInformation: 'tab-additional-information'
     }
     const testId = testIds[name]
     if (!testId) {
@@ -2327,6 +2364,61 @@ class WorkItemDetailPage extends Page {
     const text = await this.applicationDetailsText()
     expect(text).not.toContain('[object Object]')
     expect(text).not.toContain('undefined')
+  }
+
+  // ── RA-434: the "Additional information" tab ─────────────────────────────── //
+
+  /** The summary list holding the six Additional information rows. */
+  additionalInformation() {
+    return $('[data-testid="additional-information"]')
+  }
+
+  additionalInformationRow(key) {
+    return this.additionalInformation().$(
+      `[data-testid="additional-information-row-${key}"]`
+    )
+  }
+
+  async hasAdditionalInformationRow(key) {
+    return this.additionalInformationRow(key).isExisting()
+  }
+
+  async additionalInformationRowText(key) {
+    return this.additionalInformationRow(key).getText()
+  }
+
+  /**
+   * The value cell of an Additional information row, scoped the same way as
+   * applicationDetailValue() so a short value (e.g. a companies house
+   * number) cannot be satisfied by matching the row's own label.
+   */
+  additionalInformationValue(key) {
+    return this.additionalInformation().$(
+      `[data-testid="additional-information-value-${key}"]`
+    )
+  }
+
+  /**
+   * The Additional information row keys actually rendered, in DOM order.
+   * Mirrors applicationDetailRowOrder(): filtered through
+   * ADDITIONAL_INFORMATION_ROWS and de-duplicated, so an unrelated element
+   * cannot break the ordering assertion.
+   */
+  async additionalInformationRowOrder() {
+    const rows = await this.additionalInformation().$$('[data-testid]')
+    const seen = []
+    for (const row of rows) {
+      const testId = await row.getAttribute('data-testid')
+      const key = (testId ?? '').replace(/^additional-information-row-/, '')
+      if (
+        testId?.startsWith('additional-information-row-') &&
+        ADDITIONAL_INFORMATION_ROWS.includes(key) &&
+        !seen.includes(key)
+      ) {
+        seen.push(key)
+      }
+    }
+    return seen
   }
 }
 

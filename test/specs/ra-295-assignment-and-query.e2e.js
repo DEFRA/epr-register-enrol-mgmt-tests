@@ -21,11 +21,13 @@ import {
  * "assigned to somebody else" state, which is the one a layout rewrite is
  * most likely to miss.
  *
- * AC04: the "When you send the query, the application will also be assigned to
- * you" content must show when the item is unassigned and must NOT show when it
- * is already assigned. Before RA-295 that inset text rendered
- * unconditionally, so the negative half is the test that actually has teeth —
- * the positive half alone passes against the old markup and could never fail.
+ * AC04: the "The operator query status will be updated." content (copy
+ * updated by RA-434 — was "When you send the query, the application will
+ * also be assigned to you") must show when the item is unassigned and must
+ * NOT show when it is already assigned. Before RA-295 that inset text
+ * rendered unconditionally, so the negative half is the test that actually
+ * has teeth — the positive half alone passes against the old markup and
+ * could never fail.
  */
 describe('RA-295 assignment panel and query assignment notice', () => {
   let workItemId
@@ -141,9 +143,9 @@ describe('RA-295 assignment panel and query assignment notice', () => {
         await queryPage.gotoFor(workItemId)
       })
 
-      it('does not promise to assign the application to the querying user', async () => {
-        // Telling a caseworker that querying "will also assign the application
-        // to you" is simply false here — somebody already holds it.
+      it('does not show the query status notice', async () => {
+        // The notice is scoped to the unassigned case — somebody already
+        // holds this application.
         expect(await queryPage.hasAssignmentNotice()).toBe(false)
       })
     })
@@ -156,12 +158,10 @@ describe('RA-295 assignment panel and query assignment notice', () => {
         await queryPage.gotoFor(workItemId)
       })
 
-      it('tells the user that querying will also assign the application to them', async () => {
+      it('tells the user the operator query status will be updated', async () => {
         await expect(queryPage.assignmentNotice()).toBeDisplayed()
         await expect(queryPage.assignmentNotice()).toHaveText(
-          expect.stringContaining(
-            'the application will also be assigned to you'
-          )
+          expect.stringContaining('The operator query status will be updated.')
         )
       })
     })
