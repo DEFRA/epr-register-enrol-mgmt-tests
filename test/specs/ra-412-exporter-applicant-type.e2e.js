@@ -45,8 +45,20 @@ import {
  * matching management-be fixture.
  */
 describe('RA-412 — Exporter applications are labelled correctly', () => {
+  // The seeded Exporter fixture, resolved once and shared by both describe
+  // blocks below (searching by org name is not free, and re-running it per
+  // block just risks the two copies drifting out of sync).
+  let exporterItemId
+
   before(async () => {
     await login.login()
+    await workItems.resetFilters()
+    await workItems.searchByOrgName(GLOBAL_GLASS_EXPORTS_ORG_NAME)
+    // Bounding check: prove exactly one row matched before trusting "first"
+    // to mean "the seeded fixture" (mirrors
+    // ra-295-list-registration-number.e2e.js).
+    expect(await workItems.getTileCount()).toBe(1)
+    exporterItemId = await workItems.firstResultWorkItemId()
   })
 
   after(async () => {
@@ -54,42 +66,23 @@ describe('RA-412 — Exporter applications are labelled correctly', () => {
   })
 
   describe('applications list card', () => {
-    let itemId
-
-    before(async () => {
-      await workItems.resetFilters()
-      await workItems.searchByOrgName(GLOBAL_GLASS_EXPORTS_ORG_NAME)
-      // Bounding check: prove exactly one row matched before trusting
-      // "first" to mean "the seeded fixture" (mirrors
-      // ra-295-list-registration-number.e2e.js).
-      expect(await workItems.getTileCount()).toBe(1)
-      itemId = await workItems.firstResultWorkItemId()
-    })
-
     it('shows "Exporter" as the applicant type, not the hard-coded "Reprocessor"', async () => {
-      await expect(workItems.tileField(itemId, 'applicant-type')).toHaveText(
-        'Exporter'
-      )
+      await expect(
+        workItems.tileField(exporterItemId, 'applicant-type')
+      ).toHaveText('Exporter')
     })
 
     it('renders the exact card title with the real applicant type', async () => {
-      await expect(workItems.tileTitle(itemId)).toHaveText(
+      await expect(workItems.tileTitle(exporterItemId)).toHaveText(
         `${GLOBAL_GLASS_EXPORTS_MATERIAL_LABEL} reaccreditation (Exporter)`
       )
     })
   })
 
   describe('Applicant type filter', () => {
-    let exporterId
     let reprocessorId
 
     before(async () => {
-      // Positive fixture: the genuine seeded Exporter application.
-      await workItems.resetFilters()
-      await workItems.searchByOrgName(GLOBAL_GLASS_EXPORTS_ORG_NAME)
-      expect(await workItems.getTileCount()).toBe(1)
-      exporterId = await workItems.firstResultWorkItemId()
-
       // Negative control: a fresh UI-created item. The create form has no
       // operator-type field, so this carries no wasteProcessingType at all
       // and falls back to "Reprocessor" — it must be EXCLUDED from an
@@ -113,7 +106,7 @@ describe('RA-412 — Exporter applications are labelled correctly', () => {
       await workItems.checkType('exporter')
       await workItems.applyFilters()
 
-      await expect(workItems.tileFor(exporterId)).toBeDisplayed()
+      await expect(workItems.tileFor(exporterItemId)).toBeDisplayed()
       await expect(workItems.tileFor(reprocessorId)).not.toBeExisting()
     })
   })
