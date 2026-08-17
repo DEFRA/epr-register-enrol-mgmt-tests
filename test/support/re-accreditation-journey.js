@@ -4,6 +4,7 @@ import detail from '../page-objects/work-item-detail.page.js'
 import dulyMaking from '../page-objects/duly-making.page.js'
 import decision from '../page-objects/decision.page.js'
 import { utcDateParts } from './uk-time.js'
+import { uniquePostcode } from './unique-postcode.js'
 
 /**
  * Shared re-accreditation journey steps.
@@ -44,35 +45,34 @@ import { utcDateParts } from './uk-time.js'
 /**
  * Create a re-accreditation work item and return its id.
  *
- * `postcode` is a required argument rather than a constant. THE RULE: pick
- * one whose LAST 3 CHARACTERS are not already used by another spec creating
- * the same material. `material` is deliberately fixed to `plastic` below
- * and forms part of the key, so it is not a free variable you can vary to
- * dodge a clash — change it and you change which specs you collide with.
+ * `postcode` is OPTIONAL and defaults to a freshly-generated, collision-safe
+ * one (see `unique-postcode.js`) — omit it unless the spec specifically
+ * needs a particular nation/agency (Scotland/Wales/NI routing, say), in
+ * which case pass a real postcode with that outward code and let the suffix
+ * still be auto-generated: `uniquePostcode('EH1')`.
  *
- * Why the last 3 characters and not the whole postcode: the RA-318
- * application reference is built from (accreditation year, agency code,
- * operatorOrganisationId, LAST 3 postcode characters, FIRST 2 material
- * characters). Two details make this trap people:
+ * `material` is fixed to `plastic` below.
  *
- *  - The organisation NAME is not in the key, so timestamping it does
- *    nothing to keep references apart (it is there for humans reading the
- *    work-items list). `operatorOrganisationId` is not in the key either in
- *    practice — the case-management create form has no such field, so it is
- *    empty for every fixture this helper makes.
- *  - The agency code comes from the postcode's LEADING letters, not its
- *    suffix (Scotland/Wales/NI sets map to SE/NR/NI, everything else EA).
- *    So `EH1 1AA` and `SW1A 1AA` genuinely do not clash. Existing specs rely
- *    on this, which is why the tree contains apparent counter-examples to
- *    the rule above. The rule is deliberately stricter than the mechanism —
- *    follow it and you are safe without having to reason about agencies.
+ * Why the postcode matters at all: the RA-318 application reference is
+ * built from (accreditation year, agency code, operatorOrganisationId, LAST
+ * 3 postcode characters, FIRST 2 material characters), and at most 5 work
+ * items can EVER share one such tuple — management-be's generator
+ * disambiguates with a retry loop producing `'0' + attempt % 10`, capped at
+ * 5 attempts, then fails PERMANENTLY with "Failed to generate a unique
+ * applicationReference after 5 attempts". No retry clears that once hit.
  *
- * Why it matters: at most 5 work items can EVER share one tuple. The
- * generator disambiguates with a retry loop producing `'0' + attempt % 10`,
- * capped at 5 attempts, then fails permanently with "Failed to generate a
- * unique applicationReference after 5 attempts" — no retry clears it. The
- * failure is therefore by accumulation across runs, not a pairwise clash,
- * which is why a clean database passes and a reused one fails.
+ * This used to be the caller's problem: pick a postcode whose last 3
+ * characters no other spec in the suite was already using for `plastic`,
+ * coordinated by hand via comments. That didn't survive wdio's own
+ * spec-file retries (a retry re-runs `before()`, calling this again with
+ * the same hardcoded postcode — burning another slot from the very tuple
+ * that may be why the first attempt was flaky) or a mongo volume that
+ * outlives one run (local dev; any environment that skips `docker compose
+ * down -v`) — "a clean database passes and a reused one fails" was a
+ * symptom of hand-picked, non-random postcodes accumulating collisions
+ * across runs, not of the mechanism itself. Letting every caller draw a
+ * fresh random suffix removes the bookkeeping instead of trying to do it
+ * more carefully.
  *
  * `chargeAmountPence` (RA-316) is optional and passed straight through.
  *
@@ -91,7 +91,7 @@ import { utcDateParts } from './uk-time.js'
  */
 export async function createReAccreditation(
   namePrefix,
-  postcode,
+  postcode = uniquePostcode(),
   { chargeAmountPence } = {}
 ) {
   await workItems.goto()

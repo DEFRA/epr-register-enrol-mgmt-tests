@@ -2,6 +2,7 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
+import { uniquePostcode } from '../support/unique-postcode.js'
 
 /**
  * RA-238 — E2E: officer-assignment notification outcomes.
@@ -72,7 +73,7 @@ describe('RA-238 officer-assignment notification outcomes', () => {
           organisationName: 'Officer Assign Notify Ltd',
           siteAddressLine1: '238 Assign Way',
           siteAddressTown: 'London',
-          siteAddressPostcode: 'SW1A 1AA',
+          siteAddressPostcode: uniquePostcode(),
           material: 'plastic',
           tonnageBand: '0-500'
         })
@@ -187,7 +188,7 @@ describe('RA-238 officer-assignment notification outcomes', () => {
           organisationName: 'Officer Assign Skip Ltd',
           siteAddressLine1: '238 Skip Wynd',
           siteAddressTown: 'Edinburgh',
-          siteAddressPostcode: 'EH1 1AA',
+          siteAddressPostcode: uniquePostcode('EH1'),
           material: 'plastic',
           tonnageBand: '0-500'
         })

@@ -6,6 +6,7 @@ import {
   dulyMake,
   startAssessment
 } from '../support/re-accreditation-journey.js'
+import { uniquePostcode } from '../support/unique-postcode.js'
 
 /**
  * RA-201 — Extend SLA sends the operator a "SLA extended" email.
@@ -37,7 +38,7 @@ describe('RA-201 Extend SLA sends operator notification', () => {
         organisationName: 'SLA Notify Test Ltd',
         siteAddressLine1: '3 Notification Way',
         siteAddressTown: 'London',
-        siteAddressPostcode: 'SW1A 1AP',
+        siteAddressPostcode: uniquePostcode(),
         material: 'plastic',
         tonnageBand: '0-500',
         operatorEmail: 'test@defra.gov.uk'

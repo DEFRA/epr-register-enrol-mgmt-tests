@@ -6,6 +6,7 @@ import {
   dulyMake,
   startAssessment
 } from '../support/re-accreditation-journey.js'
+import { uniquePostcode } from '../support/unique-postcode.js'
 
 /**
  * RA-248 — lifecycle emails carry the human application reference, not the
@@ -43,7 +44,7 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
         organisationName: 'Reference Number Test Ltd',
         siteAddressLine1: '248 Reference Road',
         siteAddressTown: 'London',
-        siteAddressPostcode: 'SW1A 1AT',
+        siteAddressPostcode: uniquePostcode(),
         material: 'plastic',
         tonnageBand: '0-500',
         operatorEmail: 'test@defra.gov.uk'

@@ -7,6 +7,7 @@ import {
   logDecision,
   startAssessment
 } from '../support/re-accreditation-journey.js'
+import { uniquePostcode } from '../support/unique-postcode.js'
 
 /**
  * The decision rationale. Distinctive prose rather than "test note": it is
@@ -45,7 +46,7 @@ describe('RA-203 Approval sends operator decision notification', () => {
         organisationName: 'Decision Notify Test Ltd',
         siteAddressLine1: '4 Decision Road',
         siteAddressTown: 'London',
-        siteAddressPostcode: 'SW1A 1AQ',
+        siteAddressPostcode: uniquePostcode(),
         material: 'plastic',
         tonnageBand: '0-500',
         operatorEmail: 'operator@decision-notify-test.example'

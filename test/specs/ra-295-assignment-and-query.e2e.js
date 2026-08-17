@@ -4,6 +4,7 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import queryPage from '../page-objects/query.page.js'
 import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
+import { uniquePostcode } from '../support/unique-postcode.js'
 import {
   dulyMake,
   startAssessment
@@ -39,7 +40,7 @@ describe('RA-295 assignment panel and query assignment notice', () => {
       organisationName: 'RA-295 Assignment Panel Ltd',
       siteAddressLine1: '1 Panel Place',
       siteAddressTown: 'Leeds',
-      siteAddressPostcode: 'LS1 1AA',
+      siteAddressPostcode: uniquePostcode('LS1'),
       material: 'plastic',
       tonnageBand: '0-500'
     }))
@@ -187,7 +188,7 @@ describe('RA-295 assignment panel and query assignment notice', () => {
         organisationName: 'RA-295 Closed Case Ltd',
         siteAddressLine1: '1 Closure Court',
         siteAddressTown: 'Hull',
-        siteAddressPostcode: 'HU1 1AA',
+        siteAddressPostcode: uniquePostcode('HU1'),
         material: 'paper',
         tonnageBand: '0-500'
       }))
