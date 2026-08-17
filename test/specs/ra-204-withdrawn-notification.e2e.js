@@ -3,6 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
+import { uniquePostcode } from '../support/unique-postcode.js'
 
 /**
  * RA-204 — Withdrawal email notification.
@@ -38,7 +39,7 @@ describe('RA-204 Withdrawal notification', () => {
           organisationName: 'Withdraw Notify With Note Ltd',
           siteAddressLine1: '1 Notify Way',
           siteAddressTown: 'London',
-          siteAddressPostcode: 'SW1A 1AR',
+          siteAddressPostcode: uniquePostcode(),
           material: 'plastic',
           tonnageBand: '0-500'
         })

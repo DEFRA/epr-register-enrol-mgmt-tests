@@ -2,6 +2,7 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import query from '../page-objects/query.page.js'
 import { startAssessment } from './re-accreditation-journey.js'
+import { uniquePostcode } from './unique-postcode.js'
 
 /**
  * RA-372 — driving the query → resubmission → continue-review lifecycle.
@@ -157,12 +158,15 @@ export function continueReviewViaApi(workItemId) {
 /**
  * Create a re-accreditation application, already open on its detail page.
  *
- * The postcode is a caller-supplied discriminator for the same reason
- * ra-291-query-application.e2e.js gives: ApplicationReferenceGenerator
- * derives the reference from postcode and material, and items sharing both
- * exhaust its collision-retry budget.
+ * `postcode` is optional and defaults to a freshly-generated, collision-safe
+ * one (see `unique-postcode.js`) — ApplicationReferenceGenerator derives the
+ * reference from postcode and material, and items sharing both exhaust its
+ * collision-retry budget, so avoid passing a fixed literal here.
  */
-export async function createApplication({ organisationName, postcode }) {
+export async function createApplication({
+  organisationName,
+  postcode = uniquePostcode()
+}) {
   await workItems.goto()
   const { id } = await workItems.createWorkItem({
     organisationName,

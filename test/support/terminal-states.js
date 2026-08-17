@@ -6,6 +6,7 @@ import {
   startAssessment
 } from './re-accreditation-journey.js'
 import { withdrawAsOperatorOrThrow } from './operator-withdrawal.js'
+import { uniquePostcode } from './unique-postcode.js'
 
 /**
  * Journeys that drive a re-accreditation work item into each of the three
@@ -46,7 +47,7 @@ export async function driveToDecisionReady({ organisationName, material }) {
     organisationName,
     siteAddressLine1: '1 Terminal Way',
     siteAddressTown: 'York',
-    siteAddressPostcode: 'YO1 2AF',
+    siteAddressPostcode: uniquePostcode('YO1'),
     material,
     tonnageBand: '0-500'
   })
@@ -73,7 +74,7 @@ export async function createWithdrawnWorkItem({ organisationName, material }) {
     organisationName,
     siteAddressLine1: '1 Terminal Way',
     siteAddressTown: 'York',
-    siteAddressPostcode: 'YO1 2AF',
+    siteAddressPostcode: uniquePostcode('YO1'),
     material,
     tonnageBand: '0-500'
   })
@@ -99,13 +100,17 @@ export async function createWithdrawnWorkItem({ organisationName, material }) {
  * has to reach `Duly made` first — that is where the SLA clock starts and the
  * "Due on" fields begin rendering a date (see ra-324 AC05).
  *
- * `postcode` is a required argument for the RA-318 application-reference
- * collision rules documented in re-accreditation-journey.js: the reference
- * tuple keys on the LAST 3 postcode characters and the FIRST 2 material
- * characters, so a caller has to pick a combination no other spec in the run
- * uses. Starts from the list (`goto`) so it is safe to call from any page.
+ * `postcode` is optional and defaults to a freshly-generated, collision-safe
+ * one (see `unique-postcode.js`) — see the RA-318 application-reference
+ * collision rules documented on `createReAccreditation` in
+ * re-accreditation-journey.js. Starts from the list (`goto`) so it is safe
+ * to call from any page.
  */
-async function driveToDulyMade({ organisationName, material, postcode }) {
+async function driveToDulyMade({
+  organisationName,
+  material,
+  postcode = uniquePostcode('YO1')
+}) {
   await workItems.goto()
   const { id, applicationReference } = await workItems.createWorkItem({
     organisationName,

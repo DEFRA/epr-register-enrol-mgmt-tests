@@ -4,6 +4,7 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import query, { QUERY_SECTIONS } from '../page-objects/query.page.js'
 import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
+import { uniquePostcode } from '../support/unique-postcode.js'
 
 /**
  * RA-291 — Query an application.
@@ -24,15 +25,18 @@ const uniqueOrg = (label) => `${label} ${Date.now()}`
 /**
  * Create a Submitted application to query.
  *
- * The postcode differs per caller on purpose. Work items created through
- * the case management UI carry no operator organisation id, so
+ * `postcode` defaults to a freshly-generated, collision-safe one (see
+ * `support/unique-postcode.js`). Work items created through the case
+ * management UI carry no operator organisation id, so
  * ApplicationReferenceGenerator derives the reference from the site
  * postcode and material alone — items sharing both exhaust its
- * collision-retry budget and the submission fails. Giving each block its
- * own postcode suffix keeps references distinct, both within a run and
- * across repeated runs against the same database.
+ * collision-retry budget and the submission fails, which is why this no
+ * longer takes a hand-picked literal.
  */
-const createSubmittedWorkItem = async (organisationName, postcode) => {
+const createSubmittedWorkItem = async (
+  organisationName,
+  postcode = uniquePostcode()
+) => {
   await workItems.goto()
   return (
     await workItems.createWorkItem({
@@ -52,10 +56,7 @@ describe('RA-291 Query an application', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createSubmittedWorkItem(
-        uniqueOrg('Query Nav Ltd'),
-        'SW1A 1QA'
-      )
+      workItemId = await createSubmittedWorkItem(uniqueOrg('Query Nav Ltd'))
     })
 
     after(async () => {
@@ -120,8 +121,7 @@ describe('RA-291 Query an application', () => {
     before(async () => {
       await login.login()
       workItemId = await createSubmittedWorkItem(
-        uniqueOrg('Query Sections Ltd'),
-        'SW1A 1QB'
+        uniqueOrg('Query Sections Ltd')
       )
     })
 
@@ -150,10 +150,7 @@ describe('RA-291 Query an application', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createSubmittedWorkItem(
-        uniqueOrg('Query Invalid Ltd'),
-        'SW1A 1QC'
-      )
+      workItemId = await createSubmittedWorkItem(uniqueOrg('Query Invalid Ltd'))
     })
 
     after(async () => {
@@ -209,10 +206,7 @@ describe('RA-291 Query an application', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createSubmittedWorkItem(
-        uniqueOrg('Query Count Ltd'),
-        'SW1A 1QD'
-      )
+      workItemId = await createSubmittedWorkItem(uniqueOrg('Query Count Ltd'))
     })
 
     after(async () => {
@@ -252,10 +246,7 @@ describe('RA-291 Query an application', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createSubmittedWorkItem(
-        uniqueOrg('Query Submit Ltd'),
-        'SW1A 1QE'
-      )
+      workItemId = await createSubmittedWorkItem(uniqueOrg('Query Submit Ltd'))
     })
 
     after(async () => {
@@ -330,8 +321,7 @@ describe('RA-291 Query an application', () => {
     before(async () => {
       await login.login()
       workItemId = await createSubmittedWorkItem(
-        uniqueOrg('Query Resubmit Ltd'),
-        'SW1A 1QF'
+        uniqueOrg('Query Resubmit Ltd')
       )
     })
 
@@ -413,8 +403,7 @@ describe('RA-291 Query an application', () => {
 
     it('shows the "More than 10,000 tonnes" label for the highest PRN tonnage band after resume-from-query', async () => {
       const highTonnageWorkItemId = await createSubmittedWorkItem(
-        uniqueOrg('Query Resubmit High Tonnage Ltd'),
-        'SW1A 1QH'
+        uniqueOrg('Query Resubmit High Tonnage Ltd')
       )
 
       await raiseQuery(highTonnageWorkItemId, {
