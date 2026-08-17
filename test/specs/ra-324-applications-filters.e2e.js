@@ -191,14 +191,15 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
   // ── Filtering by facet ───────────────────────────────────────────────────── //
 
   describe('filtering by facet', () => {
-    it('Type: Exporter matches nothing (no exporter data)', async () => {
-      await workItems.resetFilters()
-      await workItems.checkType('exporter')
-      await workItems.applyFilters()
-      await expect($('[data-testid="work-items-summary"]')).toHaveText(
-        expect.stringContaining('No work items match your filters')
-      )
-    })
+    // RA-412 wired the Exporter facet to the real `payload.wasteProcessingType`
+    // field (previously a stub typeId that could never match). That positive
+    // case — including a negative control proving the filter discriminates
+    // rather than merely not-erroring — is covered by
+    // ra-412-exporter-applicant-type.e2e.js; a `toBeGreaterThan(0)` check here
+    // would be a strictly weaker duplicate (nearly every seeded item still
+    // satisfies the `typeIds: ['re-accreditation']` constraint the Exporter
+    // checkbox also sets, so it can't detect the filter being silently
+    // dropped).
 
     it('Type: Reprocessor reaccreditation returns applications', async () => {
       await workItems.resetFilters()
