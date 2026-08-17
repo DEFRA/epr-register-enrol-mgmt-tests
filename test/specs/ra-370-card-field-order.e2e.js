@@ -328,14 +328,14 @@ describe('RA-370 — application card field order and Submitted on', () => {
       // assert the user-visible sentence directly, or RA-370's rename from
       // "Reprocessor reaccreditation: {Material}" could silently revert.
       //
-      // RA-434-processortype: applicant type is now read from the real
+      // RA-412: applicant type is read from the real
       // payload.wasteProcessingType discriminator, and this fixture is
       // created through the UI "Create work item" form — which, like every
       // manually-created CM work item, never sets that field. Management-fe
-      // now renders an em dash rather than ever guessing "Reprocessor" for a
-      // work item it cannot actually classify.
+      // falls back to "Reprocessor" for such a work item, preserving the
+      // label every card showed before that discriminator existed.
       await expect(workItems.tileTitle(firstId)).toHaveText(
-        'Plastic reaccreditation (—)'
+        'Plastic reaccreditation (Reprocessor)'
       )
     })
 
