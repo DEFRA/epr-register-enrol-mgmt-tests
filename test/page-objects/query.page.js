@@ -70,6 +70,22 @@ class QueryPage extends Page {
     }
   }
 
+  /**
+   * RA-434. The "The reason you provide is for internal use only." hint
+   * under the Reason field. Always shown — unlike assignmentNotice() below,
+   * it does not depend on assignment state.
+   *
+   * Its own `query-reason-hint` testid, not a `[data-testid="query-reason"]
+   * .govuk-hint` descendant selector: govukCharacterCount's `attributes`
+   * param lands on the `<textarea>` itself (confirmed against
+   * govuk-frontend's textarea template), and the hint renders as that
+   * textarea's SIBLING inside the form group — never its descendant — so a
+   * descendant selector off `query-reason` can never match.
+   */
+  reasonHint() {
+    return $('[data-testid="query-reason-hint"]')
+  }
+
   async submit() {
     await $('[data-testid="query-submit"]').click()
   }
@@ -79,16 +95,16 @@ class QueryPage extends Page {
   }
 
   /**
-   * RA-295 (AC04). The "When you send the query, the application will also be
-   * assigned to you." inset text.
+   * RA-295 (AC04). "The operator query status will be updated." inset text
+   * (copy updated by RA-434 — was "When you send the query, the application
+   * will also be assigned to you.").
    *
    * Before RA-295 this rendered unconditionally. The AC makes it conditional:
    * it must appear when the application is UNASSIGNED (querying will take
    * ownership) and must NOT appear when the application is already assigned
-   * (where the sentence is simply untrue — it would tell a caseworker their
-   * colleague's application is about to change hands). Both directions are
-   * asserted, because the presence half alone passes against the old
-   * unconditional markup and could never fail.
+   * (where the underlying behaviour — assigning the application — does not
+   * happen). Both directions are asserted, because the presence half alone
+   * passes against the old unconditional markup and could never fail.
    */
   assignmentNotice() {
     return $('[data-testid="query-assignment-notice"]')
