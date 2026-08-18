@@ -21,19 +21,71 @@ class LoginPage extends Page {
     )
   }
 
+  /**
+   * RA-449: /auth/logout now lands on the logged-out interstitial rather
+   * than the sign-in page directly, so teardown asserts that page instead.
+   * Note this is a weaker assertion than the old one: /auth/logged-out is
+   * auth: false and renders the same whether or not a session survived, so
+   * this only proves the page is reachable, not that the session was
+   * actually destroyed. Specs that need that guarantee (AC02/AC03 in
+   * ra-306-sign-out, auth-flows) assert it explicitly by re-requesting a
+   * protected page.
+   */
   async logout() {
     await this.open('/auth/logout')
-    await expect($('h1=Stub Login')).toBeDisplayed()
+    await expect(this.loggedOutHeading()).toBeDisplayed()
   }
 
   /**
-   * RA-306. The stub sign-in page — where an unauthenticated visitor and a
-   * just-signed-out user must both end up. Matched on the H1 because the stub
-   * chooser carries no `data-testid` of its own; every other selector in this
-   * suite prefers a testid.
+   * RA-306. The stub sign-in page — where an unauthenticated visitor lands.
+   * Matched on the H1 because the stub chooser carries no `data-testid` of
+   * its own; every other selector in this suite prefers a testid.
    */
   signInHeading() {
     return $('h1=Stub Login')
+  }
+
+  /**
+   * RA-449. The interstitial shown after logging out, before the user
+   * chooses to sign back in. The heading text ("You have been signed out")
+   * is user-facing copy and stays in sign in/out language even though the
+   * route and helpers around it follow the codebase's login/logout naming.
+   *
+   * Matched on text via the shared `app-heading-title` testid rather than
+   * testid alone: that testid is generic to every page using the heading
+   * component, so matching only on it would confirm a heading rendered but
+   * not that it's this page's — the exact copy is the actual assertion here.
+   */
+  loggedOutHeading() {
+    return $('h1=You have been signed out')
+  }
+
+  /**
+   * RA-449 (AC01/AC02). Assert we are on the logged-out interstitial: both
+   * the heading AND the /auth/logged-out URL, for the same reason
+   * waitForSignInPage below checks both — a stale authenticated page that
+   * merely failed to repaint would still be sitting on its own path.
+   */
+  async waitForLoggedOutPage() {
+    await this.loggedOutHeading().waitForDisplayed()
+    await browser.waitUntil(
+      async () => {
+        const { pathname } = new URL(await browser.getUrl())
+        return pathname === '/auth/logged-out'
+      },
+      {
+        timeoutMsg: `Expected to be redirected to the logged-out page, got ${await browser.getUrl()}`
+      }
+    )
+  }
+
+  /**
+   * RA-449. Continue from the logged-out interstitial to the sign-in page,
+   * the way a real user would by clicking its "Sign in" button.
+   */
+  async continueToLogin() {
+    await $('[data-testid="logged-out-login"]').click()
+    await this.waitForSignInPage()
   }
 
   /**
@@ -77,10 +129,13 @@ class LoginPage extends Page {
    * the base Page). Deliberately distinct from `logout()` above, which GETs
    * /auth/logout directly and exists for test teardown: only this path proves
    * the AC that the nav control terminates the session.
+   *
+   * RA-449: lands on the logged-out interstitial, not the sign-in page — see
+   * waitForLoggedOutPage.
    */
   async signOutViaNav() {
     await this.navSignOut().click()
-    await this.waitForSignInPage()
+    await this.waitForLoggedOutPage()
   }
 
   /**
