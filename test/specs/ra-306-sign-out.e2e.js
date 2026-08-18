@@ -47,9 +47,14 @@ import detail from '../page-objects/work-item-detail.page.js'
  *     bfcache for the page in Chrome, but a bfcache hit is a client-side
  *     concern with no server-side remedy, so it is out of scope rather than
  *     something to assert against.
- *   - inactivity timeout, server-side release of held work items, a "You have
- *     signed out" confirmation page, and moving /auth/logout from GET to POST.
- *     All out of scope for RA-306.
+ *   - inactivity timeout, server-side release of held work items, and moving
+ *     /auth/logout from GET to POST. All out of scope for RA-306.
+ *
+ * RA-449 added the "You have been signed out" confirmation page this file's
+ * doc block originally listed as out of scope — /auth/logout now redirects
+ * there instead of straight to the sign-in page, and AC01 below pins that
+ * exact landing page and heading. That page's own content and its "Sign in"
+ * link are covered in RA-449's own spec, not here.
  *
  * Each AC gets its own signed-in session rather than chaining off the previous
  * test. AC03 depends on an exact browser-history shape (detail page, then
@@ -93,7 +98,7 @@ describe('RA-306 sign out of the service', () => {
       await workItems.goto()
     })
 
-    it('ends the session and redirects to the sign-in page', async () => {
+    it('ends the session and redirects to the logged-out page', async () => {
       // Prove the starting state is genuinely authenticated, otherwise a
       // broken login would make the assertions below pass for the wrong
       // reason.
@@ -101,9 +106,9 @@ describe('RA-306 sign out of the service', () => {
 
       await login.signOutViaNav()
 
-      // waitForSignInPage() has already asserted the heading and the /auth
-      // path; what is left is that the page carries no session-bearing
-      // furniture at all.
+      // waitForLoggedOutPage() (called by signOutViaNav) has already asserted
+      // the heading and the /auth/logged-out path; what is left is that the
+      // page carries no session-bearing furniture at all.
       expect(await login.hasAuthenticatedNav()).toBe(false)
     })
 

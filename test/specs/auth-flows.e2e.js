@@ -9,7 +9,8 @@ import detail from '../page-objects/work-item-detail.page.js'
  *
  * Login-to-work-items redirect is already covered by home.e2e.js
  * (RA-326 root redirect). This spec covers the remaining auth surface:
- *   1. /auth/logout clears the session and redirects to login, so a
+ *   1. /auth/logout clears the session (RA-449: landing on the "signed out"
+ *      interstitial rather than login directly — see login.logout()), so a
  *      protected page (/work-items) bounces back to the Stub Login page.
  *   2. The stub login chooser (/auth/stub/login) builds a user with an
  *      optional nation, lands on the work items list authenticated, and
