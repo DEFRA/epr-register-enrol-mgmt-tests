@@ -1356,6 +1356,30 @@ class WorkItemDetailPage extends Page {
     return $('[data-testid="app-detail-documents-none"]')
   }
 
+  // ── RA-407: glass sub type row on the Application details panel ──────────── //
+
+  /**
+   * The value cell of the "Glass sub type" application-details row.
+   *
+   * management-fe (RA-407) renders this row directly after Material for glass
+   * applications only, keyed on `payload.glassRecyclingProcess`
+   * (`glass_re_melt` -> "Glass - Remelt", `glass_other` -> "Glass - other").
+   * The value carries the lead-fixed testid `app-detail-value-glass-sub-type`;
+   * this reuses applicationDetailValue so the contracted key is stated once.
+   */
+  glassSubTypeValue() {
+    return this.applicationDetailValue('glass-sub-type')
+  }
+
+  /**
+   * Whether the "Glass sub type" row is present at all — for the negative
+   * cases (non-glass material, or glass with no glassRecyclingProcess) where
+   * the row must not be rendered.
+   */
+  async hasGlassSubTypeRow() {
+    return this.hasApplicationDetailRow('glass-sub-type')
+  }
+
   // ── RA-295: prior-year section, folded onto the detail page ─────────────── //
 
   /**
