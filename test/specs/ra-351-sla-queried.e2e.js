@@ -10,6 +10,7 @@ import {
   startAssessment
 } from '../support/re-accreditation-journey.js'
 import { raiseQuery } from '../support/query-resubmission.js'
+import { uniquePostcode } from '../support/unique-postcode.js'
 
 /**
  * RA-351 — Extend / Override SLA are available in the `queried` state.
@@ -50,11 +51,12 @@ describe('RA-351 Extend / Override SLA from the queried state', () => {
 
   before(async () => {
     await login.login()
-    // Postcode suffix `1AZ` is unused across the suite for England + plastic;
-    // see the fixture rule in support/re-accreditation-journey.js.
+    // uniquePostcode() gives a per-run-unique suffix (SW1A outward keeps the
+    // England + plastic fixture routing) so repeat or parallel runs never
+    // collide on the same seeded item.
     workItemId = await createReAccreditation(
       'RA351 Queried SLA Ltd',
-      'SW1A 1AZ'
+      uniquePostcode()
     )
 
     // Start the SLA clock (dulyMake, from the payment date) then reach
