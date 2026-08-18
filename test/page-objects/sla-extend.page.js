@@ -24,13 +24,11 @@ import { Page } from './page.js'
  *     reduction). Copied from the duly-making page's existing
  *     govukDateInput + validator pattern (see duly-making.page.js).
  *
- * ASSUMPTION — the date input's field ids. management-fe's CM6
- * implementation lands in a separate repo/PR, so the exact markup isn't
- * visible here. `field-newDueDate-{day,month,year}` follows this repo's own
- * `field-<name>` convention (`#field-reason`, `#field-decisionNote`) with
- * the GOV.UK date-input day/month/year suffix. Confirm against the real
- * markup once that PR lands and adjust here if it differs — same
- * cross-repo coordination note as ra-434-seed.js.
+ * The date input's ids are `new-deadline-{day,month,year}`, confirmed
+ * against management-fe's CM6 implementation once it landed (this repo
+ * originally guessed `field-newDueDate-*`, following the `field-<name>`
+ * convention used elsewhere on this page — the real markup uses its own
+ * `new-deadline` prefix instead).
  */
 class SlaExtendPage extends Page {
   async gotoFor(workItemId) {
@@ -48,15 +46,15 @@ class SlaExtendPage extends Page {
   }
 
   dayInput() {
-    return $('#field-newDueDate-day')
+    return $('#new-deadline-day')
   }
 
   monthInput() {
-    return $('#field-newDueDate-month')
+    return $('#new-deadline-month')
   }
 
   yearInput() {
-    return $('#field-newDueDate-year')
+    return $('#new-deadline-year')
   }
 
   /**

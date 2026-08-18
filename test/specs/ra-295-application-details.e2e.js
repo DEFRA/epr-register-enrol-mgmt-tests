@@ -89,8 +89,16 @@ describe('RA-295 application details on a single page', () => {
     // A section that renders its heading and an em dash would satisfy a
     // presence-only check while showing the caseworker nothing. Spot-check the
     // fields whose values come straight from the seeded payload.
+    //
+    // RA-447 (CM2): this fixture is wasteProcessingType 'exporter', so its
+    // site-address row now always falls back to the registered address
+    // ("100 Registered Office Road..."), matching the Additional
+    // information tab's existing rule — its own siteAddress
+    // ("1 Full Payload Lane") is intentionally ignored. Confirmed by the
+    // dedicated "RA-447 (CM2)" describe block below, which asserts the same
+    // fallback against the RA-434 EXPORTER fixture.
     await expect(detail.applicationDetailRow('site-address')).toHaveText(
-      expect.stringContaining('1 Full Payload Lane')
+      expect.stringContaining('100 Registered Office Road')
     )
     await expect(detail.applicationDetailRow('material')).toHaveText(
       expect.stringContaining('Plastic')
