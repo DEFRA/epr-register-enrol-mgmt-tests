@@ -208,8 +208,12 @@ describe('RA-295 application details on a single page', () => {
     // seeding a new item — it is exactly the CM2 bug scenario, and the
     // Additional information tab's own coverage of it lives in
     // ra-434-additional-information-tab.e2e.js.
+    //
+    // Nested inside the outer describe, so no login()/logout() of its own —
+    // the outer before()/after() already own the session for this whole
+    // file (see the sibling "an application with no overseas site data"
+    // describe above, which follows the same pattern).
     before(async () => {
-      await login.login()
       await workItems.resetFilters()
       await workItems.searchByOrgName(EXPORTER.ORG_NAME)
       await browser.waitUntil(
@@ -218,10 +222,6 @@ describe('RA-295 application details on a single page', () => {
       )
       expect(await workItems.getRowCount()).toBe(1)
       await workItems.openFirstListedWorkItem()
-    })
-
-    after(async () => {
-      await login.logout()
     })
 
     it('shows the Site address row rather than an em dash', async () => {
