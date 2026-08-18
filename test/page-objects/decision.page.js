@@ -26,6 +26,13 @@ import { Page } from './page.js'
  * "REFUSED" IS A LABEL CHANGE ONLY. The underlying state id is still
  * `rejected`, so backend/API assertions keep the old id while anything
  * user-visible reads "Refused". Do not "fix" one to match the other.
+ *
+ * RA-447 (CM8): two copy-only changes drop the "notifies the applicant" /
+ * "email sent to the applicant" wording, since RA-410 already reworked when
+ * (and whether) that email fires — the copy is catching up, not describing
+ * new behaviour. No `data-testid` exists for either string; selected by the
+ * GOV.UK component's own class/id convention (see warningText() / noteHint()
+ * below), same approach as work-item-detail.page.js's ra98ReferenceBanner().
  */
 class DecisionPage extends Page {
   path(workItemId) {
@@ -163,6 +170,32 @@ class DecisionPage extends Page {
    */
   noteInput() {
     return $('#field-decisionNote')
+  }
+
+  /**
+   * RA-447 (CM8). The note field's hint text, auto-id'd by GOV.UK's
+   * `govukCharacterCount` macro as `${id}-hint` — same convention as the
+   * `field-decisionNote` id itself above.
+   */
+  noteHint() {
+    return $('#field-decisionNote-hint')
+  }
+
+  async noteHintText() {
+    return this.noteHint().getText()
+  }
+
+  /**
+   * RA-447 (CM8). The GOV.UK warning text above the outcome radios ("This
+   * records the final decision..."). Selected by the component's own class,
+   * not a testid — none exists for it.
+   */
+  warningText() {
+    return $('.govuk-warning-text__text')
+  }
+
+  async warningTextText() {
+    return this.warningText().getText()
   }
 
   async setNote(text) {

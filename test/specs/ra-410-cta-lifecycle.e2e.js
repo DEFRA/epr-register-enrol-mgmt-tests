@@ -108,6 +108,16 @@ describe('RA-410 The green CTA lifecycle', () => {
       await decision.assertOnPage()
       expect(await decision.submitButtonText()).toBe('Make Determination')
 
+      // RA-447 (CM8): the warning text and the note hint both drop their
+      // "notifies the applicant" / "email sent to the applicant" wording,
+      // since RA-410 already changed when that email fires.
+      expect(await decision.warningTextText()).toBe(
+        'This records the final decision. It cannot be undone.'
+      )
+      expect(await decision.noteHintText()).toBe(
+        'This is recorded in the audit log. Contact the applicant when a determination has been made.'
+      )
+
       expect(await decision.hasOutcomeRadio('approved')).toBe(true)
       expect(await decision.hasOutcomeRadio('refused')).toBe(true)
       // Neither is preselected: a default would let a distracted caseworker

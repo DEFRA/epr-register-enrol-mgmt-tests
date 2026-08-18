@@ -13,6 +13,14 @@ import { Page } from './page.js'
  * Cancel from the input page returns to the detail page without
  * changes. Inputs and buttons are tagged with stable data-testids —
  * see sla-override.njk.
+ *
+ * RA-447 (CM9): relabelled "Override SLA" -> "Override determination
+ * deadline" (page heading, reason field label + hint, submit button).
+ * `data-testid`s are unchanged — CM5 did not touch this page (it explicitly
+ * excluded Override), so CM9 is the first rename here. The label/hint
+ * getters below select by GOV.UK's own `label[for=]` / `${id}-hint`
+ * convention rather than a testid, since none exists for either — same
+ * approach as sla-extend.page.js's field-reason.
  */
 class SlaOverridePage extends Page {
   async gotoFor(workItemId) {
@@ -34,6 +42,26 @@ class SlaOverridePage extends Page {
 
   async submitForm() {
     await $('[data-testid="sla-override-submit"]').click()
+  }
+
+  /** CM9: the button's visible label, renamed away from "Override SLA". */
+  async submitButtonText() {
+    return $('[data-testid="sla-override-submit"]').getText()
+  }
+
+  /** CM9: the page heading, renamed from "Override SLA". */
+  async pageHeadingText() {
+    return this.pageHeading.getText()
+  }
+
+  /** CM9: the reason field's label, renamed from "...overriding the SLA". */
+  async reasonLabelText() {
+    return $('label[for="field-reason"]').getText()
+  }
+
+  /** CM9: the reason field's hint, renamed away from "the SLA clock". */
+  async reasonHintText() {
+    return $('#field-reason-hint').getText()
   }
 
   async cancelFromInputPage() {

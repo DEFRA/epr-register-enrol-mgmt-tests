@@ -249,6 +249,22 @@ describe('RA-131 Override SLA', () => {
       await slaOverride.assertOnInputPage()
     })
 
+    it('renders "Override determination deadline" wording, not "Override SLA" (CM9)', async () => {
+      await slaOverride.gotoFor(workItemId)
+      expect(await slaOverride.pageHeadingText()).toBe(
+        'Override determination deadline'
+      )
+      expect(await slaOverride.reasonLabelText()).toBe(
+        'Reason for overriding determination deadline'
+      )
+      expect(await slaOverride.reasonHintText()).toBe(
+        'Explain why the determination deadline clock needs to be manually overridden.'
+      )
+      expect(await slaOverride.submitButtonText()).toBe(
+        'Override determination deadline'
+      )
+    })
+
     it('cancel from the input page returns to the work item with no changes', async () => {
       await slaOverride.gotoFor(workItemId)
       await slaOverride.cancelFromInputPage()
