@@ -5,6 +5,7 @@ import detail, {
   APPLICATION_DETAIL_ROWS,
   EXPORTER_ONLY_ROWS
 } from '../page-objects/work-item-detail.page.js'
+import { EXPORTER } from '../support/ra-434-seed.js'
 
 /**
  * RA-295 (AC02) — all application data on a single page, in a consistent
@@ -191,6 +192,47 @@ describe('RA-295 application details on a single page', () => {
         expect(await detail.hasApplicationDetailRow('site-address')).toBe(true)
         expect(await detail.hasApplicationDetailRow('material')).toBe(true)
       })
+    })
+  })
+
+  describe('RA-447 (CM2) — exporter Site address falls back to the registered address', () => {
+    // Bug: buildApplicationSummary's site-address row called
+    // buildSiteAddressLines(payload) with no exporter fallback, so an
+    // exporter (which has no siteAddress in re-ex — only reprocessors do)
+    // rendered an em dash here, even though the "Additional information" tab
+    // already got this right (RA-434's deriveSiteAddress). The fix
+    // consolidates both tabs onto the same fallback.
+    //
+    // Reuses RA-434's EXPORTER fixture ("Continental Exports Verification
+    // Ltd", wasteProcessingType: exporter, no siteAddress at all) rather than
+    // seeding a new item — it is exactly the CM2 bug scenario, and the
+    // Additional information tab's own coverage of it lives in
+    // ra-434-additional-information-tab.e2e.js.
+    before(async () => {
+      await login.login()
+      await workItems.resetFilters()
+      await workItems.searchByOrgName(EXPORTER.ORG_NAME)
+      await browser.waitUntil(
+        async () => (await browser.getUrl()).includes('filtersApplied=1'),
+        { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
+      )
+      expect(await workItems.getRowCount()).toBe(1)
+      await workItems.openFirstListedWorkItem()
+    })
+
+    after(async () => {
+      await login.logout()
+    })
+
+    it('shows the Site address row rather than an em dash', async () => {
+      expect(await detail.hasApplicationDetailRow('site-address')).toBe(true)
+      const value = await detail.applicationDetailValue('site-address').getText()
+      expect(value).not.toBe('—')
+    })
+
+    it('falls back to the registered address, matching the Additional information tab', async () => {
+      const value = await detail.applicationDetailValue('site-address').getText()
+      expect(value).toBe(EXPORTER.COMPANY_REGISTERED_ADDRESS)
     })
   })
 })

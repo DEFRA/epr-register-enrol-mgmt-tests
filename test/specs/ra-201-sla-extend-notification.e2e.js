@@ -7,6 +7,7 @@ import {
   startAssessment
 } from '../support/re-accreditation-journey.js'
 import { uniquePostcode } from '../support/unique-postcode.js'
+import { farFutureDeadline } from '../support/sla-extend-date.js'
 
 /**
  * RA-201 — Extend SLA sends the operator a "SLA extended" email.
@@ -70,9 +71,12 @@ describe('RA-201 Extend SLA sends operator notification', () => {
     await login.login()
 
     await slaExtend.gotoFor(workItemId)
+    // RA-447 (CM6): the additionalDays count is replaced by an absolute
+    // date, which must be after the item's CURRENT due date rather than a
+    // fixed number of days from today — see sla-extend-date.js.
     await slaExtend.fillForm({
       reason: 'Operator providing additional evidence',
-      additionalDays: 7
+      date: farFutureDeadline()
     })
     await slaExtend.submitForm()
     await slaExtend.waitForDetailUrl(workItemId)
@@ -87,6 +91,12 @@ describe('RA-201 Extend SLA sends operator notification', () => {
     // sla_deadline placeholder-contract regression itself is guarded by
     // the management-be NotifyTemplateContractTests, which the real
     // GovukNotifyClient would otherwise have 400'd on.)
+    //
+    // RA-447 (CM5) renames "SLA" -> "Determination Deadline" for
+    // management-be's ExtendAsync actionDisplayName too (a separate repo,
+    // landing separately), but the plan does not pin the replacement audit
+    // string. Left asserting the current literal here rather than guessing
+    // new copy — update once that string is confirmed.
     await detail.gotoAudit()
     await detail.assertAuditEntry('SLA extended email sent')
   })

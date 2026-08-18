@@ -177,6 +177,15 @@ class DecisionPage extends Page {
     await $('[data-testid="log-decision-submit"]').click()
   }
 
+  /**
+   * RA-447 (CM7). The submit button's visible label — renamed from
+   * "Log decision" to "Make Determination". The `data-testid` is unchanged,
+   * so this reads text rather than existence to guard the rename itself.
+   */
+  async submitButtonText() {
+    return $('[data-testid="log-decision-submit"]').getText()
+  }
+
   async cancel() {
     await $('[data-testid="log-decision-cancel"]').click()
   }

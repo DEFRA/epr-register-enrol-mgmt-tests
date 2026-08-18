@@ -1900,6 +1900,15 @@ class WorkItemDetailPage extends Page {
     return this.logDecisionCta().isExisting()
   }
 
+  /**
+   * RA-447 (CM7). The CTA's visible label — renamed from "Log decision" to
+   * "Make Determination". The `data-testid` is unchanged, so this reads text
+   * rather than existence to guard the rename itself.
+   */
+  async logDecisionCtaText() {
+    return this.logDecisionCta().getText()
+  }
+
   async clickLogDecision() {
     await this.logDecisionCta().click()
   }
