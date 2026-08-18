@@ -61,6 +61,26 @@ class Page {
   }
 
   /**
+   * RA-304. All visible text on the current page.
+   *
+   * Exists for the one assertion shape that cannot be expressed against a
+   * selector: "this word appears NOWHERE a caseworker can see it". Pinning
+   * that to the status-badge testid would be strictly weaker than the AC —
+   * a label leaking into the case-header summary list, a filter chip or an
+   * audit-log detail row would all pass a badge-scoped check while failing
+   * the actual requirement.
+   *
+   * `getText()` on the body returns rendered text only, so visually hidden
+   * legends and `display: none` content are excluded — which is correct here:
+   * the AC is about what a caseworker READS, and the raw `awaiting-decision`
+   * state id legitimately survives in places a human never renders it (form
+   * values, data attributes, the audit log's from -> to id trace).
+   */
+  bodyText() {
+    return $('body').getText()
+  }
+
+  /**
    * RA-295 (AC05). Resize the browser window to one of the VIEWPORTS above.
    *
    * `setWindowSize` sets the OUTER window size, so the usable viewport ends up

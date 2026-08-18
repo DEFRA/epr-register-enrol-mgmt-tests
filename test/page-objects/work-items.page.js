@@ -443,6 +443,32 @@ class WorkItemsPage extends Page {
     await $(`input[name="status"][value="${value}"]`).click()
   }
 
+  /**
+   * RA-304 (AC01). Every option the Status filter offers, in rendered order,
+   * as `{ value, label }`.
+   *
+   * The vocabulary itself is the subject of the AC, so this reads the WHOLE
+   * option set rather than probing for one option: "Awaiting decision is
+   * gone" and "the seven AC06 statuses are all still here" are two halves of
+   * the same assertion, and a check that only looked for the absent one would
+   * pass just as happily against a filter that had lost every option.
+   *
+   * The label is read from the checkbox's sibling `<label>` via its parent
+   * `govuk-checkboxes__item` div rather than via `label[for=<id>]`, so it does
+   * not depend on the template's `idPrefix` — that is presentational and fe is
+   * free to change it.
+   */
+  async statusFilterOptions() {
+    await this.expandSection('status')
+    const inputs = await $$('input[name="status"]')
+    return Promise.all(
+      [...inputs].map(async (input) => ({
+        value: await input.getAttribute('value'),
+        label: (await input.parentElement().$('label').getText()).trim()
+      }))
+    )
+  }
+
   async checkMaterial(value) {
     await this.expandSection('material')
     await $(`input[name="material"][value="${value}"]`).click()
