@@ -226,12 +226,16 @@ describe('RA-295 application details on a single page', () => {
 
     it('shows the Site address row rather than an em dash', async () => {
       expect(await detail.hasApplicationDetailRow('site-address')).toBe(true)
-      const value = await detail.applicationDetailValue('site-address').getText()
+      const value = await detail
+        .applicationDetailValue('site-address')
+        .getText()
       expect(value).not.toBe('—')
     })
 
     it('falls back to the registered address, matching the Additional information tab', async () => {
-      const value = await detail.applicationDetailValue('site-address').getText()
+      const value = await detail
+        .applicationDetailValue('site-address')
+        .getText()
       expect(value).toBe(EXPORTER.COMPANY_REGISTERED_ADDRESS)
     })
   })

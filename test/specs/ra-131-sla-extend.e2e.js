@@ -8,10 +8,7 @@ import {
   dulyMake,
   startAssessment
 } from '../support/re-accreditation-journey.js'
-import {
-  farFutureDeadline,
-  pastDeadline
-} from '../support/sla-extend-date.js'
+import { farFutureDeadline, pastDeadline } from '../support/sla-extend-date.js'
 
 /**
  * RA-131 — Extend SLA.
