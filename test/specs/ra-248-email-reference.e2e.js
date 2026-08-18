@@ -104,7 +104,11 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
 
     await detail.assertFlashBanner()
 
+    // RA-447 (CM5) renamed the underlying actionDisplayName from
+    // "SLA extended" to "Determination deadline extended" — confirmed
+    // against management-be's own log line: `Sending "Determination
+    // deadline extended" notification ... (template="SlaExtended", ...)`.
     await detail.gotoAudit()
-    await detail.assertAuditEntry('SLA extended email sent')
+    await detail.assertAuditEntry('Determination deadline extended email sent')
   })
 })
