@@ -23,7 +23,27 @@ class LoginPage extends Page {
 
   async logout() {
     await this.open('/auth/logout')
+    await this.proceedPastLoggedOutPage()
     await expect($('h1=Stub Login')).toBeDisplayed()
+  }
+
+  /**
+   * RA-449 (management-fe). /auth/logout now lands on an interstitial "You
+   * have been signed out" page rather than going straight to the sign-in
+   * page — click through its "Sign in" button when present so callers land
+   * on sign-in either way. A no-op against a build that predates RA-449.
+   */
+  async proceedPastLoggedOutPage() {
+    await browser.waitUntil(async () => {
+      const { pathname } = new URL(await browser.getUrl())
+      return (
+        pathname === '/auth/logged-out' ||
+        (pathname.startsWith('/auth/') && pathname.includes('login'))
+      )
+    })
+    if (new URL(await browser.getUrl()).pathname === '/auth/logged-out') {
+      await $('[data-testid="logged-out-login"]').click()
+    }
   }
 
   /**
@@ -80,6 +100,7 @@ class LoginPage extends Page {
    */
   async signOutViaNav() {
     await this.navSignOut().click()
+    await this.proceedPastLoggedOutPage()
     await this.waitForSignInPage()
   }
 

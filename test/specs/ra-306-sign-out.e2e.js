@@ -157,7 +157,9 @@ describe('RA-306 sign out of the service', () => {
       await expect(detail.caseHeader()).toBeDisplayed()
       // Signing out via the nav (rather than a direct GET of /auth/logout)
       // keeps the history stack realistic: the entry immediately behind the
-      // sign-in page is the detail page the user was reading.
+      // sign-in page is management-fe's RA-449 "You have been signed out"
+      // interstitial, and the entry behind that is the detail page the user
+      // was reading.
       await login.signOutViaNav()
     })
 
@@ -168,6 +170,11 @@ describe('RA-306 sign out of the service', () => {
       // to reject the now-dead session and redirect. If the response were
       // cacheable the old HTML would repaint here and this would fail.
       //
+      // RA-449 inserted the "signed out" interstitial as the history entry
+      // immediately behind sign-in, so back() lands there first — click
+      // through it the same way the forward sign-out flow does.
+      await login.proceedPastLoggedOutPage()
+
       // Longer timeout: this refetch-then-redirect is a slower round trip
       // than the click-triggered redirects the other ACs wait on — see
       // waitForSignInPage's doc comment.
