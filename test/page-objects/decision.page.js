@@ -194,8 +194,16 @@ class DecisionPage extends Page {
     return $('.govuk-warning-text__text')
   }
 
+  /**
+   * Confirmed against a live run: govukWarningText renders a visually-hidden
+   * "Warning" prefix (`.govuk-warning-text__assistive`) INSIDE this element
+   * for screen readers, so `getText()` returns "Warning\n<the real copy>".
+   * Stripped here so callers can assert the visible copy exactly rather than
+   * every caller having to know about the assistive prefix.
+   */
   async warningTextText() {
-    return this.warningText().getText()
+    const text = await this.warningText().getText()
+    return text.replace(/^Warning\s*/, '').trim()
   }
 
   async setNote(text) {
