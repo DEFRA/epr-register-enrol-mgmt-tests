@@ -165,7 +165,14 @@ describe('RA-306 sign out of the service', () => {
       // sign-in page is management-fe's RA-449 "You have been signed out"
       // interstitial, and the entry behind that is the detail page the user
       // was reading.
+      //
+      // signOutViaNav() itself only lands on the interstitial (it stops
+      // there deliberately — see its own doc comment), so continueToLogin()
+      // is needed here too: without it, "current page" after this hook
+      // would be the interstitial, and browser.back() below would land on
+      // the detail page instead of the interstitial the test expects.
       await login.signOutViaNav()
+      await login.continueToLogin()
     })
 
     it('does not show the previously rendered work item when going back', async () => {
