@@ -35,9 +35,10 @@ import query, {
  *     No such fixture exists: ReAccreditationSeeder.cs (management-be) sets no
  *     `wasteProcessingType` on any seed, and the Create form has no
  *     applicant-type field, so an exporter work item cannot be reached from
- *     this harness today. AC02 is therefore SKIPPED pending management-be
- *     (RA-367 / epr-1jdh) seeding an exporter fixture — see the describe.skip
- *     block, which is ready to run against it once its org name is known.
+ *     this harness today. RA-367 ships no management-be change, so no exporter
+ *     seed is coming with it; AC02 is therefore explicitly PENDING on follow-up
+ *     issue epr-if2r (exporter e2e seed infrastructure) — see the describe.skip
+ *     block, written out in full and ready to run once that seed exists.
  */
 
 const uniqueOrg = (label) => `${label} ${Date.now()}`
@@ -118,12 +119,14 @@ describe('RA-367 Exporter-only query areas', () => {
 
   // AC02 — an exporter application shows all six areas.
   //
-  // SKIPPED: no exporter fixture exists in the harness. This is the positive
-  // half AC01's hiding needs to be meaningful (without it, "reprocessor hides
-  // two" could pass against a build that never emits BES/ORS to anyone), so it
-  // is written out in full and left ready to enable the moment management-be
-  // (RA-367 / epr-1jdh) seeds a work item whose payload carries
-  // `wasteProcessingType='exporter'`.
+  // PENDING on follow-up issue epr-if2r (exporter e2e seed infrastructure): no
+  // exporter fixture exists in the harness and RA-367 ships no management-be
+  // change to add one. This is the positive half AC01's hiding needs to be
+  // meaningful (without it, "reprocessor hides two" could pass against a build
+  // that never emits BES/ORS to anyone), so it is written out in full and left
+  // ready to enable the moment a work item whose payload carries
+  // `wasteProcessingType='exporter'` is seeded. (The exporter path is also
+  // covered by management-fe unit tests in the interim.)
   //
   // TO ENABLE: change `describe.skip` to `describe`, and replace
   // EXPORTER_FIXTURE_ORG_NAME with that seed's unique org name. The body already
