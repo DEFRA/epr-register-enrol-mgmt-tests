@@ -31,6 +31,30 @@ import { Page } from './page.js'
  * `new-deadline` prefix instead).
  */
 class SlaExtendPage extends Page {
+  /**
+   * RA-351 — the "Change the due date" entry point in the work-item detail
+   * page's assignment panel.
+   *
+   * This link lives in the ASSIGNMENT panel, gated on `canChangeDueDate`, and
+   * is deliberately filtered out of the actions panel's `availableActions`
+   * (see work-item-detail.page.js `availableActionIds()`), so it never passes
+   * through the workflow engine's action gate. RA-351 makes `canChangeDueDate`
+   * true in the `queried` state, where it was previously hidden.
+   */
+  actionLink() {
+    return $('[data-testid="action-sla-extend"]')
+  }
+
+  /**
+   * RA-351 (AC1). Assert the assignment-panel "Change the due date" link is
+   * present and points at the extend flow for this work item.
+   */
+  async assertActionLinkFor(workItemId) {
+    await expect(this.actionLink()).toBeDisplayed()
+    const href = await this.actionLink().getAttribute('href')
+    expect(href).toContain(`/work-items/${workItemId}/sla/extend`)
+  }
+
   async gotoFor(workItemId) {
     await this.open(`/work-items/${workItemId}/sla/extend`)
     await expect($('[data-testid="sla-extend-form"]')).toBeDisplayed()

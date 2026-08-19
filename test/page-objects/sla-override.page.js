@@ -23,6 +23,29 @@ import { Page } from './page.js'
  * approach as sla-extend.page.js's field-reason.
  */
 class SlaOverridePage extends Page {
+  /**
+   * RA-351 — the "Override the due date" entry point in the work-item detail
+   * page's assignment panel.
+   *
+   * Like its extend sibling this link lives in the ASSIGNMENT panel, gated on
+   * `canChangeDueDate` and filtered out of the actions panel's
+   * `availableActions` (see work-item-detail.page.js `availableActionIds()`).
+   * RA-351 makes `canChangeDueDate` true in the `queried` state.
+   */
+  actionLink() {
+    return $('[data-testid="action-sla-override"]')
+  }
+
+  /**
+   * RA-351 (AC1). Assert the assignment-panel "Override the due date" link is
+   * present and points at the override flow for this work item.
+   */
+  async assertActionLinkFor(workItemId) {
+    await expect(this.actionLink()).toBeDisplayed()
+    const href = await this.actionLink().getAttribute('href')
+    expect(href).toContain(`/work-items/${workItemId}/sla/override`)
+  }
+
   async gotoFor(workItemId) {
     await this.open(`/work-items/${workItemId}/sla/override`)
     await expect($('[data-testid="sla-override-form"]')).toBeDisplayed()
