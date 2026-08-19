@@ -112,6 +112,20 @@ describe('Audit log — work item snapshot fields', () => {
       ).toExist()
     })
 
+    // Assert the VALUE, not just the row's presence. An existence-only check
+    // passes even when the backend stamps the WRONG state -- which is exactly
+    // how a seeder bug stamping each entry with the item's terminal state got
+    // through review once already. This fixture is freshly submitted, so the
+    // as-of state is the initial one: "Not started" (state id `submitted`),
+    // the very value the original bug replaced with the live current state.
+    it('renders the routed-to-nation State as the as-of value, not a state id', async () => {
+      await expect(
+        $(
+          '//li[@data-action="routed-to-nation"]//*[@data-testid="work-item-audit-entry-details"]//dt[normalize-space(.)="State"]/following-sibling::dd'
+        )
+      ).toHaveText('Not started')
+    })
+
     it('includes a Submitted at row', async () => {
       await expect(
         $(
