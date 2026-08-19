@@ -6,6 +6,7 @@ import query, {
   EXPORTER_ONLY_QUERY_SECTIONS,
   REPROCESSOR_QUERY_SECTIONS
 } from '../page-objects/query.page.js'
+import { uniquePostcode } from '../support/unique-postcode.js'
 
 /**
  * RA-367 — hide the exporter-only query areas for reprocessor applications.
@@ -51,7 +52,10 @@ const uniqueOrg = (label) => `${label} ${Date.now()}`
  * generator derives it from the site postcode and material alone — items
  * sharing both exhaust its collision-retry budget and the submission fails.
  */
-const createReprocessorWorkItem = async (organisationName, postcode) => {
+const createReprocessorWorkItem = async (
+  organisationName,
+  postcode = uniquePostcode()
+) => {
   await workItems.goto()
   return (
     await workItems.createWorkItem({
@@ -72,8 +76,7 @@ describe('RA-367 Exporter-only query areas', () => {
     before(async () => {
       await login.login()
       workItemId = await createReprocessorWorkItem(
-        uniqueOrg('Query Reprocessor Ltd'),
-        'SW1A 3RA'
+        uniqueOrg('Query Reprocessor Ltd')
       )
     })
 
