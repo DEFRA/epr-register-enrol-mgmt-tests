@@ -99,8 +99,24 @@ describe('RA-410 The green CTA lifecycle', () => {
 
     it('step 3: Log decision offers both outcomes', async () => {
       expect(await detail.hasLogDecisionCta()).toBe(true)
+      // RA-447 (CM7): both the detail-page CTA and the decision page's own
+      // submit button are renamed "Log decision" -> "Make Determination".
+      // The testids are unchanged (see decision.page.js / work-item-detail
+      // .page.js), so this is a text assertion, not an existence one.
+      expect(await detail.logDecisionCtaText()).toBe('Make Determination')
       await detail.clickLogDecision()
       await decision.assertOnPage()
+      // RA-447 (CM8): sentence-cased from "Make Determination" (CM7) to
+      // "Make determination" for GOV.UK style consistency.
+      expect(await decision.submitButtonText()).toBe('Make determination')
+
+      // RA-447 (CM8): relabels "decision" as "determination" throughout.
+      expect(await decision.warningTextText()).toBe(
+        'This determination is final and it cannot be changed.'
+      )
+      expect(await decision.noteHintText()).toBe(
+        'The determination will be recorded in the audit log (application history). Contact the applicant when the determination has been made.'
+      )
 
       expect(await decision.hasOutcomeRadio('approved')).toBe(true)
       expect(await decision.hasOutcomeRadio('refused')).toBe(true)

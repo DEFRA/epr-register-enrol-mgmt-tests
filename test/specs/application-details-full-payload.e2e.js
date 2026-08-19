@@ -112,9 +112,15 @@ describe('Full operator payload on the work item detail page (seeded)', () => {
 
   describe('submitted application data', () => {
     it('shows the site address', async () => {
+      // RA-447 (CM2): the Application summary tab's site-address row now
+      // always falls back to the registered address for an exporter
+      // (wasteProcessingType: 'exporter'), matching the Additional
+      // information tab's existing rule — even though this fixture also
+      // carries its own siteAddress ("1 Full Payload Lane"), that value is
+      // now intentionally ignored in favour of the registered address.
       const address = await detail.applicationDetailRowText('site-address')
-      expect(address).toContain('1 Full Payload Lane')
-      expect(address).toContain('EC1A 1BB')
+      expect(address).toContain('100 Registered Office Road')
+      expect(address).toContain('EC1A 1AB')
     })
 
     it('shows the planned PRN tonnage band', async () => {

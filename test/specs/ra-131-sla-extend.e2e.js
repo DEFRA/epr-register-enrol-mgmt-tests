@@ -8,6 +8,7 @@ import {
   dulyMake,
   startAssessment
 } from '../support/re-accreditation-journey.js'
+import { farFutureDeadline, pastDeadline } from '../support/sla-extend-date.js'
 
 /**
  * RA-131 — Extend SLA.
@@ -83,26 +84,39 @@ describe('RA-131 Extend SLA', () => {
       await slaExtend.assertOnInputPage()
     })
 
-    it('shows an error summary when additionalDays is not a positive integer', async () => {
+    it('shows an error summary when the new due date is incomplete', async () => {
+      // CM6: additionalDays' "not a number" check is replaced by the date
+      // input's own incomplete/invalid-date validation (mirrors
+      // duly-making's setPaymentDate() incomplete-date coverage).
       await slaExtend.gotoFor(workItemId)
       await slaExtend.fillForm({
         reason: 'Awaiting further documents',
-        additionalDays: 'not-a-number'
+        date: { day: 15 } // month/year omitted
       })
       await slaExtend.submitForm()
       await slaExtend.assertErrorSummaryDisplayed()
       await slaExtend.assertOnInputPage()
     })
 
-    it('shows an error summary when additionalDays exceeds the max (default 31)', async () => {
+    it('shows an error summary when the new due date is not after the current due date (CM6: extension only)', async () => {
+      // A date in the past is always before an unelapsed due date, so this
+      // does not need to read and parse the real "Due on" value — any
+      // caseworker attempt to move the deadline backwards must be rejected.
       await slaExtend.gotoFor(workItemId)
       await slaExtend.fillForm({
         reason: 'Awaiting further documents',
-        additionalDays: 99
+        date: pastDeadline()
       })
       await slaExtend.submitForm()
       await slaExtend.assertErrorSummaryDisplayed()
       await slaExtend.assertOnInputPage()
+    })
+
+    it('renders "Determination Deadline" wording, not "SLA" (CM5)', async () => {
+      await slaExtend.gotoFor(workItemId)
+      const heading = (await slaExtend.pageHeadingText()).toLowerCase()
+      expect(heading).toContain('determination deadline')
+      expect(heading).not.toContain('sla')
     })
 
     it('cancel from the input page returns to the work item with no changes', async () => {
@@ -126,10 +140,13 @@ describe('RA-131 Extend SLA', () => {
     })
 
     it('submitting valid input applies the extension and surfaces a banner on the work item', async () => {
+      // A far-future date doubles as CM6's "no upper limit" proof: the old
+      // additionalDays input capped at 31 by default, so a date this far out
+      // would previously 422 rather than apply.
       await slaExtend.gotoFor(workItemId)
       await slaExtend.fillForm({
         reason: 'Operator providing additional evidence',
-        additionalDays: 7
+        date: farFutureDeadline()
       })
       await slaExtend.submitForm()
       await slaExtend.waitForDetailUrl(workItemId)
@@ -138,6 +155,11 @@ describe('RA-131 Extend SLA', () => {
       // error (e.g. work item has no SLA clock yet), the controller PRGs
       // back to the work item with a flash banner — never silently.
       await expect($('[data-testid="work-item-flash-banner"]')).toBeDisplayed()
+      // CM5: the success banner is reworded away from "SLA" as part of the
+      // same rename. Exact new copy isn't pinned here (see PR description) —
+      // only that the stale wording is gone.
+      const bannerText = (await detail.flashBannerText()).toLowerCase()
+      expect(bannerText).not.toContain('sla')
     })
   })
 })
@@ -222,6 +244,22 @@ describe('RA-131 Override SLA', () => {
       await slaOverride.submitForm()
       await slaOverride.assertErrorSummaryDisplayed()
       await slaOverride.assertOnInputPage()
+    })
+
+    it('renders "Override determination deadline" wording, not "Override SLA" (CM9)', async () => {
+      await slaOverride.gotoFor(workItemId)
+      expect(await slaOverride.pageHeadingText()).toBe(
+        'Override determination deadline'
+      )
+      expect(await slaOverride.reasonLabelText()).toBe(
+        'Reason for overriding determination deadline'
+      )
+      expect(await slaOverride.reasonHintText()).toBe(
+        'Explain why the determination deadline clock needs to be manually overridden.'
+      )
+      expect(await slaOverride.submitButtonText()).toBe(
+        'Override determination deadline'
+      )
     })
 
     it('cancel from the input page returns to the work item with no changes', async () => {

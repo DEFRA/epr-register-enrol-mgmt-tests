@@ -26,6 +26,13 @@ import { Page } from './page.js'
  * "REFUSED" IS A LABEL CHANGE ONLY. The underlying state id is still
  * `rejected`, so backend/API assertions keep the old id while anything
  * user-visible reads "Refused". Do not "fix" one to match the other.
+ *
+ * RA-447 (CM8): copy-only changes throughout this page relabel "decision" as
+ * "determination" — heading, warning text, radio legend, note label/hint and
+ * submit button. No `data-testid` exists for the warning text or the note
+ * hint; both are selected by the GOV.UK component's own class/id convention
+ * (see warningText() / noteHint() below), same approach as
+ * work-item-detail.page.js's ra98ReferenceBanner().
  */
 class DecisionPage extends Page {
   path(workItemId) {
@@ -165,6 +172,40 @@ class DecisionPage extends Page {
     return $('#field-decisionNote')
   }
 
+  /**
+   * RA-447 (CM8). The note field's hint text, auto-id'd by GOV.UK's
+   * `govukCharacterCount` macro as `${id}-hint` — same convention as the
+   * `field-decisionNote` id itself above.
+   */
+  noteHint() {
+    return $('#field-decisionNote-hint')
+  }
+
+  async noteHintText() {
+    return this.noteHint().getText()
+  }
+
+  /**
+   * RA-447 (CM8). The GOV.UK warning text above the outcome radios ("This
+   * determination is final..."). Selected by the component's own class,
+   * not a testid — none exists for it.
+   */
+  warningText() {
+    return $('.govuk-warning-text__text')
+  }
+
+  /**
+   * Confirmed against a live run: govukWarningText renders a visually-hidden
+   * "Warning" prefix (`.govuk-warning-text__assistive`) INSIDE this element
+   * for screen readers, so `getText()` returns "Warning\n<the real copy>".
+   * Stripped here so callers can assert the visible copy exactly rather than
+   * every caller having to know about the assistive prefix.
+   */
+  async warningTextText() {
+    const text = await this.warningText().getText()
+    return text.replace(/^Warning\s*/, '').trim()
+  }
+
   async setNote(text) {
     await this.noteInput().setValue(text)
   }
@@ -175,6 +216,17 @@ class DecisionPage extends Page {
 
   async submit() {
     await $('[data-testid="log-decision-submit"]').click()
+  }
+
+  /**
+   * The submit button's visible label — renamed from "Log decision" to
+   * "Make Determination" (RA-447 CM7), then sentence-cased to
+   * "Make determination" (RA-447 CM8) for GOV.UK style consistency. The
+   * `data-testid` is unchanged, so this reads text rather than existence to
+   * guard the rename itself.
+   */
+  async submitButtonText() {
+    return $('[data-testid="log-decision-submit"]').getText()
   }
 
   async cancel() {

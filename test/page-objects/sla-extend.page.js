@@ -13,6 +13,22 @@ import { Page } from './page.js'
  * Cancel from the input page returns to the detail page without
  * changes. Inputs and buttons are tagged with stable data-testids —
  * see the matching .njk template.
+ *
+ * RA-447 (CM5/CM6), implemented together per the signed-off plan since both
+ * land in the same fe files:
+ *   - CM5: relabelled "SLA" -> "Determination Deadline" on this page (page
+ *     title/heading/breadcrumb, hint, button, success banner).
+ *   - CM6: the `additionalDays` count input is replaced with a GOV.UK date
+ *     input for the new due date — no upper limit, and the date must be
+ *     strictly AFTER the current due date (extension only, never a
+ *     reduction). Copied from the duly-making page's existing
+ *     govukDateInput + validator pattern (see duly-making.page.js).
+ *
+ * The date input's ids are `new-deadline-{day,month,year}`, confirmed
+ * against management-fe's CM6 implementation once it landed (this repo
+ * originally guessed `field-newDueDate-*`, following the `field-<name>`
+ * convention used elsewhere on this page — the real markup uses its own
+ * `new-deadline` prefix instead).
  */
 class SlaExtendPage extends Page {
   /**
@@ -44,17 +60,54 @@ class SlaExtendPage extends Page {
     await expect($('[data-testid="sla-extend-form"]')).toBeDisplayed()
   }
 
-  async fillForm({ reason, additionalDays }) {
+  async fillForm({ reason, date } = {}) {
     if (reason !== undefined) {
       await $('#field-reason').setValue(reason)
     }
-    if (additionalDays !== undefined) {
-      await $('#field-additionalDays').setValue(String(additionalDays))
+    if (date !== undefined) {
+      await this.setDate(date)
+    }
+  }
+
+  dayInput() {
+    return $('#new-deadline-day')
+  }
+
+  monthInput() {
+    return $('#new-deadline-month')
+  }
+
+  yearInput() {
+    return $('#new-deadline-year')
+  }
+
+  /**
+   * Fill the new-due-date parts. Any part may be omitted to exercise the
+   * incomplete-date branch; parts are cleared first so a re-submit after a
+   * validation error does not inherit the previous attempt's digits — same
+   * reasoning as duly-making's setPaymentDate().
+   */
+  async setDate({ day, month, year } = {}) {
+    const parts = [
+      [this.dayInput(), day],
+      [this.monthInput(), month],
+      [this.yearInput(), year]
+    ]
+    for (const [field, value] of parts) {
+      await field.setValue('')
+      if (value !== undefined && value !== null && value !== '') {
+        await field.setValue(String(value))
+      }
     }
   }
 
   async submitForm() {
     await $('[data-testid="sla-extend-submit"]').click()
+  }
+
+  /** CM5: the button's visible label, renamed away from "Extend SLA". */
+  async submitButtonText() {
+    return $('[data-testid="sla-extend-submit"]').getText()
   }
 
   async cancelFromInputPage() {
@@ -63,6 +116,11 @@ class SlaExtendPage extends Page {
 
   async assertOnInputPage() {
     await expect($('[data-testid="sla-extend-form"]')).toBeDisplayed()
+  }
+
+  /** CM5: the page heading, renamed from "SLA" to "Determination Deadline". */
+  async pageHeadingText() {
+    return this.pageHeading.getText()
   }
 
   async assertErrorSummaryDisplayed() {

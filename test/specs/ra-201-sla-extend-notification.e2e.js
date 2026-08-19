@@ -7,6 +7,7 @@ import {
   startAssessment
 } from '../support/re-accreditation-journey.js'
 import { uniquePostcode } from '../support/unique-postcode.js'
+import { farFutureDeadline } from '../support/sla-extend-date.js'
 
 /**
  * RA-201 — Extend SLA sends the operator a "SLA extended" email.
@@ -18,10 +19,14 @@ import { uniquePostcode } from '../support/unique-postcode.js'
  *
  * Observed through the UI: after a team leader extends the SLA on a
  * re-accreditation work item (which has an operator email and an SLA
- * clock started at payment-received), the audit log gains an
- * "SLA extended email sent" entry. In the e2e stack NOTIFY_API_KEY is
- * absent so the NoOpNotifyClient stands in and reports success, which
- * exercises the same notification-sent audit path as production.
+ * clock started at payment-received), the audit log gains a
+ * "Determination deadline extended email sent" entry (RA-447 CM5 renamed
+ * the underlying actionDisplayName from "SLA extended" — confirmed against
+ * management-be's own log line: `Sending "Determination deadline extended"
+ * notification ... (template="SlaExtended", ...)`; the Notify template id
+ * itself is unchanged). In the e2e stack NOTIFY_API_KEY is absent so the
+ * NoOpNotifyClient stands in and reports success, which exercises the same
+ * notification-sent audit path as production.
  *
  * The extend itself only succeeds once an SLA clock exists, so the
  * work item is driven to "Assessment in progress" first (payment-received
@@ -66,13 +71,16 @@ describe('RA-201 Extend SLA sends operator notification', () => {
     await login.logout()
   })
 
-  it('records an "SLA extended email sent" audit entry after a successful extend', async () => {
+  it('records a "Determination deadline extended email sent" audit entry after a successful extend', async () => {
     await login.login()
 
     await slaExtend.gotoFor(workItemId)
+    // RA-447 (CM6): the additionalDays count is replaced by an absolute
+    // date, which must be after the item's CURRENT due date rather than a
+    // fixed number of days from today — see sla-extend-date.js.
     await slaExtend.fillForm({
       reason: 'Operator providing additional evidence',
-      additionalDays: 7
+      date: farFutureDeadline()
     })
     await slaExtend.submitForm()
     await slaExtend.waitForDetailUrl(workItemId)
@@ -81,13 +89,13 @@ describe('RA-201 Extend SLA sends operator notification', () => {
     await detail.assertFlashBanner()
 
     // The notification hook fired and the send succeeded, so the audit
-    // log carries the "SLA extended email sent" entry — proving the
-    // extend wires through to a notification end-to-end. (In this stack
-    // NOTIFY_API_KEY is absent so the NoOpNotifyClient stands in; the
-    // sla_deadline placeholder-contract regression itself is guarded by
-    // the management-be NotifyTemplateContractTests, which the real
-    // GovukNotifyClient would otherwise have 400'd on.)
+    // log carries the "Determination deadline extended email sent" entry —
+    // proving the extend wires through to a notification end-to-end. (In
+    // this stack NOTIFY_API_KEY is absent so the NoOpNotifyClient stands
+    // in; the sla_deadline placeholder-contract regression itself is
+    // guarded by the management-be NotifyTemplateContractTests, which the
+    // real GovukNotifyClient would otherwise have 400'd on.)
     await detail.gotoAudit()
-    await detail.assertAuditEntry('SLA extended email sent')
+    await detail.assertAuditEntry('Determination deadline extended email sent')
   })
 })

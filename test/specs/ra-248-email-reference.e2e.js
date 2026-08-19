@@ -7,6 +7,7 @@ import {
   startAssessment
 } from '../support/re-accreditation-journey.js'
 import { uniquePostcode } from '../support/unique-postcode.js'
+import { farFutureDeadline } from '../support/sla-extend-date.js'
 
 /**
  * RA-248 — lifecycle emails carry the human application reference, not the
@@ -91,16 +92,23 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
     // production uses; its presence proves the extend wires through to a
     // notification whose reference is now the application reference above.
     await slaExtend.gotoFor(workItemId)
+    // RA-447 (CM6): the additionalDays count is replaced by an absolute
+    // date, which must be after the item's CURRENT due date rather than a
+    // fixed number of days from today — see sla-extend-date.js.
     await slaExtend.fillForm({
       reason: 'Operator providing additional evidence',
-      additionalDays: 7
+      date: farFutureDeadline()
     })
     await slaExtend.submitForm()
     await slaExtend.waitForDetailUrl(workItemId)
 
     await detail.assertFlashBanner()
 
+    // RA-447 (CM5) renamed the underlying actionDisplayName from
+    // "SLA extended" to "Determination deadline extended" — confirmed
+    // against management-be's own log line: `Sending "Determination
+    // deadline extended" notification ... (template="SlaExtended", ...)`.
     await detail.gotoAudit()
-    await detail.assertAuditEntry('SLA extended email sent')
+    await detail.assertAuditEntry('Determination deadline extended email sent')
   })
 })

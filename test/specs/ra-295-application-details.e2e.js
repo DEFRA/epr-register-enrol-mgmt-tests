@@ -5,6 +5,7 @@ import detail, {
   APPLICATION_DETAIL_ROWS,
   EXPORTER_ONLY_ROWS
 } from '../page-objects/work-item-detail.page.js'
+import { EXPORTER } from '../support/ra-434-seed.js'
 
 /**
  * RA-295 (AC02) — all application data on a single page, in a consistent
@@ -88,8 +89,16 @@ describe('RA-295 application details on a single page', () => {
     // A section that renders its heading and an em dash would satisfy a
     // presence-only check while showing the caseworker nothing. Spot-check the
     // fields whose values come straight from the seeded payload.
+    //
+    // RA-447 (CM2): this fixture is wasteProcessingType 'exporter', so its
+    // site-address row now always falls back to the registered address
+    // ("100 Registered Office Road..."), matching the Additional
+    // information tab's existing rule — its own siteAddress
+    // ("1 Full Payload Lane") is intentionally ignored. Confirmed by the
+    // dedicated "RA-447 (CM2)" describe block below, which asserts the same
+    // fallback against the RA-434 EXPORTER fixture.
     await expect(detail.applicationDetailRow('site-address')).toHaveText(
-      expect.stringContaining('1 Full Payload Lane')
+      expect.stringContaining('100 Registered Office Road')
     )
     await expect(detail.applicationDetailRow('material')).toHaveText(
       expect.stringContaining('Plastic')
@@ -191,6 +200,51 @@ describe('RA-295 application details on a single page', () => {
         expect(await detail.hasApplicationDetailRow('site-address')).toBe(true)
         expect(await detail.hasApplicationDetailRow('material')).toBe(true)
       })
+    })
+  })
+
+  describe('RA-447 (CM2) — exporter Site address falls back to the registered address', () => {
+    // Bug: buildApplicationSummary's site-address row called
+    // buildSiteAddressLines(payload) with no exporter fallback, so an
+    // exporter (which has no siteAddress in re-ex — only reprocessors do)
+    // rendered an em dash here, even though the "Additional information" tab
+    // already got this right (RA-434's deriveSiteAddress). The fix
+    // consolidates both tabs onto the same fallback.
+    //
+    // Reuses RA-434's EXPORTER fixture ("Continental Exports Verification
+    // Ltd", wasteProcessingType: exporter, no siteAddress at all) rather than
+    // seeding a new item — it is exactly the CM2 bug scenario, and the
+    // Additional information tab's own coverage of it lives in
+    // ra-434-additional-information-tab.e2e.js.
+    //
+    // Nested inside the outer describe, so no login()/logout() of its own —
+    // the outer before()/after() already own the session for this whole
+    // file (see the sibling "an application with no overseas site data"
+    // describe above, which follows the same pattern).
+    before(async () => {
+      await workItems.resetFilters()
+      await workItems.searchByOrgName(EXPORTER.ORG_NAME)
+      await browser.waitUntil(
+        async () => (await browser.getUrl()).includes('filtersApplied=1'),
+        { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
+      )
+      expect(await workItems.getRowCount()).toBe(1)
+      await workItems.openFirstListedWorkItem()
+    })
+
+    it('shows the Site address row rather than an em dash', async () => {
+      expect(await detail.hasApplicationDetailRow('site-address')).toBe(true)
+      const value = await detail
+        .applicationDetailValue('site-address')
+        .getText()
+      expect(value).not.toBe('—')
+    })
+
+    it('falls back to the registered address, matching the Additional information tab', async () => {
+      const value = await detail
+        .applicationDetailValue('site-address')
+        .getText()
+      expect(value).toBe(EXPORTER.COMPANY_REGISTERED_ADDRESS)
     })
   })
 })

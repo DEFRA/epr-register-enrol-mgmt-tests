@@ -11,6 +11,7 @@ import {
 } from '../support/re-accreditation-journey.js'
 import { raiseQuery } from '../support/query-resubmission.js'
 import { uniquePostcode } from '../support/unique-postcode.js'
+import { farFutureDeadline } from '../support/sla-extend-date.js'
 
 /**
  * RA-351 — Extend / Override SLA are available in the `queried` state.
@@ -143,9 +144,12 @@ describe('RA-351 Extend / Override SLA from the queried state', () => {
       const before = (await detail.caseHeaderFieldText('dueOn')).trim()
 
       await slaExtend.gotoFor(workItemId)
+      // RA-447 (CM6): the additionalDays count is replaced by an absolute
+      // date, which must be after the item's CURRENT due date rather than a
+      // fixed number of days from today — see sla-extend-date.js.
       await slaExtend.fillForm({
         reason: 'RA-351: operator needs more time to answer the query',
-        additionalDays: 7
+        date: farFutureDeadline()
       })
       await slaExtend.submitForm()
       await slaExtend.waitForDetailUrl(workItemId)
