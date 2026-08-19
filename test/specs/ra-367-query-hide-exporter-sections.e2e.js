@@ -1,4 +1,4 @@
-import { browser, expect } from '@wdio/globals'
+import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import query, {
@@ -15,30 +15,29 @@ import query, {
  * Overseas reprocessing sites (ORS) — are EXPORTER-ONLY. For a reprocessor
  * application they must NOT appear; for an exporter application they must.
  *
- * WHAT DRIVES IT. There is no `wasteProcessingType` discriminator in the work
- * item payload — management-be never writes one (see RA-295's spec header). The
- * frontend therefore gates the two areas on `isExporterApplication(workItem)`,
- * the same PROXY RA-295 uses for the exporter-only detail rows: it is true iff
- * `payload.overseasSites.sites` is non-empty. So under test:
- *   - exporter (shows all six)   = a work item WITH overseas sites;
- *   - reprocessor (hides BES/ORS)= a work item with NO overseas sites.
- * (Confirmed by management-fe; the fe change reuses application-summary.js's
- * isExporterApplication.)
+ * WHAT DRIVES IT. The frontend gates the two areas on
+ * `isExporterApplication(workItem)`, which RA-314 rewrote to read the work item
+ * payload's `wasteProcessingType`: exporter iff that field is the string
+ * 'exporter' (case-insensitive); absent or any other value → reprocessor.
+ * (Confirmed final by management-fe against main. Overseas-sites presence was an
+ * earlier proxy and is NOT the signal any more.)
  *
  *   AC01 — a reprocessor query form does NOT show BES or ORS; the other four
  *          areas are present.
  *   AC02 — an exporter query form DOES show all six areas, including BES/ORS.
  *
- * Fixtures:
+ * Fixtures & the AC02 gap:
  *   - AC01 uses a work item created through the case management "Create work
- *     item" form. Such items carry no overseasSites, so they are reprocessors —
- *     exactly the discriminator AC01 needs, and the same creation path RA-291's
- *     query specs use, so no seeded fixture is required.
- *   - AC02 uses the seeded "Full Payload Verification Ltd" re-accreditation item
- *     (ReAccreditationSeeder), the one fixture whose payload carries
- *     overseasSites — i.e. the only exporter under the proxy. This spec only
- *     GETs its query form (never submits), so the shared fixture is left
- *     unqueried for the other specs that rely on it.
+ *     item" form. Such items carry no `wasteProcessingType`, so they are
+ *     reprocessors — exactly the discriminator AC01 needs, and the same
+ *     creation path RA-291's query specs use. No seeded fixture required.
+ *   - AC02 needs a work item whose payload sets `wasteProcessingType='exporter'`.
+ *     No such fixture exists: ReAccreditationSeeder.cs (management-be) sets no
+ *     `wasteProcessingType` on any seed, and the Create form has no
+ *     applicant-type field, so an exporter work item cannot be reached from
+ *     this harness today. AC02 is therefore SKIPPED pending management-be
+ *     (RA-367 / epr-1jdh) seeding an exporter fixture — see the describe.skip
+ *     block, which is ready to run against it once its org name is known.
  */
 
 const uniqueOrg = (label) => `${label} ${Date.now()}`
@@ -117,25 +116,28 @@ describe('RA-367 Exporter-only query areas', () => {
     })
   })
 
-  // This is the positive half AC01's hiding needs to be meaningful: without an
-  // exporter case proving all six CAN render, "reprocessor hides two" could
-  // pass against a build that simply never emits BES/ORS to anyone.
-  describe('AC02 — an exporter application shows all six areas', () => {
+  // AC02 — an exporter application shows all six areas.
+  //
+  // SKIPPED: no exporter fixture exists in the harness. This is the positive
+  // half AC01's hiding needs to be meaningful (without it, "reprocessor hides
+  // two" could pass against a build that never emits BES/ORS to anyone), so it
+  // is written out in full and left ready to enable the moment management-be
+  // (RA-367 / epr-1jdh) seeds a work item whose payload carries
+  // `wasteProcessingType='exporter'`.
+  //
+  // TO ENABLE: change `describe.skip` to `describe`, and replace
+  // EXPORTER_FIXTURE_ORG_NAME with that seed's unique org name. The body already
+  // reaches the fixture the same way the other seeded specs do (resetFilters →
+  // searchByOrgName → single-row gate → firstResultWorkItemId) and only GETs its
+  // query form, so the shared fixture is left unqueried.
+  const EXPORTER_FIXTURE_ORG_NAME = null // e.g. 'Exporter Verification Ltd' — set when be seeds it
+  describe.skip('AC02 — an exporter application shows all six areas', () => {
     let workItemId
 
     before(async () => {
       await login.login()
-      // RA-299: a bare landing defaults to assigned-to-me, which would hide this
-      // (unassigned) seeded item — reset to an explicit empty filter first so
-      // the search is not implicitly assignee-scoped.
       await workItems.resetFilters()
-      await workItems.searchByOrgName('Full Payload Verification Ltd')
-      await browser.waitUntil(
-        async () => (await browser.getUrl()).includes('filtersApplied=1'),
-        { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
-      )
-      // Hard gate: the search must resolve to exactly the one seeded item, so
-      // its id is unambiguous.
+      await workItems.searchByOrgName(EXPORTER_FIXTURE_ORG_NAME)
       expect(await workItems.getRowCount()).toBe(1)
       workItemId = await workItems.firstResultWorkItemId()
     })

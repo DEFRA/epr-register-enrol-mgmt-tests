@@ -28,13 +28,11 @@ export const QUERY_SECTIONS = [
  * (ORS) are EXPORTER-ONLY query areas. They must render on the query form for
  * an exporter application and be absent for a reprocessor one.
  *
- * The frontend gates them on `isExporterApplication(workItem)` — the SAME
- * proxy RA-295 uses for the exporter-only detail rows: it returns true iff
- * `payload.overseasSites.sites` is non-empty. There is no `wasteProcessingType`
- * discriminator in the work item payload (management-be never writes one), so
- * "exporter" means "has overseas sites" and "reprocessor" means "has none".
- * (Confirmed by management-fe: the guard reuses application-summary.js's
- * isExporterApplication rather than reading any type field.)
+ * The frontend gates them on `isExporterApplication(workItem)`, which RA-314
+ * rewrote to read the work item payload's `wasteProcessingType`: exporter iff
+ * that field is the string 'exporter' (case-insensitive). Absent or any other
+ * value → reprocessor. (Overseas-sites presence is NOT the signal — that was an
+ * earlier proxy, since replaced; confirmed against management-fe main.)
  */
 export const EXPORTER_ONLY_QUERY_SECTIONS = [
   'broadly-equivalent-standards',
