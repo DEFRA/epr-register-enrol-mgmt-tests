@@ -89,6 +89,17 @@ class LoginPage extends Page {
   }
 
   /**
+   * RA-449. Click the logged-out interstitial's "Sign in" button without
+   * waiting for the sign-in page. Used by callers that need their own
+   * (longer) timeout on the wait that follows — see ra-306-sign-out AC03,
+   * whose back-button refetch-then-redirect is slower than the default
+   * `continueToLogin()` tolerates under parallel CI load.
+   */
+  async proceedPastLoggedOutPage() {
+    await $('[data-testid="logged-out-login"]').click()
+  }
+
+  /**
    * RA-306 (AC01/AC02/AC03). Assert we are on the sign-in page: both the
    * heading AND an /auth/…login URL. The URL check matters because a stale
    * authenticated page that merely failed to repaint would still be sitting on
