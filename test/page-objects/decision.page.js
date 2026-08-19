@@ -27,12 +27,12 @@ import { Page } from './page.js'
  * `rejected`, so backend/API assertions keep the old id while anything
  * user-visible reads "Refused". Do not "fix" one to match the other.
  *
- * RA-447 (CM8): two copy-only changes drop the "notifies the applicant" /
- * "email sent to the applicant" wording, since RA-410 already reworked when
- * (and whether) that email fires — the copy is catching up, not describing
- * new behaviour. No `data-testid` exists for either string; selected by the
- * GOV.UK component's own class/id convention (see warningText() / noteHint()
- * below), same approach as work-item-detail.page.js's ra98ReferenceBanner().
+ * RA-447 (CM8): copy-only changes throughout this page relabel "decision" as
+ * "determination" — heading, warning text, radio legend, note label/hint and
+ * submit button. No `data-testid` exists for the warning text or the note
+ * hint; both are selected by the GOV.UK component's own class/id convention
+ * (see warningText() / noteHint() below), same approach as
+ * work-item-detail.page.js's ra98ReferenceBanner().
  */
 class DecisionPage extends Page {
   path(workItemId) {
@@ -187,7 +187,7 @@ class DecisionPage extends Page {
 
   /**
    * RA-447 (CM8). The GOV.UK warning text above the outcome radios ("This
-   * records the final decision..."). Selected by the component's own class,
+   * determination is final..."). Selected by the component's own class,
    * not a testid — none exists for it.
    */
   warningText() {
@@ -219,9 +219,11 @@ class DecisionPage extends Page {
   }
 
   /**
-   * RA-447 (CM7). The submit button's visible label — renamed from
-   * "Log decision" to "Make Determination". The `data-testid` is unchanged,
-   * so this reads text rather than existence to guard the rename itself.
+   * The submit button's visible label — renamed from "Log decision" to
+   * "Make Determination" (RA-447 CM7), then sentence-cased to
+   * "Make determination" (RA-447 CM8) for GOV.UK style consistency. The
+   * `data-testid` is unchanged, so this reads text rather than existence to
+   * guard the rename itself.
    */
   async submitButtonText() {
     return $('[data-testid="log-decision-submit"]').getText()

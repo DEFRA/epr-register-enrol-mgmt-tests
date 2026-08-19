@@ -106,16 +106,16 @@ describe('RA-410 The green CTA lifecycle', () => {
       expect(await detail.logDecisionCtaText()).toBe('Make Determination')
       await detail.clickLogDecision()
       await decision.assertOnPage()
-      expect(await decision.submitButtonText()).toBe('Make Determination')
+      // RA-447 (CM8): sentence-cased from "Make Determination" (CM7) to
+      // "Make determination" for GOV.UK style consistency.
+      expect(await decision.submitButtonText()).toBe('Make determination')
 
-      // RA-447 (CM8): the warning text and the note hint both drop their
-      // "notifies the applicant" / "email sent to the applicant" wording,
-      // since RA-410 already changed when that email fires.
+      // RA-447 (CM8): relabels "decision" as "determination" throughout.
       expect(await decision.warningTextText()).toBe(
-        'This records the final decision. It cannot be undone.'
+        'This determination is final and it cannot be changed.'
       )
       expect(await decision.noteHintText()).toBe(
-        'This is recorded in the audit log. Contact the applicant when a determination has been made.'
+        'The determination will be recorded in the audit log (application history). Contact the applicant when the determination has been made.'
       )
 
       expect(await decision.hasOutcomeRadio('approved')).toBe(true)
