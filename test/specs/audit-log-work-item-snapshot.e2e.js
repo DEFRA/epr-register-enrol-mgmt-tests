@@ -71,25 +71,45 @@ describe('Audit log — work item snapshot fields', () => {
       ).toExist()
     })
 
-    // epr-rr9s: the first entry is "Work item submitted", a state-bearing
-    // event. It conveys its state as-of the event through its own "Initial
-    // state" row rather than a current-state "State" context row (which used
-    // to be stamped, incorrectly, from the live work-item state). There must
-    // therefore be an "Initial state" row and no stale "State" row on it.
+    // epr-rr9s: "Work item submitted" is a state-bearing event. It conveys
+    // its state as-of the event through its own "Initial state" row rather
+    // than a current-state "State" context row (which used to be stamped,
+    // incorrectly, from the live work-item state). There must therefore be an
+    // "Initial state" row and no stale "State" row on it.
+    //
+    // These two scope by the entry's `data-action` rather than the
+    // `[@data-testid="work-item-audit-entry-details"][1]` form used above.
+    // That predicate is positional PER PARENT, and every entry renders its
+    // disclosure as the only such element inside its own <li>, so it matches
+    // EVERY entry rather than the first. A `.not.toExist()` written that way
+    // silently asserts "no entry anywhere has a State row" — which passed
+    // only while the backend stamped no per-entry state at all, and is the
+    // opposite of what this spec means to check.
+    const submittedEntry =
+      '//li[@data-action="work-item-submitted"]//*[@data-testid="work-item-audit-entry-details"]'
+
     it('shows the submitted entry state as an "Initial state" row', async () => {
       await expect(
-        $(
-          '//*[@data-testid="work-item-audit-entry-details"][1]//dt[normalize-space(.)="Initial state"]'
-        )
+        $(`${submittedEntry}//dt[normalize-space(.)="Initial state"]`)
       ).toExist()
     })
 
     it('does not stamp a current-state "State" row on the submitted entry', async () => {
       await expect(
-        $(
-          '//*[@data-testid="work-item-audit-entry-details"][1]//dt[normalize-space(.)="State"]'
-        )
+        $(`${submittedEntry}//dt[normalize-space(.)="State"]`)
       ).not.toExist()
+    })
+
+    // epr-rr9s: the other half of the contract. Auxiliary actions carry no
+    // state in their own rows, so they DO get the context-block "State" row,
+    // resolved from that entry's own stateId. Without this the suite would
+    // pass with the backend stamping nothing at all.
+    it('shows a per-entry "State" row on the auxiliary routed-to-nation entry', async () => {
+      await expect(
+        $(
+          '//li[@data-action="routed-to-nation"]//*[@data-testid="work-item-audit-entry-details"]//dt[normalize-space(.)="State"]'
+        )
+      ).toExist()
     })
 
     it('includes a Submitted at row', async () => {
