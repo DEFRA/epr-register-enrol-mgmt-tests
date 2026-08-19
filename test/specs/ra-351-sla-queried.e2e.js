@@ -11,7 +11,6 @@ import {
 } from '../support/re-accreditation-journey.js'
 import { raiseQuery } from '../support/query-resubmission.js'
 import { uniquePostcode } from '../support/unique-postcode.js'
-import { farFutureDeadline } from '../support/sla-extend-date.js'
 
 /**
  * RA-351 — Extend / Override SLA are available in the `queried` state.
