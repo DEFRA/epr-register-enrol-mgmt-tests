@@ -2,7 +2,10 @@ import { $, browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import query, { QUERY_SECTIONS } from '../page-objects/query.page.js'
+import query, {
+  REPROCESSOR_QUERY_SECTIONS,
+  EXPORTER_ONLY_QUERY_SECTIONS
+} from '../page-objects/query.page.js'
 import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
 import { uniquePostcode } from '../support/unique-postcode.js'
 
@@ -129,11 +132,20 @@ describe('RA-291 Query an application', () => {
       await login.logout()
     })
 
-    it('offers all six queryable sections', async () => {
+    it('offers the reprocessor queryable sections and hides the exporter-only BES/ORS', async () => {
+      // RA-367: a work item created through the UI carries no
+      // wasteProcessingType, so it is treated as a reprocessor — the
+      // exporter-only BES/ORS sections are hidden and only the four common
+      // areas are offered.
       await query.gotoFor(workItemId)
-      expect(await query.countSectionOptions()).toBe(QUERY_SECTIONS.length)
-      for (const section of QUERY_SECTIONS) {
+      expect(await query.countSectionOptions()).toBe(
+        REPROCESSOR_QUERY_SECTIONS.length
+      )
+      for (const section of REPROCESSOR_QUERY_SECTIONS) {
         await expect(query.sectionCheckbox(section)).toExist()
+      }
+      for (const section of EXPORTER_ONLY_QUERY_SECTIONS) {
+        expect(await query.hasSection(section)).toBe(false)
       }
     })
 

@@ -23,6 +23,27 @@ export const QUERY_SECTIONS = [
   'overseas-reprocessing-sites'
 ]
 
+/**
+ * RA-367. Broadly equivalent standards (BES) and Overseas reprocessing sites
+ * (ORS) are EXPORTER-ONLY query areas. They must render on the query form for
+ * an exporter application and be absent for a reprocessor one.
+ *
+ * The frontend gates them on `isExporterApplication(workItem)`, which RA-314
+ * rewrote to read the work item payload's `wasteProcessingType`: exporter iff
+ * that field is the string 'exporter' (case-insensitive). Absent or any other
+ * value → reprocessor. (Overseas-sites presence is NOT the signal — that was an
+ * earlier proxy, since replaced; confirmed against management-fe main.)
+ */
+export const EXPORTER_ONLY_QUERY_SECTIONS = [
+  'broadly-equivalent-standards',
+  'overseas-reprocessing-sites'
+]
+
+/** The four query areas every application shows, exporter or reprocessor. */
+export const REPROCESSOR_QUERY_SECTIONS = QUERY_SECTIONS.filter(
+  (section) => !EXPORTER_ONLY_QUERY_SECTIONS.includes(section)
+)
+
 class QueryPage extends Page {
   async gotoFor(workItemId) {
     await this.open(`/work-items/${workItemId}/query`)
@@ -41,6 +62,16 @@ class QueryPage extends Page {
    */
   sectionCheckbox(value) {
     return $(`input[name="sections"][value="${value}"]`)
+  }
+
+  /**
+   * RA-367. Whether the checkbox for a section value is rendered on the query
+   * form at all. Distinct from isSectionSelected (which asks whether an
+   * existing checkbox is ticked) — this asks whether the option exists, which
+   * is what the exporter-only gating turns on.
+   */
+  async hasSection(value) {
+    return this.sectionCheckbox(value).isExisting()
   }
 
   async selectSection(value) {
