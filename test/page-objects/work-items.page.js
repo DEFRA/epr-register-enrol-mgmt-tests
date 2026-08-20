@@ -109,8 +109,12 @@ class WorkItemsPage extends Page {
     }
     // RA-448 phase 2 review: management-be's accreditation-number adapter
     // sends this (not operatorRegistrationId) as the backend's
-    // {applicationId} route segment. Pre-filled with a demo value
-    // (app-demo-001) on GET, same convention as the fields above.
+    // {applicationId} route segment. Pre-filled with a value GENERATED
+    // FRESH per GET (unlike the other demo fields, which are fixed) —
+    // management-be's own submission idempotency check (RA-311/MBE-3)
+    // treats a matching operatorApplicationId on an existing item as a
+    // replay, so a shared literal here would collapse every UI-created
+    // item across a run onto whichever was created first.
     if (opts.operatorApplicationId !== undefined) {
       await $('#field-operatorApplicationId').setValue(
         opts.operatorApplicationId
