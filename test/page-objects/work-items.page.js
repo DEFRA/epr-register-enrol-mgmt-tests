@@ -107,6 +107,15 @@ class WorkItemsPage extends Page {
         opts.operatorOrganisationId
       )
     }
+    // RA-448 phase 2 review: management-be's accreditation-number adapter
+    // sends this (not operatorRegistrationId) as the backend's
+    // {applicationId} route segment. Pre-filled with a demo value
+    // (app-demo-001) on GET, same convention as the fields above.
+    if (opts.operatorApplicationId !== undefined) {
+      await $('#field-operatorApplicationId').setValue(
+        opts.operatorApplicationId
+      )
+    }
     if (opts.operatorRegistrationId !== undefined) {
       await $('#field-operatorRegistrationId').setValue(
         opts.operatorRegistrationId
