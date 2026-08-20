@@ -112,8 +112,11 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await detail.assertState('Granted')
     await detail.assertApprovalPanelVisible()
     const accreditationIdOnReturn = await detail.getAccreditationId()
+    // Same shape-only assertion as the first test above — see its comment
+    // for why the trailing two characters aren't asserted as a specific
+    // material code.
     expect(accreditationIdOnReturn).toMatch(
-      /^A\d{2}[ESNW][RX][A-Z0-9]{6}[A-Z0-9]{3}PL$/
+      /^A\d{2}[ESNW][RX][A-Z0-9]{6}[A-Z0-9]{3}[A-Z]{2}$/
     )
     await login.logout()
   })
