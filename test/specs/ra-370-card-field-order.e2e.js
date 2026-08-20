@@ -150,12 +150,16 @@ const GDS_DATE =
  *
  * org-id is deliberately NOT here even though it IS in the story's field list:
  * the template renders it only `{% if item.orgId %}`, and orgId maps to
- * payload.operatorOrganisationId — which items created through the UI "Create
- * work item" form never set. Asserting it would fail on a fixture this spec
- * builds itself, saying nothing about the ordering contract. Its POSITION is
- * still covered, because TILE_FIELD_ORDER carries it and assertCardOrder checks
- * relative order against that list — so a card that does render it must place
- * it between org-name and material.
+ * payload.operatorOrganisationId. RA-448 made that field required on the UI
+ * "Create work item" form (previously it was never set for UI-created items),
+ * so it does now render for every fixture this spec builds — but keeping it
+ * out of ALWAYS_PRESENT costs nothing and stays correct even if a future
+ * fixture omits it again, whereas asserting presence here would make this
+ * spec quietly depend on RA-448's field being required rather than on the
+ * ordering contract it exists to test. Its POSITION is still covered,
+ * because TILE_FIELD_ORDER carries it and assertCardOrder checks relative
+ * order against that list — so a card that does render it must place it
+ * between org-name and material.
  */
 const ALWAYS_PRESENT = [
   'application-ref',
