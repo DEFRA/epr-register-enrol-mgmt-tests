@@ -98,9 +98,15 @@ describe('Application information — sparse, form-created work item', () => {
       expect(await detail.hasReferenceRow('declaration')).toBe(false)
     })
 
-    it('omits the operator registration id row', async () => {
+    it('renders the operator registration id row with the demo default', async () => {
+      // RA-448 phase 2: operatorRegistrationId is now a required field on the
+      // create form (management-be's accreditation-number adapter needs it to
+      // approve the item), pre-filled with a demo value the same way
+      // operatorOrganisationId is. This row is therefore no longer part of the
+      // "no submitted data" set this describe block otherwise covers — a
+      // form-created item always carries it.
       expect(await detail.hasReferenceRow('operator-registration-id')).toBe(
-        false
+        true
       )
     })
 

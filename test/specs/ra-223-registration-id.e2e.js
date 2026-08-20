@@ -16,9 +16,12 @@ import detail from '../page-objects/work-item-detail.page.js'
  * The row is deliberately sourced from `operatorRegistrationId` (the operator
  * backend's internal registration record id, e.g. `reg-008`), NOT
  * `registrationNumber` (the EPR registration number, e.g. `EPR-100198`). This
- * spec proves both the populated value (against a seeded item that carries the
- * id) and the graceful em-dash fallback (against a UI-created item that has no
- * registration id).
+ * spec proves the populated value against both a seeded item and a UI-created
+ * item — RA-448 phase 2 made `operatorRegistrationId` a required field on the
+ * create form (management-be's accreditation-number adapter needs it to
+ * approve the item), so a UI-created item can no longer omit it; the second
+ * describe block below used to prove the graceful em-dash/row-omitted
+ * fallback for that now-unreachable case.
  *
  * RA-295 correction: this comment previously described `registrationNumber` as
  * "the Companies House company number". That was wrong — every seeded value is
@@ -101,11 +104,14 @@ describe('RA-223 — Registration ID shown on the work item detail page', () => 
     })
   })
 
-  describe('a work item created through the UI (no registration id)', () => {
-    // Items created through the management UI form carry no
-    // operatorRegistrationId (it originates from the upstream registration
-    // submission), so the row must degrade gracefully to an em-dash rather
-    // than leaking any other identifier.
+  describe('a work item created through the UI (default registration id)', () => {
+    // RA-448 phase 2: operatorRegistrationId is now a required field on the
+    // create form (management-be's accreditation-number adapter needs it to
+    // approve the item), pre-filled with a demo value ('reg-demo-001') the
+    // same way operatorOrganisationId is. A UI-created item can therefore no
+    // longer omit this row — this describe block used to prove the opposite
+    // (RA-295's row-omitted fallback for an absent value), which is no longer
+    // a reachable scenario via this form.
     before(async () => {
       await workItems.resetFilters()
       const { id } = await workItems.createWorkItem({
@@ -119,15 +125,11 @@ describe('RA-223 — Registration ID shown on the work item detail page', () => 
       await workItems.openWorkItem(id)
     })
 
-    it('omits the row entirely when the work item has no registration id', async () => {
-      // Behaviour change in RA-295, not a relaxation of the test. The old
-      // envelope summary rendered an em-dash placeholder; the reference block
-      // omits valueless rows outright. So the correct assertion is row-ABSENT.
-      //
-      // Asserting the em dash here would now fail, and — more insidiously —
-      // asserting "the value is not reg-xxx" would pass vacuously against a
-      // missing row. Absence is the only assertion that means anything.
-      expect(await detail.hasSummaryKey('Operator registration ID')).toBe(false)
+    it('renders the row with the demo default value', async () => {
+      expect(await detail.hasSummaryKey('Operator registration ID')).toBe(true)
+      expect(
+        await detail.getSummaryValueByKey('Operator registration ID')
+      ).toBe('reg-demo-001')
     })
 
     it('still renders the rows it does have values for', async () => {
