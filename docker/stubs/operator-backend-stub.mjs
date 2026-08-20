@@ -35,6 +35,18 @@
  * "XX", a deliberate placeholder rather than a guess. Specs asserting the
  * overall shape accept any two letters there for exactly this reason.
  *
+ * The middle "sequence" segment comes from a single in-memory counter
+ * incremented on every call, NOT derived from the request. management-be's
+ * `payload.accreditationId` index is unique+sparse (RA-448 phase 2 kept it as
+ * a defence-in-depth backstop once the real backend's own atomic counters
+ * took over uniqueness), and this stack's specs mostly create work items
+ * through the UI without overriding operatorOrganisationId/
+ * operatorRegistrationId — so many approvals share the same
+ * nation/orgId/applicationId/year and a purely request-derived value would
+ * collide across them (a real 11000 duplicate-key error was how this was
+ * found). One shared counter, regardless of which application is asking,
+ * guarantees every value handed out this process's lifetime is unique.
+ *
  * FAILURE INJECTION
  * -----------------
  * The failure-path spec needs the push to fail for ONE work item without
@@ -101,20 +113,26 @@ function readJsonBody(req) {
   })
 }
 
+// Module-lifetime counter — see the class doc comment for why this drives
+// uniqueness instead of anything derived from the request.
+let sequenceCounter = 0
+
 // Synthetic, not a faithful reimplementation of the real backend's generator
 // — see the class doc comment for why the trailing two characters are always
-// the "XX" placeholder rather than a real material code.
-function buildAccreditationReference({ nation, orgId, year, applicationId }) {
+// the "XX" placeholder rather than a real material code, and why the
+// sequence segment comes from a counter rather than the request.
+function buildAccreditationReference({ nation, orgId, year }) {
   const yearSuffix = String(year ?? new Date().getFullYear()).slice(-2)
   const agency = NATION_LETTER[nation] ?? 'E'
   const orgSegment = String(orgId ?? '0')
     .padStart(6, '0')
     .slice(-6)
-  const sequenceSegment = String(applicationId ?? '')
-    .replace(/[^A-Za-z0-9]/g, '')
+  sequenceCounter += 1
+  const sequenceSegment = sequenceCounter
+    .toString(36)
+    .toUpperCase()
     .padStart(3, '0')
     .slice(-3)
-    .toUpperCase()
   return `A${yearSuffix}${agency}R${orgSegment}${sequenceSegment}XX`
 }
 
@@ -165,13 +183,11 @@ const server = createServer((req, res) => {
   // RA-448 phase 2: the accreditation-number generate/reapply call.
   const numberMatch = url.match(NUMBER_PATH)
   if (numberMatch && method === 'POST') {
-    const applicationId = decodeURIComponent(numberMatch[2])
     readJsonBody(req).then((body) => {
       const accreditationReference = buildAccreditationReference({
         nation: body.nation,
         orgId: body.orgId,
-        year: body.year,
-        applicationId
+        year: body.year
       })
       console.log(`[oj-stub] 200 ${method} ${url} -> ${accreditationReference}`)
       return send(res, 200, { accreditationReference })
