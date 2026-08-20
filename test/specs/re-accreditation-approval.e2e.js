@@ -77,11 +77,14 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await detail.assertApprovalPanelAboveSummary()
 
     const accreditationId = await detail.getAccreditationId()
-    // Backend ID format (fixed 16 chars): A{YY}{Agency:1}{OperatorType:1}
-    // {OrgId:6}{PostcodeSuffix:3}{Material:2}. We used "plastic" as the
-    // material so the trailing segment must be PL.
+    // Real backend ID shape: A{YY}{Agency:1}{OperatorType:1}{OrgId:6}
+    // {Sequence:3}{Material:2}. RA-448 phase 2 moved generation to a real
+    // (here, stubbed) backend call that never receives the application's
+    // material — the operator-backend-stub can't compute the trailing
+    // segment correctly, so it always returns "XX" there. Assert the shape
+    // only, not a specific material code (see docker/stubs/operator-backend-stub.mjs).
     expect(accreditationId).toMatch(
-      /^A\d{2}[ESNW][RX][A-Z0-9]{6}[A-Z0-9]{3}PL$/
+      /^A\d{2}[ESNW][RX][A-Z0-9]{6}[A-Z0-9]{3}[A-Z]{2}$/
     )
 
     const year = await detail.getAccreditationYear()

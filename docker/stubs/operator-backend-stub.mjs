@@ -11,11 +11,29 @@
  *   POST /api/v1/accreditation-applications/case-management/{id}/status
  * every decision strands the item and the happy-path specs can never go green.
  *
- * This is the smallest thing that answers that call. It is deliberately dumb:
- * management-be signs its push (HMAC over the CDP client-id headers) but
- * `HttpOperatorBackendPushAdapter` only inspects the RESPONSE STATUS CODE and
- * never verifies a response signature, so the stub validates nothing and just
- * returns 200. That is the whole contract on the happy path.
+ * RA-448 phase 2 added a second call on the same approval path: before
+ * stamping an accreditation id, management-be now asks this same backend for
+ * a real one via
+ *   POST /api/v1/accreditation-applications/{organisationId}/{applicationId}/accreditation-number
+ * Every approve in this stack calls it, so — same as the status push above —
+ * without a stub route here every approval strands the item (404 ->
+ * AccreditationNumberUnavailable -> 500), not just RA-448-specific specs.
+ *
+ * This is the smallest thing that answers both calls. It is deliberately
+ * dumb: management-be signs its push (HMAC over the CDP client-id headers)
+ * but `HttpOperatorBackendPushAdapter`/`HttpAccreditationNumberAdapter` only
+ * inspect the RESPONSE (status code, and for the number endpoint the
+ * `accreditationReference` body field) and never verify a response
+ * signature, so the stub validates nothing.
+ *
+ * The generated accreditation number is SYNTHETIC, not a faithful
+ * reimplementation of the real backend's generator: the request body carries
+ * Nation/OrgId/Year/Regenerate but never the application's material (the real
+ * backend derives that from its own stored AccreditationApplicationModel,
+ * which this stateless stub has no equivalent of), so the trailing
+ * material-code segment cannot be computed correctly here — it is always
+ * "XX", a deliberate placeholder rather than a guess. Specs asserting the
+ * overall shape accept any two letters there for exactly this reason.
  *
  * FAILURE INJECTION
  * -----------------
@@ -30,7 +48,8 @@
  * The be container reaches the stub by service name and the runner reaches the
  * same process over localhost, so they share one in-memory arm set. This
  * mirrors the published-port pattern `MANAGEMENT_BE_URL` already uses for
- * resume-from-query.
+ * resume-from-query. Not wired up to the accreditation-number endpoint: no
+ * spec currently exercises that failure path.
  */
 import { createServer } from 'node:http'
 
@@ -50,7 +69,54 @@ function send(res, status, body) {
 // Both are answered identically here.
 const PUSH_PATH =
   /^\/api\/v1\/accreditation-applications\/case-management\/([^/]+)\/(status|query)$/
+// RA-448 phase 2: the accreditation-number generate/reapply call.
+const NUMBER_PATH =
+  /^\/api\/v1\/accreditation-applications\/([^/]+)\/([^/]+)\/accreditation-number$/
 const FAIL_PATH = /^\/__control\/fail\/([^/]+)$/
+
+// England/Scotland/Wales/Northern Ireland -> the single-letter agency code
+// the real generator's format uses. Falls back to 'E' for an unrecognised or
+// missing nation rather than rejecting the request — the shape of the id
+// matters to the specs that read it, not agency correctness.
+const NATION_LETTER = {
+  England: 'E',
+  Scotland: 'S',
+  Wales: 'W',
+  NorthernIreland: 'N'
+}
+
+function readJsonBody(req) {
+  return new Promise((resolve) => {
+    let raw = ''
+    req.on('data', (chunk) => {
+      raw += chunk
+    })
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(raw))
+      } catch {
+        resolve({})
+      }
+    })
+  })
+}
+
+// Synthetic, not a faithful reimplementation of the real backend's generator
+// — see the class doc comment for why the trailing two characters are always
+// the "XX" placeholder rather than a real material code.
+function buildAccreditationReference({ nation, orgId, year, applicationId }) {
+  const yearSuffix = String(year ?? new Date().getFullYear()).slice(-2)
+  const agency = NATION_LETTER[nation] ?? 'E'
+  const orgSegment = String(orgId ?? '0')
+    .padStart(6, '0')
+    .slice(-6)
+  const sequenceSegment = String(applicationId ?? '')
+    .replace(/[^A-Za-z0-9]/g, '')
+    .padStart(3, '0')
+    .slice(-3)
+    .toUpperCase()
+  return `A${yearSuffix}${agency}R${orgSegment}${sequenceSegment}XX`
+}
 
 const server = createServer((req, res) => {
   const { method, url } = req
@@ -92,6 +158,23 @@ const server = createServer((req, res) => {
       }
       console.log(`[oj-stub] 200 ${method} ${url}`)
       return send(res, 200, { ok: true })
+    })
+    return
+  }
+
+  // RA-448 phase 2: the accreditation-number generate/reapply call.
+  const numberMatch = url.match(NUMBER_PATH)
+  if (numberMatch && method === 'POST') {
+    const applicationId = decodeURIComponent(numberMatch[2])
+    readJsonBody(req).then((body) => {
+      const accreditationReference = buildAccreditationReference({
+        nation: body.nation,
+        orgId: body.orgId,
+        year: body.year,
+        applicationId
+      })
+      console.log(`[oj-stub] 200 ${method} ${url} -> ${accreditationReference}`)
+      return send(res, 200, { accreditationReference })
     })
     return
   }
