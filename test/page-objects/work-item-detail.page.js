@@ -1704,6 +1704,30 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * RA-454. Is the "Continue review" control offered on the detail page?
+   *
+   * "Continue review" is NOT a bespoke CTA like `duly-make` or `log-decision`:
+   * it is the generic `continue-review` action, rendered in the actions panel
+   * as `data-testid="action-continue-review"` for an item in `updated`. So its
+   * presence is derived from the SAME panel-scoped accessor every other action
+   * uses (`countActionsWithId`), not from a hand-written selector.
+   *
+   * Panel-scoping matters here for the same reason RA-364 documents: only a
+   * control INSIDE `actions-panel` is evidence the actions panel projected it.
+   * A page-wide `[data-testid="action-continue-review"]` check would be
+   * exact-match-safe today (no other panel renders that id), but deriving it
+   * from the panel keeps this consistent with `countActionsWithId` and immune
+   * to a future assignment-panel control reusing the label.
+   *
+   * This exists so the RA-454 specs read the intent — "is Continue review
+   * offered?" — and assert on the SAME element the operator-bug let the user
+   * click, rather than an action id in the spec body.
+   */
+  async hasContinueReviewCta() {
+    return (await this.countActionsWithId('continue-review')) > 0
+  }
+
+  /**
    * RA-316. The RAW state id, from `data-state-id` on the re-accreditation
    * detail root.
    *
