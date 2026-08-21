@@ -118,7 +118,11 @@ describe('RA-295 case header on the work item detail page', () => {
         expect.stringContaining('Full Payload Verification Ltd')
       )
       await expect(detail.caseHeaderField('orgId')).toHaveText(
-        expect.stringContaining('org-full-payload-001')
+        // RA-448 phase 2: this fixture's operatorOrganisationId became a
+        // numeric 6-digit value (management-be's accreditation-number
+        // adapter parses it as int), not the old string
+        // 'org-full-payload-001'.
+        expect.stringContaining('500009')
       )
     })
 

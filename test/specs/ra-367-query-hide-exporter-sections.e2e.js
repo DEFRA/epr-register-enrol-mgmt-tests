@@ -47,9 +47,11 @@ const uniqueOrg = (label) => `${label} ${Date.now()}`
 /**
  * Create a Submitted (reprocessor) application to query.
  *
- * Mirrors RA-291's helper, including the per-caller postcode: work items
- * created through the UI carry no operator organisation id, so the reference
- * generator derives it from the site postcode and material alone — items
+ * Mirrors RA-291's helper, including the per-caller postcode: every UI-created
+ * work item that doesn't override operatorOrganisationId gets the same demo
+ * value ('500001', RA-448 phase 2's required field), so it adds no
+ * discriminating entropy to the reference generator's output — collision
+ * avoidance still rests on site postcode and material alone, and items
  * sharing both exhaust its collision-retry budget and the submission fails.
  */
 const createReprocessorWorkItem = async (

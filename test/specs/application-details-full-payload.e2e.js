@@ -62,7 +62,11 @@ describe('Full operator payload on the work item detail page (seeded)', () => {
         expect.stringContaining('Full Payload Verification Ltd')
       )
       await expect(detail.caseHeaderField('orgId')).toHaveText(
-        expect.stringContaining('org-full-payload-001')
+        // RA-448 phase 2: the seeder's operatorOrganisationId for this
+        // fixture became a numeric 6-digit value (management-be's
+        // accreditation-number adapter parses it as int) rather than the
+        // string 'org-full-payload-001' this previously carried.
+        expect.stringContaining('500009')
       )
     })
 
@@ -81,7 +85,9 @@ describe('Full operator payload on the work item detail page (seeded)', () => {
     // moved them to the foot of the page instead of the header.
     const rows = [
       ['operator-application-id', 'app-full-payload-001'],
-      ['operator-organisation-id', 'org-full-payload-001'],
+      // RA-448 phase 2: numeric now (see the orgId case-header assertion
+      // above for why), not the old string 'org-full-payload-001'.
+      ['operator-organisation-id', '500009'],
       ['operator-registration-id', 'reg-full-payload-001'],
       ['operator-email', 'full.payload@example.com'],
       ['registration-number', 'EPR-100999'],

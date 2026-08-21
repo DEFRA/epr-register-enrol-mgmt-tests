@@ -22,12 +22,15 @@ import { Page } from './page.js'
  * org-id and material but is outside the RA-370 field list, so keeping it out
  * of this constant lets each ticket's contract move independently).
  *
- * This is an ORDERING contract, not a presence one — three of the entries are
+ * This is an ORDERING contract, not a presence one — some of the entries are
  * conditional, so treat the list as the sequence a card's fields must respect
  * rather than the set it must contain:
  *   - org-id renders only `{% if item.orgId %}`, and orgId maps to
- *     payload.operatorOrganisationId, which items created through the UI
- *     "Create work item" form never set;
+ *     payload.operatorOrganisationId — RA-448 made this a required field on
+ *     the UI "Create work item" form (previously it was never set for
+ *     UI-created items, so the tile never rendered for them; now it always
+ *     does unless a spec deliberately omits it, which the schema no longer
+ *     allows for a submission to succeed);
  *   - submitted-on and due-on are exact inverses, so a card carries one or the
  *     other and never both.
  *
@@ -92,6 +95,36 @@ class WorkItemsPage extends Page {
       await $('#field-operatorEmail').setValue(opts.operatorEmail)
     }
     await $('#field-organisationName').setValue(opts.organisationName)
+    // RA-448. Both fields are pre-filled with a demo value (500001 /
+    // reg-demo-001) on GET, same convention as operatorEmail above — most
+    // callers don't care about the specific value, only that one is set, so
+    // only override when the spec actually supplies one. management-be's
+    // accreditation-number adapter now requires operatorOrganisationId to
+    // be a real numeric 6-digit Org ID for EVERY work item, regardless of
+    // how it was created.
+    if (opts.operatorOrganisationId !== undefined) {
+      await $('#field-operatorOrganisationId').setValue(
+        opts.operatorOrganisationId
+      )
+    }
+    // RA-448 phase 2 review: management-be's accreditation-number adapter
+    // sends this (not operatorRegistrationId) as the backend's
+    // {applicationId} route segment. Pre-filled with a value GENERATED
+    // FRESH per GET (unlike the other demo fields, which are fixed) —
+    // management-be's own submission idempotency check (RA-311/MBE-3)
+    // treats a matching operatorApplicationId on an existing item as a
+    // replay, so a shared literal here would collapse every UI-created
+    // item across a run onto whichever was created first.
+    if (opts.operatorApplicationId !== undefined) {
+      await $('#field-operatorApplicationId').setValue(
+        opts.operatorApplicationId
+      )
+    }
+    if (opts.operatorRegistrationId !== undefined) {
+      await $('#field-operatorRegistrationId').setValue(
+        opts.operatorRegistrationId
+      )
+    }
     await $('#field-siteAddress-line1').setValue(opts.siteAddressLine1)
     // The create form pre-fills line 2 with example text, so an empty
     // string means "clear the field" rather than "leave the default".

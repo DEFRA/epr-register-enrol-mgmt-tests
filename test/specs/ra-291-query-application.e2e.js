@@ -29,12 +29,14 @@ const uniqueOrg = (label) => `${label} ${Date.now()}`
  * Create a Submitted application to query.
  *
  * `postcode` defaults to a freshly-generated, collision-safe one (see
- * `support/unique-postcode.js`). Work items created through the case
- * management UI carry no operator organisation id, so
- * ApplicationReferenceGenerator derives the reference from the site
- * postcode and material alone — items sharing both exhaust its
- * collision-retry budget and the submission fails, which is why this no
- * longer takes a hand-picked literal.
+ * `support/unique-postcode.js`). RA-448 phase 2 made operatorOrganisationId
+ * a required create-form field, but every UI-created work item that doesn't
+ * override it gets the same demo value ('500001') — so it adds no
+ * discriminating entropy to ApplicationReferenceGenerator's derived
+ * reference, which still effectively comes down to site postcode and
+ * material alone. Items sharing both still exhaust the collision-retry
+ * budget and the submission fails, which is why this no longer takes a
+ * hand-picked literal.
  */
 const createSubmittedWorkItem = async (
   organisationName,

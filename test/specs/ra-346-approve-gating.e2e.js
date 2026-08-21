@@ -91,11 +91,13 @@ describe('RA-346/RA-410 A determination can be logged only once', () => {
       // RA-133 journey has to still complete, panel and all.
       await detail.assertState('Granted')
       await detail.assertApprovalPanelVisible()
-      // Backend ID format (fixed 16 chars): A{YY}{Agency:1}{OperatorType:1}
-      // {OrgId:6}{PostcodeSuffix:3}{Material:2}. createReAccreditation always
-      // uses "plastic", so the trailing segment must be PL.
+      // Real backend ID shape: A{YY}{Agency:1}{OperatorType:1}{OrgId:6}
+      // {Sequence:3}{Material:2}. RA-448 phase 2 moved generation to a real
+      // (here, stubbed) backend call that never receives the application's
+      // material, so the trailing segment can't be asserted as a specific
+      // code — see docker/stubs/operator-backend-stub.mjs.
       expect(await detail.getAccreditationId()).toMatch(
-        /^A\d{2}[ESNW][RX][A-Z0-9]{6}[A-Z0-9]{3}PL$/
+        /^A\d{2}[ESNW][RX][A-Z0-9]{6}[A-Z0-9]{3}[A-Z]{2}$/
       )
     })
 
