@@ -7,7 +7,11 @@ import {
   createReAccreditation,
   driveToAssessmentInProgress
 } from '../support/re-accreditation-journey.js'
-import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
+import {
+  raiseQuery,
+  resumeFromQuery,
+  continueReviewViaApi
+} from '../support/query-resubmission.js'
 import { utcDateParts } from '../support/uk-time.js'
 
 /**
@@ -145,6 +149,47 @@ describe('RA-454 Continue review after a query raised before duly making', () =>
         await detail.assertStateId('duly-made')
         await detail.assertState('Duly made')
         expect(await detail.stateId()).not.toBe('submitted')
+      })
+    })
+
+    // The blocks above prove the FE hides the affordance. This one pins the
+    // BACKEND half of RA-454 (management-be, epr-nkpi.1) the suppression rests
+    // on: `POST …/continue-review` for an application queried before duly
+    // making returns it to the state it was queried FROM (`submitted`) and
+    // does NOT duly-make it — the "wrongly duly-makes" half of the ticket
+    // title. The FE never lets a caseworker reach this endpoint for such an
+    // item, so a direct call is the only way to prove the endpoint itself is
+    // safe; without this, CI's `management-be:latest` image could regress the
+    // transition and every FE-suppression assertion above would still pass.
+    describe('the continue-review endpoint, called directly', () => {
+      // A dedicated item — calling continue-review moves it out of `updated`,
+      // so it must not share the waypoint item the blocks above assert against.
+      let apiWorkItemId
+
+      before(async () => {
+        await login.login()
+        apiWorkItemId = await createReAccreditation('RA454 Continue API Ltd')
+        await raiseQuery(apiWorkItemId, {
+          reason:
+            'RA-454: endpoint guard — queried before duly making, please resend the business plan.'
+        })
+        await resumeFromQuery(apiWorkItemId)
+        await login.logout()
+      })
+
+      it('returns the item to the queried-from state (submitted), never duly-making it', async () => {
+        const result = await continueReviewViaApi(apiWorkItemId)
+
+        // 200, not a 409: the endpoint accepts the call for a pre-duly-made
+        // waypoint (the resume-during-duly-making audit entry resolves the
+        // continue-review-during-duly-making action) — it just must not
+        // duly-make.
+        expect(result.status).toBe(200)
+        // The heart of epr-nkpi.1: back to `submitted`, the state the query was
+        // raised from, and specifically NOT `duly-made` — the destination the
+        // ticket title calls out.
+        expect(result.body.stateId).toBe('submitted')
+        expect(result.body.stateId).not.toBe('duly-made')
       })
     })
   })
