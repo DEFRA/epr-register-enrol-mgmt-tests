@@ -19,7 +19,7 @@ function normaliseSpaces(value) {
   // \u00a0 written as an escape, not as a literal non-breaking space: the
   // literal is invisible in an editor and one careless reformat turns this
   // into a no-op that still compiles and silently stops normalising anything.
-  return String(value).replace(/\u00a0/g, ' ')
+  return String(value).replaceAll('\u00a0', ' ')
 }
 
 function toXPathString(value) {
@@ -530,7 +530,14 @@ class WorkItemDetailPage extends Page {
     const transitions = []
     for (const entry of entries) {
       const text = await entry.getText()
-      const match = text.match(/\(([^)]*→[^)]*)\)/)
+      // The two segments around the arrow exclude the arrow itself (not just
+      // the closing paren): with a shared `[^)]*` on both sides, a string
+      // containing more than one arrow gives the engine multiple equally
+      // valid ways to split the match, and it backtracks through all of them
+      // before failing — superlinear on pathological input. Each side only
+      // ever holds a state name (no arrow in it per the format this parses),
+      // so narrowing the class costs nothing and makes the split unambiguous.
+      const match = text.match(/\(([^)→]*→[^)→]*)\)/)
       transitions.push(
         match ? match[1].trim() : text.replace(/\s+/g, ' ').trim()
       )
