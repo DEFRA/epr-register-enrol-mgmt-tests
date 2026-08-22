@@ -155,9 +155,11 @@ describe('Full operator payload on the work item detail page (seeded)', () => {
     })
 
     it('shows every business plan category with its detail text', async () => {
-      // The seeded business plan populates all six categories. Asserting each
-      // catches a template that renders only the first, or that drops the
-      // free-text detail while keeping the percentages.
+      // The seeded business plan populates all seven categories (RA-456 added
+      // "Activities or investment not covered by the other categories" as the
+      // seventh). Asserting each catches a template that renders only the
+      // first, or that drops the free-text detail while keeping the
+      // percentages.
       const businessPlan =
         await detail.applicationDetailRowText('business-plan')
       for (const text of [
@@ -166,7 +168,8 @@ describe('Full operator payload on the work item detail page (seeded)', () => {
         'Kerbside collection expansion',
         'Customer awareness campaign',
         'New export contracts secured',
-        'Recycled content packaging trial'
+        'Recycled content packaging trial',
+        'Contribution to sector-wide research and development initiatives'
       ]) {
         expect(businessPlan).toContain(text)
       }
