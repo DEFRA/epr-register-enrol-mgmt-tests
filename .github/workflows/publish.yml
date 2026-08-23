@@ -24,6 +24,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build the test suite
-        uses: DEFRA/cdp-build-action/build-test@main
+        # Pinned to the commit that `main` resolved to on 2026-08-23. A branch
+        # ref can be force-moved, so it is not a trustworthy supply-chain
+        # anchor. NOTE: cdp-build-action is platform-managed and is normally
+        # tracked at @main so CDP fixes land automatically -- see the PR
+        # description before merging this hunk.
+        uses: DEFRA/cdp-build-action/build-test@f95d7ca6ee42255191e17bbf5dd8e08810a189a3 # main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

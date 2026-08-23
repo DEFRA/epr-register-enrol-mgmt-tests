@@ -26,7 +26,10 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - run: npm install -g npm@11.12.1
+      # --ignore-scripts blocks dependency lifecycle scripts during the
+      # install. The repo's .npmrc already sets ignore-scripts=true, so this is
+      # behaviour-identical and only makes the intent explicit at the call site.
+      - run: npm install -g npm@11.12.1 --ignore-scripts
       - run: |
           npm ci --ignore-scripts
           npm run format:check
