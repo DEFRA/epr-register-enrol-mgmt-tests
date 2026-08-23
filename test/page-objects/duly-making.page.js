@@ -81,7 +81,7 @@ class DulyMakingPage extends Page {
    */
   async chargeAmountPounds() {
     const raw = await this.chargeAmountText()
-    const match = raw.replace(/,/g, '').match(/(\d+(?:\.\d+)?)/)
+    const match = raw.replaceAll(',', '').match(/(\d+(?:\.\d+)?)/)
     return match ? Number(match[1]) : Number.NaN
   }
 
