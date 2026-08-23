@@ -25,7 +25,7 @@ export const config = {
   // strings. The default path (env var unset) yields the number 4444 and
   // works, which is why this survived — the documented knob was simply broken
   // for anyone who used it. wdio.conf.js already does it this way.
-  port: parseInt(process.env.CHROMEDRIVER_PORT, 10) || 4444,
+  port: Number.parseInt(process.env.CHROMEDRIVER_PORT, 10) || 4444,
 
   // Tests to run
   specs: ['./test/specs/**/*.js'],

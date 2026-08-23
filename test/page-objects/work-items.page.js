@@ -354,7 +354,7 @@ class WorkItemsPage extends Page {
     const summary = await $('[data-testid="work-items-summary"]').getText()
     const match =
       summary.match(/of (\d+)/) || summary.match(/\((\d+) work item/)
-    return match ? parseInt(match[1], 10) : 0
+    return match ? Number.parseInt(match[1], 10) : 0
   }
 
   // ── RA-324 phase-2 collapsible filter sections ───────────────────────────── //

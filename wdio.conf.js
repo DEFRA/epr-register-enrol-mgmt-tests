@@ -20,7 +20,7 @@ export const config = {
 
   // Connection to remote chromedriver
   hostname: process.env.CHROMEDRIVER_URL || '127.0.0.1',
-  port: parseInt(process.env.CHROMEDRIVER_PORT, 10) || 4444,
+  port: Number.parseInt(process.env.CHROMEDRIVER_PORT, 10) || 4444,
 
   // Tests to run
   specs: ['./test/specs/**/*.js'],
