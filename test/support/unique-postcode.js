@@ -57,8 +57,8 @@ export function uniquePostcodeSuffix() {
   const seed = randomInt(SUFFIX_SPACE)
   const digit = seed % DIGITS
   const letterPair = Math.floor(seed / DIGITS)
-  const letter1 = String.fromCharCode(65 + (letterPair % LETTERS))
-  const letter2 = String.fromCharCode(
+  const letter1 = String.fromCodePoint(65 + (letterPair % LETTERS))
+  const letter2 = String.fromCodePoint(
     65 + (Math.floor(letterPair / LETTERS) % LETTERS)
   )
   return `${digit}${letter1}${letter2}`
