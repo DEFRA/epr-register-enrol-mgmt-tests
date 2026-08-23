@@ -353,10 +353,10 @@ export const config = {
     return new Promise((resolve, reject) => {
       const generationTimeout = setTimeout(() => reject(reportError), oneMinute)
 
-      generation.on('exit', function (exitCode) {
+      generation.on('exit', function (generationExitCode) {
         clearTimeout(generationTimeout)
 
-        if (exitCode !== 0) {
+        if (generationExitCode !== 0) {
           return reject(reportError)
         }
 
