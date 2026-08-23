@@ -380,7 +380,13 @@ describe('RA-291 Query an application', () => {
           BusinessPlan: {
             newInfrastructureDetail:
               'RA-291 regression: resubmitted investment plan.',
-            newInfrastructurePercent: 42
+            newInfrastructurePercent: 42,
+            // RA-456: the 7th "other" category, exercised alongside
+            // newInfrastructure so this payload covers the field the
+            // resume-from-query merge most recently gained.
+            otherDetail:
+              'RA-291 regression: resubmitted other-activities plan.',
+            otherPercent: 8
           },
           Prns: {
             plannedTonnageBand: 'UpTo5000'
@@ -405,6 +411,10 @@ describe('RA-291 Query an application', () => {
         'RA-291 regression: resubmitted investment plan.'
       )
       expect(businessPlan).toContain('42% of PRN income')
+      expect(businessPlan).toContain(
+        'RA-291 regression: resubmitted other-activities plan.'
+      )
+      expect(businessPlan).toContain('8% of PRN income')
 
       expect(await detail.applicationDetailRowText('prn-tonnage')).toContain(
         'Up to 5,000 tonnes'
