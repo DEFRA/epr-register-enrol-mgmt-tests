@@ -122,9 +122,13 @@ class Page {
    */
   async isWithinViewport(element) {
     return browser.execute((el) => {
-      if (!el) return false
+      if (!el) {
+        return false
+      }
       const rect = el.getBoundingClientRect()
-      if (rect.width === 0 || rect.height === 0) return false
+      if (rect.width === 0 || rect.height === 0) {
+        return false
+      }
       return rect.left >= -1 && rect.right <= window.innerWidth + 1
     }, element)
   }
