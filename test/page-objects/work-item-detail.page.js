@@ -24,8 +24,12 @@ function normaliseSpaces(value) {
 
 function toXPathString(value) {
   const s = String(value)
-  if (!s.includes("'")) return `'${s}'`
-  if (!s.includes('"')) return `"${s}"`
+  if (!s.includes("'")) {
+    return `'${s}'`
+  }
+  if (!s.includes('"')) {
+    return `"${s}"`
+  }
   const parts = s.split("'").map((p) => `'${p}'`)
   return `concat(${parts.join(`, "'", `)})`
 }
@@ -2103,7 +2107,9 @@ class WorkItemDetailPage extends Page {
       const target = nameTestId
         ? block.$(`[data-testid="${nameTestId}"]`)
         : block
-      if (nameTestId && !(await target.isExisting())) continue
+      if (nameTestId && !(await target.isExisting())) {
+        continue
+      }
       if ((await target.getText()).includes(name)) {
         matches.push(block)
       }
@@ -2244,7 +2250,9 @@ class WorkItemDetailPage extends Page {
   async blockFieldAllText(kind, name, fieldTestId) {
     const block = await this.flaggedBlockNamed(kind, name)
     const fields = await block.$$(`[data-testid="${fieldTestId}"]`)
-    if (![...fields].length) return null
+    if (![...fields].length) {
+      return null
+    }
     const parts = await Promise.all([...fields].map((field) => field.getText()))
     return parts.join('\n').trim()
   }
@@ -2326,7 +2334,9 @@ class WorkItemDetailPage extends Page {
     const lineTestId = NEW_FLAG_BLOCKS[kind].line
     for (const block of [...blocks]) {
       const marker = block.$(`[data-testid="${testId}"]`)
-      if (!(await marker.isExisting())) continue
+      if (!(await marker.isExisting())) {
+        continue
+      }
 
       expect(await marker.getText()).toBe(NEW_MARKER)
 
@@ -2364,7 +2374,9 @@ class WorkItemDetailPage extends Page {
   async hasAnyNewTag() {
     for (const kind of Object.keys(NEW_FLAG_BLOCKS)) {
       const tag = $(`[data-testid="${this.newTagTestId(kind)}"]`)
-      if (await tag.isExisting()) return true
+      if (await tag.isExisting()) {
+        return true
+      }
     }
     return false
   }
