@@ -8,6 +8,9 @@ import {
 import { withdrawAsOperatorOrThrow } from './operator-withdrawal.js'
 import { uniquePostcode } from './unique-postcode.js'
 
+/** Site address line 1 shared by every fixture created below. */
+const FIXTURE_SITE_ADDRESS_LINE_1 = '1 Terminal Way'
+
 /**
  * Journeys that drive a re-accreditation work item into each of the three
  * terminal states (RA-358 assignment gating).
@@ -45,7 +48,7 @@ import { uniquePostcode } from './unique-postcode.js'
 export async function driveToDecisionReady({ organisationName, material }) {
   const { id } = await workItems.createWorkItem({
     organisationName,
-    siteAddressLine1: '1 Terminal Way',
+    siteAddressLine1: FIXTURE_SITE_ADDRESS_LINE_1,
     siteAddressTown: 'York',
     siteAddressPostcode: uniquePostcode('YO1'),
     material,
@@ -72,7 +75,7 @@ export async function driveToDecisionReady({ organisationName, material }) {
 export async function createWithdrawnWorkItem({ organisationName, material }) {
   const { id, applicationReference } = await workItems.createWorkItem({
     organisationName,
-    siteAddressLine1: '1 Terminal Way',
+    siteAddressLine1: FIXTURE_SITE_ADDRESS_LINE_1,
     siteAddressTown: 'York',
     siteAddressPostcode: uniquePostcode('YO1'),
     material,
@@ -114,7 +117,7 @@ async function driveToDulyMade({
   await workItems.goto()
   const { id, applicationReference } = await workItems.createWorkItem({
     organisationName,
-    siteAddressLine1: '1 Terminal Way',
+    siteAddressLine1: FIXTURE_SITE_ADDRESS_LINE_1,
     siteAddressTown: 'York',
     siteAddressPostcode: postcode,
     material,

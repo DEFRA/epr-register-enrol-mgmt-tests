@@ -1,6 +1,9 @@
 import { $, $$, browser, expect } from '@wdio/globals'
 import { Page } from './page.js'
 
+/** The duly-making form's submit button — asserted, clicked and read by name. */
+const DULY_MAKING_SUBMIT_SELECTOR = '[data-testid="duly-making-submit"]'
+
 /**
  * RA-316 — duly making.
  *
@@ -47,7 +50,7 @@ class DulyMakingPage extends Page {
 
   async assertOnPage() {
     await expect(this.pageHeading).toHaveText('Duly make the application')
-    await expect($('[data-testid="duly-making-submit"]')).toBeDisplayed()
+    await expect($(DULY_MAKING_SUBMIT_SELECTOR)).toBeDisplayed()
   }
 
   chargeAmount() {
@@ -125,7 +128,7 @@ class DulyMakingPage extends Page {
   }
 
   async submit() {
-    await $('[data-testid="duly-making-submit"]').click()
+    await $(DULY_MAKING_SUBMIT_SELECTOR).click()
   }
 
   async cancel() {
@@ -133,7 +136,7 @@ class DulyMakingPage extends Page {
   }
 
   async submitButtonText() {
-    return $('[data-testid="duly-making-submit"]').getText()
+    return $(DULY_MAKING_SUBMIT_SELECTOR).getText()
   }
 
   async cancelLinkText() {
