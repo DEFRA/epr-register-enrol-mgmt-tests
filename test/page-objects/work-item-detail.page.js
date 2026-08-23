@@ -1,6 +1,16 @@
 import { $, $$, browser, expect } from '@wdio/globals'
 import { Page } from './page.js'
 
+/** The test-id attribute, and the CSS selector that matches any element carrying it. */
+const TESTID_ATTR = 'data-testid'
+const TESTID_SELECTOR = '[data-testid]'
+
+/** The generic post-redirect (PRG) flash notification banner. */
+const FLASH_BANNER_SELECTOR = '[data-testid="work-item-flash-banner"]'
+
+/** The application-details row key for the sampling and inspection plan. */
+const SAMPLING_INSPECTION_PLAN_ROW = 'sampling-inspection-plan'
+
 /**
  * Build an XPath 1.0 string literal that safely encodes a JS string,
  * including values that contain single quotes, double quotes or both.
@@ -24,8 +34,12 @@ function normaliseSpaces(value) {
 
 function toXPathString(value) {
   const s = String(value)
-  if (!s.includes("'")) return `'${s}'`
-  if (!s.includes('"')) return `"${s}"`
+  if (!s.includes("'")) {
+    return `'${s}'`
+  }
+  if (!s.includes('"')) {
+    return `"${s}"`
+  }
   const parts = s.split("'").map((p) => `'${p}'`)
   return `concat(${parts.join(`, "'", `)})`
 }
@@ -62,7 +76,7 @@ export const APPLICATION_DETAIL_ROWS = [
   'prn-tonnage',
   'prn-authorisers',
   'authority-to-issue',
-  'sampling-inspection-plan',
+  SAMPLING_INSPECTION_PLAN_ROW,
   'business-plan',
   'bes',
   'ors'
@@ -620,7 +634,7 @@ class WorkItemDetailPage extends Page {
    * for the inline selector.
    */
   async assertFlashBanner() {
-    await expect($('[data-testid="work-item-flash-banner"]')).toBeDisplayed()
+    await expect($(FLASH_BANNER_SELECTOR)).toBeDisplayed()
   }
 
   /**
@@ -628,7 +642,7 @@ class WorkItemDetailPage extends Page {
    * distinguish WHICH operation flashed it rather than merely that one did.
    */
   async flashBannerText() {
-    return $('[data-testid="work-item-flash-banner"]').getText()
+    return $(FLASH_BANNER_SELECTOR).getText()
   }
 
   /**
@@ -647,7 +661,7 @@ class WorkItemDetailPage extends Page {
    * without asserting management-fe's copy.
    */
   async assertErrorFlashBanner() {
-    await expect($('[data-testid="work-item-flash-banner"]')).toBeDisplayed()
+    await expect($(FLASH_BANNER_SELECTOR)).toBeDisplayed()
     await expect(
       $(
         '[data-testid="work-item-flash-banner"].govuk-notification-banner--success'
@@ -991,10 +1005,10 @@ class WorkItemDetailPage extends Page {
    * conditional row to be present.
    */
   async applicationDetailRowOrder() {
-    const rows = await this.applicationDetails().$$('[data-testid]')
+    const rows = await this.applicationDetails().$$(TESTID_SELECTOR)
     const seen = []
     for (const row of rows) {
-      const testId = await row.getAttribute('data-testid')
+      const testId = await row.getAttribute(TESTID_ATTR)
       const key = (testId ?? '').replace(/^app-detail-row-/, '')
       if (
         testId?.startsWith('app-detail-row-') &&
@@ -1015,7 +1029,7 @@ class WorkItemDetailPage extends Page {
    * stops, which is precisely the regression the AC guards against.
    */
   supportingDocumentLinks() {
-    return this.documentLinksIn('sampling-inspection-plan')
+    return this.documentLinksIn(SAMPLING_INSPECTION_PLAN_ROW)
   }
 
   /**
@@ -1049,7 +1063,9 @@ class WorkItemDetailPage extends Page {
    * AC02 is about the documents beyond the first, the ones most likely to be
    * rendered with a copy-pasted or index-confused link.
    */
-  async fetchSupportingDocumentResponses(rowKey = 'sampling-inspection-plan') {
+  async fetchSupportingDocumentResponses(
+    rowKey = SAMPLING_INSPECTION_PLAN_ROW
+  ) {
     const links = await this.documentLinksIn(rowKey)
     const allHrefs = await Promise.all(
       [...links].map((link) => link.getAttribute('href'))
@@ -1496,7 +1512,7 @@ class WorkItemDetailPage extends Page {
     const elements = await $$('[data-testid^="action-"]')
     const ids = []
     for (const element of elements) {
-      const testId = await element.getAttribute('data-testid')
+      const testId = await element.getAttribute(TESTID_ATTR)
       ids.push(testId.replace(/^action-/, ''))
     }
     return ids
@@ -1582,7 +1598,7 @@ class WorkItemDetailPage extends Page {
     const controls = await this.actionControls()
     const ids = []
     for (const control of controls) {
-      const testId = await control.getAttribute('data-testid')
+      const testId = await control.getAttribute(TESTID_ATTR)
       ids.push((testId ?? '').replace(/^action-/, ''))
     }
     return ids
@@ -2110,7 +2126,9 @@ class WorkItemDetailPage extends Page {
       const target = nameTestId
         ? block.$(`[data-testid="${nameTestId}"]`)
         : block
-      if (nameTestId && !(await target.isExisting())) continue
+      if (nameTestId && !(await target.isExisting())) {
+        continue
+      }
       if ((await target.getText()).includes(name)) {
         matches.push(block)
       }
@@ -2251,7 +2269,9 @@ class WorkItemDetailPage extends Page {
   async blockFieldAllText(kind, name, fieldTestId) {
     const block = await this.flaggedBlockNamed(kind, name)
     const fields = await block.$$(`[data-testid="${fieldTestId}"]`)
-    if (![...fields].length) return null
+    if (![...fields].length) {
+      return null
+    }
     const parts = await Promise.all([...fields].map((field) => field.getText()))
     return parts.join('\n').trim()
   }
@@ -2333,7 +2353,9 @@ class WorkItemDetailPage extends Page {
     const lineTestId = NEW_FLAG_BLOCKS[kind].line
     for (const block of [...blocks]) {
       const marker = block.$(`[data-testid="${testId}"]`)
-      if (!(await marker.isExisting())) continue
+      if (!(await marker.isExisting())) {
+        continue
+      }
 
       expect(await marker.getText()).toBe(NEW_MARKER)
 
@@ -2371,7 +2393,9 @@ class WorkItemDetailPage extends Page {
   async hasAnyNewTag() {
     for (const kind of Object.keys(NEW_FLAG_BLOCKS)) {
       const tag = $(`[data-testid="${this.newTagTestId(kind)}"]`)
-      if (await tag.isExisting()) return true
+      if (await tag.isExisting()) {
+        return true
+      }
     }
     return false
   }
@@ -2445,10 +2469,10 @@ class WorkItemDetailPage extends Page {
    * cannot break the ordering assertion.
    */
   async additionalInformationRowOrder() {
-    const rows = await this.additionalInformation().$$('[data-testid]')
+    const rows = await this.additionalInformation().$$(TESTID_SELECTOR)
     const seen = []
     for (const row of rows) {
-      const testId = await row.getAttribute('data-testid')
+      const testId = await row.getAttribute(TESTID_ATTR)
       const key = (testId ?? '').replace(/^additional-information-row-/, '')
       if (
         testId?.startsWith('additional-information-row-') &&

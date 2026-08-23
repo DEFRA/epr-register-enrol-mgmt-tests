@@ -121,17 +121,13 @@ export const config = {
   },
 
   // Hooks
-  afterTest: async function (
-    test,
-    context,
-    { error, result, duration, passed, retries }
-  ) {
+  afterTest: async function (_test, _context, { error }) {
     if (error) {
       await browser.takeScreenshot()
     }
   },
 
-  onComplete: function (exitCode, config, capabilities, results) {
+  onComplete: function (_exitCode, _config, _capabilities, results) {
     // !Do Not Remove! Required for test status to show correctly in portal.
     if (results?.failed && results.failed > 0) {
       fs.writeFileSync('FAILED', JSON.stringify(results))

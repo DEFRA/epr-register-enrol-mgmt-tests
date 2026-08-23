@@ -94,7 +94,9 @@ describe('RA-295 case header on the work item detail page', () => {
       // bottom of this file, against a clock pinned to known values.
       const placeholders = []
       for (const name of Object.keys(CASE_HEADER_FIELDS)) {
-        if (name === 'dueOn') continue
+        if (name === 'dueOn') {
+          continue
+        }
         const text = (await detail.caseHeaderFieldText(name)).trim()
         if (text === '' || text === '—') {
           placeholders.push(`${name} ("${text}")`)
