@@ -1,6 +1,19 @@
 import { browser, $, expect } from '@wdio/globals'
 import { Page } from './page.js'
 
+/** Prefix-matched testid of an application card's "open this item" link. */
+const WORK_ITEM_LINK_SELECTOR = '[data-testid^="work-item-link-"]'
+
+/** The results summary line ("Showing {start}-{end} of {total}"). */
+const WORK_ITEMS_SUMMARY_SELECTOR = '[data-testid="work-items-summary"]'
+
+/**
+ * Card field keys that both the field-order contract below and the per-field
+ * accessors further down refer to. Named so the two never drift apart.
+ */
+const SUBMITTED_ON_FIELD = 'submitted-on'
+const ASSIGNED_TO_FIELD = 'assigned-to'
+
 /**
  * RA-370 (supersedes RA-324 AC05). The order in which an application card
  * renders its fields — the story's field list, verbatim and in order:
@@ -43,8 +56,8 @@ export const TILE_FIELD_ORDER = [
   'org-id',
   'material',
   'applicant-type',
-  'submitted-on',
-  'assigned-to',
+  SUBMITTED_ON_FIELD,
+  ASSIGNED_TO_FIELD,
   'due-on'
 ]
 
@@ -198,7 +211,7 @@ class WorkItemsPage extends Page {
    * is present and the "first" row is unambiguous.
    */
   async openFirstListedWorkItem() {
-    const link = await $('[data-testid^="work-item-link-"]')
+    const link = await $(WORK_ITEM_LINK_SELECTOR)
     await link.waitForClickable()
     await link.click()
     await this.waitForDetailPage()
@@ -313,7 +326,7 @@ class WorkItemsPage extends Page {
    * created via createWorkItem, which return their id directly).
    */
   async firstResultWorkItemId() {
-    const link = await $('[data-testid^="work-item-link-"]')
+    const link = await $(WORK_ITEM_LINK_SELECTOR)
     const testId = await link.getAttribute('data-testid')
     return testId.replace('work-item-link-', '')
   }
@@ -339,7 +352,7 @@ class WorkItemsPage extends Page {
         value
       )}`
     )
-    await $('[data-testid="work-items-summary"]').waitForDisplayed()
+    await $(WORK_ITEMS_SUMMARY_SELECTOR).waitForDisplayed()
   }
 
   /**
@@ -351,7 +364,7 @@ class WorkItemsPage extends Page {
    * your filters" empty state (neither pattern matches it).
    */
   async getWorkItemCount() {
-    const summary = await $('[data-testid="work-items-summary"]').getText()
+    const summary = await $(WORK_ITEMS_SUMMARY_SELECTOR).getText()
     const match =
       summary.match(/of (\d+)/) || summary.match(/\((\d+) work item/)
     return match ? parseInt(match[1], 10) : 0
@@ -526,7 +539,7 @@ class WorkItemsPage extends Page {
 
   /** The application-ref link text of each card, in list (DOM) order. */
   async cardRefOrder() {
-    const links = await $$('[data-testid^="work-item-link-"]')
+    const links = await $$(WORK_ITEM_LINK_SELECTOR)
     return Promise.all([...links].map((link) => link.getText()))
   }
 
@@ -560,7 +573,7 @@ class WorkItemsPage extends Page {
   }
 
   getSummaryText() {
-    return $('[data-testid="work-items-summary"]').getText()
+    return $(WORK_ITEMS_SUMMARY_SELECTOR).getText()
   }
 
   /**
@@ -571,7 +584,7 @@ class WorkItemsPage extends Page {
    * 500'd (RA-342).
    */
   worklistSummary() {
-    return $('[data-testid="work-items-summary"]')
+    return $(WORK_ITEMS_SUMMARY_SELECTOR)
   }
 
   /**
@@ -770,11 +783,11 @@ class WorkItemsPage extends Page {
    * tileHasSubmittedOn for the conditional-visibility negative.
    */
   tileSubmittedOn(id) {
-    return this.tileField(id, 'submitted-on')
+    return this.tileField(id, SUBMITTED_ON_FIELD)
   }
 
   async tileHasSubmittedOn(id) {
-    return this.tileHasField(id, 'submitted-on')
+    return this.tileHasField(id, SUBMITTED_ON_FIELD)
   }
 
   /**
@@ -783,11 +796,11 @@ class WorkItemsPage extends Page {
    * lived in the SLA footer and so appeared only once the clock had started.)
    */
   tileAssignedTo(id) {
-    return this.tileField(id, 'assigned-to')
+    return this.tileField(id, ASSIGNED_TO_FIELD)
   }
 
   async tileHasAssignedTo(id) {
-    return this.tileHasField(id, 'assigned-to')
+    return this.tileHasField(id, ASSIGNED_TO_FIELD)
   }
 
   /**
