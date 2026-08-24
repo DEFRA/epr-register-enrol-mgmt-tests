@@ -107,15 +107,6 @@ class WorkItemsPage extends Page {
     if (opts.operatorEmail !== undefined) {
       await $('#field-operatorEmail').setValue(opts.operatorEmail)
     }
-    // RA-448 added a numeric Org ID field to the create form (pre-filled with
-    // a demo default). Callers that need a KNOWN operator org id — e.g. to
-    // assert the Application History snapshot surfaces it (RA-450) — override
-    // it here; otherwise the form's default is left in place.
-    if (opts.operatorOrganisationId !== undefined) {
-      const orgIdField = await $('#field-operatorOrganisationId')
-      await orgIdField.clearValue()
-      await orgIdField.setValue(opts.operatorOrganisationId)
-    }
     await $('#field-organisationName').setValue(opts.organisationName)
     // RA-448. Both fields are pre-filled with a demo value (500001 /
     // reg-demo-001) on GET, same convention as operatorEmail above — most
