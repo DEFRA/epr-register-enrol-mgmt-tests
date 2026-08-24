@@ -34,8 +34,14 @@ runs:
       if: inputs.journey-test-pr != 'false'
       id: management-fe-branch
       shell: bash
+      # github.head_ref is attacker-controllable (a PR author picks their own
+      # branch name), so it is passed through the environment rather than
+      # interpolated into the script body, where a crafted name would be
+      # executed as shell.
+      env:
+        HEAD_REF: ${{ github.head_ref }}
       run: |
-        BRANCH="${{ github.head_ref }}"
+        BRANCH="$HEAD_REF"
         if git ls-remote --heads https://github.com/DEFRA/epr-register-enrol-management-fe.git "$BRANCH" | grep -q .; then
           echo "exists=true" >> "$GITHUB_OUTPUT"
           echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
@@ -75,8 +81,12 @@ runs:
       if: inputs.journey-test-pr != 'false'
       id: management-be-branch
       shell: bash
+      # See the management-fe step above: github.head_ref is user-controlled and
+      # must not be interpolated directly into a run block.
+      env:
+        HEAD_REF: ${{ github.head_ref }}
       run: |
-        BRANCH="${{ github.head_ref }}"
+        BRANCH="$HEAD_REF"
         if git ls-remote --heads https://github.com/DEFRA/epr-register-enrol-management-be.git "$BRANCH" | grep -q .; then
           echo "exists=true" >> "$GITHUB_OUTPUT"
           echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
@@ -111,10 +121,17 @@ runs:
       with:
         node-version-file: .nvmrc
         cache: npm
-    - run: npm install -g npm@11.12.1
+    # --ignore-scripts blocks dependency lifecycle scripts during both installs.
+    # The repo's .npmrc already sets ignore-scripts=true, so this changes no
+    # behaviour; it only makes the guarantee explicit at the call site. The
+    # install scripts in this tree are the browser-driver downloaders
+    # (edgedriver/geckodriver) and esbuild's, none of which are used: the suite
+    # talks to the chromedriver container over CHROMEDRIVER_URL, and esbuild's
+    # binary ships in the @esbuild/<platform> package npm ci installs.
+    - run: npm install -g npm@11.12.1 --ignore-scripts
       shell: bash
     - name: Install test dependencies
-      run: npm ci
+      run: npm ci --ignore-scripts
       shell: bash
 
     - name: Start docker compose
