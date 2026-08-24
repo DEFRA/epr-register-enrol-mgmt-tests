@@ -701,6 +701,27 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * The value (dd text) of a work-item snapshot row inside an audit entry's
+   * "Show details" disclosure, keyed by the visible dt text (e.g. "Org ID",
+   * "Type", "State"). Scoped to the Nth disclosure (1-based, default the
+   * first): the audit-log controller builds ONE snapshot from the work item's
+   * current payload and stamps it on every entry, so any disclosure carries
+   * the same rows and the first is a reliable representative.
+   *
+   * Callers must expandAllAuditEntryDetails() first so the row is rendered.
+   * Used by RA-450 to assert the Org ID row shows the operator organisation id
+   * rather than the application reference. The key is XPath-escaped so labels
+   * with quotes cannot corrupt the locator.
+   */
+  async auditSnapshotRowValue(key, nth = 1) {
+    const needle = toXPathString(key)
+    return $(
+      `//*[@data-testid="work-item-audit-entry-details"][${nth}]` +
+        `//dt[normalize-space(.)=${needle}]/following-sibling::dd`
+    ).getText()
+  }
+
+  /**
    * Assert the Payload row on the work-item-submitted audit entry
    * contains the given substring. RA-186 surfaces the submission
    * payload inside the submitted entry's disclosure rather than as a
