@@ -86,12 +86,14 @@ export const APPLICATION_DETAIL_ROWS = [
 export const EXPORTER_ONLY_ROWS = ['bes', 'ors']
 
 /**
- * RA-434. The "Additional information" tab's rows, in the fixed order
- * `buildAdditionalInformationRows` (management-fe) builds them in: Registered
- * name, Companies house number, Registered address, Site name, Site address,
- * Permit numbers. `site-name` has no producer field anywhere in the chain
- * today, so it is always omitted — every fixture's rendered row set is this
- * list minus `site-name`.
+ * RA-434 / RA-480. The "Additional information" tab's rows, in the fixed
+ * order `buildAdditionalInformationRows` (management-fe) builds them in:
+ * Registered name, Companies house number, Registered address, Site name,
+ * Site address, Permit numbers, Contact full name, Contact email, Contact
+ * phone, Contact job title. `site-name` has no producer field anywhere in
+ * the chain today, so it is always omitted — every fixture's rendered row
+ * set is this list minus `site-name` (and minus the four contact rows when
+ * the fixture has no `submitterContactDetails`).
  */
 export const ADDITIONAL_INFORMATION_ROWS = [
   'organisation-name',
@@ -99,7 +101,19 @@ export const ADDITIONAL_INFORMATION_ROWS = [
   'company-registered-address',
   'site-name',
   'site-address',
-  'permit-numbers'
+  'permit-numbers',
+  'contact-full-name',
+  'contact-email',
+  'contact-phone',
+  'contact-job-title'
+]
+
+/** RA-480. The four contact rows, split out for the blank-fixture negative test. */
+export const CONTACT_DETAIL_ROWS = [
+  'contact-full-name',
+  'contact-email',
+  'contact-phone',
+  'contact-job-title'
 ]
 
 class WorkItemDetailPage extends Page {
