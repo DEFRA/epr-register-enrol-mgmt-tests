@@ -75,26 +75,14 @@ describe('RA-196 — application reference shown instead of internal id', () => 
       // old "Work item {ref}" caption text. The RA-249 fallback rule is
       // unchanged. The tasks sub-page below still uses the caption, which is
       // why getCaption() understands both.
+      //
+      // RA-504 removed the Reference footer that used to carry a second copy of
+      // the reference ("Application reference" row), so the case header is now
+      // the surviving render this spec asserts on — and it must still be the
+      // user-facing AP* reference, never the internal id.
       const caption = await detail.getCaption()
       expect(caption).toBe(applicationReference)
-    })
-
-    it('shows the application reference in the retained reference block', async () => {
-      // The envelope summary list is gone; the reference survives in the block
-      // at the foot of the page, relabelled "Application reference".
-      const value = await detail.getSummaryValueByKey('Application reference')
-      expect(value).toBe(applicationReference)
-    })
-
-    it('does not label the reference row as "Id"', async () => {
-      // The point of RA-196 is that the user-facing reference is not presented
-      // as the internal id. The row is now labelled "Work item ID" and does
-      // carry the internal id — deliberately, for debugging — so this asserts
-      // the bare "Id" label is still absent AND that the internal id has not
-      // crept into the reference row.
-      expect(await detail.hasSummaryKey('Id')).toBe(false)
-      const value = await detail.getSummaryValueByKey('Application reference')
-      expect(value).not.toBe(createdId)
+      expect(caption).not.toBe(createdId)
     })
   })
 

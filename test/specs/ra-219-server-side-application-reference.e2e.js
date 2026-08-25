@@ -53,12 +53,14 @@ describe('RA-219 — server-generated application reference', () => {
       await workItems.openWorkItem(createdId)
     })
 
-    it('shows the server-generated reference in the retained reference block', async () => {
-      // RA-295 removed the envelope summary list; the reference moved to the
-      // block at the foot of the page and the label changed from "Application
-      // ref" to "Application reference".
-      const value = await detail.getSummaryValueByKey('Application reference')
-      expect(value).toBe(applicationReference)
+    it('shows the server-generated reference as the page identity', async () => {
+      // RA-504 removed the Reference footer that used to carry the reference in
+      // an "Application reference" summary row; the case header is the
+      // surviving render of the identity, and it must show the server-generated
+      // AP* reference rather than the internal id.
+      const caption = await detail.getCaption()
+      expect(caption).toBe(applicationReference)
+      expect(caption).not.toBe(createdId)
     })
   })
 

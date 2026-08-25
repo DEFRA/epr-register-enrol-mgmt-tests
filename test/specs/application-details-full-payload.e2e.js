@@ -27,8 +27,12 @@ import detail from '../page-objects/work-item-detail.page.js'
  * coverage disguised as a migration. Where the data now lives:
  *   - headline identity            -> the case header
  *   - submitted application data   -> the `application-details` rows
- *   - identifiers and declaration  -> the retained reference block at the foot
- *     of the page, which OMITS valueless rows rather than rendering an em dash
+ *
+ * RA-504 UPDATE. The operator identifiers, registration number, accreditation
+ * years, submitted-by declaration and operator email used to render in a
+ * "Reference" footer at the foot of the page (added by RA-295). RA-504 removed
+ * that footer outright and nothing it carried moved elsewhere, so the
+ * assertions on those rows are gone and their absence is asserted instead.
  *
  * RA-319 fast-follow: the BES-evidence block below is the coverage flagged as
  * missing in mgmt-tests#62 (management-fe#117 shipped the BES-evidence UI with
@@ -80,39 +84,14 @@ describe('Full operator payload on the work item detail page (seeded)', () => {
     })
   })
 
-  describe('identifiers in the retained reference block', () => {
-    // Debugging identifiers rather than case-working data, which is why RA-295
-    // moved them to the foot of the page instead of the header.
-    const rows = [
-      ['operator-application-id', 'app-full-payload-001'],
-      // RA-448 phase 2: numeric now (see the orgId case-header assertion
-      // above for why), not the old string 'org-full-payload-001'.
-      ['operator-organisation-id', '500009'],
-      ['operator-registration-id', 'reg-full-payload-001'],
-      ['operator-email', 'full.payload@example.com'],
-      ['registration-number', 'EPR-100999'],
-      ['accreditation-year', '2026'],
-      ['previous-accreditation-year', '2025']
-    ]
-
-    for (const [key, value] of rows) {
-      it(`shows ${key} as ${value}`, async () => {
-        expect(await detail.hasReferenceRow(key)).toBe(true)
-        await expect(detail.referenceRow(key)).toHaveText(
-          expect.stringContaining(value)
-        )
-      })
-    }
-
-    it('shows the submitted-by declaration in full', async () => {
-      // The three submittedBy fields are joined into one Declaration row.
-      // Asserting all three guards against a partial mapping that silently
-      // drops the job title or email while still rendering something plausible.
-      expect(await detail.hasReferenceRow('declaration')).toBe(true)
-      const declaration = await detail.referenceRowText('declaration')
-      expect(declaration).toContain('Priya Sharma')
-      expect(declaration).toContain('Compliance Manager')
-      expect(declaration).toContain('priya.sharma@example.com')
+  describe('the removed Reference footer', () => {
+    // RA-504 removed the debugging "Reference" block that RA-295 had relocated
+    // to the foot of the page. It used to carry the operator identifiers,
+    // registration number, accreditation years, the submitted-by declaration
+    // and the operator email — all now gone from the page, with nothing moved
+    // elsewhere. Even the richest seeded payload must not render it.
+    it('is absent even for a full operator payload', async () => {
+      await detail.assertNoReferenceFooter()
     })
   })
 

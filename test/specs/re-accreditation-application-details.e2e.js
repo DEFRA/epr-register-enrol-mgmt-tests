@@ -19,11 +19,13 @@ import detail from '../page-objects/work-item-detail.page.js'
  * detail page. The page object for that route is deleted; everything here now
  * reads the detail page.
  *
- * Two behaviours changed with the move, and the assertions follow them rather
- * than being loosened:
- *   - the retained reference block OMITS valueless rows instead of rendering
- *     an em dash, so absent data is asserted as row-absent
- *   - the page identity is the case header, not an appHeading caption
+ * The page identity is the case header, not an appHeading caption, and the
+ * assertions follow that rather than being loosened.
+ *
+ * RA-504 UPDATE. RA-295 had put a "Reference" block at the foot of the page
+ * that, for this sparse item, omitted its valueless rows. RA-504 removed the
+ * block entirely, so the spec now asserts its absence instead of checking
+ * which of its rows rendered.
  */
 describe('Application information — sparse, form-created work item', () => {
   let workItemId
@@ -91,30 +93,13 @@ describe('Application information — sparse, form-created work item', () => {
   })
 
   describe('sections with no submitted data', () => {
-    it('omits the declaration row rather than rendering an empty one', async () => {
-      // No submittedBy on a form-created item. The reference block omits
-      // valueless rows outright, so absence is the only meaningful assertion —
-      // the old em-dash placeholder no longer exists.
-      expect(await detail.hasReferenceRow('declaration')).toBe(false)
-    })
-
-    it('renders the operator registration id row with the demo default', async () => {
-      // RA-448 phase 2: operatorRegistrationId is now a required field on the
-      // create form (management-be's accreditation-number adapter needs it to
-      // approve the item), pre-filled with a demo value the same way
-      // operatorOrganisationId is. This row is therefore no longer part of the
-      // "no submitted data" set this describe block otherwise covers — a
-      // form-created item always carries it.
-      expect(await detail.hasReferenceRow('operator-registration-id')).toBe(
-        true
-      )
-    })
-
-    it('still renders the reference block for the values it does have', async () => {
-      // Guards every absence assertion above against passing simply because
-      // the whole block failed to render.
-      expect(await detail.hasReferenceRow('work-item-id')).toBe(true)
-      expect(await detail.hasReferenceRow('application-reference')).toBe(true)
+    it('does not render the removed Reference footer', async () => {
+      // RA-504 removed the "Reference" block RA-295 had put at the foot of the
+      // page. For a sparse, form-created item it previously omitted its
+      // valueless rows (declaration) while still rendering the work-item-id,
+      // application-reference and (RA-448) operator-registration-id rows; now
+      // the whole block is gone, so its absence is the assertion.
+      await detail.assertNoReferenceFooter()
     })
 
     it('shows an empty state for the sampling and inspection plan', async () => {
