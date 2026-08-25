@@ -77,19 +77,19 @@ describe('RA-249 — application reference survives approval', () => {
     await detail.assertState('Granted')
     await detail.assertApprovalPanelVisible()
 
-    // The core RA-249 assertion: the "Application reference" row must still
-    // be the human AP* reference, never the internal GUID / a UUID.
-    const value = await detail.getSummaryValueByKey('Application reference')
-    expect(value).toBe(applicationReference)
-    expect(value).toMatch(/^AP[A-Z0-9]+$/)
-    expect(value).not.toBe(createdId)
-    expect(value).not.toMatch(UUID_RE)
-
-    // The page caption is driven by the same reference and must not regress
-    // to the GUID either.
+    // The core RA-249 assertion: after approval the page identity must still be
+    // the human AP* reference, never the internal GUID / a UUID.
+    //
+    // RA-504 removed the Reference footer that used to carry a second copy of
+    // this in an "Application reference" row, so the case header caption is now
+    // the surviving render — it is driven by the same reference and is where a
+    // regression to the GUID would show.
     const caption = await detail.getCaption()
     expect(caption).toBe(applicationReference)
+    expect(caption).toMatch(/^AP[A-Z0-9]+$/)
+    expect(caption).not.toBe(createdId)
     expect(caption).not.toContain(createdId)
+    expect(caption).not.toMatch(UUID_RE)
 
     await login.logout()
   })
