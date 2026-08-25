@@ -49,5 +49,12 @@ export const EXPORTER = {
   ORG_NAME: 'Continental Exports Verification Ltd',
   COMPANIES_HOUSE_NUMBER: '09876543',
   COMPANY_REGISTERED_ADDRESS: '1 Continental Way, Dover, Kent',
-  PERMIT_NUMBERS_JOINED: 'WML123456, PPC456789'
+  PERMIT_NUMBERS_JOINED: 'WML123456, PPC456789',
+  // RA-480: the EXPORTER seed item carries a populated `submitterContactDetails`
+  // block; REPROCESSOR deliberately has none, giving this spec a populated +
+  // blank case for the tab's four contact rows.
+  CONTACT_FULL_NAME: 'Barton Deckow',
+  CONTACT_EMAIL: 'REEXServiceTeam@defra.gov.uk',
+  CONTACT_PHONE: '0111 478 4919',
+  CONTACT_JOB_TITLE: 'Human Infrastructure Architect'
 }

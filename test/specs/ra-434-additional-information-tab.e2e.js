@@ -1,26 +1,30 @@
 import { browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
-import detail from '../page-objects/work-item-detail.page.js'
+import detail, {
+  CONTACT_DETAIL_ROWS
+} from '../page-objects/work-item-detail.page.js'
 import { REPROCESSOR, EXPORTER } from '../support/ra-434-seed.js'
 
 /**
- * RA-434 — the "Additional information" tab.
+ * RA-434 / RA-480 — the "Additional information" tab.
  *
  * A third tab on the work item detail page, alongside "Application summary"
- * and "Application history" (RA-295), showing six rows sourced from the
+ * and "Application history" (RA-295), showing rows sourced from the
  * operator's re-ex submission: Registered name, Companies house number,
- * Registered address, Site name, Site address, Permit numbers — in that
- * fixed order. Missing rows are OMITTED entirely (no em-dash placeholder),
+ * Registered address, Site name, Site address, Permit numbers, Contact full
+ * name, Contact email, Contact phone, Contact job title — in that fixed
+ * order. Missing rows are OMITTED entirely (no em-dash placeholder),
  * matching the Application summary tab's reference-footer convention.
  *
- * Two fixtures cover the tab's one real conditional, the Site address
- * fallback: re-ex has no site for an exporter, so an exporter's Site address
- * row falls back to the registered address (matching OJ's own header); a
- * reprocessor (or a work item with no `wasteProcessingType` at all) keeps a
- * genuine site address. Site name has no producer field anywhere in the
- * chain today, so it is always omitted on both fixtures — that is the
- * expected behaviour, not a gap in either fixture.
+ * Two fixtures cover the tab's real conditionals: re-ex has no site for an
+ * exporter, so an exporter's Site address row falls back to the registered
+ * address (matching OJ's own header); a reprocessor (or a work item with no
+ * `wasteProcessingType` at all) keeps a genuine site address. Site name has
+ * no producer field anywhere in the chain today, so it is always omitted on
+ * both fixtures. The EXPORTER fixture also carries a populated
+ * `submitterContactDetails` block, while REPROCESSOR has none — giving the
+ * four contact rows a populated + blank case.
  */
 describe('RA-434: Additional information tab', () => {
   describe('reprocessor fixture (no wasteProcessingType)', () => {
@@ -101,6 +105,12 @@ describe('RA-434: Additional information tab', () => {
       expect(await detail.hasAdditionalInformationRow('site-name')).toBe(false)
     })
 
+    it('omits the four contact rows — this fixture has no submitterContactDetails', async () => {
+      for (const key of CONTACT_DETAIL_ROWS) {
+        expect(await detail.hasAdditionalInformationRow(key)).toBe(false)
+      }
+    })
+
     after(async () => {
       await login.logout()
     })
@@ -156,6 +166,21 @@ describe('RA-434: Additional information tab', () => {
 
     it('still omits the Site name row', async () => {
       expect(await detail.hasAdditionalInformationRow('site-name')).toBe(false)
+    })
+
+    it('shows the four contact rows from submitterContactDetails', async () => {
+      expect(
+        await detail.additionalInformationRowText('contact-full-name')
+      ).toContain(EXPORTER.CONTACT_FULL_NAME)
+      expect(
+        await detail.additionalInformationRowText('contact-email')
+      ).toContain(EXPORTER.CONTACT_EMAIL)
+      expect(
+        await detail.additionalInformationRowText('contact-phone')
+      ).toContain(EXPORTER.CONTACT_PHONE)
+      expect(
+        await detail.additionalInformationRowText('contact-job-title')
+      ).toContain(EXPORTER.CONTACT_JOB_TITLE)
     })
 
     after(async () => {
