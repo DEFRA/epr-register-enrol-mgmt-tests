@@ -878,18 +878,6 @@ class WorkItemDetailPage extends Page {
     ).not.toBeExisting()
   }
 
-  /**
-   * RA-295 moved the operator email out of the removed envelope summary list
-   * into the retained reference block at the foot of the page. Scoped to that
-   * row so the assertion cannot pass on the address appearing somewhere else
-   * (it is also rendered in notification audit entries).
-   */
-  async assertOperatorEmail(email) {
-    await expect(this.referenceRow('operator-email')).toHaveText(
-      expect.stringContaining(email)
-    )
-  }
-
   // ── RA-295 AC01: case header ─────────────────────────────────────────────── //
 
   /** The case header panel that sits directly under the service navigation. */
@@ -1141,28 +1129,26 @@ class WorkItemDetailPage extends Page {
     return $('[data-testid="app-detail-sampling-updated-by"]')
   }
 
-  // ── RA-295: application ref retained, moved to the bottom ────────────────── //
-
-  /** The retained debugging application ref, relocated to the page footer. */
-  footerApplicationRef() {
-    return $('[data-testid="work-item-application-ref-footer"]')
-  }
+  // ── RA-504: the Reference footer, removed ────────────────────────────────── //
 
   /**
-   * Assert the retained application ref sits AFTER the application
-   * information section in document order — the Jira note is not just "keep
-   * it" but "move it to the bottom of the page", so position is part of the
-   * requirement. Uses an XPath `following::` axis so this is about DOM order,
-   * not pixel position (mirroring assertApprovalPanelAboveSummary).
+   * RA-504. Assert the Reference footer is gone from the detail page.
+   *
+   * RA-295 had relocated a debugging "Reference" block —
+   * `work-item-application-ref-footer`, its `.app-case-footer` wrapper and its
+   * `work-item-reference-row-*` rows (application reference, identifiers,
+   * declaration, timestamps, operator email) — to the foot of the page.
+   * RA-504 removes that block entirely; nothing it carried moves elsewhere.
+   *
+   * Kept as a helper so the specs assert the removal through one hook rather
+   * than repeating the selector, and so a regression that re-adds the footer
+   * turns this suite red. The whole block hangs off the single footer testid,
+   * so its absence is sufficient to prove every row went with it.
    */
-  async assertApplicationRefAtBottom() {
-    await expect(this.footerApplicationRef()).toBeDisplayed()
+  async assertNoReferenceFooter() {
     await expect(
-      $(
-        '//*[@data-testid="application-details"]' +
-          '/following::*[@data-testid="work-item-application-ref-footer"]'
-      )
-    ).toExist()
+      $('[data-testid="work-item-application-ref-footer"]')
+    ).not.toBeExisting()
   }
 
   // ── RA-295 AC03: assignment panel ────────────────────────────────────────── //
@@ -1367,34 +1353,6 @@ class WorkItemDetailPage extends Page {
    */
   assignmentCurrent() {
     return $('[data-testid="assignment-current"]')
-  }
-
-  // ── RA-295: the retained reference block at the foot of the page ─────────── //
-
-  /**
-   * A row in the reference block, keyed by the field name in its testid (e.g.
-   * 'operator-registration-id', 'application-reference', 'operator-email').
-   *
-   * Rows with no value are OMITTED entirely rather than rendered with an em
-   * dash — so absence is the correct assertion for missing data here, unlike
-   * the case header where the field renders with a dash. Getting that backwards
-   * gives a test that can never fail.
-   */
-  referenceRow(key) {
-    return this.footerApplicationRef().$(
-      `[data-testid="work-item-reference-row-${key}"]`
-    )
-  }
-
-  async hasReferenceRow(key) {
-    if (!(await this.footerApplicationRef().isExisting())) {
-      return false
-    }
-    return this.referenceRow(key).isExisting()
-  }
-
-  async referenceRowText(key) {
-    return this.referenceRow(key).getText()
   }
 
   /**

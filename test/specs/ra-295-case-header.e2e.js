@@ -160,18 +160,17 @@ describe('RA-295 case header on the work item detail page', () => {
       )
     })
 
-    it('shows the accreditation ref, matching the ref retained at the bottom of the page', async () => {
+    it('shows a non-empty accreditation ref', async () => {
       // The seeded reference is generated deterministically from the seed key
-      // by the backend, so its literal value is not knowable here. Asserting
-      // the header ref against the ref retained at the foot of the page is
-      // both stable and a stronger check than a shape match: it proves the two
-      // renderings of the same identifier have not drifted apart.
+      // by the backend, so its literal value is not knowable here — assert it
+      // is present and non-empty. RA-504 removed the Reference footer that used
+      // to carry a second copy of this identifier, so the cross-check against
+      // the footer ref that this test previously made no longer applies (the
+      // footer's absence is asserted below).
       const headerRef = (
         await detail.caseHeaderFieldText('accreditationRef')
       ).trim()
       expect(headerRef).not.toBe('')
-      const footerRef = (await detail.footerApplicationRef().getText()).trim()
-      expect(footerRef).toContain(headerRef)
     })
 
     it('navigates back to the applications list from the header link', async () => {
@@ -194,10 +193,11 @@ describe('RA-295 case header on the work item detail page', () => {
       await expect(detail.ra98ReferenceBanner()).not.toBeExisting()
     })
 
-    it('still shows the application ref, at the bottom of the page', async () => {
-      // Retained for debugging per the Jira note — but MOVED, so position in
-      // the document is part of the requirement, not just presence.
-      await detail.assertApplicationRefAtBottom()
+    it('no longer shows the Reference footer at the bottom of the page', async () => {
+      // RA-504 removed the debugging "Reference" block RA-295 had relocated to
+      // the foot of the page. Asserting its absence here guards against a
+      // regression that re-adds it.
+      await detail.assertNoReferenceFooter()
     })
   })
 

@@ -14,8 +14,8 @@ import { REPROCESSOR, EXPORTER } from '../support/ra-434-seed.js'
  * operator's re-ex submission: Registered name, Companies house number,
  * Registered address, Site name, Site address, Permit numbers, Contact full
  * name, Contact email, Contact phone, Contact job title — in that fixed
- * order. Missing rows are OMITTED entirely (no em-dash placeholder),
- * matching the Application summary tab's reference-footer convention.
+ * order. Missing rows are OMITTED entirely (no em-dash placeholder) rather
+ * than rendered with a blank value.
  *
  * Two fixtures cover the tab's real conditionals: re-ex has no site for an
  * exporter, so an exporter's Site address row falls back to the registered
