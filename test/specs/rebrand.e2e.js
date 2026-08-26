@@ -88,16 +88,17 @@ describe('RA-220 — Defra rebrand: header, service navigation, and footer', () 
       expect(bg.parsed.hex).toBe('#ffffff')
     })
 
-    it('contains an Accessibility statement link', async () => {
-      await expect($('a=Accessibility statement')).toBeDisplayed()
-    })
-
-    it('contains a Cookies link', async () => {
-      await expect($('a=Cookies')).toBeDisplayed()
-    })
-
-    it('contains a Feedback link', async () => {
-      await expect($('a=Feedback')).toBeDisplayed()
+    it('contains an Accessibility statement link pointing at the gov.uk guidance page', async () => {
+      const link = $('a=Accessibility statement')
+      await expect(link).toBeDisplayed()
+      // Cookies and Feedback were removed and Accessibility statement repointed
+      // at the canonical gov.uk page: all three previously pointed at routes
+      // that did not exist and rendered a 404. footer-links.e2e.js guards
+      // against that class of regression.
+      await expect(link).toHaveAttribute(
+        'href',
+        'https://www.gov.uk/guidance/extended-producer-responsibility-for-packaging-accessibility-statement'
+      )
     })
   })
 })
