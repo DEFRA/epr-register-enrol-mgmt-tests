@@ -17,6 +17,11 @@ import login from '../page-objects/login.page.js'
  * page without tripping CORS, and following them would make the suite depend
  * on an external site staying up — so those are asserted to be well-formed
  * absolute https URLs rather than followed.
+ *
+ * RA-486: the case-management (regulator) journey has no content pages to link
+ * to, so the footer currently renders no links at all and both assertions pass
+ * vacuously. This is deliberately kept as a standing guard — the moment a
+ * footer link is (re)introduced, it must resolve.
  */
 describe('Footer links', () => {
   before(async () => {
@@ -30,11 +35,6 @@ describe('Footer links', () => {
     )
     return hrefs.filter(Boolean)
   }
-
-  it('renders at least one footer link', async () => {
-    const hrefs = await footerHrefs()
-    expect(hrefs.length).toBeGreaterThan(0)
-  })
 
   it('has no broken (same-origin) footer links', async () => {
     const origin = new URL(await browser.getUrl()).origin
