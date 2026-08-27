@@ -195,6 +195,9 @@ describe('Full operator payload on the work item detail page (seeded)', () => {
     // gates the Exporter-only sections on — there is no real Exporter
     // discriminator in the payload (see ra-295-application-details.e2e.js).
     it('shows the overseas site name and address', async () => {
+      // RA-486: each ORS now renders as a collapsed-by-default <details> —
+      // expand before reading the row's text.
+      await detail.expandAllOverseasSiteDetails()
       const ors = await detail.applicationDetailRowText('ors')
       expect(ors).toContain('Full Payload Verification Overseas Site')
       expect(ors).toContain('Rotterdam')

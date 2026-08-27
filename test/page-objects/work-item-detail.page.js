@@ -690,6 +690,23 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * Expand every ORS `<details>` block on the Application summary tab
+   * (collapsed by default) so assertions can read the site's own detail
+   * fields and any nested interim site — both render inside the collapsed
+   * `.govuk-details__text` body, where WebdriverIO's getText() reads as ""
+   * until expanded. Mirrors expandAllAuditEntryDetails() above.
+   */
+  async expandAllOverseasSiteDetails() {
+    const disclosures = await $$('[data-testid="overseas-site"]')
+    for (const disclosure of disclosures) {
+      const isOpen = await disclosure.getAttribute('open')
+      if (isOpen === null) {
+        await disclosure.$('.govuk-details__summary').click()
+      }
+    }
+  }
+
+  /**
    * The value (dd text) of a work-item snapshot row inside an audit entry's
    * "Show details" disclosure, keyed by the visible dt text (e.g. "Org ID",
    * "Type", "State"). Scoped to the Nth disclosure (1-based, default the

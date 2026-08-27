@@ -54,6 +54,10 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
     )
     expect(await workItems.getRowCount()).toBe(1)
     await workItems.openFirstListedWorkItem()
+    // RA-486: each ORS now renders as a collapsed-by-default <details> —
+    // expand so its detail fields and any nested interim site are readable
+    // by the assertions below.
+    await detail.expandAllOverseasSiteDetails()
   })
 
   after(async () => {

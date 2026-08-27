@@ -28,6 +28,10 @@ describe('RA-292: interim site detail, authority-to-issue contacts and access', 
     )
     expect(await workItems.getRowCount()).toBe(1)
     await workItems.openFirstListedWorkItem()
+    // RA-486: each ORS now renders as a collapsed-by-default <details> —
+    // expand so nested interim-site content is readable by the assertions
+    // below.
+    await detail.expandAllOverseasSiteDetails()
   })
 
   after(async () => {
@@ -252,6 +256,10 @@ describe('RA-292: access to the new site data', () => {
       )
       expect(await workItems.getRowCount()).toBe(1)
       await workItems.openFirstListedWorkItem()
+      // RA-486: each ORS now renders as a collapsed-by-default <details> —
+      // expand so nested interim-site content is readable by the
+      // assertions below.
+      await detail.expandAllOverseasSiteDetails()
     })
 
     after(async () => {
