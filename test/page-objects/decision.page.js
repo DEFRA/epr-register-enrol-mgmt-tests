@@ -33,6 +33,10 @@ import { Page } from './page.js'
  * hint; both are selected by the GOV.UK component's own class/id convention
  * (see warningText() / noteHint() below), same approach as
  * work-item-detail.page.js's ra98ReferenceBanner().
+ *
+ * RA-505 (CM): the last of that rename to land — the final BREADCRUMB read
+ * "Log decision", the label of the CTA that navigates here, rather than
+ * matching the page's own H1. See breadcrumbItems() at the foot of this file.
  */
 class DecisionPage extends Page {
   path(workItemId) {
@@ -231,6 +235,60 @@ class DecisionPage extends Page {
 
   async cancel() {
     await $('[data-testid="log-decision-cancel"]').click()
+  }
+
+  // ── RA-505: the breadcrumb trail ─────────────────────────────────────────── //
+
+  /**
+   * RA-505. Every breadcrumb, in order, as `{ text, href }`.
+   *
+   * NO `data-testid` EXISTS HERE and none is expected to: the trail is
+   * rendered by GOV.UK's own `govukBreadcrumbs` macro from the `breadcrumbs`
+   * array the controller hands to `layouts/page.njk`, so the component's
+   * documented class convention (`.govuk-breadcrumbs__list-item`) IS the
+   * stable handle — same reasoning as warningText() and noteHint() above.
+   *
+   * `href` is `null` for the current-page crumb, which govukBreadcrumbs
+   * renders as bare text inside the `<li>` rather than as a link. That is not
+   * incidental: it is how a caller tells the FINAL crumb apart from a
+   * same-labelled link earlier in the trail.
+   *
+   * Returned as an ordered list rather than a joined string because the point
+   * of the RA-505 assertion is POSITION — "the last crumb reads X" is a
+   * different claim from "X appears somewhere in the trail", and only the
+   * first catches a crumb that is right but in the wrong slot.
+   */
+  async breadcrumbItems() {
+    const crumbs = await $$('.govuk-breadcrumbs__list-item')
+    const items = []
+    for (const crumb of crumbs) {
+      const link = await crumb.$('a')
+      items.push({
+        text: (await crumb.getText()).trim(),
+        href: (await link.isExisting()) ? await link.getAttribute('href') : null
+      })
+    }
+    return items
+  }
+
+  /** RA-505. Just the crumb labels, in order — the common assertion shape. */
+  async breadcrumbTexts() {
+    return (await this.breadcrumbItems()).map((item) => item.text)
+  }
+
+  /**
+   * RA-505. The application reference this page is showing, read off the
+   * `appHeading` caption ("Work item {ref}") rather than threaded in from the
+   * detail page.
+   *
+   * Reading it HERE keeps the breadcrumb assertion self-contained: the middle
+   * crumb has to match the reference on the page the user is actually looking
+   * at, and a spec carrying a reference over from an earlier step could agree
+   * with itself while both were wrong.
+   */
+  async applicationRefFromCaption() {
+    const caption = await $('[data-testid="app-heading-caption"]').getText()
+    return caption.replace(/^Work item\s*/, '').trim()
   }
 
   /**

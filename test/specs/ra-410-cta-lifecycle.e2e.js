@@ -37,6 +37,12 @@ import {
  * The Log decision page's own validation behaviour (missing radio, over-long
  * note) lives in ra-410-decision-validation.e2e.js, split out purely so wdio
  * can schedule the two halves on separate workers.
+ *
+ * ALSO THE HOME FOR THE DECISION PAGE'S COPY ASSERTIONS. RA-447 (CM7/CM8)
+ * relabelled "decision" as "determination" across the CTA, submit button,
+ * warning text and note hint, and RA-505 finished the job on the breadcrumb.
+ * They sit together in step 3 below so the next wording change has one place
+ * to look rather than four.
  */
 describe('RA-410 The green CTA lifecycle', () => {
   before(async () => {
@@ -124,6 +130,59 @@ describe('RA-410 The green CTA lifecycle', () => {
       // submit a determination they never chose.
       expect(await decision.isOutcomeSelected('approved')).toBe(false)
       expect(await decision.isOutcomeSelected('refused')).toBe(false)
+    })
+
+    it('step 3: the breadcrumb trail ends at "Make determination"', async () => {
+      // RA-505. The final crumb used to read "Log decision" — the label of the
+      // CTA that navigates HERE — while the page's own H1 read "Make
+      // determination for this application". A breadcrumb naming the link you
+      // arrived by rather than the page you are on is a wayfinding bug: the
+      // trail is the one control that tells a caseworker where they are.
+      //
+      // Sits with the RA-447 copy assertions above deliberately. This is the
+      // last of the "decision" -> "determination" renames on this page, and
+      // keeping them together means the next person changing that wording sees
+      // every surface it has to land on at once.
+      const crumbs = await decision.breadcrumbItems()
+      const ref = await decision.applicationRefFromCaption()
+
+      // Asserted as an exact ordered list, not a set of `toContain` checks:
+      // "Work items > {ref} > Make determination" is a trail, and a correct
+      // label in the wrong slot is still a broken breadcrumb. An extra or
+      // missing crumb fails here too, which is the intent.
+      expect(crumbs.map((crumb) => crumb.text)).toEqual([
+        'Work items',
+        ref,
+        'Make determination'
+      ])
+
+      // The two crumbs before the current page are unchanged by RA-505 and
+      // must stay navigable — a trail whose links stop working is worse than
+      // no trail. `null` on the last is govukBreadcrumbs rendering the
+      // current page as bare text; asserting it pins WHICH crumb is current,
+      // so a regression that linked "Make determination" back to itself (or
+      // appended a further crumb after it) fails rather than passing on the
+      // label alone.
+      expect(crumbs.map((crumb) => crumb.href)).toEqual([
+        '/work-items',
+        `/work-items/${workItemId}`,
+        null
+      ])
+    })
+
+    it('step 3: no breadcrumb reads "Log decision"', async () => {
+      // The explicit regression guard, and the reason it is its own `it`.
+      // RA-505 is a text bug, so the negative carries as much weight as the
+      // positive: a partial revert that reinstated the old string ALONGSIDE
+      // the new one — an extra crumb, a stale copy in another render path —
+      // would leave the trail wrong while an assertion that only looked for
+      // "Make determination" somewhere still passed.
+      //
+      // Scoped to the crumbs, NOT the page: "Log decision" legitimately
+      // survives elsewhere in the service (route paths, the detail page's own
+      // CTA history, testids such as `log-decision-submit`), so a page-wide
+      // text search here would be both wrong and permanently fragile.
+      expect(await decision.breadcrumbTexts()).not.toContain('Log decision')
     })
 
     it('step 3: Approved reaches the Granted terminal state', async () => {
