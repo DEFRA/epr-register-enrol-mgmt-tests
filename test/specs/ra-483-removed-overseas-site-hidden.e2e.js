@@ -2,6 +2,7 @@ import { browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
+import recyclingOperations from '../page-objects/recycling-operations.page.js'
 
 /**
  * RA-483 — a removed ("deselected") Overseas Reprocessing Site must not be
@@ -141,6 +142,61 @@ describe('RA-483 — removed overseas sites are hidden in case management', () =
       for (const text of removedSiteText) {
         expect(page).not.toContain(text)
       }
+    })
+  })
+
+  describe('the Recycling operations tab', () => {
+    /**
+     * The second case-management screen that renders the same
+     * `overseasSites.sites` array. Filtering the application summary alone
+     * would leave the reported bug fully intact here — the regulator would
+     * still see the withdrawn German site, and could still open its edit
+     * form and record recycling operations against it.
+     *
+     * Rows are addressed by their raw payload `siteId` throughout, because
+     * this tab sorts sites ALPHABETICALLY by name rather than in payload
+     * order; a positional lookup would drift the moment the fixture gains a
+     * site whose name sorts earlier.
+     */
+    let workItemId
+
+    before(async () => {
+      workItemId = await recyclingOperations.gotoForCurrentWorkItem()
+    })
+
+    it('lists only the selected site', async () => {
+      expect(await recyclingOperations.siteCount()).toBe(1)
+      expect(await recyclingOperations.hasSiteRow(1)).toBe(true)
+      // The over-firing anchor for this tab: a filter that dropped every site
+      // renders the "no overseas reprocessing sites" empty state, which would
+      // otherwise satisfy every absence assertion below while showing the
+      // regulator nothing at all.
+      expect(await recyclingOperations.hasNoSitesMessage()).toBe(false)
+    })
+
+    it('neither lists the removed site nor offers a way into it', async () => {
+      expect(await recyclingOperations.hasSiteRow(2)).toBe(false)
+      expect(await recyclingOperations.hasSiteChangeLink(2)).toBe(false)
+      // Asserted alongside, so "no Change link for site 2" cannot pass simply
+      // because the tab stopped rendering Change links altogether.
+      expect(await recyclingOperations.hasSiteChangeLink(1)).toBe(true)
+    })
+
+    it('shows the removed site nowhere on the tab', async () => {
+      const page = await recyclingOperations.pageText()
+      expect(page).toContain(selectedSiteName)
+      for (const text of removedSiteText) {
+        expect(page).not.toContain(text)
+      }
+    })
+
+    it("refuses a direct request for the removed site's edit page", async () => {
+      // Hiding the Change link is not a control: the per-site URL is trivially
+      // guessable from any other row's link, and a removed siteId is just a
+      // number. The route itself has to refuse, so this asserts the status
+      // rather than what the tab chose to render.
+      expect(await recyclingOperations.fetchSiteStatus(workItemId, 1)).toBe(200)
+      expect(await recyclingOperations.fetchSiteStatus(workItemId, 2)).toBe(404)
     })
   })
 })
