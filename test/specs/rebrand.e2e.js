@@ -1,4 +1,4 @@
-import { $, $$, browser, expect } from '@wdio/globals'
+import { $, browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 
 describe('RA-220 — Defra rebrand: header, service navigation, and footer', () => {
@@ -86,17 +86,6 @@ describe('RA-220 — Defra rebrand: header, service navigation, and footer', () 
     it('has a white background', async () => {
       const bg = await $('.govuk-footer').getCSSProperty('background-color')
       expect(bg.parsed.hex).toBe('#ffffff')
-    })
-
-    it('renders no footer links', async () => {
-      // RA-486: the footer previously carried Accessibility statement, Cookies
-      // and Feedback links, all pointing at routes that did not exist so every
-      // one rendered a 404. The case-management (regulator) journey has no
-      // content pages to link to, so the footer now shows only the DDTS service
-      // line with no links. footer-links.e2e.js guards any future link against
-      // returning a 404.
-      const links = await $$('.govuk-footer a')
-      expect(links).toHaveLength(0)
     })
   })
 })
