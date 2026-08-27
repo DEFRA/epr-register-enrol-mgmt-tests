@@ -8,7 +8,7 @@ import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
 import { uniquePostcode } from '../support/unique-postcode.js'
 
 /**
- * RA-317 — CM: Hide withdraw functionality from Case Management.
+ * RA-317 — Case Management service: Hide withdraw functionality from Case Management.
  *
  * "Withdraw" is an OPERATOR action. It was being offered in the case
  * management (regulator) UI, where it does not belong; RA-317 removes the
@@ -16,12 +16,12 @@ import { uniquePostcode } from '../support/unique-postcode.js'
  * while KEEPING the withdrawn-status display (a withdrawal initiated by the
  * operator must still be visible to a regulator).
  *
- *   AC01 — the Withdraw action is not displayed in CM, on the case-details
+ *   AC01 — the Withdraw action is not displayed in Case Management, on the case-details
  *          page AND on the Log decision page.
  *   AC02 — all OTHER case-management actions remain available; only Withdraw
  *          is gone.
  *   AC03 — an operator-initiated withdrawal still surfaces the Withdrawn
- *          status/notice in CM.
+ *          status/notice in Case Management.
  *
  * Withdraw actions are rendered (were rendered) as `action-<id>` controls, one
  * per state: `withdraw` from `submitted`, and `withdraw-during-*` from every
@@ -31,7 +31,7 @@ import { uniquePostcode } from '../support/unique-postcode.js'
  */
 
 // Every withdraw action id the re-accreditation type ever projected, across
-// all states. None of these may render as a CM affordance after RA-317.
+// all states. None of these may render as a Case Management service affordance after RA-317.
 const WITHDRAW_ACTION_IDS = [
   'withdraw',
   'withdraw-during-duly-made',

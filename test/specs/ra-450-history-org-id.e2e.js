@@ -4,7 +4,7 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 
 /**
- * RA-450 — CM: Application History Org ID field is incorrect for Route to
+ * RA-450 — Case Management service: Application History Org ID field is incorrect for Route to
  * Nation.
  *
  * On a work item's Application History tab, each audit entry's "Show details"

@@ -19,7 +19,7 @@ import { REPROCESSOR, EXPORTER } from '../support/ra-434-seed.js'
  *
  * Two fixtures cover the tab's real conditionals: re-ex has no site for an
  * exporter, so an exporter's Site address row falls back to the registered
- * address (matching OJ's own header); a reprocessor (or a work item with no
+ * address (matching the Registration & Accreditation service's own header); a reprocessor (or a work item with no
  * `wasteProcessingType` at all) keeps a genuine site address. Site name has
  * no producer field anywhere in the chain today, so it is always omitted on
  * both fixtures. The EXPORTER fixture also carries a populated
@@ -145,7 +145,7 @@ describe('RA-434: Additional information tab', () => {
     // The point of this fixture: re-ex has no site for an exporter, so the
     // Site address row falls back to the registered address rather than
     // being omitted — intentionally making the two rows equal, matching the
-    // OJ frontend's own header for an exporter.
+    // Registration & Accreditation service frontend's own header for an exporter.
     it('falls back the Site address row to the registered address', async () => {
       expect(await detail.hasAdditionalInformationRow('site-address')).toBe(
         true

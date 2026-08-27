@@ -144,7 +144,7 @@ describe('RA-410 The green CTA lifecycle', () => {
     })
 
     it('does not park the item in awaiting-decision, and ends at approved', async () => {
-      // The atomic, OJ-gated decision discharges the awaiting-decision waypoint
+      // The atomic decision, gated by the Registration & Accreditation service, discharges the awaiting-decision waypoint
       // SERVER-SIDE inside the single call, so the item is never left resting
       // there. What the audit history must show is the item ARRIVING at the
       // terminal state — asserting the real END STATE rather than the internal

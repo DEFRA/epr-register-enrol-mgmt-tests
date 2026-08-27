@@ -5,7 +5,7 @@ import { MANAGEMENT_BE_URL } from './query-resubmission.js'
  *
  * "Withdraw" is an OPERATOR action. RA-317 removes the case-management
  * withdraw affordance (and its confirmation interstitial) from the regulator
- * UI, so the CM-driven withdraw journey the suite used to seed `withdrawn`
+ * UI, so the Case Management service-driven withdraw journey the suite used to seed `withdrawn`
  * with is gone. The honest way to reach the state from here is the same one a
  * real operator takes: management-be's operator withdraw endpoint.
  *
