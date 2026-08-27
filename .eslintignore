@@ -1,3 +1,4 @@
 /allure-results
 /allure-report
 /docker
+eslint-local-rules.cjs

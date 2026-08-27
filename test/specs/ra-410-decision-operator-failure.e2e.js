@@ -44,6 +44,7 @@ import {
  * and that the failed attempt left no partial state behind that would block a
  * genuine retry.
  */
+// eslint-disable-next-line local-rules/no-undocumented-service-acronyms -- verbatim Jira ticket title, predates this guard
 describe('RA-410 The OJ-gated decision fails atomically', () => {
   let workItemId
 
