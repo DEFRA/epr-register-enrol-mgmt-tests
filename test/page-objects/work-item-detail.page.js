@@ -1104,6 +1104,76 @@ class WorkItemDetailPage extends Page {
     return $('[data-testid="app-detail-sampling-updated-by"]')
   }
 
+  // ── RA-483: only SELECTED overseas sites reach case management ───────────── //
+
+  /**
+   * One block per overseas reprocessing site rendered in the ORS row.
+   *
+   * Scoped to the `ors` row on purpose. RA-292 gave the BES row its own
+   * `bes-site` testid precisely so that this lookup returns N blocks for N
+   * sites rather than 2N — see the `bes-sites` note in management-fe's
+   * `application-summary.js`. A nested interim site carries `interim-site`,
+   * so it is not double-counted here either, which is what makes the length
+   * of this a trustworthy "how many ORSs is the regulator being shown" count.
+   */
+  overseasSiteBlocks() {
+    return this.applicationDetailRow('ors').$$('[data-testid="overseas-site"]')
+  }
+
+  async overseasSiteCount() {
+    const blocks = await this.overseasSiteBlocks()
+    return [...blocks].length
+  }
+
+  /**
+   * The site-name line of every ORS block, in DOM order.
+   *
+   * Reads `overseas-site-name` rather than the whole block so the returned
+   * strings really are names — a block's full text also carries the address
+   * and any nested interim site, which would let a membership assertion pass
+   * on a substring that is not actually the site's name.
+   */
+  async overseasSiteNames() {
+    const names = await this.applicationDetailRow('ors').$$(
+      '[data-testid="overseas-site-name"]'
+    )
+    return Promise.all([...names].map((name) => name.getText()))
+  }
+
+  /** One block per site listed in the BES evidence row. */
+  besSiteBlocks() {
+    return this.applicationDetailRow('bes').$$('[data-testid="bes-site"]')
+  }
+
+  /**
+   * The full text of every BES-evidence block. Whole-block text rather than a
+   * name element because the BES block renders "<name> (<country>)" as one
+   * line with no inner name hook, and the country is half of what RA-483 has
+   * to prove absent.
+   */
+  async besSiteTexts() {
+    const blocks = await this.besSiteBlocks()
+    return Promise.all([...blocks].map((block) => block.getText()))
+  }
+
+  /**
+   * All visible text on the detail page.
+   *
+   * RA-483's acceptance criterion is that a removed site is not visible
+   * ANYWHERE, so the negative assertion has to be page-wide rather than
+   * row-scoped: filtering the ORS row alone while the BES row (or any future
+   * section reading the same `overseasSites` array) still listed the site
+   * would satisfy a row-scoped check and miss the bug entirely.
+   *
+   * `getText()` is deliberately preferred over `getPageSource()`: the AC is
+   * about what a regulator can SEE. Asserting page-wide is safe here because
+   * RA-186 moved the raw submitted payload off this page and into the audit
+   * log, so a removed site's name has no legitimate reason to appear.
+   */
+  async pageText() {
+    return $('body').getText()
+  }
+
   // ── RA-504: the Reference footer, removed ────────────────────────────────── //
 
   /**
