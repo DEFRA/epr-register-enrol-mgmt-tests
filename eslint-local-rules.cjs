@@ -14,10 +14,16 @@ const BANNED = new Map([
 ])
 const WORD_RE = /\b(OJ|CM)\b/i
 
+// Digit runs are split out as their own tokens too (so `cm2`/`ra447Cm6Tests`
+// isolate a bare 'Cm' segment) — digits are word characters, so without this
+// an identifier like `cm2` would dodge the word-boundary check above
+// entirely.
 function splitWords(name) {
   return name
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/(\d+)/g, ' $1 ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
     .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .trim()
     .split(/[\s_-]+/)
 }
 
