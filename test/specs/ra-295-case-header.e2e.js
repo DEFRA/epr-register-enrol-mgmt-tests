@@ -120,13 +120,11 @@ describe('RA-295 case header on the work item detail page', () => {
         expect.stringContaining('Full Payload Verification Ltd')
       )
       await expect(detail.caseHeaderField('orgId')).toHaveText(
-        // RA-503: operatorOrgNumber ('500010') is now the operator/regulator-safe
-        // value the header prefers over operatorOrganisationId ('500009', ReEx's
-        // internal id in a real submission) — the fixture deliberately carries
-        // both with distinct values so this assertion has teeth. See
-        // ra-450-history-org-id.e2e.js for the matching precedence coverage on
-        // the Application History audit-log page.
-        expect.stringContaining('500010')
+        // RA-448 phase 2: this fixture's operatorOrganisationId became a
+        // numeric 6-digit value (management-be's accreditation-number
+        // adapter parses it as int), not the old string
+        // 'org-full-payload-001'.
+        expect.stringContaining('500009')
       )
     })
 

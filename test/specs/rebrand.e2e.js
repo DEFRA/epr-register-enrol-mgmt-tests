@@ -87,5 +87,17 @@ describe('RA-220 — Defra rebrand: header, service navigation, and footer', () 
       const bg = await $('.govuk-footer').getCSSProperty('background-color')
       expect(bg.parsed.hex).toBe('#ffffff')
     })
+
+    it('contains an Accessibility statement link', async () => {
+      await expect($('a=Accessibility statement')).toBeDisplayed()
+    })
+
+    it('contains a Cookies link', async () => {
+      await expect($('a=Cookies')).toBeDisplayed()
+    })
+
+    it('contains a Feedback link', async () => {
+      await expect($('a=Feedback')).toBeDisplayed()
+    })
   })
 })

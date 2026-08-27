@@ -38,17 +38,12 @@ const ASSIGNED_TO_FIELD = 'assigned-to'
  * This is an ORDERING contract, not a presence one — some of the entries are
  * conditional, so treat the list as the sequence a card's fields must respect
  * rather than the set it must contain:
- *   - org-id renders only `{% if item.orgId %}`. RA-448 made
- *     payload.operatorOrganisationId a required field on the UI "Create work
- *     item" form (previously it was never set for UI-created items, so the
- *     tile never rendered for them; now it always does unless a spec
- *     deliberately omits it, which the schema no longer allows for a
- *     submission to succeed). RA-503: item.orgId now resolves via
- *     resolveOrganisationId (case-header.js) — payload.operatorOrgNumber when
- *     present (a real operator submission), falling back to
- *     payload.operatorOrganisationId only when it is itself genuinely
- *     6-digit numeric (a UI-created item, per the RA-448 form above), never
- *     for ReEx's internal ObjectId;
+ *   - org-id renders only `{% if item.orgId %}`, and orgId maps to
+ *     payload.operatorOrganisationId — RA-448 made this a required field on
+ *     the UI "Create work item" form (previously it was never set for
+ *     UI-created items, so the tile never rendered for them; now it always
+ *     does unless a spec deliberately omits it, which the schema no longer
+ *     allows for a submission to succeed);
  *   - submitted-on and due-on are exact inverses, so a card carries one or the
  *     other and never both.
  *

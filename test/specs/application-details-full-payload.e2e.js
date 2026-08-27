@@ -66,11 +66,11 @@ describe('Full operator payload on the work item detail page (seeded)', () => {
         expect.stringContaining('Full Payload Verification Ltd')
       )
       await expect(detail.caseHeaderField('orgId')).toHaveText(
-        // RA-503: operatorOrgNumber ('500010') is the operator/regulator-safe
-        // value the header now prefers over operatorOrganisationId ('500009',
-        // ReEx's internal id in a real submission) — the fixture deliberately
-        // carries both with distinct values so this assertion has teeth.
-        expect.stringContaining('500010')
+        // RA-448 phase 2: the seeder's operatorOrganisationId for this
+        // fixture became a numeric 6-digit value (management-be's
+        // accreditation-number adapter parses it as int) rather than the
+        // string 'org-full-payload-001' this previously carried.
+        expect.stringContaining('500009')
       )
     })
 
