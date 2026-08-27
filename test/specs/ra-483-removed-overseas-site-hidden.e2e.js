@@ -49,6 +49,21 @@ describe('RA-483 — removed overseas sites are hidden in case management', () =
     'Hamburg'
   ]
 
+  // The seeded `siteId` values, which the Recycling operations tab's row and
+  // Change-link testids are suffixed with.
+  //
+  // These are OWNED BY management-be's ReAccreditationSeeder, not by this
+  // suite. If that fixture is ever re-numbered — or switches to generated ids
+  // — these selectors go stale, and the failure mode is ASYMMETRIC in a way
+  // that matters: a stale REMOVED id reads as a pass, because the row simply
+  // is not found and "not found" is exactly what the negative asserts. Only
+  // the positives fail loudly. That is the second reason every negative below
+  // is paired with a positive on the same testid family (the first being the
+  // filter-too-hard guard): the positive is what tells you the ids drifted
+  // rather than the filtering regressing.
+  const selectedSiteId = 1
+  const removedSiteId = 2
+
   before(async () => {
     await login.login()
     // A bare landing defaults to assigned-to-me (RA-299), which hides this
@@ -166,7 +181,7 @@ describe('RA-483 — removed overseas sites are hidden in case management', () =
 
     it('lists only the selected site', async () => {
       expect(await recyclingOperations.siteCount()).toBe(1)
-      expect(await recyclingOperations.hasSiteRow(1)).toBe(true)
+      expect(await recyclingOperations.hasSiteRow(selectedSiteId)).toBe(true)
       // The over-firing anchor for this tab: a filter that dropped every site
       // renders the "no overseas reprocessing sites" empty state, which would
       // otherwise satisfy every absence assertion below while showing the
@@ -175,11 +190,15 @@ describe('RA-483 — removed overseas sites are hidden in case management', () =
     })
 
     it('neither lists the removed site nor offers a way into it', async () => {
-      expect(await recyclingOperations.hasSiteRow(2)).toBe(false)
-      expect(await recyclingOperations.hasSiteChangeLink(2)).toBe(false)
+      expect(await recyclingOperations.hasSiteRow(removedSiteId)).toBe(false)
+      expect(await recyclingOperations.hasSiteChangeLink(removedSiteId)).toBe(
+        false
+      )
       // Asserted alongside, so "no Change link for site 2" cannot pass simply
       // because the tab stopped rendering Change links altogether.
-      expect(await recyclingOperations.hasSiteChangeLink(1)).toBe(true)
+      expect(await recyclingOperations.hasSiteChangeLink(selectedSiteId)).toBe(
+        true
+      )
     })
 
     it('shows the removed site nowhere on the tab', async () => {
@@ -195,8 +214,12 @@ describe('RA-483 — removed overseas sites are hidden in case management', () =
       // guessable from any other row's link, and a removed siteId is just a
       // number. The route itself has to refuse, so this asserts the status
       // rather than what the tab chose to render.
-      expect(await recyclingOperations.fetchSiteStatus(workItemId, 1)).toBe(200)
-      expect(await recyclingOperations.fetchSiteStatus(workItemId, 2)).toBe(404)
+      expect(
+        await recyclingOperations.fetchSiteStatus(workItemId, selectedSiteId)
+      ).toBe(200)
+      expect(
+        await recyclingOperations.fetchSiteStatus(workItemId, removedSiteId)
+      ).toBe(404)
     })
   })
 })

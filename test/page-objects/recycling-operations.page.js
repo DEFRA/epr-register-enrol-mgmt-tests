@@ -64,6 +64,11 @@ class RecyclingOperationsPage extends Page {
    * position. The tab sorts sites ALPHABETICALLY by name, not in payload
    * order, so an index-based lookup would silently drift as soon as the
    * fixture gains a site whose name sorts earlier.
+   *
+   * The ids callers pass come from management-be's `ReAccreditationSeeder`,
+   * which owns them — this suite does not. If a row is unexpectedly not
+   * found, check that seed's `payload.overseasSites.sites[].siteId` values
+   * before suspecting the frontend.
    */
   siteRow(siteId) {
     return $(`[data-testid="recycling-operations-site-${siteId}"]`)
