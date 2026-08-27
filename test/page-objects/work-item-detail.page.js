@@ -2496,8 +2496,7 @@ class WorkItemDetailPage extends Page {
           await browser.getUrl()
         ),
       {
-        timeoutMsg:
-          'Expected a recycling-operations URL after navigating to it'
+        timeoutMsg: 'Expected a recycling-operations URL after navigating to it'
       }
     )
   }
