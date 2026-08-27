@@ -91,6 +91,49 @@ describe('RA-292: interim site detail, authority-to-issue contacts and access', 
       expect(values['interim-site-address']).toBe(site.fullAddress)
     })
 
+    it('RA-486: shows recycling operation codes on the interim site itself', async () => {
+      // Antwerp seeds an ARRAY (['R12', 'R3']) and Bremen a bare STRING
+      // ('R13') — see ra-292-seed.js. `interim-site-operation-code` is a
+      // single `<dd>` holding one `<p>` per value (siteDetails() in
+      // detail.njk), so blockFieldText's single getText() already reads
+      // every line; asserted with toContain rather than an exact multi-line
+      // match, matching this file's own wasteCodes precedent, because the
+      // exact join format between lines is markup detail this suite is not
+      // entitled to pin.
+      const antwerp = await detail.blockFieldText(
+        'interimSite',
+        INTERIM.NEW.name,
+        'interim-site-operation-code'
+      )
+      for (const code of INTERIM.NEW.operationCode) {
+        expect(antwerp).toContain(code)
+      }
+
+      const bremen = await detail.blockFieldText(
+        'interimSite',
+        INTERIM.ESTABLISHED.name,
+        'interim-site-operation-code'
+      )
+      expect(bremen).toContain(INTERIM.ESTABLISHED.operationCode)
+    })
+
+    it('RA-486: interim recycling operation codes are display-only, no edit control', async () => {
+      // The plan is explicit that interim-site codes gain NO edit capability
+      // on the regulator side (unlike the ORS's own codes, which the
+      // Recycling operations tab's "Change" link can edit) — this asserts
+      // the negative directly rather than merely by omission, so a future
+      // edit affordance added inside the interim block is caught here even
+      // if no other RA-486 spec happens to look at this block.
+      const interim = await detail.flaggedBlockNamed(
+        'interimSite',
+        INTERIM.NEW.name
+      )
+      const interactiveElements = await interim.$$(
+        'a, button, [data-testid*="change"], [data-testid*="edit"]'
+      )
+      expect([...interactiveElements]).toHaveLength(0)
+    })
+
     it('renders each interim site under its own ORS site', async () => {
       // AC04 says the interim detail must be "clearly displayed", and an
       // interim site shown against the wrong ORS is worse than one not shown

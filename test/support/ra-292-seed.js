@@ -19,6 +19,16 @@
  * has already been seeded — no `docker compose down -v` is needed to pick it
  * up. If any value below stops matching, the seeder changed: fix it here, not
  * in the specs.
+ *
+ * RA-486 adds two fields management-be does not seed YET (no backend work for
+ * RA-486 has landed in this fixture's seeder as of this commit — see the
+ * mgmt-tests RA-486 PR description): each ORS's `operationCodes` (the
+ * structured array the Recycling operations tab reads, RA-469) and each
+ * interim site's `operationCode` (display-only on the Application summary
+ * tab). Both are written here ahead of the backend change, same as every
+ * other field in this module — but until `ReAccreditationSeeder` actually
+ * seeds them, the specs asserting on them will fail against a live
+ * environment. That is expected, not a bug in this file.
  */
 
 /** The organisation name that resolves the work-items search to this one item. */
@@ -45,6 +55,11 @@ export const LEGACY_ORG_NAME = 'Belfast Fibres Co'
 export const ORS = {
   NEW: {
     name: 'Rotterdam New Reprocessing Site',
+    // RA-486: siteId, as seeded by ReAccreditationSeeder — used to build the
+    // `recycling-operations-site-{siteId}` testid on the Recycling
+    // operations tab (RA-469). Not used anywhere on the Application summary
+    // tab, which locates blocks by name instead.
+    siteId: 1,
     orsId: 'ORS-2026-0292',
     address: '1 Havenstraat',
     // The middle address line matters more than it looks: it is the line a
@@ -73,10 +88,20 @@ export const ORS = {
     // Rendered as Yes/No by management-fe, not as the raw JSON boolean.
     registeredNowAccredited: 'No',
     euCountry: 'Yes',
-    oecdCountry: 'Yes'
+    oecdCountry: 'Yes',
+    // RA-486 / RA-469. The STRUCTURED code array the Recycling operations
+    // tab reads (`site.operationCodes`, plural) — a separate field from the
+    // legacy free-text `operationCode` (singular) above, which
+    // application-summary.js's ORS_DETAIL_FIELDS still reads independently.
+    // R12 requires an accompanying non-R12/R13 code AND an associated
+    // interim site (recycling-operations.schema.js's
+    // CODES_REQUIRING_ACCOMPANIMENT / requiresInterimSite) — both are true
+    // here, so this is a valid combination, not just a convenient one.
+    operationCodes: ['R3', 'R12']
   },
   ESTABLISHED: {
     name: 'Hamburg Established Reprocessing Site',
+    siteId: 2,
     orsId: 'ORS-2024-0042',
     address: '42 Hafenstrasse',
     addressLine2: 'Building C',
@@ -102,7 +127,16 @@ export const ORS = {
     conditionsOfExport: 'No',
     registeredNowAccredited: 'Yes',
     euCountry: 'Yes',
-    oecdCountry: 'Yes'
+    oecdCountry: 'Yes',
+    // RA-486. Deliberately carries NO R12/R13 despite having an associated
+    // interim site (Bremen, below) — this is the fixture that proves the
+    // Recycling operations tab's "Associated interim site" line is shown
+    // whenever the ORS HAS an interim site, not whenever it carries R12/R13.
+    // Before RA-486 those two were coupled; a regression that re-coupled
+    // them would hide this line even though Hamburg genuinely has an
+    // interim site, and this fixture is the only one that can catch it —
+    // Rotterdam's R12 would pass either way.
+    operationCodes: ['R4']
   },
   /**
    * The non-EU, non-OECD site. It exists so `isEu: false` / `isOecd: false`
@@ -119,6 +153,7 @@ export const ORS = {
    */
   NON_EU: {
     name: 'Port Klang Reprocessing Facility',
+    siteId: 4,
     orsId: 'ORS-2025-0113',
     address: '88 Jalan Pelabuhan',
     addressLine2: 'Zone 3',
@@ -134,7 +169,13 @@ export const ORS = {
     repatriatedLoads: '2',
     registeredNowAccredited: 'No',
     euCountry: 'No',
-    oecdCountry: 'No'
+    oecdCountry: 'No',
+    // RA-486. Empty rather than absent, and paired with no interimSite at
+    // all — the AC7 "no codes" state on a site that also has no associated
+    // interim site, distinct from LEGACY below (which carries no
+    // `operationCodes` KEY at all rather than an empty array). Both must
+    // render the same "No recycling operation codes are set" row.
+    operationCodes: []
   },
   /**
    * Near-minimal: siteId, orsId, siteName, siteAddress, townOrCity and country
@@ -142,6 +183,7 @@ export const ORS = {
    */
   LEGACY: {
     name: 'Bilbao Legacy Reprocessing Site',
+    siteId: 3,
     orsId: 'ORS-2023-0007',
     address: '7 Muelle Tomas Olabarri',
     town: 'Bilbao',
@@ -173,7 +215,15 @@ export const INTERIM = {
     country: 'Belgium',
     contactName: 'Elke Janssens',
     contactEmail: 'elke.janssens@example.com',
-    contactPhone: '+32 3 987 6543'
+    contactPhone: '+32 3 987 6543',
+    // RA-486. The interim site's own recycling operation code(s) — display
+    // only on the Application summary tab (`interim-site-operation-code`,
+    // same reader shape as the ORS side's `overseas-site-operation-code`; no
+    // edit capability exists for this field on the regulator side). Seeded
+    // as an ARRAY (mandatory R12 plus an optional R3) rather than a bare
+    // string so this fixture also proves toDisplayLines()'s array branch —
+    // ORS.NEW's own operationCode has only ever exercised the string one.
+    operationCode: ['R12', 'R3']
   },
   ESTABLISHED: {
     name: 'Bremen Interim Storage',
@@ -195,7 +245,11 @@ export const INTERIM = {
     country: 'Germany',
     contactName: 'Lukas Braun',
     contactEmail: 'lukas.braun@example.com',
-    contactPhone: '+49 421 555 0188'
+    contactPhone: '+49 421 555 0188',
+    // RA-486. A single mandatory code (R13), unlike Antwerp's array of two —
+    // the pair together cover both the array and single-string shapes
+    // toDisplayLines() accepts.
+    operationCode: 'R13'
   }
 }
 
