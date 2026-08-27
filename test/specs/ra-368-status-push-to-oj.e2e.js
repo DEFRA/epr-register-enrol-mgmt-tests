@@ -69,7 +69,9 @@ describe('RA-368 CM status push to OJ', () => {
     const sentEntries = await detail.auditEntriesForAction('status-push-sent')
     expect(sentEntries.length).toBe(1)
     // Positive control on the human-readable label, not just the action id.
-    await detail.assertAuditEntry('Status sent to OJ')
+    await detail.assertAuditEntry(
+      'Status sent to the Registration & Accreditation service'
+    )
   })
 
   it('records a second status-push-sent entry for the payment-received action', async () => {
