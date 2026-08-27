@@ -197,6 +197,14 @@ describe('RA-469 / RA-486: Recycling operations tab', () => {
     })
   })
 
+  it('AC3: does not offer the search box for a fixture under the one-page threshold', async () => {
+    // showSearch gates on the TOTAL site count exceeding 20 (one page) —
+    // this fixture seeds four, so the box must not render. The complementary
+    // AC4 filtering coverage below deliberately does NOT depend on this box
+    // being present; see that describe block's own comment.
+    await expect(detail.recyclingOperationsSearchForm()).not.toBeExisting()
+  })
+
   describe('AC4: search filters the list (via the query string)', () => {
     // AC3 gates the search BOX itself on the total site count exceeding one
     // page (20 sites) — this fixture has four, so the box does not render.

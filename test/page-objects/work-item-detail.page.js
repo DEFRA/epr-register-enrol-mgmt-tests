@@ -2519,10 +2519,6 @@ class WorkItemDetailPage extends Page {
     return $(`[data-testid="recycling-operations-site-${siteId}"]`)
   }
 
-  async hasRecyclingOperationsSite(siteId) {
-    return this.recyclingOperationsSite(siteId).isExisting()
-  }
-
   async recyclingOperationsSiteName(siteId) {
     return this.recyclingOperationsSite(siteId)
       .$('[data-testid="recycling-operations-site-name"]')
@@ -2599,20 +2595,16 @@ class WorkItemDetailPage extends Page {
     )
   }
 
+  /**
+   * AC3: the search box only renders once the application has more than one
+   * page's worth of sites (>20) — absent here since this fixture seeds four.
+   */
   recyclingOperationsSearchForm() {
     return $('[data-testid="recycling-operations-search-form"]')
   }
 
   recyclingOperationsNoSearchResults() {
     return $('[data-testid="recycling-operations-no-search-results"]')
-  }
-
-  recyclingOperationsNoSites() {
-    return $('[data-testid="recycling-operations-no-sites"]')
-  }
-
-  recyclingOperationsFlashBanner() {
-    return $('[data-testid="recycling-operations-flash-banner"]')
   }
 }
 
