@@ -690,6 +690,23 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * Expand every ORS `<details>` block on the Application summary tab
+   * (collapsed by default) so assertions can read the site's own detail
+   * fields and any nested interim site — both render inside the collapsed
+   * `.govuk-details__text` body, where WebdriverIO's getText() reads as ""
+   * until expanded. Mirrors expandAllAuditEntryDetails() above.
+   */
+  async expandAllOverseasSiteDetails() {
+    const disclosures = await $$('[data-testid="overseas-site"]')
+    for (const disclosure of disclosures) {
+      const isOpen = await disclosure.getAttribute('open')
+      if (isOpen === null) {
+        await disclosure.$('.govuk-details__summary').click()
+      }
+    }
+  }
+
+  /**
    * The value (dd text) of a work-item snapshot row inside an audit entry's
    * "Show details" disclosure, keyed by the visible dt text (e.g. "Org ID",
    * "Type", "State"). Scoped to the Nth disclosure (1-based, default the
@@ -1102,76 +1119,6 @@ class WorkItemDetailPage extends Page {
    */
   samplingPlanUpdatedBy() {
     return $('[data-testid="app-detail-sampling-updated-by"]')
-  }
-
-  // ── RA-483: only SELECTED overseas sites reach case management ───────────── //
-
-  /**
-   * One block per overseas reprocessing site rendered in the ORS row.
-   *
-   * Scoped to the `ors` row on purpose. RA-292 gave the BES row its own
-   * `bes-site` testid precisely so that this lookup returns N blocks for N
-   * sites rather than 2N — see the `bes-sites` note in management-fe's
-   * `application-summary.js`. A nested interim site carries `interim-site`,
-   * so it is not double-counted here either, which is what makes the length
-   * of this a trustworthy "how many ORSs is the regulator being shown" count.
-   */
-  overseasSiteBlocks() {
-    return this.applicationDetailRow('ors').$$('[data-testid="overseas-site"]')
-  }
-
-  async overseasSiteCount() {
-    const blocks = await this.overseasSiteBlocks()
-    return [...blocks].length
-  }
-
-  /**
-   * The site-name line of every ORS block, in DOM order.
-   *
-   * Reads `overseas-site-name` rather than the whole block so the returned
-   * strings really are names — a block's full text also carries the address
-   * and any nested interim site, which would let a membership assertion pass
-   * on a substring that is not actually the site's name.
-   */
-  async overseasSiteNames() {
-    const names = await this.applicationDetailRow('ors').$$(
-      '[data-testid="overseas-site-name"]'
-    )
-    return Promise.all([...names].map((name) => name.getText()))
-  }
-
-  /** One block per site listed in the BES evidence row. */
-  besSiteBlocks() {
-    return this.applicationDetailRow('bes').$$('[data-testid="bes-site"]')
-  }
-
-  /**
-   * The full text of every BES-evidence block. Whole-block text rather than a
-   * name element because the BES block renders "<name> (<country>)" as one
-   * line with no inner name hook, and the country is half of what RA-483 has
-   * to prove absent.
-   */
-  async besSiteTexts() {
-    const blocks = await this.besSiteBlocks()
-    return Promise.all([...blocks].map((block) => block.getText()))
-  }
-
-  /**
-   * All visible text on the detail page.
-   *
-   * RA-483's acceptance criterion is that a removed site is not visible
-   * ANYWHERE, so the negative assertion has to be page-wide rather than
-   * row-scoped: filtering the ORS row alone while the BES row (or any future
-   * section reading the same `overseasSites` array) still listed the site
-   * would satisfy a row-scoped check and miss the bug entirely.
-   *
-   * `getText()` is deliberately preferred over `getPageSource()`: the AC is
-   * about what a regulator can SEE. Asserting page-wide is safe here because
-   * RA-186 moved the raw submitted payload off this page and into the audit
-   * log, so a removed site's name has no legitimate reason to appear.
-   */
-  async pageText() {
-    return $('body').getText()
   }
 
   // ── RA-504: the Reference footer, removed ────────────────────────────────── //
@@ -2522,6 +2469,159 @@ class WorkItemDetailPage extends Page {
     }
     return seen
   }
+
+  // ── RA-469 / RA-486: the "Recycling operations" tab ──────────────────────── //
+
+  /**
+   * Navigate directly to the Recycling operations tab (RA-469).
+   *
+   * Deliberately NOT `this.tab('recyclingOperations').click()`, unlike
+   * gotoAudit()/gotoAdditionalInformation(). A RA-469 follow-up hid this tab
+   * from the case-tabs bar (`HIDDEN_TAB_KEYS` in management-fe's
+   * case-header.js — product asked for it to stay hidden until the copy is
+   * finalised), so there is no clickable link to drive today. The route,
+   * controller and page are fully live for anyone who navigates to them
+   * directly, which is what this does. Re-point this at `tab('recyclingOperations').click()`
+   * once product turns the tab bar entry back on — `hasRecyclingOperationsTabLink()`
+   * below exists so this suite notices that moment rather than needing to be
+   * told about it.
+   */
+  async gotoRecyclingOperations() {
+    const url = await browser.getUrl()
+    const match = url.match(/\/work-items\/([^/]+)/)
+    await this.open(`/work-items/${match[1]}/recycling-operations`)
+    await browser.waitUntil(
+      async () =>
+        /\/work-items\/[^/]+\/recycling-operations/.test(
+          await browser.getUrl()
+        ),
+      {
+        timeoutMsg: 'Expected a recycling-operations URL after navigating to it'
+      }
+    )
+  }
+
+  /**
+   * Navigate directly to the Recycling operations tab with a `?q=` search
+   * term already applied. AC4's filtering runs on the query string
+   * regardless of whether the search box itself is rendered — `showSearch`
+   * only gates the BOX, not the filter — so this reaches the filtering
+   * behaviour without needing the >20-site fixture that would make the box
+   * appear.
+   */
+  async gotoRecyclingOperationsSearch(term) {
+    const url = await browser.getUrl()
+    const match = url.match(/\/work-items\/([^/]+)/)
+    await this.open(
+      `/work-items/${match[1]}/recycling-operations?q=${encodeURIComponent(term)}`
+    )
+  }
+
+  /**
+   * Whether the "Recycling operations" tab is offered in the case-tabs bar.
+   * Currently always false in production — see gotoRecyclingOperations()'s
+   * comment — asserted explicitly (rather than left unchecked) so a change
+   * to that hidden state is a deliberate, visible decision in this suite.
+   */
+  async hasRecyclingOperationsTabLink() {
+    return $('[data-testid="tab-recycling-operations"]').isExisting()
+  }
+
+  recyclingOperationsSiteList() {
+    return $('[data-testid="recycling-operations-site-list"]')
+  }
+
+  recyclingOperationsSite(siteId) {
+    return $(`[data-testid="recycling-operations-site-${siteId}"]`)
+  }
+
+  async recyclingOperationsSiteName(siteId) {
+    return this.recyclingOperationsSite(siteId)
+      .$('[data-testid="recycling-operations-site-name"]')
+      .getText()
+  }
+
+  /**
+   * The site ids of every row currently rendered, in DOM order — sites are
+   * always sorted alphabetically by name (AC2) regardless of backend order,
+   * so this is how a spec asserts that ordering without hand-computing it.
+   */
+  async recyclingOperationsSiteOrder() {
+    const rows = await this.recyclingOperationsSiteList().$$(TESTID_SELECTOR)
+    const ids = []
+    for (const row of rows) {
+      const testId = await row.getAttribute(TESTID_ATTR)
+      if (testId?.startsWith('recycling-operations-site-')) {
+        const id = testId.replace('recycling-operations-site-', '')
+        // Excludes the nested `recycling-operations-site-name` /
+        // `-codes` / `-interim` / `-audit` / `-change-{id}` testids inside
+        // each row, which also start with the same prefix.
+        if (
+          !['name', 'codes', 'no-codes', 'interim', 'audit'].includes(id) &&
+          !id.startsWith('change-')
+        ) {
+          ids.push(id)
+        }
+      }
+    }
+    return ids
+  }
+
+  /**
+   * The bulleted recycling-operation code LABELS (full human-readable text,
+   * not the bare code) rendered for one site, in DOM order. Empty when the
+   * site carries no codes at all — pair with
+   * hasRecyclingOperationsNoCodesMessage() for the AC7 empty-state row.
+   */
+  async recyclingOperationsSiteCodeLabels(siteId) {
+    const items = await this.recyclingOperationsSite(siteId).$$(
+      '[data-testid="recycling-operations-site-codes"] li'
+    )
+    return Promise.all([...items].map((li) => li.getText()))
+  }
+
+  /** AC7: the "No recycling operation codes are set for this site" row. */
+  async hasRecyclingOperationsNoCodesMessage(siteId) {
+    return this.recyclingOperationsSite(siteId)
+      .$('[data-testid="recycling-operations-site-no-codes"]')
+      .isExisting()
+  }
+
+  /**
+   * AC6 (RA-486). Whether the "Associated interim site" line is rendered for
+   * one ORS row. RA-486 decouples this from the ORS's own R12/R13 codes — it
+   * is shown whenever the site HAS an associated interim site, regardless of
+   * which codes (if any) the ORS itself carries.
+   */
+  async hasRecyclingOperationsInterimLine(siteId) {
+    return this.recyclingOperationsSite(siteId)
+      .$('[data-testid="recycling-operations-site-interim"]')
+      .isExisting()
+  }
+
+  async recyclingOperationsInterimLineText(siteId) {
+    return this.recyclingOperationsSite(siteId)
+      .$('[data-testid="recycling-operations-site-interim"]')
+      .getText()
+  }
+
+  recyclingOperationsChangeLink(siteId) {
+    return this.recyclingOperationsSite(siteId).$(
+      `[data-testid="recycling-operations-site-change-${siteId}"]`
+    )
+  }
+
+  /**
+   * AC3: the search box only renders once the application has more than one
+   * page's worth of sites (>20) — absent here since this fixture seeds four.
+   */
+  recyclingOperationsSearchForm() {
+    return $('[data-testid="recycling-operations-search-form"]')
+  }
+
+  recyclingOperationsNoSearchResults() {
+    return $('[data-testid="recycling-operations-no-search-results"]')
+  }
 }
 
 /**
@@ -2606,13 +2706,24 @@ export const ORS_DETAIL_FIELDS = [
   'overseas-site-oecd-country'
 ]
 
-/** RA-292 (AC04). The interim-site data points, same contract. */
+/**
+ * RA-292 (AC04). The interim-site data points, same contract.
+ *
+ * `interim-site-operation-code` is RA-486: the interim site gets its own
+ * recycling operation code(s) (mandatory R12/R13, optional R3/R4/R5),
+ * mirrored onto the Application summary tab display-only, same
+ * key/label/reader shape as the ORS list's own `overseas-site-operation-code`
+ * — there is no edit capability for it on this side (that lives on the
+ * Recycling operations tab, and only for the ORS's own codes — see
+ * ra-486-recycling-operations-tab.e2e.js).
+ */
 export const INTERIM_DETAIL_FIELDS = [
   'interim-site-site-number',
   'interim-site-address',
   'interim-site-contact-name',
   'interim-site-contact-email',
-  'interim-site-contact-phone'
+  'interim-site-contact-phone',
+  'interim-site-operation-code'
 ]
 
 export default new WorkItemDetailPage()

@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Build the test suite
         # Pinned to the commit that `main` resolved to on 2026-08-23. A branch

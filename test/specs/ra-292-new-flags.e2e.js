@@ -46,6 +46,10 @@ describe('RA-292: new ORS, interim site and authority-to-issue flags', () => {
     // reading the fixture it was written against.
     expect(await workItems.getRowCount()).toBe(1)
     await workItems.openFirstListedWorkItem()
+    // RA-486: each ORS now renders as a collapsed-by-default <details> —
+    // expand so nested interim-site content is readable by the assertions
+    // below.
+    await detail.expandAllOverseasSiteDetails()
   })
 
   after(async () => {
