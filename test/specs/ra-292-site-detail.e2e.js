@@ -159,7 +159,13 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
       expect(values['overseas-site-contact-name']).toBe(site.contactName)
       expect(values['overseas-site-contact-email']).toBe(site.contactEmail)
       expect(values['overseas-site-contact-phone']).toBe(site.contactPhone)
-      expect(values['overseas-site-operation-code']).toBe(site.operationCode)
+      // RA-486: this row now reads the structured `operationCodes` array, not
+      // the legacy singular `operationCode` — Rotterdam carries two codes
+      // (R3 and R12), so the row is asserted per-code rather than with a
+      // single `.toBe()`, same pattern as the waste-codes assertion below.
+      for (const code of site.operationCodes) {
+        expect(values['overseas-site-operation-code']).toContain(code)
+      }
     })
 
     it('renders conditionsOfExport across all three of its states', async () => {
@@ -258,7 +264,7 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
       ])
       expect(values['overseas-site-ors-id']).toBe(site.orsId)
       expect(values['overseas-site-contact-name']).toBe(site.contactName)
-      expect(values['overseas-site-operation-code']).toBe(site.operationCode)
+      expect(values['overseas-site-operation-code']).toBe(site.operationCodes[0])
     })
   })
 
@@ -345,8 +351,15 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
       // missing except one nullable field. A template that decided how to
       // render a site by branching on "is this site complete?" rather than
       // per-field would fall into the sparse branch here and drop everything.
+      // RA-486: Port Klang's `operationCodes` is deliberately an empty array
+      // (the AC7 "no codes" state), which is itself a legitimate absence —
+      // management-fe omits the operation-code row the same way it omits
+      // conditions-of-export, so both are excluded from the "must render"
+      // check here.
       const expected = ORS_DETAIL_FIELDS.filter(
-        (key) => key !== 'overseas-site-conditions-of-export'
+        (key) =>
+          key !== 'overseas-site-conditions-of-export' &&
+          key !== 'overseas-site-operation-code'
       )
       const values = await detail.blockFields(
         'overseasSite',
