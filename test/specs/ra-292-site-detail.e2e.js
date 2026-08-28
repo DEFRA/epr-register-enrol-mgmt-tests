@@ -264,7 +264,9 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
       ])
       expect(values['overseas-site-ors-id']).toBe(site.orsId)
       expect(values['overseas-site-contact-name']).toBe(site.contactName)
-      expect(values['overseas-site-operation-code']).toBe(site.operationCodes[0])
+      expect(values['overseas-site-operation-code']).toBe(
+        site.operationCodes[0]
+      )
     })
   })
 
