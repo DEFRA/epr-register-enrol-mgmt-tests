@@ -3,7 +3,11 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import queryPage from '../page-objects/query.page.js'
-import { createReAccreditation } from '../support/re-accreditation-journey.js'
+import {
+  createReAccreditation,
+  dulyMake,
+  startAssessmentViaAction
+} from '../support/re-accreditation-journey.js'
 import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
 
 /**
@@ -177,5 +181,77 @@ describe('RA-523 assignment survives query and re-submission', () => {
         expect.stringContaining('Stub Caseworker One')
       )
     })
+  })
+})
+
+/**
+ * RA-523 — the same round trip, but queried from a LATER origin state.
+ *
+ * WHY THIS SECOND ITEM EXISTS. The block above queries from the opening
+ * state (`submitted`, displayed "Not started"). The ticket does not say
+ * which state the application was in when it was queried, and management-be
+ * offers four query origins — `submitted`, `duly-made`,
+ * `assessment-in-progress` and `awaiting-decision` — each with its own
+ * `query-during-*` action and its own `resume-during-*` action back out.
+ * A round trip that keeps the assignee on one of those edges says nothing
+ * about the others unless the mechanism is shared, so the origin furthest
+ * from the first is exercised too.
+ *
+ * `startAssessmentViaAction`, NOT `startAssessment`. The normal route into
+ * assessment is the "Assign to yourself and start" CTA, which — as the name
+ * says — takes the case. That would destroy the precondition this whole file
+ * is built on: the ticket is explicit that the application must be
+ * UNASSIGNED when the query is raised ("do NOT assign the application to the
+ * case worker first"). `startAssessmentViaAction` drives the same transition
+ * through the `payment-received` action and leaves assignment alone, so the
+ * application arrives in `assessment-in-progress` still held by nobody.
+ *
+ * Its own work item rather than a second pass over the first: the first item
+ * ends the block above sitting in `updated` and already assigned, and both
+ * of those are preconditions here that would then be false.
+ */
+describe('RA-523 assignment survives a query raised during assessment', () => {
+  const orgPrefix = 'RA-523 Assessment Query Ltd'
+  let workItemId
+
+  before(async () => {
+    await login.login()
+    await workItems.resetFilters()
+    workItemId = await createReAccreditation(orgPrefix)
+    await dulyMake(workItemId)
+    await startAssessmentViaAction(workItemId)
+    await workItems.openWorkItem(workItemId)
+  })
+
+  after(async () => {
+    await login.logout()
+  })
+
+  it('reaches assessment with the application still held by nobody', async () => {
+    // The precondition, and the reason `startAssessmentViaAction` is used
+    // above. If this fails, the rest of the block is asserting against the
+    // already-assigned case and proves nothing about the ticket.
+    await detail.assertStateId('assessment-in-progress')
+    await detail.assertUnassigned()
+  })
+
+  it('assigns the application on query, as it does from submitted', async () => {
+    await raiseQuery(workItemId, {
+      sections: ['prn-tonnage'],
+      reason: 'Please confirm the PRN tonnage figures before we can assess.'
+    })
+    await workItems.openWorkItem(workItemId)
+    await detail.assertStateId('queried')
+    await detail.assertAssignedTo('Stub Caseworker One')
+  })
+
+  it('still held by the querying caseworker once the operator resubmits', async () => {
+    await resumeFromQuery(workItemId)
+    await workItems.openWorkItem(workItemId)
+    // RA-337: every `resume-during-*` action lands on the single `updated`
+    // waypoint, so this is the same target as the submitted-origin round
+    // trip even though it arrived by a different edge.
+    await detail.assertStateId('updated')
+    await detail.assertAssignedTo('Stub Caseworker One')
   })
 })
