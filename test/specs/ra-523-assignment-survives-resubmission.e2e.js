@@ -3,11 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import queryPage from '../page-objects/query.page.js'
-import {
-  createReAccreditation,
-  dulyMake,
-  startAssessmentViaAction
-} from '../support/re-accreditation-journey.js'
+import { createReAccreditation } from '../support/re-accreditation-journey.js'
 import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
 
 /**
@@ -31,21 +27,19 @@ import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
  *   - "querying an unassigned application assigns it to you" and the query
  *     form's validation are owned by `ra-291-query-application.e2e.js`.
  *
- * The assertion this file exists for is the LAST one: after
- * `resume-from-query` the application is still held by the caseworker who
- * raised the query. Nothing else in the suite covers the assignee ACROSS
- * that transition — `ra-316-duly-making-from-updated.e2e.js` drives the same
- * query → resubmit round trip but only ever looks at the state and the CTA,
- * so the assignee could be silently dropped there and the whole suite would
- * stay green. That is exactly what happened.
+ * Nothing else in the suite looks at the assignee ACROSS the
+ * `queried` → `updated` transition — `ra-316-duly-making-from-updated.e2e.js`
+ * drives the same query → resubmit round trip but only ever asserts the
+ * state and the CTA, so the assignee could be dropped there and the whole
+ * suite would stay green.
  *
- * SCOPE — read before widening. This covers the UNASSIGNED-at-query-time
- * case only, which is the scenario on the ticket. Whether a resubmission
- * also (re)assigns an application that was already held by somebody else at
- * query time is a different question, is not what the bug reports, and is
- * not asserted here: doing so would pin down behaviour the fix does not
- * claim. If management-be later makes the resume-time assignment
- * unconditional, add that case rather than loosening this one.
+ * THIS FIRST BLOCK IS THE NO-REGRESSION CASE, NOT THE BUG. It passes against
+ * an unfixed backend, and that is the finding rather than a gap: an
+ * uninterrupted query round trip keeps its assignee already. The regression
+ * needs a case that is dropped mid-query, and lives in the second block
+ * below — read its comment for the root cause before changing anything here.
+ * Keep this block: it is what stops a fix to that one from breaking the
+ * ordinary path.
  *
  * WHY THE MIDDLE LEG IS AN API CALL. `queried` → `updated` is driven by the
  * OPERATOR resubmitting, via
@@ -185,73 +179,144 @@ describe('RA-523 assignment survives query and re-submission', () => {
 })
 
 /**
- * RA-523 — the same round trip, but queried from a LATER origin state.
+ * RA-523 — THE ACTUAL REGRESSION: an application dropped WHILE it is
+ * queried must come back owned by the caseworker who raised the query.
  *
- * WHY THIS SECOND ITEM EXISTS. The block above queries from the opening
- * state (`submitted`, displayed "Not started"). The ticket does not say
- * which state the application was in when it was queried, and management-be
- * offers four query origins — `submitted`, `duly-made`,
- * `assessment-in-progress` and `awaiting-decision` — each with its own
- * `query-during-*` action and its own `resume-during-*` action back out.
- * A round trip that keeps the assignee on one of those edges says nothing
- * about the others unless the mechanism is shared, so the origin furthest
- * from the first is exercised too.
+ * The block above does not fail against an unfixed backend, and that is not
+ * an oversight — it is the finding that located the bug. Assignment is never
+ * cleared on the resume path (management-be has exactly one writer that
+ * clears `AssignedToId`: the explicit unassign endpoint), so a query round
+ * trip that nobody interferes with keeps its assignee on every one of the
+ * four query origins. Confirmed empirically here and by management-be's own
+ * integration tests across all four.
  *
- * `startAssessmentViaAction`, NOT `startAssessment`. The normal route into
- * assessment is the "Assign to yourself and start" CTA, which — as the name
- * says — takes the case. That would destroy the precondition this whole file
- * is built on: the ticket is explicit that the application must be
- * UNASSIGNED when the query is raised ("do NOT assign the application to the
- * case worker first"). `startAssessmentViaAction` drives the same transition
- * through the `payment-received` action and leaves assignment alone, so the
- * application arrives in `assessment-in-progress` still held by nobody.
+ * The discriminator is NOT the origin state. It is WHETHER THE APPLICATION
+ * IS ASSIGNED AT THE MOMENT THE RESUME LANDS:
  *
- * Its own work item rather than a second pass over the first: the first item
- * ends the block above sitting in `updated` and already assigned, and both
- * of those are preconditions here that would then be false.
+ *   - `ReAccreditationQueryService` self-assigns at query time (RA-291), and
+ *     the query page promises it;
+ *   - but that ownership is not durable across the query window. Case
+ *     management offers "Unassign the application" UNCONDITIONALLY on any
+ *     non-terminal item (RA-295 AC03 / RA-323), and `queried` is
+ *     non-terminal — so a caseworker, or a supervisor tidying a worklist,
+ *     can drop the case while the operator is still answering;
+ *   - nothing re-established ownership on the way back in, so the
+ *     application returned as `updated` and held by nobody. The same applies
+ *     to any item that reached `queried` without an assign at all — in-flight
+ *     data predating RA-291.
+ *
+ * The fix makes the resume restore the querying caseworker, resolved from
+ * the `application-queried` audit entry, when — and only when — the item is
+ * unassigned at that moment. Hence the third block below, which guards the
+ * other half of that condition.
+ *
+ * Its own work item: the first block's item ends assigned and in `updated`,
+ * and both are preconditions here that would then be false.
  */
-describe('RA-523 assignment survives a query raised during assessment', () => {
-  const orgPrefix = 'RA-523 Assessment Query Ltd'
+describe('RA-523 assignment is restored when the case was dropped mid-query', () => {
+  const orgPrefix = 'RA-523 Dropped Mid Query Ltd'
   let workItemId
 
   before(async () => {
     await login.login()
     await workItems.resetFilters()
     workItemId = await createReAccreditation(orgPrefix)
-    await dulyMake(workItemId)
-    await startAssessmentViaAction(workItemId)
     await workItems.openWorkItem(workItemId)
+    await detail.assertUnassigned()
+    await raiseQuery(workItemId, {
+      sections: ['business-plan'],
+      reason: 'Please resend the business plan with the tonnage breakdown.'
+    })
+    await workItems.openWorkItem(workItemId)
+    await detail.assertAssignedTo('Stub Caseworker One')
   })
 
   after(async () => {
     await login.logout()
   })
 
-  it('reaches assessment with the application still held by nobody', async () => {
-    // The precondition, and the reason `startAssessmentViaAction` is used
-    // above. If this fails, the rest of the block is asserting against the
-    // already-assigned case and proves nothing about the ticket.
-    await detail.assertStateId('assessment-in-progress')
+  it('lets a caseworker drop a queried application', async () => {
+    // The step the ticket's own repro leaves implicit and the reason the
+    // bug was hard to pin down. Driven through the UI affordance rather
+    // than the API precisely because the affordance being available here is
+    // half the cause — if management-fe ever gates unassign on `queried`,
+    // this fails and the bug it guards has been fixed a different way.
+    await detail.unassign()
+    await detail.assertStateId('queried')
     await detail.assertUnassigned()
   })
 
-  it('assigns the application on query, as it does from submitted', async () => {
-    await raiseQuery(workItemId, {
-      sections: ['prn-tonnage'],
-      reason: 'Please confirm the PRN tonnage figures before we can assess.'
-    })
+  it('restores the querying caseworker when the operator resubmits', async () => {
+    // THE ASSERTION THIS FILE EXISTS FOR. Against an unfixed management-be
+    // this reads "Unassigned": the caseworker who asked the question does
+    // not get back the case that answers it, and — because "assigned to me"
+    // is the list filter caseworkers actually work from — nobody sees it.
+    await resumeFromQuery(workItemId)
     await workItems.openWorkItem(workItemId)
-    await detail.assertStateId('queried')
+    await detail.assertStateId('updated')
     await detail.assertAssignedTo('Stub Caseworker One')
   })
 
-  it('still held by the querying caseworker once the operator resubmits', async () => {
+  it('shows the restored assignee on the work-items list too', async () => {
+    // Detail and list are separate read models (`WorkItemResponse` vs
+    // `WorkItemListItemResponse`), and the list is where the case would
+    // actually be noticed missing. A fix that only repaired the detail page
+    // would still leave it invisible where it matters.
+    await workItems.resetFilters()
+    await workItems.searchByOrgName(orgPrefix)
+    await expect(workItems.tileFor(workItemId)).toBeDisplayed()
+    await expect(workItems.tileAssignedTo(workItemId)).toHaveText(
+      expect.stringContaining('Stub Caseworker One')
+    )
+  })
+})
+
+/**
+ * RA-523 — the other half of the condition: a DELIBERATE hand-over during
+ * the query window must survive the resume.
+ *
+ * The restore is conditional on the application being unassigned when the
+ * resume lands. That condition is the whole safety margin of the fix, and it
+ * is the kind of thing a later simplification quietly drops — "just always
+ * assign the querier" reads like a tidy-up and passes every test above.
+ *
+ * It would also be wrong. A supervisor reassigning a queried case to a
+ * colleague — because the querying caseworker is on leave, or the case has
+ * been escalated — is an ordinary and deliberate act, and the operator's
+ * answer arriving must not silently undo it. Without this block that
+ * regression is unobservable.
+ */
+describe('RA-523 a deliberate hand-over during the query window is kept', () => {
+  let workItemId
+
+  before(async () => {
+    await login.login()
+    await workItems.resetFilters()
+    workItemId = await createReAccreditation('RA-523 Handed Over Ltd')
+    await workItems.openWorkItem(workItemId)
+    await detail.assertUnassigned()
+    await raiseQuery(workItemId, {
+      sections: ['business-plan'],
+      reason: 'Please resend the business plan.'
+    })
+    await workItems.openWorkItem(workItemId)
+    // The query took ownership; a supervisor now hands the case on while
+    // the operator is still answering.
+    await detail.assertAssignedTo('Stub Caseworker One')
+    await detail.assignTo('stub-caseworker-2')
+    await detail.assertAssignedTo('Stub Caseworker Two')
+  })
+
+  after(async () => {
+    await login.logout()
+  })
+
+  it('leaves the new owner in place rather than reverting to the querier', async () => {
     await resumeFromQuery(workItemId)
     await workItems.openWorkItem(workItemId)
-    // RA-337: every `resume-during-*` action lands on the single `updated`
-    // waypoint, so this is the same target as the submitted-origin round
-    // trip even though it arrived by a different edge.
     await detail.assertStateId('updated')
-    await detail.assertAssignedTo('Stub Caseworker One')
+    // NOT "Stub Caseworker One". The restore fires only on an unassigned
+    // application; here somebody already holds it, and their claim wins.
+    await detail.assertAssignedTo('Stub Caseworker Two')
   })
 })
