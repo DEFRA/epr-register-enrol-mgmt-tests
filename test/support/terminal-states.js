@@ -27,7 +27,7 @@ const FIXTURE_SITE_ADDRESS_LINE_1 = '1 Terminal Way'
  * RA-317 removed the case-management withdraw affordance and its confirmation
  * interstitial, so the withdrawn fixtures below reach `withdrawn` the way it
  * genuinely happens now — the operator backend's withdraw endpoint (see
- * `operator-withdrawal.js`) — rather than a CM journey no caseworker can take.
+ * `operator-withdrawal.js`) — rather than a Case Management service journey no caseworker can take.
  *
  * NOTE: ra-313-withdrawn-in-worklist.e2e.js contains a near-identical
  * pre-decision drive. Deduplicating the two is filed as follow-up work.
@@ -68,7 +68,7 @@ export async function driveToDecisionReady({ organisationName, material }) {
  * route to a terminal state.
  *
  * RA-317: the operator backend performs the withdrawal (there is no longer a
- * CM affordance for it), then the item is opened and asserted `Withdrawn` so a
+ * Case Management service affordance for it), then the item is opened and asserted `Withdrawn` so a
  * caller still gets a proven-terminal fixture. This IS the AC03 scenario — an
  * operator withdraws and the withdrawn state shows in case management.
  */

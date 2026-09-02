@@ -5,7 +5,7 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 
 /**
- * RA-306 — CM: Sign out of the service.
+ * RA-306 — Case Management service: Sign out of the service.
  *
  * A Regulator must be able to end their case-management session from the
  * service nav, and once they have, nothing they could previously see may still

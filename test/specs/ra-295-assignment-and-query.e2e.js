@@ -179,7 +179,7 @@ describe('RA-295 assignment panel and query assignment notice', () => {
     // Uses its OWN work item, deliberately: withdrawing is irreversible, so
     // reusing the item above would leave every later block in this file
     // operating on a closed case. Withdraw is the shortest route to a terminal
-    // state (RA-317: an operator-backend call, not a CM journey).
+    // state (RA-317: an operator-backend call, not a Case Management service journey).
     let closedItemId
 
     before(async () => {
@@ -207,7 +207,7 @@ describe('RA-295 assignment panel and query assignment notice', () => {
       await expect($('[data-testid="action-sla-extend"]')).toBeExisting()
       await expect($('[data-testid="action-sla-override"]')).toBeExisting()
 
-      // The operator withdraws the case (RA-317 removed the CM affordance).
+      // The operator withdraws the case (RA-317 removed the Case Management service affordance).
       // The backend derives the correct transition for the item's current
       // state (`withdraw-during-assessment`) server-side. Re-open the item so
       // the assertions below run against the withdrawn detail page.

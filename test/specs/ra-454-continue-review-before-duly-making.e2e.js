@@ -15,7 +15,7 @@ import {
 import { utcDateParts } from '../support/uk-time.js'
 
 /**
- * RA-454 — CM: Query before Duly Made — "Continue review" wrongly duly-makes
+ * RA-454 — Case Management service: Query before Duly Made — "Continue review" wrongly duly-makes
  * and shows "Not started".
  *
  * ── The bug ──────────────────────────────────────────────────────────────────

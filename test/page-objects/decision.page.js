@@ -293,8 +293,8 @@ class DecisionPage extends Page {
 
   /**
    * `timeout` defaults to 10s, which is right for a decision that lands
-   * quickly — the happy path, where the OJ push is acknowledged at once. The
-   * OJ-FAILURE path is different: the push is a pre-commit gate that retries
+   * quickly — the happy path, where the Registration & Accreditation service push is acknowledged at once. The
+   * Registration & Accreditation service FAILURE path is different: the push is a pre-commit gate that retries
    * (5 retries / ~28s worst case per management-be) BEFORE the request returns
    * 500 and management-fe PRG-redirects here, so that caller passes a longer
    * timeout. Kept as one method rather than two so the redirect target stays

@@ -88,7 +88,7 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
     ).id
 
     // RA-313 is about OPERATOR-initiated withdrawal, and RA-317 retired the
-    // CM withdraw journey this used to drive — so the item is now withdrawn
+    // Case Management service withdraw journey this used to drive — so the item is now withdrawn
     // exactly the way the AC describes, through the operator backend. Both
     // routes land it in the same `withdrawn` state, which is all AC01 turns
     // on; the assertions below are unchanged.

@@ -75,9 +75,9 @@ services:
       retries: 5
 
   ################################################################################
-  # Operator-journey (OJ) backend stand-in.
+  # Registration & Accreditation service backend stand-in.
   #
-  # management-be's decision is atomic and OJ-gated: it pushes the status change
+  # management-be's decision is atomic and gated by the Registration & Accreditation service: it pushes the status change
   # to the operator-journey backend and only completes the transition once that
   # push is acknowledged. That backend (epr-register-enrol-backend) is NOT in
   # this stack, so without something answering the push every decision strands

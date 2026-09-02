@@ -637,7 +637,7 @@ class WorkItemDetailPage extends Page {
   /**
    * epr-p86e. Assert the ERROR variant of the post-redirect flash banner.
    *
-   * When the atomic, OJ-gated decision fails (management-be returns 500 with
+   * When the atomic decision, gated by the Registration & Accreditation service, fails (management-be returns 500 with
    * no state change), management-fe PRG-redirects back to the detail page and
    * flashes a generic error notification banner on the same
    * `work-item-flash-banner` test id — not a `.govuk-error-summary` and not a

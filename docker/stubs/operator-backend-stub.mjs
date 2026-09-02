@@ -1,9 +1,9 @@
 /**
- * Operator-journey (OJ) backend stand-in for the journey-test compose stack.
+ * Registration & Accreditation service backend stand-in for the journey-test compose stack.
  *
  * WHY THIS EXISTS
  * ---------------
- * management-be's decision is now atomic and OJ-gated (epr-p86e.1): before it
+ * management-be's decision is now atomic and gated by the Registration & Accreditation service (epr-p86e.1): before it
  * moves a re-accreditation to `approved`/`rejected` it pushes the status change
  * to the operator-journey backend and only completes the transition once that
  * push is acknowledged. That backend is `epr-register-enrol-backend`, which is
@@ -67,7 +67,7 @@ import { createServer } from 'node:http'
 
 const PORT = Number(process.env.PORT) || 8080
 
-// Work-item ids whose next OJ push should be answered with a 5xx, armed by the
+// Work-item ids whose next Registration & Accreditation service push should be answered with a 5xx, armed by the
 // test runner via the control endpoints below. In-memory and process-lifetime
 // only — a fresh stack starts with nothing armed.
 const failing = new Set()
@@ -77,7 +77,7 @@ function send(res, status, body) {
   res.end(JSON.stringify(body))
 }
 
-// The real OJ contract management-be pushes to (RA-368 status / RA-311 query).
+// The real Registration & Accreditation service contract management-be pushes to (RA-368 status / RA-311 query).
 // Both are answered identically here.
 const PUSH_PATH =
   /^\/api\/v1\/accreditation-applications\/case-management\/([^/]+)\/(status|query)$/
@@ -162,7 +162,7 @@ const server = createServer((req, res) => {
     return send(res, 200, { reset: true })
   }
 
-  // The OJ push itself.
+  // The Registration & Accreditation service push itself.
   const pushMatch = url.match(PUSH_PATH)
   if (pushMatch && method === 'POST') {
     const id = decodeURIComponent(pushMatch[1])
@@ -171,10 +171,10 @@ const server = createServer((req, res) => {
     req.on('data', () => {})
     req.on('end', () => {
       if (failing.has(id)) {
-        console.log(`[oj-stub] 500 (armed) ${method} ${url}`)
+        console.log(`[registration-accreditation-stub] 500 (armed) ${method} ${url}`)
         return send(res, 500, { error: 'stubbed operator-backend failure' })
       }
-      console.log(`[oj-stub] 200 ${method} ${url}`)
+      console.log(`[registration-accreditation-stub] 200 ${method} ${url}`)
       return send(res, 200, { ok: true })
     })
     return
@@ -189,7 +189,7 @@ const server = createServer((req, res) => {
         orgId: body.orgId,
         year: body.year
       })
-      console.log(`[oj-stub] 200 ${method} ${url} -> ${accreditationReference}`)
+      console.log(`[registration-accreditation-stub] 200 ${method} ${url} -> ${accreditationReference}`)
       return send(res, 200, { accreditationReference })
     })
     return
@@ -199,5 +199,5 @@ const server = createServer((req, res) => {
 })
 
 server.listen(PORT, () => {
-  console.log(`[oj-stub] operator-backend stand-in listening on :${PORT}`)
+  console.log(`[registration-accreditation-stub] operator-backend stand-in listening on :${PORT}`)
 })

@@ -18,10 +18,10 @@ import { uniquePostcode } from '../support/unique-postcode.js'
  * RA-317 removed the case-management withdraw affordance: withdrawal is an
  * OPERATOR action now, driven through management-be's withdraw endpoint. The
  * notification hook fires on that operator-initiated transition just as it did
- * on the old CM journey, so the sent entry is still recorded — which is itself
+ * on the old Case Management service journey, so the sent entry is still recorded — which is itself
  * AC03 (an operator withdrawal surfaces in case management). The withdrawal
  * `reason` supplied to the endpoint becomes the note that feeds the email's
- * `withdrawal_notes` personalisation. Unlike the old CM flow's OPTIONAL note,
+ * `withdrawal_notes` personalisation. Unlike the old Case Management service flow's OPTIONAL note,
  * the operator endpoint mandates a non-empty reason, so the former
  * "without a note" path is no longer reachable (see the note where it was).
  */
@@ -70,7 +70,7 @@ describe('RA-204 Withdrawal notification', () => {
     })
   })
 
-  // The old CM withdraw flow had an OPTIONAL note, so a "without a note" case
+  // The old Case Management service withdraw flow had an OPTIONAL note, so a "without a note" case
   // used to exercise the empty-note send path. The operator endpoint that
   // replaces it (RA-317) REQUIRES a non-empty reason —
   // `ReAccreditationWithdrawValidator` rejects a blank one with a 400 "Enter a

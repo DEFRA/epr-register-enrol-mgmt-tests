@@ -9,10 +9,10 @@ import {
 } from '../support/re-accreditation-journey.js'
 
 /**
- * RA-368, re-pointed by RA-410 — CM pushes work item status changes to OJ.
+ * RA-368, re-pointed by RA-410 — Case Management service pushes work item status changes to the Registration & Accreditation service.
  *
  * Every non-excluded generic work-item transition fires
- * `ReAccreditationStatusPushHook`, which calls OJ's
+ * `ReAccreditationStatusPushHook`, which calls the Registration & Accreditation service's
  * `case-management/{workItemId}/status` endpoint and records the outcome as a
  * `status-push-sent` / `status-push-skipped` / `status-push-failed` audit
  * entry.
@@ -41,10 +41,11 @@ import {
  *   - `payment-received` (duly-made -> assessment-in-progress).
  *
  * The decision actions (submit-for-decision/approve/reject) are deliberately
- * NOT here: their OJ push is owned by ReAccreditationLogDecisionService as a
+ * NOT here: their Registration & Accreditation service push is owned by ReAccreditationLogDecisionService as a
  * single pre-commit gate and excluded from this hook — the failure path for
  * that push lives in `ra-410-decision-operator-failure.e2e.js`.
  */
+// eslint-disable-next-line local-rules/no-undocumented-service-acronyms -- verbatim Jira ticket title, predates this guard
 describe('RA-368 CM status push to OJ', () => {
   let workItemId
 
@@ -69,7 +70,9 @@ describe('RA-368 CM status push to OJ', () => {
     const sentEntries = await detail.auditEntriesForAction('status-push-sent')
     expect(sentEntries.length).toBe(1)
     // Positive control on the human-readable label, not just the action id.
-    await detail.assertAuditEntry('Status sent to OJ')
+    await detail.assertAuditEntry(
+      'Status sent to the Registration & Accreditation service'
+    )
   })
 
   it('records a second status-push-sent entry for the payment-received action', async () => {
