@@ -6,7 +6,12 @@ import {
   createReAccreditation,
   dulyMake
 } from '../support/re-accreditation-journey.js'
-import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
+import {
+  applyActionViaApi,
+  paymentReceivedViaApi,
+  raiseQuery,
+  resumeFromQuery
+} from '../support/query-resubmission.js'
 
 /**
  * RA-523 (reopened) — a `duly-made` application the caseworker ALREADY HOLDS
@@ -340,5 +345,198 @@ describe('RA-523 — a duly-made item held by a COLLEAGUE still offers self-assi
     await detail.selfAssignAndStart()
     await detail.assertStateId('assessment-in-progress')
     await detail.assertAssignedTo(CALLER)
+  })
+})
+
+/**
+ * RA-523 — the forward hop is reachable ONLY through its own endpoint.
+ *
+ * `payment-received-during-duly-made` carries an `updated` item forward to
+ * `assessment-in-progress`. It is declared `CallerInvocable: false`, and that
+ * flag is the only thing standing between us and a serious hole.
+ *
+ * WHAT THE FLAG DEFENDS. The transition shares its `fromStateId` (`updated`)
+ * with the four `continue-review-during-*` transitions and with
+ * `withdraw-during-updated`, so the engine's from-state guard cannot tell
+ * them apart. Left caller-invocable, anyone holding a `submitted`-origin item
+ * in `updated` could POST it to the generic action route and skip duly making
+ * altogether — no payment date captured, and therefore NO SLA CLOCK EVER
+ * STARTED, plus no DulyMade notification. management-be's own unit tests
+ * prove the flag is set; only a journey run proves the whole path through the
+ * real BFF actually refuses.
+ *
+ * *** WHY THE POSITIVE CONTROL BELOW IS NOT OPTIONAL ***
+ *
+ * The generic route answers 400 "Invalid action" for a transition that is
+ * declared non-invocable — AND for an action id it has never heard of. Both
+ * map to the same `UnknownAction` failure code. So an absence-style spec that
+ * only asserted the 400 would pass just as happily against a backend where
+ * this transition DOES NOT EXIST AT ALL: it would go green on the day someone
+ * deleted the feature, and green today against any build predating it.
+ *
+ * Driving the bespoke endpoint to a real 200 in the same block is what makes
+ * the 400 mean "declared, and deliberately not reachable this way" rather
+ * than "never heard of it". This is the RA-358 positive-hook pattern applied
+ * to a status code instead of a DOM node, and this ticket has already shipped
+ * one fix that passed its tests and failed QA — so the guard earns its place.
+ *
+ * Contract confirmed by management-be's owner and corroborated against
+ * `WorkItemEndpoints.Action`, which returns on the `CallerInvocable` check
+ * BEFORE `ApplyActionAsync` is called — hence "nothing partially applies".
+ */
+describe('RA-523 route guards on the forward hop', () => {
+  describe('an updated item with a duly-made origin', () => {
+    const ACTION_ID = 'payment-received-during-duly-made'
+    let workItemId
+    let dueOnBefore
+
+    before(async () => {
+      await login.login()
+      await workItems.resetFilters()
+      workItemId = await createReAccreditation('RA-523 Route Guard Ltd')
+      // Duly made FIRST, so the query leaves a `duly-made` origin behind —
+      // the origin the forward hop is scoped to.
+      await dulyMake(workItemId)
+      await raiseQuery(workItemId, {
+        reason: 'RA-523: please confirm the tonnage split before assessment.'
+      })
+      await resumeFromQuery(workItemId)
+      await workItems.openWorkItem(workItemId)
+      // Captured BEFORE anything is attempted, so the SLA assertions below
+      // compare against a real observed value rather than a recomputed
+      // expectation. The clock is anchored to the entered payment date, so
+      // recomputing it here would just reimplement the backend's arithmetic
+      // and agree with itself.
+      dueOnBefore = await detail.caseHeaderFieldText('dueOn')
+    })
+
+    after(async () => {
+      await login.logout()
+    })
+
+    it('sits in updated, held by the caseworker, with a running clock', async () => {
+      // The preconditions every assertion below depends on. In particular the
+      // clock must already be running, or "the SLA is unchanged" would be
+      // satisfied by two em-dashes.
+      await detail.assertStateId('updated')
+      await detail.assertAssignedTo(CALLER)
+      expect(await detail.hasRealDueOn()).toBe(true)
+    })
+
+    it('refuses the generic action route with 400 "Invalid action"', async () => {
+      // THE GUARD. 400 rather than the 409 the bespoke endpoint's origin
+      // check returns — deliberately distinguishable, so a future change
+      // routing one refusal through the other's path shows up as a status
+      // change instead of being silently absorbed.
+      const result = await applyActionViaApi(workItemId, ACTION_ID)
+      expect(result.status).toBe(400)
+      expect(result.body?.title).toBe('Invalid action')
+    })
+
+    it('leaves the item completely untouched by the refusal', async () => {
+      // Not merely "still updated": the refusal returns before
+      // `ApplyActionAsync` is ever called, so there is nothing to partially
+      // apply and every observable must be identical.
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('updated')
+      await detail.assertAssignedTo(CALLER)
+      expect(await detail.caseHeaderFieldText('dueOn')).toBe(dueOnBefore)
+    })
+
+    it('POSITIVE CONTROL: the bespoke endpoint does carry it forward', async () => {
+      // Read the block comment before touching this. Without a real 200 here
+      // the 400 above is worthless — it would pass against a backend that had
+      // never heard of this action.
+      const result = await paymentReceivedViaApi(workItemId)
+      expect(result.status).toBe(200)
+      expect(result.body?.stateId).toBe('assessment-in-progress')
+    })
+
+    it('keeps the assignee and the SLA across the hop', async () => {
+      // The ticket's whole point, asserted on the state id rather than the
+      // status tag: RA-324 gives `updated` and `assessment-in-progress` the
+      // same display name, so the tag cannot tell them apart.
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('assessment-in-progress')
+      await detail.assertAssignedTo(CALLER)
+      expect(await detail.caseHeaderFieldText('dueOn')).toBe(dueOnBefore)
+    })
+
+    it('replays idempotently on a second call rather than erroring', async () => {
+      // A caseworker double-clicking the CTA is an ordinary thing to do, and
+      // "the second click 500s" is a classic QA find. The second call is a
+      // 200 carrying `x-idempotent-replay`, NOT a 409.
+      const replay = await paymentReceivedViaApi(workItemId)
+      expect(replay.status).toBe(200)
+      expect(replay.idempotentReplay).toBe(true)
+      expect(replay.body?.stateId).toBe('assessment-in-progress')
+
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('assessment-in-progress')
+      await detail.assertAssignedTo(CALLER)
+    })
+  })
+
+  describe('an updated item with a submitted origin', () => {
+    // The origin that has NEVER been duly made. Duly making is what captures
+    // the payment date and anchors the SLA clock, so this item reaching
+    // assessment by any route at all is the bypass the `CallerInvocable`
+    // flag exists to prevent. BOTH routes must refuse it, by different
+    // mechanisms and with different statuses.
+    const ACTION_ID = 'payment-received-during-duly-made'
+    let workItemId
+
+    before(async () => {
+      await login.login()
+      await workItems.resetFilters()
+      workItemId = await createReAccreditation('RA-523 Route Guard Origin Ltd')
+      // NO duly making — queried straight out of `submitted`.
+      await raiseQuery(workItemId, {
+        reason: 'RA-523: please supply the missing site details.'
+      })
+      await resumeFromQuery(workItemId)
+      await workItems.openWorkItem(workItemId)
+    })
+
+    after(async () => {
+      await login.logout()
+    })
+
+    it('sits in updated with no clock started', async () => {
+      // No payment date has ever been captured, so "Due on" is the em-dash
+      // fallback. This is the precondition that makes the bypass dangerous.
+      await detail.assertStateId('updated')
+      expect(await detail.hasRealDueOn()).toBe(false)
+    })
+
+    it('refuses the generic action route with 400 "Invalid action"', async () => {
+      const result = await applyActionViaApi(workItemId, ACTION_ID)
+      expect(result.status).toBe(400)
+      expect(result.body?.title).toBe('Invalid action')
+    })
+
+    it('refuses the bespoke endpoint too, with 409 on the origin check', async () => {
+      // A DIFFERENT refusal from the 400 above, and that is the point: the
+      // generic route refuses because the transition is not caller-invocable,
+      // the bespoke route refuses because this item's origin is wrong. Both
+      // holes have to be shut, and asserting distinct statuses proves both
+      // guards fired rather than one covering for the other.
+      const result = await paymentReceivedViaApi(workItemId)
+      expect(result.status).toBe(409)
+    })
+
+    it('is still updated, still with no clock, after both refusals', async () => {
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('updated')
+      expect(await detail.hasRealDueOn()).toBe(false)
+    })
+
+    it('still routes through Duly make, which is what starts the clock', async () => {
+      // The lead's point 6 guard, at the level available today: this item's
+      // way forward is duly making and nothing else. The other half — that it
+      // must never offer the new forward CTA — needs a test id that does not
+      // exist yet, and lands with blocks 1 and 2.
+      expect(await detail.hasDulyMakeCta()).toBe(true)
+    })
   })
 })
