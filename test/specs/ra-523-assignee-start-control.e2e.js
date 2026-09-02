@@ -90,8 +90,9 @@ async function assertOffersStartNotSelfAssign() {
   expect(await detail.hasAssignmentControl('selfAssign')).toBe(false)
 }
 
-describe('RA-523 QA route 1 — queried from duly-made, then Continue review', () => {
+describe('RA-523 QA route 1 — queried from duly-made, then straight to assessment', () => {
   let workItemId
+  let dueOnBefore
 
   before(async () => {
     await login.login()
@@ -137,22 +138,55 @@ describe('RA-523 QA route 1 — queried from duly-made, then Continue review', (
     await workItems.openWorkItem(workItemId)
     await detail.assertStateId('updated')
     await detail.assertAssignedTo(CALLER)
+    // Captured here so the hop below can be shown not to disturb it.
+    expect(await detail.hasRealDueOn()).toBe(true)
+    dueOnBefore = await detail.caseHeaderFieldText('dueOn')
   })
 
-  it('returns to duly-made on Continue review, still held by the caseworker', async () => {
-    // The caseworker's OWN journey, not the API shortcut: the whole defect is
-    // about what the page offers after a real Continue review, so the click
-    // has to be real too.
-    await detail.clickContinueReview()
-    await detail.assertStateId('duly-made')
+  it('offers "Start assessment" and NOT "Continue review"', async () => {
+    // TOM'S REQUIREMENT, and the half of RA-523 that outlived the original
+    // fix: "once a duly made task has been responded to, it should
+    // automatically go to the Updated state, it shouldn't come back to the
+    // regulator as Duly made." So the forward CTA replaces Continue review
+    // here rather than joining it — offering both would present two forward
+    // paths to different stages and let the caseworker pick the wrong one.
+    expect(await detail.hasPaymentReceivedCta()).toBe(true)
+    // The label is asserted literally. management-fe reads it from the
+    // transition's declared displayName rather than hardcoding it, so a
+    // reword in management-be would move the button silently; this is what
+    // makes that drift visible. Note it deliberately does NOT say "Payment
+    // received" — no payment has happened at this waypoint, the operator
+    // answered a query.
+    expect(await detail.paymentReceivedCtaText()).toContain('Start assessment')
+    // Absent from the DOM, not merely inert — `canContinueReview` excludes
+    // the duly-made origin, so the whole wrapper goes unrendered.
+    expect(await detail.hasContinueReviewCta()).toBe(false)
+  })
+
+  it('goes straight to assessment when clicked, still held by the caseworker', async () => {
+    // THE ASSERTION QA WILL LOOK STRAIGHT AT. The state is read from
+    // `data-state-id`, never from the status tag: RA-324 AC06 gives `updated`
+    // and `assessment-in-progress` the same display name "Updated", so the
+    // visible tag does not change across this hop at all and a spec trusting
+    // it would pass whether or not the transition fired.
+    await detail.clickPaymentReceived()
+    await detail.assertStateId('assessment-in-progress')
     await detail.assertAssignedTo(CALLER)
   })
 
-  it('offers "Payment received" and NOT "Assign to yourself and start"', async () => {
-    // THE BUG. Before the fix this page rendered `self-assign-submit`,
-    // offering to assign the caseworker an application they had held since
-    // they queried it.
-    await assertOffersStartNotSelfAssign()
+  it('leaves the determination deadline untouched', async () => {
+    // The SLA clock is anchored to the payment date captured at duly making,
+    // so this hop must not disturb it. Compared against the value observed
+    // before the hop rather than a recomputed expectation, which would just
+    // reimplement the backend's arithmetic and agree with itself.
+    expect(await detail.caseHeaderFieldText('dueOn')).toBe(dueOnBefore)
+  })
+
+  it('drops the forward CTA once the item has moved on', async () => {
+    // The control must not linger and offer to do it again — and since the
+    // status tag is unchanged, its disappearance is the only thing a
+    // caseworker can actually see happened.
+    expect(await detail.hasPaymentReceivedCta()).toBe(false)
   })
 })
 
@@ -182,6 +216,20 @@ describe('RA-523 QA route 2 — queried from submitted, then Duly make', () => {
     await workItems.openWorkItem(workItemId)
     await detail.assertStateId('updated')
     await detail.assertAssignedTo(CALLER)
+  })
+
+  it('offers "Duly make" and NEVER the forward CTA', async () => {
+    // THE REGRESSION GUARD. This item has never been duly made, so duly
+    // making — which captures the payment date and anchors the SLA clock — is
+    // the only way forward. The forward CTA is scoped to the `duly-made`
+    // origin, and a widening of that scope would let a `submitted`-origin
+    // item reach assessment with no payment date and therefore no clock ever
+    // started. management-fe gates the two exclusions as independent tests
+    // against the same origin discriminator rather than an if/else, so one
+    // cannot silently swallow the other; this asserts both halves from the
+    // outside.
+    expect(await detail.hasDulyMakeCta()).toBe(true)
+    expect(await detail.hasPaymentReceivedCta()).toBe(false)
   })
 
   it('duly making it lands in duly-made, still held by the caseworker', async () => {

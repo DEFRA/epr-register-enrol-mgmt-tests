@@ -2158,30 +2158,71 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * RA-454 / RA-523. Click the generic "Continue review" action and wait for
-   * the item to leave `updated`.
+   * RA-523. The forward CTA on an `updated` item whose query was raised after
+   * duly making — the control that carries it on to assessment.
    *
-   * `triggerAction('continue-review')` only clicks; every existing caller
-   * either asserts the control's presence or drives the transition over the
-   * API. RA-523's first QA route needs the CASEWORKER'S OWN journey — the
-   * whole defect is what the page offers after a real Continue review — so
-   * this pairs the click with a wait.
+   * NAMED FOR THE ACTION ID, NOT THE LABEL, and the two deliberately differ.
+   * The testid carries `payment-received-during-duly-made` (structural: the
+   * action id, and the endpoint it posts to), while the button READS "Start
+   * assessment". management-be labels it from a constant explicitly commented
+   * as deliberately not the payment-received label, because at this waypoint
+   * no payment has happened — the operator answered a query. A button
+   * asserting payment here would be the same class of lying control RA-523
+   * exists to remove.
    *
-   * Waits on "no longer `updated`" rather than on a specific target state
-   * because Continue review returns the item to WHERE IT WAS QUERIED FROM
-   * (`duly-made` or `assessment-in-progress`, per its origin). Pinning
-   * `duly-made` here would bake one caller's journey into the page object and
-   * make it unusable from the other; the caller asserts the state it expects.
+   * That divergence is also what keeps `startWorkText()` unambiguous: the
+   * string "Payment received" now appears on exactly one control in the
+   * product, the `duly-made` assignment-panel one.
+   *
+   * A bespoke CTA with its own wrapper, mirroring how Continue review renders
+   * — NOT a generic actions-panel entry, so `countActionsWithId` cannot see
+   * it.
    */
-  async clickContinueReview() {
-    await this.triggerAction('continue-review')
-    await browser.waitUntil(async () => (await this.stateId()) !== 'updated', {
-      timeout: 10000,
-      timeoutMsg:
-        'Expected the work item to leave `updated` after "Continue review". ' +
-        'A detail page still showing `updated` with an error banner means ' +
-        'the transition was refused, not that it is lagging.'
-    })
+  paymentReceivedCta() {
+    return $('[data-testid="action-payment-received-during-duly-made"]')
+  }
+
+  async hasPaymentReceivedCta() {
+    return this.paymentReceivedCta().isExisting()
+  }
+
+  /**
+   * The forward CTA's visible label, read rather than assumed.
+   *
+   * management-fe derives it from the transition's declared `displayName`
+   * rather than hardcoding it, so a reword in management-be would move the
+   * button silently. Asserting the literal string is what turns that silent
+   * drift into a visible failure.
+   */
+  async paymentReceivedCtaText() {
+    return this.paymentReceivedCta().getText()
+  }
+
+  /**
+   * RA-523. Drive the forward hop and wait for the item to reach assessment.
+   *
+   * Waits on the RAW state id, deliberately. management-fe's owner suggested
+   * waiting on the success banner or on the CTA disappearing, because RA-324
+   * gives `updated` and `assessment-in-progress` the same display name and
+   * the status tag therefore does NOT visibly change. That reasoning is right
+   * and its conclusion is unnecessary here: `data-state-id` separates the two
+   * exactly, so this asserts the state itself rather than a proxy for it.
+   */
+  async clickPaymentReceived() {
+    await this.paymentReceivedCta().click()
+    await browser.waitUntil(
+      async () => (await this.stateId()) === 'assessment-in-progress',
+      {
+        timeout: 10000,
+        timeoutMsg:
+          'Expected the work item to reach assessment-in-progress after the ' +
+          '"Start assessment" CTA. Note the status TAG does not change — ' +
+          '`updated` and `assessment-in-progress` share the display name ' +
+          '"Updated" (RA-324 AC06) — so a page still showing "Updated" is not ' +
+          'evidence either way; read `data-state-id`. A detail page with an ' +
+          'error banner means the transition was refused, not lagging.'
+      }
+    )
   }
 
   /**
