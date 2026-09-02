@@ -156,48 +156,6 @@ export function continueReviewViaApi(workItemId) {
 }
 
 /**
- * RA-523. Call the `payment-received` endpoint directly, without asserting
- * the outcome.
- *
- * The BESPOKE route, and the only way in: `payment-received-during-duly-made`
- * is declared `CallerInvocable: false`, so the generic action route cannot
- * reach it — `applyActionViaApi` below is the guard that pins that.
- *
- * Returns the raw result rather than throwing, because every caller is a
- * guard spec interested in the status itself: the 200, the 409 an item with
- * the wrong origin gets, and the idempotent replay on a second call.
- */
-export function paymentReceivedViaApi(workItemId) {
-  return postToBackend(
-    `/work-items/re-accreditation/${workItemId}/payment-received`,
-    undefined
-  )
-}
-
-/**
- * RA-523. Call the GENERIC action route for an arbitrary action id.
- *
- * Exists solely to prove a transition CANNOT be driven this way. Every
- * legitimate journey in this suite goes through a UI affordance or a bespoke
- * endpoint, so nothing needs to reach the generic route by hand except a spec
- * asserting a refusal.
- *
- * IDENTITY NOTE: this sends the same operator-service headers as every other
- * helper here. That is not the identity a real bypass attempt would carry —
- * that would be a caseworker's — but the `CallerInvocable` check in
- * `WorkItemEndpoints.Action` reads the transition declaration alone and
- * returns before anything identity-dependent runs, so the refusal is
- * identity-independent. Stated rather than left implied, because a reader
- * could otherwise mistake this for an authorisation test, which it is not.
- */
-export function applyActionViaApi(workItemId, actionId) {
-  return postToBackend(
-    `/work-items/${workItemId}/actions/${actionId}`,
-    undefined
-  )
-}
-
-/**
  * Create a re-accreditation application, already open on its detail page.
  *
  * `postcode` is optional and defaults to a freshly-generated, collision-safe
