@@ -28,8 +28,10 @@ import { uniquePostcode } from '../support/unique-postcode.js'
  * England is the only nation this stack configures a mailbox for (see
  * docker/config/management-be.env), so an England work item exercises the SENT
  * path and a Scotland work item (unconfigured) exercises the SKIPPED path.
- * Nation is derived by the backend from the site postcode (NationResolver): an
- * SW1A postcode routes to England, an EH postcode routes to Scotland.
+ * RA-526: Nation is now an explicit field on the create-work-item form,
+ * submitted directly rather than derived from the site postcode by the
+ * backend's NationResolver (which was removed from this real-submission path
+ * as unreliable and, separately, dead code).
  *
  * Every assertion here is scoped to the OfficerAssignment template rather than
  * to the `notification-sent` / `notification-skipped` action alone. Submitting a
@@ -66,8 +68,8 @@ describe('RA-238 officer-assignment notification outcomes', () => {
     before(async () => {
       await login.login()
       await workItems.goto()
-      // SW1A postcode → England, the only configured RegulatorMailboxes
-      // nation, so the assignment send resolves a recipient and succeeds.
+      // England is the only configured RegulatorMailboxes nation, so the
+      // assignment send resolves a recipient and succeeds.
       workItemId = (
         await workItems.createWorkItem({
           organisationName: 'Officer Assign Notify Ltd',
@@ -75,7 +77,8 @@ describe('RA-238 officer-assignment notification outcomes', () => {
           siteAddressTown: 'London',
           siteAddressPostcode: uniquePostcode(),
           material: 'plastic',
-          tonnageBand: '0-500'
+          tonnageBand: '0-500',
+          nation: 'England'
         })
       ).id
       await workItems.openWorkItem(workItemId)
@@ -180,9 +183,8 @@ describe('RA-238 officer-assignment notification outcomes', () => {
     before(async () => {
       await login.login()
       await workItems.goto()
-      // An EH (Edinburgh) postcode routes to Nation.Scotland via the backend
-      // NationResolver. Scotland has no configured RegulatorMailboxes address,
-      // so the assignment succeeds but the send is skipped.
+      // Scotland has no configured RegulatorMailboxes address, so the
+      // assignment succeeds but the send is skipped.
       workItemId = (
         await workItems.createWorkItem({
           organisationName: 'Officer Assign Skip Ltd',
@@ -190,7 +192,8 @@ describe('RA-238 officer-assignment notification outcomes', () => {
           siteAddressTown: 'Edinburgh',
           siteAddressPostcode: uniquePostcode('EH1'),
           material: 'plastic',
-          tonnageBand: '0-500'
+          tonnageBand: '0-500',
+          nation: 'Scotland'
         })
       ).id
       await workItems.openWorkItem(workItemId)
