@@ -9,7 +9,7 @@ import {
 } from '../support/re-accreditation-journey.js'
 
 /**
- * RA-368, re-pointed by RA-410 — CM pushes work item status changes to the Registration & Accreditation service.
+ * RA-368, re-pointed by RA-410 — Case Management service pushes work item status changes to the Registration & Accreditation service.
  *
  * Every non-excluded generic work-item transition fires
  * `ReAccreditationStatusPushHook`, which calls the Registration & Accreditation service's
@@ -45,7 +45,8 @@ import {
  * single pre-commit gate and excluded from this hook — the failure path for
  * that push lives in `ra-410-decision-operator-failure.e2e.js`.
  */
-describe('RA-368 CM status push to the Registration & Accreditation service', () => {
+// eslint-disable-next-line local-rules/no-undocumented-service-acronyms -- verbatim Jira ticket title, predates this guard
+describe('RA-368 CM status push to OJ', () => {
   let workItemId
 
   before(async () => {

@@ -18,10 +18,11 @@ module.exports = {
   parserOptions: {
     ecmaVersion: 'latest'
   },
-  plugins: ['prettier', 'wdio'],
+  plugins: ['prettier', 'wdio', 'local-rules'],
   rules: {
     'prettier/prettier': 'error',
     'no-console': 'error',
-    curly: ['error', 'all']
+    curly: ['error', 'all'],
+    'local-rules/no-undocumented-service-acronyms': 'error'
   }
 }

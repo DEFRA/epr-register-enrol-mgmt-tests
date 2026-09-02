@@ -3,7 +3,7 @@ import { browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 
 /**
- * RA-449 — CM: Signed out page.
+ * RA-449 — Case Management service: Signed out page.
  *
  * Previously both `/auth/logout` and a session-expiry 401 sent the caller
  * straight to Entra ID's own login page, which (with an active Entra ID

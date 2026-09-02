@@ -7,7 +7,7 @@ import { createReAccreditation } from '../support/re-accreditation-journey.js'
 import { utcDateParts } from '../support/uk-time.js'
 
 /**
- * RA-316 — CM: Duly making alignment.
+ * RA-316 — Case Management service: Duly making alignment.
  *
  * The task-driven route into `duly-made` is replaced by an explicit CTA and
  * a payment-date page. The `submitted`-state tasks

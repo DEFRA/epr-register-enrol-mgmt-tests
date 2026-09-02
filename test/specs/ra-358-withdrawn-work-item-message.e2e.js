@@ -8,7 +8,7 @@ import notFound, {
 } from '../page-objects/work-item-not-found.page.js'
 
 /**
- * RA-358 — CM: Withdrawn work items error message.
+ * RA-358 — Case Management service: Withdrawn work items error message.
  *
  * Two distinct complaints from the bug report, deliberately kept as two
  * separate describes because they are two different pages:
@@ -56,7 +56,7 @@ describe('RA-358 — withdrawn work item message and not-found page', () => {
           tonnageBand: '0-500'
         }))
 
-      // Withdraw as the operator (RA-317 removed the CM withdraw affordance),
+      // Withdraw as the operator (RA-317 removed the Case Management service withdraw affordance),
       // then open the item: the AC is about what a regulator sees AFTER an
       // application is withdrawn — which is exactly AC03, an operator
       // withdrawal surfacing in case management — and the suite has no shared

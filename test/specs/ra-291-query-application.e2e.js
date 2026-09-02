@@ -329,7 +329,7 @@ describe('RA-291 Query an application', () => {
    * operator backend does, across all three affected fields in one
    * resubmission.
    */
-  describe('CM summary reflects a resubmission after a query', () => {
+  describe('Case Management service summary reflects a resubmission after a query', () => {
     let workItemId
 
     before(async () => {
