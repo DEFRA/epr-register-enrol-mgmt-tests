@@ -66,7 +66,13 @@ describe('RA-368 CM status push to OJ', () => {
 
     await workItems.openWorkItem(workItemId)
     await detail.gotoAudit()
-    const sentEntries = await detail.auditEntriesForAction('status-push-sent')
+    // RA-519 defers this push onto a background task queue, so it can still
+    // be in flight when the duly-make request itself has already returned -
+    // poll for it rather than checking once.
+    const sentEntries = await detail.waitForAuditEntryCount(
+      'status-push-sent',
+      1
+    )
     expect(sentEntries.length).toBe(1)
     // Positive control on the human-readable label, not just the action id.
     await detail.assertAuditEntry('Status sent to OJ')
@@ -81,7 +87,10 @@ describe('RA-368 CM status push to OJ', () => {
 
     await workItems.openWorkItem(workItemId)
     await detail.gotoAudit()
-    const sentEntries = await detail.auditEntriesForAction('status-push-sent')
+    const sentEntries = await detail.waitForAuditEntryCount(
+      'status-push-sent',
+      2
+    )
     expect(sentEntries.length).toBe(2)
   })
 })

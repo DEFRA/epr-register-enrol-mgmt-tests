@@ -762,6 +762,26 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * Like `auditEntriesForAction`, but polls for the entry count to reach
+   * `count` rather than checking once. Some pushes are deferred onto a
+   * background task queue (e.g. RA-519's status-changed push, RA-368) and
+   * complete after the triggering request has already returned, so a
+   * one-shot DOM query can race ahead of them under load - this is what
+   * that push actually finishing looks like from the browser's side,
+   * rather than a fixed sleep guessing how long it takes.
+   */
+  async waitForAuditEntryCount(action, count, { timeout = 10000 } = {}) {
+    await browser.waitUntil(
+      async () => (await this.auditEntriesForAction(action)).length === count,
+      {
+        timeout,
+        timeoutMsg: `Expected ${count} audit entr${count === 1 ? 'y' : 'ies'} for action "${action}"`
+      }
+    )
+    return this.auditEntriesForAction(action)
+  }
+
+  /**
    * The audit entries for `action` whose "Notification type" detail row matches
    * `template` (e.g. "OfficerAssignment"). A work item carries several
    * notifications sharing one action — submit alone records both the operator
