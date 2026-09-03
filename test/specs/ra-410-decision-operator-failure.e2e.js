@@ -16,9 +16,9 @@ import {
  * RA-410 / epr-p86e — the decision is atomic and OPERATOR-JOURNEY-GATED.
  *
  * management-be no longer moves a re-accreditation to its terminal state and
- * then tells the operator-journey (OJ) backend as an afterthought. It pushes
- * the status change to OJ FIRST and only completes the transition once that
- * push is acknowledged. If the push cannot be delivered (OJ down, retries
+ * then tells the Registration & Accreditation service backend as an afterthought. It pushes
+ * the status change to the Registration & Accreditation service FIRST and only completes the transition once that
+ * push is acknowledged. If the push cannot be delivered (Registration & Accreditation service down, retries
  * exhausted) the whole decision fails: management-be returns HTTP 500 and
  * applies NO state change — the item is left exactly where it was,
  * `assessment-in-progress`, still decidable.
@@ -28,7 +28,7 @@ import {
  * banner ("Could not log a decision"). It is not a field error on the Log
  * decision form and not a full-page error template.
  *
- * WHY THIS NEEDS A STUB. The real OJ backend is not part of the journey-test
+ * WHY THIS NEEDS A STUB. The real Registration & Accreditation service backend is not part of the journey-test
  * compose stack, so the push is answered by `operator-backend-stub`, which
  * returns 200 by default. This spec ARMS that stub to return 500 for one work
  * item's push — the only honest way to reach the failure branch here — then
@@ -40,17 +40,21 @@ import {
  *      the "Log decision" CTA is still on offer.
  *
  * The last `it` clears the arm and decides the SAME item successfully. That is
- * load-bearing: it proves the failure was the OJ push and not a broken submit,
+ * load-bearing: it proves the failure was the Registration & Accreditation service push and not a broken submit,
  * and that the failed attempt left no partial state behind that would block a
  * genuine retry.
  */
+// eslint-disable-next-line local-rules/no-undocumented-service-acronyms -- verbatim Jira ticket title, predates this guard
 describe('RA-410 The OJ-gated decision fails atomically', () => {
   let workItemId
 
   before(async () => {
     await login.login()
     // `SW1A 1AO` is unused elsewhere — see `createReAccreditation`.
-    workItemId = await createReAccreditation('CTA OJ Failure', 'SW1A 1AO')
+    workItemId = await createReAccreditation(
+      'CTA Registration & Accreditation service Failure',
+      'SW1A 1AO'
+    )
     await driveToAssessmentInProgress(workItemId)
   })
 
@@ -61,7 +65,7 @@ describe('RA-410 The OJ-gated decision fails atomically', () => {
     await login.logout()
   })
 
-  it('shows a generic error and holds the item in assessment when OJ is down', async () => {
+  it('shows a generic error and holds the item in assessment when the Registration & Accreditation service is down', async () => {
     await armDecisionFailure(workItemId)
 
     await detail.clickLogDecision()
@@ -95,7 +99,7 @@ describe('RA-410 The OJ-gated decision fails atomically', () => {
     expect(await detail.hasLogDecisionCta()).toBe(true)
   })
 
-  it('decides successfully once OJ is reachable again', async () => {
+  it('decides successfully once the Registration & Accreditation service is reachable again', async () => {
     await clearDecisionFailure(workItemId)
 
     await detail.clickLogDecision()

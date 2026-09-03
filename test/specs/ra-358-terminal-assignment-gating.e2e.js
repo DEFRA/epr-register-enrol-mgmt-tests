@@ -129,7 +129,7 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
       expect(staleCrumb).toBeTruthy()
 
       // The operator withdraws the case behind the open page (RA-317). This
-      // models the race even better than the old CM journey did: the browser
+      // models the race even better than the old Case Management service journey did: the browser
       // never leaves the stale open-case page, so the crumb it holds is
       // genuinely stale when the POST below fires.
       await withdrawAsOperatorOrThrow(

@@ -24,7 +24,7 @@ import { uniquePostcode } from '../support/unique-postcode.js'
  * records as a `notification-sent` audit entry carrying the recipient,
  * notification type (templateKey) and reference (the work item id).
  *
- * RA-317 removed the CM withdraw affordance, so the withdrawal is driven
+ * RA-317 removed the Case Management service withdraw affordance, so the withdrawal is driven
  * through management-be's operator withdraw endpoint. The notification hook
  * fires identically on that transition, so the sent entry is produced the
  * same way.

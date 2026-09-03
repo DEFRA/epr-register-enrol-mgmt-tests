@@ -1,13 +1,13 @@
 /**
- * epr-p86e — driving the operator-journey (OJ) backend stand-in.
+ * epr-p86e — driving the Registration & Accreditation service backend stand-in.
  *
- * The decision is atomic and OJ-gated: management-be pushes the status change
- * to the OJ backend and only completes the transition once that push is
- * acknowledged (200). The real OJ backend is not in this compose stack, so the
+ * The decision is atomic and gated by the Registration & Accreditation service: management-be pushes the status change
+ * to the Registration & Accreditation service backend and only completes the transition once that push is
+ * acknowledged (200). The real Registration & Accreditation service backend is not in this compose stack, so the
  * push is answered by the lightweight `operator-backend-stub` service (see
  * docker/stubs/operator-backend-stub.mjs and compose.yml). It returns 200 by
  * default; the failure-path spec ARMS a single work-item id to get a 500,
- * exercising the "OJ unreachable" branch without breaking every other decision.
+ * exercising the "Registration & Accreditation service unreachable" branch without breaking every other decision.
  *
  * These helpers talk to the stub's control plane, which — like
  * `MANAGEMENT_BE_URL` in query-resubmission.js — is reached from the TEST
@@ -35,7 +35,7 @@ async function control(method, path) {
 }
 
 /**
- * Arm the stub so the NEXT OJ push for `workItemId` is answered with a 500.
+ * Arm the stub so the NEXT Registration & Accreditation service push for `workItemId` is answered with a 500.
  * Call this BEFORE submitting that item's decision.
  */
 export function armDecisionFailure(workItemId) {

@@ -157,6 +157,15 @@ class WorkItemsPage extends Page {
     await $('#field-siteAddress-postcode').setValue(opts.siteAddressPostcode)
     await $('#field-material').selectByAttribute('value', opts.material)
     await $('#field-tonnageBand').selectByAttribute('value', opts.tonnageBand)
+    // RA-526. Nation is a required form field, but the GET form pre-fills it
+    // with England (DEMO_VALUES.nation), so most callers - anyone not
+    // testing nation-specific routing - can leave this alone and get a
+    // valid submission anyway. Only touch the select when a spec actually
+    // cares which nation, same optional-when-unspecified contract as
+    // chargeAmountPence below.
+    if (opts.nation !== undefined) {
+      await $('#field-nation').selectByAttribute('value', opts.nation)
+    }
     // RA-316. The charge is an optional passthrough field taking an INTEGER
     // NUMBER OF PENCE — no fee arithmetic happens anywhere in the stack, so
     // whatever a caller supplies is exactly what the duly-making page later

@@ -10,7 +10,7 @@ import {
 } from '../support/re-accreditation-journey.js'
 
 /**
- * RA-364 — CM: Work item UI showing duplicated links.
+ * RA-364 — Case Management service: Work item UI showing duplicated links.
  *
  * A re-accreditation work item in `queried` rendered FOUR identical green
  * "Resume" buttons stacked in the actions panel, and an item in `updated`

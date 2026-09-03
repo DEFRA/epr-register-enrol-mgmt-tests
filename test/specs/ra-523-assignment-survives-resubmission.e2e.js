@@ -6,6 +6,7 @@ import queryPage from '../page-objects/query.page.js'
 import { createReAccreditation } from '../support/re-accreditation-journey.js'
 import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
 
+// eslint-disable-next-line local-rules/no-undocumented-service-acronyms -- verbatim Jira ticket title, predates this guard
 /**
  * RA-523 — "CM: Updated application status is not assigned to the regulator".
  *
