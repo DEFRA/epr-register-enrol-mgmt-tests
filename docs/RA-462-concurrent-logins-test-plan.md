@@ -13,7 +13,7 @@ older session shows an **alert** toast, the newer shows an **info** toast;
 dismissal sticks until a newer sign-in; a no-JS banner fallback works.
 
 This is the concurrency sibling of RA-306 (`ra-306-sign-out.e2e.js`): RA-306
-proves an explicit sign-out kills the session; RA-462 proves a *second login*
+proves an explicit sign-out kills the session; RA-462 proves a _second login_
 does **not** — it only notifies.
 
 ## Approach in this WDIO suite
