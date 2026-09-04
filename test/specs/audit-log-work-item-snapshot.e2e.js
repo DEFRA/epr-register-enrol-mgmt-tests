@@ -29,8 +29,12 @@ import detail from '../page-objects/work-item-detail.page.js'
  * Assigned to. They are a system-derived side effect of submission, not a
  * caseworker action against the item's own workflow, so none of this
  * context has anything to do with why a nation was chosen or corrected.
- * `note-added` is used below as the auxiliary-action example instead, since
- * routed-to-nation no longer carries a State row to assert against.
+ * `assigned` is used below as the auxiliary-action example instead, since
+ * routed-to-nation no longer carries a State row to assert against — which
+ * also means every entry's "Assigned to" now reads "Stub Caseworker One"
+ * rather than "Unassigned" (a LIVE snapshot value, not a per-entry
+ * historical one, so assigning the item after creation changes it on every
+ * entry already in the timeline too, not just ones added afterwards).
  */
 describe('Audit log — work item snapshot fields', () => {
   before(async () => {
@@ -47,7 +51,7 @@ describe('Audit log — work item snapshot fields', () => {
     // A second auxiliary (non-state-bearing) entry, needed since RA-526 took
     // routed-to-nation out of the running as an example of one that still
     // carries a State row.
-    await detail.addNote('Snapshot fixture note')
+    await detail.assignTo('stub-caseworker-1')
     await detail.gotoAudit()
   })
 
@@ -117,13 +121,13 @@ describe('Audit log — work item snapshot fields', () => {
     // resolved from that entry's own stateId. Without this the suite would
     // pass with the backend stamping nothing at all.
     //
-    // RA-526: note-added, not routed-to-nation — the latter is now one of
-    // the two actions that gets NO context-block rows at all (see the file
+    // RA-526: assigned, not routed-to-nation — the latter is now one of the
+    // two actions that gets NO context-block rows at all (see the file
     // header), so it can no longer stand in as "the" auxiliary example.
-    it('shows a per-entry "State" row on the auxiliary note-added entry', async () => {
+    it('shows a per-entry "State" row on the auxiliary assigned entry', async () => {
       await expect(
         $(
-          '//li[@data-action="note-added"]//*[@data-testid="work-item-audit-entry-details"]//dt[normalize-space(.)="State"]'
+          '//li[@data-action="assigned"]//*[@data-testid="work-item-audit-entry-details"]//dt[normalize-space(.)="State"]'
         )
       ).toExist()
     })
@@ -134,10 +138,10 @@ describe('Audit log — work item snapshot fields', () => {
     // through review once already. This fixture is freshly submitted, so the
     // as-of state is the initial one: "Not started" (state id `submitted`),
     // the very value the original bug replaced with the live current state.
-    it('renders the note-added State as the as-of value, not a state id', async () => {
+    it('renders the assigned State as the as-of value, not a state id', async () => {
       await expect(
         $(
-          '//li[@data-action="note-added"]//*[@data-testid="work-item-audit-entry-details"]//dt[normalize-space(.)="State"]/following-sibling::dd'
+          '//li[@data-action="assigned"]//*[@data-testid="work-item-audit-entry-details"]//dt[normalize-space(.)="State"]/following-sibling::dd'
         )
       ).toHaveText('Not started')
     })
@@ -166,12 +170,15 @@ describe('Audit log — work item snapshot fields', () => {
       ).toExist()
     })
 
-    it('shows "Unassigned" for Assigned to when no assignee set', async () => {
+    // Assigned to is a LIVE snapshot value, not a per-entry historical one —
+    // every entry shows the CURRENT assignee, including one (like this,
+    // "Work item submitted") created before the assignment happened.
+    it('shows the current assignee for Assigned to, even on an entry that predates the assignment', async () => {
       await expect(
         $(
           '//*[@data-testid="work-item-audit-entry-details"][1]//dt[normalize-space(.)="Assigned to"]/following-sibling::dd'
         )
-      ).toHaveText('Unassigned')
+      ).toHaveText('Stub Caseworker One')
     })
 
     // RA-526: routed-to-nation/nation-corrected are excluded here — they are
