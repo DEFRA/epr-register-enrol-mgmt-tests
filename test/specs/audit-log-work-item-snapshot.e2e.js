@@ -23,6 +23,14 @@ import detail from '../page-objects/work-item-detail.page.js'
  * "Initial state" — while auxiliary events (assignment, notes, …) show a
  * "State" context row resolved from the entry's own stateId, and older
  * entries with no recorded state omit it entirely.
+ *
+ * RA-526: `routed-to-nation` (and `nation-corrected`) are the one exception
+ * to ALL of the above — they show NONE of this context block, not even
+ * Assigned to. They are a system-derived side effect of submission, not a
+ * caseworker action against the item's own workflow, so none of this
+ * context has anything to do with why a nation was chosen or corrected.
+ * `note-added` is used below as the auxiliary-action example instead, since
+ * routed-to-nation no longer carries a State row to assert against.
  */
 describe('Audit log — work item snapshot fields', () => {
   before(async () => {
@@ -36,6 +44,10 @@ describe('Audit log — work item snapshot fields', () => {
       material: 'glass',
       tonnageBand: '0-500'
     })
+    // A second auxiliary (non-state-bearing) entry, needed since RA-526 took
+    // routed-to-nation out of the running as an example of one that still
+    // carries a State row.
+    await detail.addNote('Snapshot fixture note')
     await detail.gotoAudit()
   })
 
@@ -104,10 +116,14 @@ describe('Audit log — work item snapshot fields', () => {
     // state in their own rows, so they DO get the context-block "State" row,
     // resolved from that entry's own stateId. Without this the suite would
     // pass with the backend stamping nothing at all.
-    it('shows a per-entry "State" row on the auxiliary routed-to-nation entry', async () => {
+    //
+    // RA-526: note-added, not routed-to-nation — the latter is now one of
+    // the two actions that gets NO context-block rows at all (see the file
+    // header), so it can no longer stand in as "the" auxiliary example.
+    it('shows a per-entry "State" row on the auxiliary note-added entry', async () => {
       await expect(
         $(
-          '//li[@data-action="routed-to-nation"]//*[@data-testid="work-item-audit-entry-details"]//dt[normalize-space(.)="State"]'
+          '//li[@data-action="note-added"]//*[@data-testid="work-item-audit-entry-details"]//dt[normalize-space(.)="State"]'
         )
       ).toExist()
     })
@@ -118,10 +134,10 @@ describe('Audit log — work item snapshot fields', () => {
     // through review once already. This fixture is freshly submitted, so the
     // as-of state is the initial one: "Not started" (state id `submitted`),
     // the very value the original bug replaced with the live current state.
-    it('renders the routed-to-nation State as the as-of value, not a state id', async () => {
+    it('renders the note-added State as the as-of value, not a state id', async () => {
       await expect(
         $(
-          '//li[@data-action="routed-to-nation"]//*[@data-testid="work-item-audit-entry-details"]//dt[normalize-space(.)="State"]/following-sibling::dd'
+          '//li[@data-action="note-added"]//*[@data-testid="work-item-audit-entry-details"]//dt[normalize-space(.)="State"]/following-sibling::dd'
         )
       ).toHaveText('Not started')
     })
@@ -158,13 +174,26 @@ describe('Audit log — work item snapshot fields', () => {
       ).toHaveText('Unassigned')
     })
 
-    it('snapshot rows appear on every disclosure in the timeline', async () => {
-      const allDisclosures = await $$(
-        '[data-testid="work-item-audit-entry-details"]'
+    // RA-526: routed-to-nation/nation-corrected are excluded here — they are
+    // the one pair of actions that gets no context-block rows at all (see
+    // the file header), so this loop only covers entries where the
+    // "consistent set of rows" claim actually applies.
+    it('snapshot rows appear on every other disclosure in the timeline', async () => {
+      const otherDisclosures = await $$(
+        '//li[not(@data-action="routed-to-nation") and not(@data-action="nation-corrected")]//*[@data-testid="work-item-audit-entry-details"]'
       )
-      for (const disclosure of allDisclosures) {
+      expect(otherDisclosures.length).toBeGreaterThan(0)
+      for (const disclosure of otherDisclosures) {
         await expect(disclosure.$('dt=Assigned to')).toExist()
       }
+    })
+
+    it('routed-to-nation itself has no Assigned to row', async () => {
+      await expect(
+        $(
+          '//li[@data-action="routed-to-nation"]//*[@data-testid="work-item-audit-entry-details"]//dt[normalize-space(.)="Assigned to"]'
+        )
+      ).not.toExist()
     })
   })
 })
