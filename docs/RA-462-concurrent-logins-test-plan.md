@@ -1,80 +1,50 @@
-# RA-462 — Concurrent logins: E2E test plan (management journey tests)
+# RA-462 — Concurrent-login notification: E2E (management journey tests)
 
-**Status:** Plan only — the spec is not written yet. Policy chosen by product on
-2026-09-02: **allow concurrent sessions, show a dismissible toast** (no forced
-sign-out). See
-`epr-register-enrol-management-fe/docs/RA-462-concurrent-logins-design.md`.
-**Branch:** `feature/RA-462-ConcurrentLogins`
+**Status:** Implemented — `test/specs/ra-462-concurrent-logins.e2e.js`, live
+(not `describe.skip`). It runs against `epr-register-enrol-management-fe` built
+from a branch matching this PR's head ref (`run-journey-tests` resolves it by
+exact branch name; both branches are `feature/RA-462-ConcurrentLogins`).
 
-## What is being verified
+The concurrency sibling of `ra-306-sign-out.e2e.js`: RA-306 proves an explicit
+sign-out kills the session; this proves a second login does not — it only
+notifies.
 
-A second login for the same caseworker identity leaves both sessions usable; the
-older session shows an **alert** toast, the newer shows an **info** toast;
-dismissal sticks until a newer sign-in; a no-JS banner fallback works.
+## What the spec asserts
 
-This is the concurrency sibling of RA-306 (`ra-306-sign-out.e2e.js`): RA-306
-proves an explicit sign-out kills the session; RA-462 proves a _second login_
-does **not** — it only notifies.
+Single Chrome instance, two cookie jars: `login.login()` (jar A),
+`browser.getCookies()`, `browser.reloadSession()`, `login.login()` again as the
+same caseworker.
 
-## Approach in this WDIO suite
+1. **the just-signed-in session (B) sees a session-notice** —
+   `[data-testid="session-notice"]` is displayed.
+2. **the already-active session (A) is not signed out** — restore jar A,
+   navigate to `/work-items`, assert the URL is not `/auth/regulator/login` and
+   `login.hasAuthenticatedNav()` is `true`.
+3. **the notice dismisses** — on session B, click
+   `[data-testid="session-notice-dismiss"]` and assert the notice is gone.
 
-Single Chrome instance; two cookie jars, reusing `login.page.js`
-(`login()`, `hasAuthenticatedNav()`):
+The spec uses raw WDIO `$(...)` selectors for the notice rather than new
+`login.page.js` helpers — the notice is a single component with stable
+`data-testid` hooks, so page-object methods would add indirection without
+value here.
 
-1. `login.login()` as the caseworker (lands on `/work-items`).
-2. `const sessionA = await browser.getCookies()`.
-3. `browser.reloadSession()` → `login.login()` again as the same caseworker.
-   Session B.
-4. **Assert (info):** session B's first page shows
-   `[data-testid="session-notice"][data-variant="info"]`.
-5. `browser.deleteCookies(); browser.setCookies(sessionA)`;
-   `browser.url('/work-items')`.
-6. **Assert (alert):** session A shows
-   `[data-testid="session-notice"][data-variant="alert"]` with a sign-in time
-   and a sign-out link, `hasAuthenticatedNav()` is still `true`, and the
-   work-items list rendered — A was **not** redirected to `/auth/regulator/login`.
-7. **Assert (dismiss):** close the toast → gone; reload → still gone.
-8. **Assert (re-raise):** third login (Browser C) → restore `sessionA` →
-   navigate → alert toast back.
+## Deliberately not asserted here
 
-No-JS case: Chrome with JavaScript disabled — banner renders in-flow, its "Hide"
-form post removes it.
+The `alert` vs `info` variant, the "a new sign-in was detected" wording,
+dismissal persistence across navigations, and the third-login re-raise are
+**covered by `concurrent-login.test.js` in
+`epr-register-enrol-management-fe`**. Reason: the journey grid runs many
+parallel browsers as the **same** stub caseworker, so the per-identity
+registry that decides the alert variant is churned continuously by other
+specs — a single spec cannot pin it. The two assertions that do run target the
+just-signed-in session, whose notice comes from its own yar session flag.
 
-Support-user path (`login.loginAsSupportUser()`): a second support-user login
-raises the toasts likewise.
-
-## New spec
-
-`test/specs/ra-462-concurrent-logins.e2e.js`
-
-```
-describe('RA-462 concurrent logins — new-sign-in notification', () => {
-  it('second login: both caseworker sessions stay usable', ...)
-  it('older session shows the alert toast', ...)
-  it('newer session shows the info toast', ...)
-  it('dismissal sticks until a newer sign-in', ...)
-  it('a third login re-raises the alert', ...)
-  it('support user: second login raises the toast', ...)
-  it('no-JS: in-flow banner with a working Hide link', ...)
-  it('single-session login/logout is unaffected', ...)   // regression vs RA-306
-})
-```
-
-Page-object additions (`test/page-objects/login.page.js`): `sessionNotice(variant)`,
-`dismissSessionNotice()`, `captureSession()` / `restoreSession(cookies)`.
-
-## Environment assumptions
-
-- Runs against the stub-auth management deployment (as `ra-306-sign-out` and
-  `auth-flows` do).
-- `epr-register-enrol-management-fe` under test built from
-  `feature/RA-462-ConcurrentLogins` with the notification implemented (and,
-  per the design doc, ideally `maxCookieSize: 0` set). Until then the spec is
-  committed **skipped** with a comment pointing here.
-- `SESSION_CONCURRENT_LOGIN_NOTICE_ENABLED` = `true` (default).
+No-JS fallback: covered by the component test in the management-fe repo.
 
 ## Manual verification (EXT-TEST / management)
 
-Management-fe design doc §5: two real browsers, info on newer / alert on older,
-both usable, dismissal sticks, third login re-raises, no-JS fallback,
-screen-reader pass; RA-299 filters and RA-306 sign-out unchanged.
+Same caseworker in two real browsers: the second shows the "signed in
+elsewhere" notice; the first, on its next page, shows "a new sign-in was
+detected" with a sign-out link and stays usable; dismiss clears it; a third
+sign-in re-raises it. RA-299 work-items filters and RA-306 sign-out unchanged.
+Screen-reader pass on both variants.
