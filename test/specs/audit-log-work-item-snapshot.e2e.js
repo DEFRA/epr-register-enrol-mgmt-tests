@@ -68,6 +68,24 @@ describe('Audit log — work item snapshot fields', () => {
 
   describe('work item snapshot rows inside the first disclosure', () => {
     before(async () => {
+      // The `routed-to-nation` entry is written by an async post-create hook
+      // on the backend; on a loaded grid the audit page can render before it
+      // lands. Reload until it appears so the routed-to-nation assertions
+      // below aren't racing that write.
+      await browser.waitUntil(
+        async () => {
+          if (await $('//li[@data-action="routed-to-nation"]').isExisting()) {
+            return true
+          }
+          await browser.refresh()
+          return false
+        },
+        {
+          timeout: 30000,
+          interval: 2000,
+          timeoutMsg: 'routed-to-nation audit entry never appeared'
+        }
+      )
       await detail.expandAllAuditEntryDetails()
     })
 
