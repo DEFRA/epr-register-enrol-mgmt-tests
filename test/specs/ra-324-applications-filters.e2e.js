@@ -238,6 +238,27 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
         expect.stringContaining('No work items match your filters')
       )
     })
+
+    // RA-551 regression: a missing MongoDB serialization attribute meant
+    // `payload.nation` silently got re-serialized from a string to an int the
+    // first time a work item was duly-made or approved, so the nation filter's
+    // string `$in` query stopped matching any item that had progressed past
+    // "not started" — the filter chip still rendered fine (a pure frontend
+    // concern), but the server-side query returned nothing. Unlike the other
+    // facet tests above, this must cover BOTH lifecycle regimes: a progressed
+    // item (`dulyMade`, driven through duly-making — exactly the corrupted
+    // state) and a not-yet-progressed item (`notStarted`, whose nation was
+    // never at risk) both filed under postcodes that resolve to nation
+    // England, so a regression here can't hide behind only testing the
+    // never-corrupted case.
+    it('Nation narrows the list to England and matches items at any lifecycle stage', async () => {
+      await workItems.resetFilters()
+      await workItems.searchByOrg(token)
+      await workItems.checkRegulator('England')
+      await workItems.applyFilters()
+      await expect(workItems.tileFor(dulyMade.id)).toBeDisplayed()
+      await expect(workItems.tileFor(notStarted.id)).toBeDisplayed()
+    })
   })
 
   // ── Archived filter (re-added as the 8th collapsible section) ─────────────── //
