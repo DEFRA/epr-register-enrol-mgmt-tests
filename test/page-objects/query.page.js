@@ -149,6 +149,15 @@ class QueryPage extends Page {
     await expect($('[data-testid="query-error-summary"]')).toBeDisplayed()
   }
 
+  /**
+   * RA-534. Whether the validation error summary is on the page — for the
+   * negative assertion that a no-reason query submitted cleanly (the summary
+   * is absent after the PRG redirect to the detail page).
+   */
+  async errorSummaryIsDisplayed() {
+    return $('[data-testid="query-error-summary"]').isExisting()
+  }
+
   async errorSummaryText() {
     return $('[data-testid="query-error-summary"]').getText()
   }

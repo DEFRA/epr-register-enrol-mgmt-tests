@@ -14,9 +14,9 @@ import { uniquePostcode } from '../support/unique-postcode.js'
  *
  * A regulator can query an application at the duly-making and assessment
  * stages to ask the operator for clarification. The detail page offers a
- * "Query" link; the query page collects one or more sections plus a
- * mandatory reason capped at 200 words, then moves the application into
- * the `queried` state.
+ * "Query" link; the query page collects one or more sections plus an
+ * optional reason capped at 200 words (RA-534), then moves the application
+ * into the `queried` state.
  *
  * Business rule: only one query may be open at a time — once an
  * application is queried the affordance disappears, so a second query
@@ -171,17 +171,21 @@ describe('RA-291 Query an application', () => {
       await login.logout()
     })
 
-    it('rejects a query with no reason and keeps the application unqueried', async () => {
-      await query.gotoFor(workItemId)
+    // RA-534 (AC1): the reason is no longer mandatory. A query with sections
+    // but no reason is accepted with no error and moves the application to
+    // Queried. Uses its own fresh work item so it does not consume the
+    // shared `workItemId` the later validation tests still need unqueried.
+    it('accepts a query with no reason and moves the application to Queried', async () => {
+      const noReasonWorkItemId = await createSubmittedWorkItem(
+        uniqueOrg('Query No Reason Ltd')
+      )
+      await query.gotoFor(noReasonWorkItemId)
       await query.selectSection('business-plan')
       await query.submit()
-      await query.assertErrorSummaryDisplayed()
-      expect(await query.errorSummaryText()).toContain(
-        'Enter a reason for the query'
-      )
 
-      await workItems.openWorkItem(workItemId)
-      await detail.assertState('Not started')
+      await query.waitForDetailUrl(noReasonWorkItemId)
+      expect(await query.errorSummaryIsDisplayed()).toBe(false)
+      await detail.assertState('Queried')
     })
 
     it('rejects a query with no section selected', async () => {
@@ -297,6 +301,36 @@ describe('RA-291 Query an application', () => {
       // 'Action applied' is on every action entry; 'Application queried' is
       // what actually pins the query, so assert only that.
       await detail.assertAuditEntry('Application queried')
+    })
+
+    // RA-534 (AC2): a reason the caseworker entered must be reflected in the
+    // application history — it used to be dropped by the frontend audit-log
+    // projection even though the backend stored it. The reason submitted in
+    // the first test of this block is asserted verbatim here, alongside the
+    // areas that were queried.
+    it('shows the queried areas and the entered reason in the history entry', async () => {
+      await workItems.openWorkItem(workItemId)
+      await detail.gotoAudit()
+      await detail.expandAllAuditEntryDetails()
+
+      const queriedEntry =
+        '//*[@data-testid="work-item-audit-log"]//li[@data-action="application-queried"]'
+
+      await expect(
+        $(
+          `${queriedEntry}//dt[normalize-space(.)="Areas queried"]/following-sibling::dd`
+        )
+      ).toHaveText('Authority to issue, Sampling and inspection plan')
+
+      await expect(
+        $(
+          `${queriedEntry}//dt[normalize-space(.)="Reason"]/following-sibling::dd`
+        )
+      ).toHaveText(
+        expect.stringContaining(
+          'Please confirm the authority to issue and re-upload the sampling and inspection plan.'
+        )
+      )
     })
 
     it('withdraws the Query affordance so a second query cannot be raised', async () => {
