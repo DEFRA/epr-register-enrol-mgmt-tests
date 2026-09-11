@@ -58,6 +58,33 @@ const OPERATOR_HEADERS = {
 }
 
 /**
+ * RA-557: the same CDP trust headers as OPERATOR_HEADERS, but attributed to
+ * a case worker rather than the operator's service — used by
+ * `raiseQueryViaApi` below, which calls management-be's own `/query`
+ * endpoint directly rather than through the case-management frontend's
+ * query form.
+ *
+ * That direct call is necessary, not just a shortcut: management-fe's own
+ * query controller (RA-367) rejects `overseas-reprocessing-sites` /
+ * `broadly-equivalent-standards` server-side for any work item it does not
+ * resolve as an exporter application (`enforceExporterOnly`), and the
+ * `wasteProcessingType` field that resolution reads is not settable via the
+ * "Create work item" form this suite uses — so no UI-driven work item this
+ * suite creates can ever raise an ORS/BES query through the form. management-
+ * be's own `ReAccreditationQueryValidator` carries no such restriction (it
+ * validates against the full six-section closed set regardless of
+ * application type), so calling it directly is a faithful way to raise an
+ * ORS query against a UI-created item without fabricating exporter status
+ * the item doesn't have.
+ */
+const CASEWORKER_HEADERS = {
+  'content-type': 'application/json',
+  'x-cdp-client-id': 'epr-register-enrol-mgmt-tests',
+  'x-cdp-user-id': 'stub-caseworker-one',
+  'x-cdp-user-name': 'Stub Caseworker One'
+}
+
+/**
  * The operator's answer to a query.
  *
  * `sectionKeys` must be real query sections (the backend validates against
@@ -92,10 +119,10 @@ function resubmissionBody(sectionKeys, sections) {
   }
 }
 
-async function postToBackend(path, body) {
+async function postToBackend(path, body, headers = OPERATOR_HEADERS) {
   const res = await fetch(`${MANAGEMENT_BE_URL}${path}`, {
     method: 'POST',
-    headers: OPERATOR_HEADERS,
+    headers,
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(15_000)
   })
@@ -134,6 +161,32 @@ export async function resumeFromQuery(
   if (result.status !== 200) {
     throw new Error(
       `resume-from-query for ${workItemId} returned ${result.status}: ` +
+        JSON.stringify(result.body)
+    )
+  }
+  return result
+}
+
+/**
+ * Raise a query directly against management-be's own `/query` endpoint,
+ * bypassing management-fe's query form entirely — see CASEWORKER_HEADERS
+ * above for why this is necessary rather than just a shortcut. Moves the
+ * application from its current pre-decision state to `queried`.
+ *
+ * Throws on anything other than 200, same reasoning as resumeFromQuery.
+ */
+export async function raiseQueryViaApi(
+  workItemId,
+  { sections = ['business-plan'], reason = '' } = {}
+) {
+  const result = await postToBackend(
+    `/work-items/re-accreditation/${workItemId}/query`,
+    { sections, reason },
+    CASEWORKER_HEADERS
+  )
+  if (result.status !== 200) {
+    throw new Error(
+      `query for ${workItemId} returned ${result.status}: ` +
         JSON.stringify(result.body)
     )
   }
