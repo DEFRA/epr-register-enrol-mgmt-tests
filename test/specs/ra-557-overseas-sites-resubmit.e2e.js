@@ -7,7 +7,7 @@ import {
   resumeFromQuery
 } from '../support/query-resubmission.js'
 import { dulyMake } from '../support/re-accreditation-journey.js'
-import { uniquePostcode } from '../support/unique-postcode.js'
+import { RA557_OVERSEAS_SITES_RESUBMIT_ORG_NAME } from '../support/ra-557-seed.js'
 
 /**
  * RA-557 — Overseas reprocessing sites (ORS) removal not reflected on the
@@ -33,29 +33,21 @@ import { uniquePostcode } from '../support/unique-postcode.js'
  * management-be's own `/query` endpoint) rather than through the query
  * page: `overseas-reprocessing-sites` is an EXPORTER-ONLY query section
  * (RA-367), gated both client-side (the checkbox is never rendered) and
- * server-side by management-fe's own query controller — and a work item
- * created through this suite's "Create work item" form has no
- * `wasteProcessingType`, so it is always treated as a reprocessor. There is
- * no UI path to raise an ORS query against it. management-be's own
+ * server-side by management-fe's own query controller. management-be's own
  * validator carries no such restriction, so calling it directly is the
  * honest way to exercise the actual bug (a resubmitted ORS section failing
- * to merge onto payload.overseasSites) without fabricating exporter status
- * this item doesn't have.
+ * to merge onto payload.overseasSites).
+ *
+ * The work item itself has to be a seeded EXPORTER fixture
+ * (`ra-557-seed.js`), not one created via "Create work item": that form has
+ * no `wasteProcessingType` field, and the ORS row on the Application
+ * summary page only renders at all for an exporter application (the same
+ * gate as the query section above) — so a UI-created item could never show
+ * the result even after a correct resubmission. The fixture is PRIVATE to
+ * this spec (see `ra-557-seed.js`) because this spec mutates its lifecycle
+ * state, which a shared fixture cannot safely tolerate under CI's parallel
+ * spec execution.
  */
-
-const createSubmittedWorkItem = async (organisationName) => {
-  await workItems.goto()
-  return (
-    await workItems.createWorkItem({
-      organisationName,
-      siteAddressLine1: '1 Overseas Query Street',
-      siteAddressTown: 'London',
-      siteAddressPostcode: uniquePostcode(),
-      material: 'plastic',
-      tonnageBand: '0-500'
-    })
-  ).id
-}
 
 const siteA = {
   siteId: 1,
@@ -78,9 +70,16 @@ describe('RA-557 Overseas reprocessing sites reflect a query resubmit', () => {
 
   before(async () => {
     await login.login()
-    workItemId = await createSubmittedWorkItem(
-      `RA-557 ORS Resubmit ${Date.now()}`
-    )
+    // A bare landing defaults to assigned-to-me (RA-299), which would hide
+    // this unassigned seeded item — reset to an explicit empty filter so
+    // the search is not implicitly assignee-scoped (same discipline as
+    // ra-483-removed-overseas-site-hidden.e2e.js).
+    await workItems.resetFilters()
+    await workItems.searchByOrgName(RA557_OVERSEAS_SITES_RESUBMIT_ORG_NAME)
+    // Bounding check: prove exactly one row matched before trusting "first"
+    // to mean "the seeded fixture".
+    expect(await workItems.getRowCount()).toBe(1)
+    workItemId = await workItems.firstResultWorkItemId()
   })
 
   after(async () => {
