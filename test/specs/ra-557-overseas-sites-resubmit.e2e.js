@@ -2,7 +2,10 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
+import {
+  raiseQueryViaApi,
+  resumeFromQuery
+} from '../support/query-resubmission.js'
 import { dulyMake } from '../support/re-accreditation-journey.js'
 import { uniquePostcode } from '../support/unique-postcode.js'
 
@@ -25,6 +28,19 @@ import { uniquePostcode } from '../support/unique-postcode.js'
  * (query-during-duly-made) — to exercise both an addition and a removal
  * against a real "before" list, the way `dulyMake` (submitted OR the
  * post-resubmit `updated` state) is documented to support.
+ *
+ * The query itself is raised via `raiseQueryViaApi` (a direct call to
+ * management-be's own `/query` endpoint) rather than through the query
+ * page: `overseas-reprocessing-sites` is an EXPORTER-ONLY query section
+ * (RA-367), gated both client-side (the checkbox is never rendered) and
+ * server-side by management-fe's own query controller — and a work item
+ * created through this suite's "Create work item" form has no
+ * `wasteProcessingType`, so it is always treated as a reprocessor. There is
+ * no UI path to raise an ORS query against it. management-be's own
+ * validator carries no such restriction, so calling it directly is the
+ * honest way to exercise the actual bug (a resubmitted ORS section failing
+ * to merge onto payload.overseasSites) without fabricating exporter status
+ * this item doesn't have.
  */
 
 const createSubmittedWorkItem = async (organisationName) => {
@@ -77,10 +93,12 @@ describe('RA-557 Overseas reprocessing sites reflect a query resubmit', () => {
   })
 
   it('reflects an added overseas site after a resubmission', async () => {
-    await raiseQuery(workItemId, {
+    await raiseQueryViaApi(workItemId, {
       sections: ['overseas-reprocessing-sites'],
       reason: 'Please provide the overseas reprocessing site details.'
     })
+    await workItems.openWorkItem(workItemId)
+    await detail.assertState('Queried')
 
     await resumeFromQuery(workItemId, {
       sectionKeys: ['overseas-reprocessing-sites'],
@@ -102,11 +120,13 @@ describe('RA-557 Overseas reprocessing sites reflect a query resubmit', () => {
     // available — the app allows only one open query per lifecycle stage.
     await dulyMake(workItemId)
 
-    await raiseQuery(workItemId, {
+    await raiseQueryViaApi(workItemId, {
       sections: ['overseas-reprocessing-sites'],
       reason:
         'Please confirm one of the overseas reprocessing sites has closed.'
     })
+    await workItems.openWorkItem(workItemId)
+    await detail.assertState('Queried')
 
     // The operator resubmits with siteB removed. Before the RA-557 fix, this
     // landed only in payload.latestSections and payload.overseasSites.sites
