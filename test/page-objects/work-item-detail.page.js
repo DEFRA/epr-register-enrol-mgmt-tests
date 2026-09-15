@@ -594,9 +594,10 @@ class WorkItemDetailPage extends Page {
    * decision write and a note posted afterwards silently yields a blank
    * rationale.
    *
-   * Entries arrive from the backend sorted OLDEST-FIRST and render as a
-   * top-to-bottom timeline (`decorateAuditLog` in management-fe), so a lower
-   * index means written earlier. Callers must not assume the opposite.
+   * Entries arrive from the backend sorted NEWEST-FIRST (RA-568) and render
+   * as a top-to-bottom timeline (`decorateAuditLog` in management-fe), so a
+   * lower index means written LATER (more recently). Callers must not
+   * assume the opposite.
    *
    * Returns an index rather than asserting, so the caller states the
    * relationship it wants and gets a failure message naming both positions.
