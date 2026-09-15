@@ -129,13 +129,14 @@ describe('RA-203 Approval sends operator decision notification', () => {
 
     expect(noteIndex).toBeGreaterThanOrEqual(0)
     expect(decisionIndex).toBeGreaterThanOrEqual(0)
-    // The audit log arrives from the backend already sorted OLDEST-FIRST and
-    // is rendered as a top-to-bottom timeline (see `decorateAuditLog` in
-    // management-fe), so "written first" means a LOWER index. Checked against
-    // that source rather than assumed — the first draft of this assertion had
-    // it backwards on a guess that the log was newest-first, which would have
-    // failed in CI looking like a product bug rather than a test bug.
-    expect(noteIndex).toBeLessThan(decisionIndex)
+    // The audit log arrives from the backend already sorted NEWEST-FIRST
+    // (RA-568) and is rendered as a top-to-bottom timeline (see
+    // `decorateAuditLog` in management-fe), so "written first" means a
+    // HIGHER index. Checked against that source rather than assumed — an
+    // earlier draft of this assertion had it backwards on a guess about
+    // ordering, which would have failed in CI looking like a product bug
+    // rather than a test bug.
+    expect(noteIndex).toBeGreaterThan(decisionIndex)
 
     await login.logout()
   })
