@@ -205,7 +205,6 @@ describe('RA-295 assignment panel and query assignment notice', () => {
       // The precondition, asserted rather than assumed: the links must be
       // present here, or the absence check below proves nothing.
       await expect($('[data-testid="action-sla-extend"]')).toBeExisting()
-      await expect($('[data-testid="action-sla-override"]')).toBeExisting()
 
       // The operator withdraws the case (RA-317 removed the Case Management service affordance).
       // The backend derives the correct transition for the item's current
@@ -219,9 +218,10 @@ describe('RA-295 assignment panel and query assignment notice', () => {
       await detail.assertState('Withdrawn')
     })
 
-    it('hides the extend and override due-date links', async () => {
+    it('hides the change-determination-deadline link', async () => {
+      // RA-572 retired the sibling Override link, so only the change link is
+      // left to gate here.
       await expect($('[data-testid="action-sla-extend"]')).not.toBeExisting()
-      await expect($('[data-testid="action-sla-override"]')).not.toBeExisting()
     })
 
     it('no longer offers reassign or unassign (RA-358 reverses AC03 here)', async () => {

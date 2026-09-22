@@ -12,9 +12,18 @@
  * without needing to.
  */
 
-export function farFutureDeadline() {
+export function farFutureDeadlineDate() {
+  // Midday rather than midnight: the parts below are read in the runner's
+  // local zone while the case header renders in Europe/London, and a midnight
+  // instant can straddle the BST boundary into the previous calendar day.
   const date = new Date()
   date.setFullYear(date.getFullYear() + 2)
+  date.setHours(12, 0, 0, 0)
+  return date
+}
+
+export function farFutureDeadline() {
+  const date = farFutureDeadlineDate()
   return {
     day: date.getDate(),
     month: date.getMonth() + 1,

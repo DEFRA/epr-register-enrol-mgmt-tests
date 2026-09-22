@@ -619,12 +619,31 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * The post-redirect flash banner element (e.g. after a determination
+   * deadline change). Exposed so specs can assert its ABSENCE without
+   * reaching for the inline selector — the assert* helpers below cover the
+   * positive cases.
+   */
+  flashBanner() {
+    return $(FLASH_BANNER_SELECTOR)
+  }
+
+  /**
    * Assert the post-redirect flash banner is shown on the detail page
-   * (e.g. after an SLA extend/override). Kept here so specs don't reach
-   * for the inline selector.
+   * (e.g. after a determination deadline change). Kept here so specs don't
+   * reach for the inline selector.
    */
   async assertFlashBanner() {
-    await expect($(FLASH_BANNER_SELECTOR)).toBeDisplayed()
+    await expect(this.flashBanner()).toBeDisplayed()
+  }
+
+  /**
+   * The converse: nothing was applied, so no banner flashed. Used by the
+   * cancel paths, where a banner appearing would mean the abandoned form had
+   * been saved after all.
+   */
+  async assertNoFlashBanner() {
+    await expect(this.flashBanner()).not.toBeDisplayed()
   }
 
   /**
@@ -1591,11 +1610,11 @@ class WorkItemDetailPage extends Page {
    *
    *  - the actions panel, whose primary buttons and secondary query/withdraw
    *    links DO come from `availableActions`;
-   *  - the assignment panel, where `action-sla-extend` and
-   *    `action-sla-override` render as "Change the due date" / "Override the
-   *    due date" gated on `canChangeDueDate`. `sla-extend` is deliberately
-   *    filtered OUT of `availableActions` by the detail controller, so those
-   *    two never pass through the engine's gate at all.
+   *  - the assignment panel, where `action-sla-extend` renders as "Change
+   *    determination deadline" gated on `canChangeDueDate`. `sla-extend` is
+   *    deliberately filtered OUT of `availableActions` by the detail
+   *    controller, so it never passes through the engine's gate at all.
+   *    (RA-572 retired its `action-sla-override` sibling entirely.)
    *
    * So only a `withdraw-*` / `query` / primary-button id is evidence that
    * the actions panel rendered. Using an SLA id as a negative control would
@@ -1655,14 +1674,15 @@ class WorkItemDetailPage extends Page {
    *
    * ⚠ Scoping to the panel is load-bearing, not tidiness. The `action-` testid
    * prefix is shared with the ASSIGNMENT panel, which renders `action-sla-extend`
-   * and `action-sla-override` ("Change the due date" / "Override the due date")
-   * gated on `canChangeDueDate`. Those two are siblings of this panel, not
-   * children of it (`case-assignment-panel` and `actions-panel` are separate
-   * `app-case-panel` divs), and `sla-extend` is deliberately filtered OUT of
-   * `availableActions` by the detail controller — so a page-wide
-   * `[data-testid^="action-"]` count silently includes up to two controls that
-   * never passed through the projection this ticket is about. That is precisely
-   * how a count-based assertion becomes wrong-by-two and unfalsifiable.
+   * ("Change determination deadline") gated on `canChangeDueDate`. It is a
+   * sibling of this panel, not a child of it (`case-assignment-panel` and
+   * `actions-panel` are separate `app-case-panel` divs), and `sla-extend` is
+   * deliberately filtered OUT of `availableActions` by the detail controller —
+   * so a page-wide `[data-testid^="action-"]` count silently includes a control
+   * that never passed through the projection this ticket is about. That is
+   * precisely how a count-based assertion becomes wrong and unfalsifiable.
+   * (RA-572 retired `action-sla-override`, which used to be the second such
+   * control; the scoping argument is unchanged, just one control lighter.)
    *
    * `availableActionIds()` above is the page-wide version and keeps its existing
    * callers; this is the panel-scoped one. They are NOT interchangeable.

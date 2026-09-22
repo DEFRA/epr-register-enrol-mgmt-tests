@@ -47,7 +47,7 @@ class Page {
 
   /**
    * RA-335. A number of case-panel affordances (reassign, unassign,
-   * change/override due date, query, withdraw, approve, create work item)
+   * change due date, query, withdraw, approve, create work item)
    * have no native disabled state to lean on — neither a plain `<a>` nor a
    * govukButton-styled `<a href>` supports `disabled`, and the app renders
    * no JavaScript to intercept a click. For a read-only support user they
