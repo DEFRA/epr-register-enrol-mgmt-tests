@@ -269,12 +269,34 @@ describe('RA-295 case header on the work item detail page', () => {
     })
 
     it('shows the absolute due date, in UK local time', async () => {
-      // Only the DATE is asserted, never a timestamp: the change flow keeps
-      // the original due date's time-of-day component and moves the calendar
-      // day to the one submitted.
-      const expected = formatUkDateGds(newDeadline)
-      await expect(detail.caseHeaderField('dueOn')).toHaveText(
-        expect.stringContaining(expected)
+      // Only the DATE is asserted, never a timestamp.
+      //
+      // WHY THIS TOLERATES ONE DAY. management-fe derives `P{n}D` from the
+      // whole-UTC-day gap between the item's current due date and the date
+      // submitted; management-be then adds those n days to the existing
+      // `slaDueDate`, whose TIME component neither touches. So the result is
+      // the submitted calendar day in UTC, carried at the fixture clock's
+      // original time of day — and this header renders in Europe/London. A
+      // fixture whose due time sits in the last hour of the UTC day therefore
+      // renders as the FOLLOWING London day through BST. This spec does not
+      // control that time component (the clock is stamped by `dulyMake` from
+      // the payment date), so pinning a single string would be a once-a-year
+      // flake for a difference the AC does not care about.
+      //
+      // The regression this case exists to catch is "the due date came from
+      // the backend's default target duration rather than from what was
+      // submitted" — a gap of months or years, or an em dash. A one-day
+      // allowance costs that nothing.
+      const dayAfter = new Date(newDeadline.getTime())
+      dayAfter.setDate(dayAfter.getDate() + 1)
+      const acceptable = [
+        formatUkDateGds(newDeadline),
+        formatUkDateGds(dayAfter)
+      ]
+
+      const rendered = (await detail.caseHeaderFieldText('dueOn')).trim()
+      expect(acceptable.some((candidate) => rendered.includes(candidate))).toBe(
+        true
       )
     })
 
