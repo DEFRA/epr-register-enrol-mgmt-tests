@@ -29,6 +29,14 @@ import { Page } from './page.js'
  * originally guessed `field-newDueDate-*`, following the `field-<name>`
  * convention used elsewhere on this page — the real markup uses its own
  * `new-deadline` prefix instead).
+ *
+ * RA-572 retires the sibling Override flow and makes THIS the single route
+ * for amending a determination deadline, reworded from "extend" to "change".
+ * The route and every `sla-extend-*` testid are deliberately unchanged —
+ * management-fe treated it as a content + removal change, not a rename — so
+ * only the copy getters below are affected. The override-absence helpers at
+ * the end of this class live here rather than in a page object of their own
+ * precisely because there is no Override page left to model.
  */
 class SlaExtendPage extends Page {
   /**
@@ -105,9 +113,23 @@ class SlaExtendPage extends Page {
     await $('[data-testid="sla-extend-submit"]').click()
   }
 
-  /** CM5: the button's visible label, renamed away from "Extend SLA". */
+  /**
+   * CM5 renamed this away from "Extend SLA"; RA-572 renames it again to
+   * "Change determination deadline".
+   */
   async submitButtonText() {
     return $('[data-testid="sla-extend-submit"]').getText()
+  }
+
+  /**
+   * RA-572 (AC02). The reason field's label, now "Reason for change".
+   *
+   * Selected by GOV.UK's own `label[for=]` convention rather than a testid,
+   * since management-fe does not tag the label — same approach the retired
+   * override page object used, and the same one used for the hint below.
+   */
+  async reasonLabelText() {
+    return $('label[for="field-reason"]').getText()
   }
 
   async cancelFromInputPage() {
@@ -125,6 +147,60 @@ class SlaExtendPage extends Page {
 
   async assertErrorSummaryDisplayed() {
     await expect($('[data-testid="sla-extend-error-summary"]')).toBeDisplayed()
+  }
+
+  /** RA-572 (AC02). The reason field's hint, reworded to "...changed". */
+  async reasonHintText() {
+    return $('#field-reason-hint').getText()
+  }
+
+  /**
+   * RA-572 (AC02). No visible "extend"/"extending" wording survives anywhere
+   * on the change-deadline page.
+   *
+   * Scoped to `main` rather than `body`, and read as rendered TEXT: the word
+   * legitimately survives in the URL and in the `sla-extend-*` testids, which
+   * management-fe deliberately did not rename, and asserting their absence
+   * would fail for a reason that has nothing to do with the content change.
+   * Call this on a freshly-opened form — a reason already typed into the
+   * textarea would otherwise be scanned as page copy.
+   */
+  async assertNoStaleDeadlineWording() {
+    await this.assertOnInputPage()
+    const text = await $('main').getText()
+    expect(text).not.toMatch(/extend/i)
+  }
+
+  // ── RA-572: the retired Override flow ────────────────────────────────── //
+
+  /**
+   * RA-572 (AC01). The work-item detail page's assignment panel used to carry
+   * an "Override the due date" sibling to the change link. It is gone from the
+   * DOM entirely, so this is `toBeExisting` rather than a visibility check —
+   * a hidden-but-present link would still be reachable and is not what the AC
+   * asks for.
+   */
+  overrideActionLink() {
+    return $('[data-testid="action-sla-override"]')
+  }
+
+  async assertNoOverrideAction() {
+    await expect(this.overrideActionLink()).not.toBeExisting()
+  }
+
+  /**
+   * RA-572 (AC01). The override screen is unreachable by typing its URL, not
+   * merely unlinked.
+   *
+   * management-fe 404s `GET /work-items/{id}/sla/override`. What that 404
+   * renders is management-fe's to own and is not pinned here; what IS pinned
+   * is that no override FORM comes back, so a regression that restores the
+   * route fails regardless of how the error page is styled.
+   */
+  async assertOverrideRouteUnreachable(workItemId) {
+    await this.open(`/work-items/${workItemId}/sla/override`)
+    await expect($('[data-testid="sla-override-form"]')).not.toBeExisting()
+    await expect($('[data-testid="sla-override-submit"]')).not.toBeExisting()
   }
 
   async waitForDetailUrl(workItemId) {

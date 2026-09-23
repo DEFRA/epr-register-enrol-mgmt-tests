@@ -4,12 +4,16 @@ import workItems from '../page-objects/work-items.page.js'
 import detail, {
   CASE_HEADER_FIELDS
 } from '../page-objects/work-item-detail.page.js'
-import slaOverride from '../page-objects/sla-override.page.js'
+import slaExtend from '../page-objects/sla-extend.page.js'
 import { formatUkDateGds } from '../support/uk-time.js'
 import {
   dulyMake,
   startAssessment
 } from '../support/re-accreditation-journey.js'
+import {
+  farFutureDeadline,
+  farFutureDeadlineDate
+} from '../support/sla-extend-date.js'
 
 /**
  * RA-295 (AC01) — the case header on an individual work item page, plus the
@@ -30,9 +34,13 @@ import {
  *     has no way to supply, but it sits in `submitted` with no SLA clock
  *     running, so its "Due on" has nothing to show.
  *   - A UI-created item can be driven through payment-received to start the
- *     SLA clock and then given a DETERMINISTIC clock via the SLA override
- *     flow, which is the only way to assert a real, exact "Due on" date rather
- *     than merely "something is rendered".
+ *     SLA clock and then given a DETERMINISTIC due date via the
+ *     change-determination-deadline flow, which is the only way to assert a
+ *     real, exact "Due on" date rather than merely "something is rendered".
+ *     That used to go through the Override form's target-days + start-date
+ *     pair; RA-572 retired Override, and the Change form's absolute date is a
+ *     more direct way to pin the same thing — the date submitted IS the
+ *     resulting due date.
  *
  * Both are covered below rather than picking one and hand-waving the other.
  */
@@ -219,8 +227,11 @@ describe('RA-295 case header on the work item detail page', () => {
     // clock, which is exactly the condition under which the badge used to
     // appear.
     let workItemId
-    const targetDays = 84
-    const startedAt = new Date('2026-06-01T09:00:00.000Z')
+    // Two years out (see sla-extend-date.js): the change form rejects any date
+    // not strictly after the item's CURRENT due date, and a fixed absolute
+    // date would go stale, so the expected value is derived from the same
+    // helper the form is filled from rather than hard-coded.
+    const newDeadline = farFutureDeadlineDate()
 
     before(async () => {
       await workItems.resetFilters()
@@ -244,25 +255,48 @@ describe('RA-295 case header on the work item detail page', () => {
       await dulyMake(workItemId)
       await startAssessment(workItemId)
 
-      // Pin the clock so the due date is deterministic. Without this the
-      // expected value depends on the backend's default target duration, which
-      // the suite would then be silently coupled to.
-      await slaOverride.gotoFor(workItemId)
-      await slaOverride.fillForm({
-        reason: 'Pin the SLA clock so the due date is deterministic (RA-295)',
-        newTargetDays: targetDays,
-        newStartedAt: startedAt.toISOString()
+      // Pin the due date so it is deterministic. Without this the expected
+      // value depends on the backend's default target duration, which the
+      // suite would then be silently coupled to.
+      await slaExtend.gotoFor(workItemId)
+      await slaExtend.fillForm({
+        reason:
+          'Pin the determination deadline so the due date is deterministic (RA-295)',
+        date: farFutureDeadline()
       })
-      await slaOverride.submitForm()
-      await slaOverride.waitForDetailUrl(workItemId)
+      await slaExtend.submitForm()
+      await slaExtend.waitForDetailUrl(workItemId)
     })
 
     it('shows the absolute due date, in UK local time', async () => {
-      const expected = formatUkDateGds(
-        new Date(startedAt.getTime() + targetDays * 24 * 60 * 60 * 1000)
-      )
-      await expect(detail.caseHeaderField('dueOn')).toHaveText(
-        expect.stringContaining(expected)
+      // Only the DATE is asserted, never a timestamp.
+      //
+      // WHY THIS TOLERATES ONE DAY. management-fe derives `P{n}D` from the
+      // whole-UTC-day gap between the item's current due date and the date
+      // submitted; management-be then adds those n days to the existing
+      // `slaDueDate`, whose TIME component neither touches. So the result is
+      // the submitted calendar day in UTC, carried at the fixture clock's
+      // original time of day — and this header renders in Europe/London. A
+      // fixture whose due time sits in the last hour of the UTC day therefore
+      // renders as the FOLLOWING London day through BST. This spec does not
+      // control that time component (the clock is stamped by `dulyMake` from
+      // the payment date), so pinning a single string would be a once-a-year
+      // flake for a difference the AC does not care about.
+      //
+      // The regression this case exists to catch is "the due date came from
+      // the backend's default target duration rather than from what was
+      // submitted" — a gap of months or years, or an em dash. A one-day
+      // allowance costs that nothing.
+      const dayAfter = new Date(newDeadline.getTime())
+      dayAfter.setDate(dayAfter.getDate() + 1)
+      const acceptable = [
+        formatUkDateGds(newDeadline),
+        formatUkDateGds(dayAfter)
+      ]
+
+      const rendered = (await detail.caseHeaderFieldText('dueOn')).trim()
+      expect(acceptable.some((candidate) => rendered.includes(candidate))).toBe(
+        true
       )
     })
 
