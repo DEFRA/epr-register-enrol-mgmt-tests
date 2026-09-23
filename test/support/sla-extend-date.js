@@ -37,12 +37,24 @@ function dateParts(date) {
   }
 }
 
-export function farFutureDeadlineDate() {
-  return middayOffsetByYears(2)
+/**
+ * RA-599. `yearsAhead` exists so one spec can change the SAME work item's
+ * deadline more than once and still tell the resulting audit entries apart:
+ * each change needs a date DISTINCT from the one the previous change set,
+ * because the no-op resubmission is the only thing still rejected. It does not
+ * need to be LATER — RA-601 removed that rule — but walking the offsets
+ * upwards is the cheapest way to keep the dates distinct and the run
+ * deterministic.
+ *
+ * Defaults to the original two years, so every no-argument caller is
+ * unaffected.
+ */
+export function farFutureDeadlineDate(yearsAhead = 2) {
+  return middayOffsetByYears(yearsAhead)
 }
 
-export function farFutureDeadline() {
-  return dateParts(farFutureDeadlineDate())
+export function farFutureDeadline(yearsAhead = 2) {
+  return dateParts(farFutureDeadlineDate(yearsAhead))
 }
 
 /**
