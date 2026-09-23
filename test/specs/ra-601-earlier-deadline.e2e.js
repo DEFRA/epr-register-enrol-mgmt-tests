@@ -196,9 +196,16 @@ describe('RA-601 Change the determination deadline to an earlier date', () => {
       // nothing anywhere resets the flag, so once the sweep has caught a
       // backdated item, restoring the deadline to the future leaves it
       // permanently breached with an `sla-breached` audit entry against it.
-      // RA-601 makes backdating a supported journey, so it makes that
-      // irreversible state reachable by ordinary use for the first time —
-      // flagged to the product owner rather than encoded here as if intended.
+      //
+      // RA-601 does not CREATE that state: an item whose deadline simply
+      // lapses has always reached it. What RA-601 changes is that reaching it
+      // becomes deliberate and immediate rather than a matter of waiting. So
+      // the point worth putting to the product owner is narrower than
+      // "backdating breaches the item", which they accepted — it is that the
+      // flag is ONE-WAY, so a regulator who backdates by mistake and then
+      // corrects the date cannot undo it. Those are two different decisions
+      // and only the first was on the table. Flagged rather than encoded here
+      // as if intended: asserting it would bless it.
       //
       // If the PO decides a past deadline SHOULD be signalled, this case is
       // the one to rewrite, and its failure is the signal that it shipped.
