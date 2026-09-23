@@ -1,5 +1,6 @@
 import { $, $$, browser, expect } from '@wdio/globals'
 import { Page } from './page.js'
+import { formatUkDateGds } from '../support/uk-time.js'
 
 /** The test-id attribute, and the CSS selector that matches any element carrying it. */
 const TESTID_ATTR = 'data-testid'
@@ -969,6 +970,73 @@ class WorkItemDetailPage extends Page {
     }
     const text = (await this.caseHeaderFieldText('dueOn')).trim()
     return text !== '' && text !== '—'
+  }
+
+  /**
+   * RA-601. Assert the case header's "Due on" shows the given calendar date.
+   *
+   * WHY THIS TOLERATES ONE DAY EITHER SIDE. management-fe derives the change
+   * from the whole-UTC-day gap between the item's current due date and the
+   * date submitted; management-be applies that gap to the existing
+   * `slaDueDate`, whose TIME component neither touches. So the result is the
+   * submitted calendar day in UTC carried at the fixture clock's original
+   * time of day — and this header renders in Europe/London. A fixture whose
+   * due time sits in the first or last hour of the UTC day therefore renders
+   * as the neighbouring London day through BST. The specs calling this do not
+   * control that time component (the clock is stamped by `dulyMake` from the
+   * payment date), so pinning a single string would be a once-a-year flake
+   * for a difference no AC cares about.
+   *
+   * The regressions this exists to catch — "the deadline did not move at
+   * all", "it moved to the backend's default target duration instead", "it
+   * came back as an em dash" — are all months or years wide, so a one-day
+   * allowance costs them nothing. Extracted from ra-295-case-header.e2e.js,
+   * which had it inline, when RA-601 gave it a second and third caller.
+   */
+  async assertCaseHeaderDueOn(date) {
+    const dayBefore = new Date(date.getTime())
+    dayBefore.setDate(dayBefore.getDate() - 1)
+    const dayAfter = new Date(date.getTime())
+    dayAfter.setDate(dayAfter.getDate() + 1)
+
+    const acceptable = [dayBefore, date, dayAfter].map(formatUkDateGds)
+    const rendered = (await this.caseHeaderFieldText('dueOn')).trim()
+
+    // Thrown rather than asserted through `expect(bool).toBe(true)`: the
+    // boolean form reports only "false is not true", which for a date that
+    // came back a year wrong tells whoever is reading the CI log nothing.
+    // expect-webdriverio takes no custom-message argument, so naming both
+    // sides means raising the error here.
+    if (!acceptable.some((candidate) => rendered.includes(candidate))) {
+      throw new Error(
+        `Expected the case header "Due on" to show one of ` +
+          `${acceptable.join(' / ')}, but it showed "${rendered}"`
+      )
+    }
+  }
+
+  /**
+   * RA-601. Wait for the header's "Due on" to stop showing `previous`.
+   *
+   * The change-deadline flow PRGs back to this page, so by the time the
+   * detail URL is reached the new value is already rendered — but the item
+   * is re-read from management-be on that request, and polling rather than
+   * asserting once keeps a slow backend read from reading as a lost update.
+   * Returns the new text so callers can report what it actually became.
+   */
+  async waitForDueOnToChangeFrom(previous) {
+    let current = previous
+    await browser.waitUntil(
+      async () => {
+        current = (await this.caseHeaderFieldText('dueOn')).trim()
+        return current !== previous
+      },
+      {
+        timeout: 10000,
+        timeoutMsg: `Expected the case header "Due on" to change from "${previous}"`
+      }
+    )
+    return current
   }
 
   /**

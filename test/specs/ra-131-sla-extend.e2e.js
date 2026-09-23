@@ -7,7 +7,10 @@ import {
   dulyMake,
   startAssessment
 } from '../support/re-accreditation-journey.js'
-import { farFutureDeadline, pastDeadline } from '../support/sla-extend-date.js'
+import {
+  beforeClockStartDeadline,
+  farFutureDeadline
+} from '../support/sla-extend-date.js'
 
 /**
  * RA-131 — change the determination deadline.
@@ -26,6 +29,12 @@ import { farFutureDeadline, pastDeadline } from '../support/sla-extend-date.js'
  * only the visible copy assertions below moved. The dedicated
  * ra-572-hide-override spec owns the removal itself; this file keeps its
  * original job of covering validation, cancel and the happy path.
+ *
+ * RA-601 removed CM6's extension-only lower bound, which inverted one case
+ * in this file: a new deadline EARLIER than the current one is now accepted,
+ * not rejected. The ra-601 spec owns that journey end to end, including the
+ * no-op that is now the form's only remaining rejection; the inverted case
+ * stays here so the removed bound cannot quietly return.
  *
  * These e2e tests drive a re-accreditation work item to the
  * "Assessment in progress" state (the only state where the change-deadline
@@ -104,18 +113,32 @@ describe('RA-131 Change determination deadline', () => {
       await slaExtend.assertOnInputPage()
     })
 
-    it('shows an error summary when the new due date is not after the current due date (CM6: extension only)', async () => {
-      // A date in the past is always before an unelapsed due date, so this
-      // does not need to read and parse the real "Due on" value — any
-      // caseworker attempt to move the deadline backwards must be rejected.
+    it('accepts a new due date EARLIER than the current due date (RA-601)', async () => {
+      // THE OPPOSITE OF WHAT THIS CASE USED TO ASSERT. CM6 shipped an
+      // extension-only lower bound and this spec pinned it: a backwards move
+      // had to be rejected. RA-601 established that bound was an
+      // implementation assumption rather than an AC — CM5/CM6 never asked for
+      // it, and RA-572's rename from "Extend" to "Change" made it visibly
+      // wrong. The case is kept rather than deleted because a regulator
+      // pulling the deadline forwards is now a first-class journey, and the
+      // regression worth guarding is the bound coming back.
+      //
+      // A date in the past is always earlier than an unelapsed due date, so
+      // this still does not need to read and parse the real "Due on" value.
+      //
+      // Unlike its predecessor this submission SUCCEEDS, so it leaves the
+      // input page and applies a change. That is safe here: the cases below
+      // it in this block do not depend on the deadline's value, and the
+      // happy path re-pins it far out. The dedicated ra-601 spec owns the
+      // detail of what the header then shows.
       await slaExtend.gotoFor(workItemId)
       await slaExtend.fillForm({
-        reason: 'Awaiting further documents',
-        date: pastDeadline()
+        reason: 'Regulator advancing the determination deadline',
+        date: beforeClockStartDeadline()
       })
       await slaExtend.submitForm()
-      await slaExtend.assertErrorSummaryDisplayed()
-      await slaExtend.assertOnInputPage()
+      await slaExtend.waitForDetailUrl(workItemId)
+      await detail.assertFlashBanner()
     })
 
     it('renders "Change determination deadline" wording, not "SLA" or "extend" (RA-572)', async () => {
