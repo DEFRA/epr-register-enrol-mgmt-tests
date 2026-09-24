@@ -95,9 +95,12 @@ describe('RA-235 audit-log notification rendering', () => {
     })
 
     it('shows the reference detail row on the notification-sent entry', async () => {
-      // The backend stamps the work item id as the Notify client reference.
-      await detail.assertNotificationDetailRow(
+      // The backend stamps the work item id as the Notify client reference
+      // on the operator Withdrawn send. Scoped to that template: since RA-581
+      // a withdrawal also records the regulator ApplicationWithdrawn send.
+      await detail.assertNotificationDetailRowForTemplate(
         'notification-sent',
+        'Withdrawn',
         'Reference',
         workItemId
       )
