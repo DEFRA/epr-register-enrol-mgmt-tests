@@ -22,7 +22,7 @@ import { uniquePostcode } from '../support/unique-postcode.js'
  * re-accreditation work item with the seeded default operator email
  * (test@defra.gov.uk) sends the "Withdrawn" email, which the backend
  * records as a `notification-sent` audit entry carrying the recipient,
- * notification type (templateKey) and reference (the work item id).
+ * notification type (templateKey) and reference (the application reference).
  *
  * RA-317 removed the Case Management service withdraw affordance, so the withdrawal is driven
  * through management-be's operator withdraw endpoint. The notification hook
@@ -95,14 +95,24 @@ describe('RA-235 audit-log notification rendering', () => {
     })
 
     it('shows the reference detail row on the notification-sent entry', async () => {
-      // The backend stamps the work item id as the Notify client reference
-      // on the operator Withdrawn send. Scoped to that template: since RA-581
-      // a withdrawal also records the regulator ApplicationWithdrawn send.
+      // The Notify client reference is the human-facing application reference
+      // (RA-248) — the caption on the detail page — not the work item id. The
+      // work item id used to satisfy this assertion only because it matched
+      // ANY sent entry, and the regulator submission email (which, before
+      // RA-581, carried the work item id) was one; every send now carries the
+      // application reference, so assert on the reference the caption shows,
+      // scoped to the operator Withdrawn template.
+      await workItems.openWorkItem(workItemId)
+      const applicationReference = (await detail.getCaption())
+        .replace(/^Work item\s+/, '')
+        .trim()
+      await detail.gotoAudit()
+      await detail.expandAllAuditEntryDetails()
       await detail.assertNotificationDetailRowForTemplate(
         'notification-sent',
         'Withdrawn',
         'Reference',
-        workItemId
+        applicationReference
       )
     })
   })
