@@ -45,8 +45,10 @@ import { farFutureDeadline } from '../support/sla-extend-date.js'
  * Three changes are made against ONE work item so the expensive journey setup
  * (submitted -> duly made -> assessment in progress, which is what stamps the
  * SLA clock the change flow requires) is paid once. Each change needs a date
- * strictly after the one the previous change set, hence the increasing
- * `farFutureDeadline` offsets. The assertions locate their row by its own
+ * DISTINCT from the one the previous change set — RA-601 removed the
+ * extension-only rule, so a later date is no longer required, only a different
+ * one — hence the increasing, and merely convenient, `farFutureDeadline`
+ * offsets. The assertions locate their row by its own
  * distinctive marker rather than by ordinal, so the audit log's ordering is
  * management-fe's to choose and not something this spec pins.
  */
@@ -87,6 +89,13 @@ const REASON_MAX_LENGTH = 500
 const SINGLE_LINE_MARKER = 'QA-REASON-ECHO-7741'
 const MULTILINE_MARKER = 'QA-REASON-MULTILINE-8825'
 const MAX_LENGTH_MARKER = 'QA-REASON-MAXLEN-9903'
+
+/**
+ * Every marker, one per change made in `before`. The cross-contamination case
+ * walks this list so that adding a fourth change to the fixture extends the
+ * guard automatically instead of silently leaving the new entry unchecked.
+ */
+const REASON_MARKERS = [SINGLE_LINE_MARKER, MULTILINE_MARKER, MAX_LENGTH_MARKER]
 
 const SINGLE_LINE_REASON = `${SINGLE_LINE_MARKER} operator supplied the Annex VII paperwork after the cut-off`
 
@@ -158,8 +167,11 @@ describe('RA-599: reason for change in the application history', () => {
   })
 
   /**
-   * One pass of the change-deadline flow. `yearsAhead` increases per call
-   * because each new deadline must be strictly after the previous one.
+   * One pass of the change-deadline flow. `yearsAhead` increases per call only
+   * to keep each new deadline DISTINCT from the previous one — resubmitting
+   * the current deadline unchanged is the one input still rejected. Since
+   * RA-601 the new date need not be later, so the upward walk is convenience,
+   * not a constraint being satisfied.
    */
   async function changeDeadline(reason, yearsAhead) {
     await slaExtend.gotoFor(workItemId)
@@ -200,22 +212,31 @@ describe('RA-599: reason for change in the application history', () => {
 
   it('does not leave the reason rows keyed alike, so each change keeps its own words', async () => {
     // The regression was every entry falling through to ONE shared work-item
-    // snapshot, which made all three disclosures identical. Asserting the
-    // OTHER two markers are absent from the multiline entry's reason row is
-    // what distinguishes a real per-entry projection from that fallback.
-    const paragraphs = await detail.auditDetailRowParagraphs(
-      SLA_EXTENDED_ACTION,
-      REASON_ROW_KEY,
-      MULTILINE_MARKER
-    )
-    const rendered = paragraphs.join('\n')
-    // The positive comes FIRST and is not decoration. With no reason row at
-    // all the paragraph list is empty and both negatives below hold trivially
-    // — this assertion passed against a pre-fix frontend until this line was
-    // added, which is exactly the vacuous pass it now prevents.
-    expect(rendered).toContain(MULTILINE_MARKER)
-    expect(rendered).not.toContain(SINGLE_LINE_MARKER)
-    expect(rendered).not.toContain(MAX_LENGTH_MARKER)
+    // snapshot, which made all three disclosures identical. Asserting an
+    // entry's reason row carries its OWN marker and NEITHER of the other two
+    // is what distinguishes a real per-entry projection from that fallback.
+    //
+    // Every entry is checked, not just one: cross-entry contamination is the
+    // exact failure mode this case exists to guard, and a projection that
+    // leaked into only the entries a single-entry check happened to skip would
+    // pass while two thirds of the log went unguarded. The loop costs one
+    // extra read per entry against a fixture already built.
+    for (const marker of REASON_MARKERS) {
+      const paragraphs = await detail.auditDetailRowParagraphs(
+        SLA_EXTENDED_ACTION,
+        REASON_ROW_KEY,
+        marker
+      )
+      const rendered = paragraphs.join('\n')
+      // The positive comes FIRST and is not decoration. With no reason row at
+      // all the paragraph list is empty and the negatives below hold trivially
+      // — this assertion passed against a pre-fix frontend until this line was
+      // added, which is exactly the vacuous pass it now prevents.
+      expect(rendered).toContain(marker)
+      for (const otherMarker of REASON_MARKERS.filter((m) => m !== marker)) {
+        expect(rendered).not.toContain(otherMarker)
+      }
+    }
   })
 
   it('surfaces the supporting rows alongside the reason', async () => {
