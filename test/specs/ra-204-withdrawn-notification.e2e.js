@@ -12,8 +12,13 @@ import { uniquePostcode } from '../support/unique-postcode.js'
  * Notify email (the withdraw transitions map to the `Withdrawn` template in
  * `ReAccreditationNotificationHook`). The send outcome is recorded on the
  * work item's audit log as a `notification-sent` entry whose display name is
- * "Application withdrawn email sent" — which is what these journeys assert,
- * since the email itself is not observable end-to-end.
+ * "Operator application withdrawn email sent" — which is what these journeys
+ * assert, since the email itself is not observable end-to-end.
+ *
+ * RA-581: a withdrawal ALSO notifies the regulator's regional mailbox (the
+ * `ApplicationWithdrawn` template), recorded as "Regulator withdrawal
+ * notification email sent". The two descriptions are deliberately distinct so
+ * the two sends can be told apart in the history.
  *
  * RA-317 removed the case-management withdraw affordance: withdrawal is an
  * OPERATOR action now, driven through management-be's withdraw endpoint. The
@@ -41,7 +46,10 @@ describe('RA-204 Withdrawal notification', () => {
           siteAddressTown: 'London',
           siteAddressPostcode: uniquePostcode(),
           material: 'plastic',
-          tonnageBand: '0-500'
+          tonnageBand: '0-500',
+          // England is the nation this stack configures a regulator mailbox
+          // for, so the regulator send is recorded rather than skipped.
+          nation: 'England'
         })
       ).id
     })
@@ -50,7 +58,7 @@ describe('RA-204 Withdrawal notification', () => {
       await login.logout()
     })
 
-    it('records an "Application withdrawn email sent" audit entry', async () => {
+    it('records "Operator application withdrawn" and "Regulator withdrawal notification" audit entries', async () => {
       await withdrawAsOperatorOrThrow(
         workItemId,
         'Duplicate application submitted by mistake'
@@ -59,14 +67,22 @@ describe('RA-204 Withdrawal notification', () => {
       await detail.assertState('Withdrawn')
 
       await detail.gotoAudit()
-      await detail.assertAuditEntry('Application withdrawn email sent')
+      await detail.assertAuditEntry('Operator application withdrawn email sent')
+      await detail.assertAuditEntry(
+        'Regulator withdrawal notification email sent'
+      )
 
       // The send must not have been skipped (missing operator email) or
       // failed — guard against a regression that maps withdraw to a
       // template but loses the recipient.
       const auditLog = await $('[data-testid="work-item-audit-log"]').getText()
-      expect(auditLog).not.toContain('Application withdrawn email skipped')
-      expect(auditLog).not.toContain('Application withdrawn email failed')
+      for (const description of [
+        'Operator application withdrawn',
+        'Regulator withdrawal notification'
+      ]) {
+        expect(auditLog).not.toContain(`${description} email skipped`)
+        expect(auditLog).not.toContain(`${description} email failed`)
+      }
     })
   })
 

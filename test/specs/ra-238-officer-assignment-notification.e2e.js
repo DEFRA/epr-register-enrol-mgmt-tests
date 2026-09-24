@@ -20,7 +20,8 @@ import { uniquePostcode } from '../support/unique-postcode.js'
  *   - SENT     → `notification-sent`    entry carrying the recipient (the
  *                nation's RegulatorMailboxes address), the notification type
  *                (templateKey = "OfficerAssignment") and the reference (the
- *                work item id).
+ *                work item id — RA-581: the human-facing application reference,
+ *                the same value the email shows).
  *   - SKIPPED  → `notification-skipped` entry carrying reason
  *                "missing-regulator-mailbox" for a nation with no configured
  *                mailbox.
@@ -36,7 +37,7 @@ import { uniquePostcode } from '../support/unique-postcode.js'
  * Every assertion here is scoped to the OfficerAssignment template rather than
  * to the `notification-sent` / `notification-skipped` action alone. Submitting a
  * work item already records notifications under both actions — the operator
- * SubmissionConfirmation and the RA-240 RegulatorSubmission — so an
+ * SubmissionConfirmation and the regulator OperatorApplicationSubmission (RA-240, renamed by RA-581) — so an
  * action-scoped assertion would be satisfied by the submit entries and could
  * never fail.
  *
@@ -98,7 +99,7 @@ describe('RA-238 officer-assignment notification outcomes', () => {
 
       // Counted by template, not by action: submit already recorded two
       // notification-sent entries (the operator SubmissionConfirmation and the
-      // RA-240 RegulatorSubmission), so counting all sends could never fail.
+      // regulator OperatorApplicationSubmission (RA-240)), so counting all sends could never fail.
       // An exact count also pins that assign sends once, not repeatedly.
       const assignmentSends = await detail.notificationSentEntriesForTemplate(
         OFFICER_ASSIGNMENT_TEMPLATE
@@ -107,7 +108,7 @@ describe('RA-238 officer-assignment notification outcomes', () => {
     })
 
     it('addresses the assignment notification to the England regulator mailbox', async () => {
-      // Scoped to the OfficerAssignment entry: the RA-240 RegulatorSubmission
+      // Scoped to the OfficerAssignment entry: the regulator OperatorApplicationSubmission (RA-240, renamed by RA-581)
       // fired on submit is addressed to this same mailbox, so an unscoped
       // assertion would pass on that entry alone.
       await detail.assertNotificationDetailRowForTemplate(
@@ -127,12 +128,23 @@ describe('RA-238 officer-assignment notification outcomes', () => {
       )
     })
 
-    it('stamps the work item id as the notification reference', async () => {
+    it('stamps the application reference as the notification reference', async () => {
+      // RA-581: the regulator emails surface ((reference)) to the reader, so
+      // the send carries the human-facing application reference (the caption
+      // on the detail page), not the internal work item id.
+      await workItems.openWorkItem(workItemId)
+      const applicationReference = (await detail.getCaption())
+        .replace(/^Work items+/, '')
+        .trim()
+      expect(applicationReference).toMatch(/^AP[A-Z0-9]+$/)
+
+      await detail.gotoAudit()
+      await detail.expandAllAuditEntryDetails()
       await detail.assertNotificationDetailRowForTemplate(
         'notification-sent',
         OFFICER_ASSIGNMENT_TEMPLATE,
         'Reference',
-        workItemId
+        applicationReference
       )
     })
 
@@ -214,7 +226,7 @@ describe('RA-238 officer-assignment notification outcomes', () => {
       await detail.expandAllAuditEntryDetails()
 
       // Scoped by template throughout: submit on this Scotland item already
-      // recorded a notification-skipped for the RA-240 RegulatorSubmission,
+      // recorded a notification-skipped for the regulator OperatorApplicationSubmission (RA-240, renamed by RA-581),
       // also with reason missing-regulator-mailbox, so counting skips by action
       // alone would pass whether or not assignment notified at all.
       const assignmentSkips = await detail.notificationEntriesForTemplate(

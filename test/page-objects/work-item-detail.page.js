@@ -850,7 +850,7 @@ class WorkItemDetailPage extends Page {
    * The audit entries for `action` whose "Notification type" detail row matches
    * `template` (e.g. "OfficerAssignment"). A work item carries several
    * notifications sharing one action — submit alone records both the operator
-   * SubmissionConfirmation and the RA-240 RegulatorSubmission — so counting by
+   * SubmissionConfirmation and the regulator OperatorApplicationSubmission (RA-240, renamed by RA-581) — so counting by
    * action conflates them; count by template to pin an assertion to the
    * notification actually under test. Callers must
    * `expandAllAuditEntryDetails()` first so the detail rows are present.
@@ -887,7 +887,7 @@ class WorkItemDetailPage extends Page {
    *
    * A work item usually carries several notifications sharing one action —
    * submit alone records both the operator SubmissionConfirmation and the
-   * regulator RegulatorSubmission as `notification-sent`. Where the assertion
+   * regulator OperatorApplicationSubmission as `notification-sent`. Where the assertion
    * is about one specific template, use
    * `assertNotificationDetailRowForTemplate` instead so a row belonging to a
    * different template cannot satisfy it.
@@ -1000,7 +1000,7 @@ class WorkItemDetailPage extends Page {
    * As `assertNotificationDetailRow`, but additionally scoped to the audit
    * entry whose "Notification type" row is `template`. Required whenever the
    * asserted value is not unique to the template under test — e.g. the England
-   * regulator mailbox is the recipient of both RegulatorSubmission (fired on
+   * regulator mailbox is the recipient of both OperatorApplicationSubmission (fired on
    * submit) and OfficerAssignment, so an unscoped Recipient assertion would
    * pass on the submit entry alone and could never fail.
    */
