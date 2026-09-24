@@ -24,6 +24,14 @@ import { Page } from './page.js'
  *     reduction). Copied from the duly-making page's existing
  *     govukDateInput + validator pattern (see duly-making.page.js).
  *
+ * RA-601 removes CM6's extension-only lower bound. The deadline may now be
+ * moved in either direction — earlier than the current deadline, earlier
+ * than today, and earlier than the SLA clock's `startedAt` are all valid.
+ * The only rejection left is the no-op: resubmitting the current deadline
+ * unchanged. The route, the form and every `sla-extend-*` testid are again
+ * unchanged, so this page object only gains the error-text getter needed to
+ * tell the surviving rejection from the removed one.
+ *
  * The date input's ids are `new-deadline-{day,month,year}`, confirmed
  * against management-fe's CM6 implementation once it landed (this repo
  * originally guessed `field-newDueDate-*`, following the `field-<name>`
@@ -145,8 +153,45 @@ class SlaExtendPage extends Page {
     return this.pageHeading.getText()
   }
 
+  /**
+   * Selected by testid rather than by `.govuk-error-summary`, so this cannot
+   * latch onto an error summary rendered by some other component on the page.
+   */
+  errorSummary() {
+    return $('[data-testid="sla-extend-error-summary"]')
+  }
+
   async assertErrorSummaryDisplayed() {
-    await expect($('[data-testid="sla-extend-error-summary"]')).toBeDisplayed()
+    await expect(this.errorSummary()).toBeDisplayed()
+  }
+
+  /**
+   * RA-601. The error summary's rendered text, so a spec can pin WHICH
+   * rejection fired rather than merely that one did.
+   *
+   * RA-601 leaves exactly one rejection on this form (the no-op) where there
+   * were previously two (the no-op and the extension-only lower bound). A
+   * spec that only asserted "an error summary appeared" would still pass if
+   * the removed lower bound came back, because the wrong guard firing looks
+   * identical to the right one.
+   */
+  async errorSummaryText() {
+    return this.errorSummary().getText()
+  }
+
+  /**
+   * RA-601. Open the form, fill it, submit, and land back on the work item.
+   *
+   * The happy path is now driven from several specs and from other specs'
+   * fixture setup; keeping the four steps together here stops each caller
+   * re-deriving the wait. Callers that expect a REJECTION must not use this —
+   * it waits for the detail page, which a rejected submit never reaches.
+   */
+  async changeDeadline(workItemId, { reason, date }) {
+    await this.gotoFor(workItemId)
+    await this.fillForm({ reason, date })
+    await this.submitForm()
+    await this.waitForDetailUrl(workItemId)
   }
 
   /** RA-572 (AC02). The reason field's hint, reworded to "...changed". */
