@@ -37,7 +37,7 @@ export const ACTIVE_INTERIM_SITES = [
     name: 'Bilbao Interim Holding',
     country: 'Spain',
     townOrCity: 'Bilbao',
-    siteNumber: 'SN-0021',
+    siteNumber: '001',
     operationCodes: ['R12'],
     isNew: false
   },
@@ -45,7 +45,7 @@ export const ACTIVE_INTERIM_SITES = [
     name: 'Marseille Interim Depot',
     country: 'France',
     townOrCity: 'Marseille',
-    siteNumber: 'SN-0022',
+    siteNumber: '002',
     operationCodes: ['R12', 'R13'],
     isNew: true
   }
@@ -62,5 +62,5 @@ export const ACTIVE_INTERIM_SITES = [
 export const WITHDRAWN_INTERIM_SITE = {
   name: 'Genoa Interim Store',
   country: 'Italy',
-  siteNumber: 'SN-0023'
+  siteNumber: '003'
 }
