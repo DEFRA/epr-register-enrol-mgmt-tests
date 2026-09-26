@@ -50,6 +50,10 @@ describe('RA-292: new ORS, interim site and authority-to-issue flags', () => {
     // expand so nested interim-site content is readable by the assertions
     // below.
     await detail.expandAllOverseasSiteDetails()
+    // RA-603 (AC10b): and each interim site now has its own collapsed <details>
+    // nested inside its ORS, so the interim block's text is not readable until
+    // that is open too.
+    await detail.expandAllInterimSiteDetails()
   })
 
   after(async () => {
