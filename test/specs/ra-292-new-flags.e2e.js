@@ -1,4 +1,4 @@
-import { browser, expect } from '@wdio/globals'
+import { browser, expect, $ } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
@@ -210,16 +210,16 @@ describe('RA-292: new ORS, interim site and authority-to-issue flags', () => {
       // so the next person to notice the mismatch finds an answer instead of
       // filing a bug — and so a well-meaning "fix" to the singular fails.
       //
-      // The sub-label deliberately carries no testid (management-fe left a
-      // comment in the template saying why), so this reads the block text. That
-      // is safe here in a way it is not for the NEW: prefix: this asserts a
-      // string is PRESENT somewhere in the block, whereas the prefix assertions
-      // need to know which line carries it.
-      const interim = await detail.flaggedBlockNamed(
-        'interimSite',
-        INTERIM.NEW.name
-      )
-      await expect(interim).toHaveText(expect.stringContaining('Interim sites'))
+      // RA-603 (AC10b) moved the label. It used to sit inside each interim
+      // site's own block, which is where flaggedBlockNamed looks; now that an
+      // ORS can hold several, there is ONE label above the group and a
+      // fold-down per site beneath it. So this reads the label element rather
+      // than the block - and the label now carries a testid, which it did not
+      // when this test was written.
+      //
+      // The plural reasoning above still holds, and is simply accurate now.
+      const label = await $('[data-testid="interim-sites-label"]')
+      await expect(label).toHaveText(expect.stringContaining('Interim sites'))
     })
 
     it('renders no interim site under the ORS that has none', async () => {
