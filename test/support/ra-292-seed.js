@@ -205,7 +205,7 @@ export const ORS = {
 export const INTERIM = {
   NEW: {
     name: 'Antwerp Interim Holding Site',
-    siteNumber: 'INT-001',
+    siteNumber: '001',
     address: '12 Scheldelaan',
     addressLine2: 'Unit 4',
     town: 'Antwerp',
@@ -227,7 +227,7 @@ export const INTERIM = {
   },
   ESTABLISHED: {
     name: 'Bremen Interim Storage',
-    siteNumber: 'INT-002',
+    siteNumber: '002',
     address: '8 Speicherstrasse',
     town: 'Bremen',
     // Bremen is a German CITY-STATE: `townOrCity` and `stateOrRegion` are both
