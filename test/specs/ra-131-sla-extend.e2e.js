@@ -9,6 +9,7 @@ import {
 } from '../support/re-accreditation-journey.js'
 import {
   beforeClockStartDeadline,
+  earlierFutureDeadline,
   farFutureDeadline
 } from '../support/sla-extend-date.js'
 
@@ -32,9 +33,17 @@ import {
  *
  * RA-601 removed CM6's extension-only lower bound, which inverted one case
  * in this file: a new deadline EARLIER than the current one is now accepted,
- * not rejected. The ra-601 spec owns that journey end to end, including the
- * no-op that is now the form's only remaining rejection; the inverted case
- * stays here so the removed bound cannot quietly return.
+ * not rejected. The ra-601 spec owns that journey end to end; the inverted
+ * case stays here so the removed bound cannot quietly return.
+ *
+ * RA-611 then put back a DIFFERENT bound — the new deadline may not be earlier
+ * than TODAY — which is not the one RA-601 removed and must not be read as a
+ * revert of it. Two consequences here: a one-line rejection guard sits next to
+ * the RA-601 case so the two rules are read together, and the RA-601 case can
+ * no longer take its old shortcut of submitting a past date to get something
+ * "earlier than the current due date". It pins the deadline far out first.
+ * The dedicated ra-611 spec owns that journey, its today boundary, and the
+ * proof that a rejected submission changes nothing.
  *
  * These e2e tests drive a re-accreditation work item to the
  * "Assessment in progress" state (the only state where the change-deadline
@@ -113,6 +122,27 @@ describe('RA-131 Change determination deadline', () => {
       await slaExtend.assertOnInputPage()
     })
 
+    it('rejects a new due date earlier than today (RA-611)', async () => {
+      // RA-611's narrow regression guard, sitting alongside RA-601's below so
+      // the two rules are visible together and cannot be confused for each
+      // other. RA-601 removed the extension-only bound; RA-611 adds a floor at
+      // today. A date a year back therefore fails again — but for a different
+      // reason than it did before RA-601, which is why this asserts the TEXT.
+      // The dedicated ra-611 spec owns the journey, the boundary and the
+      // no-change proof.
+      await slaExtend.gotoFor(workItemId)
+      await slaExtend.fillForm({
+        reason: 'Regulator backdating the determination deadline',
+        date: beforeClockStartDeadline()
+      })
+      await slaExtend.submitForm()
+      await slaExtend.assertErrorSummaryDisplayed()
+      await slaExtend.assertOnInputPage()
+      expect(await slaExtend.errorSummaryText()).toContain(
+        'The new determination deadline cannot be earlier than today'
+      )
+    })
+
     it('accepts a new due date EARLIER than the current due date (RA-601)', async () => {
       // THE OPPOSITE OF WHAT THIS CASE USED TO ASSERT. CM6 shipped an
       // extension-only lower bound and this spec pinned it: a backwards move
@@ -123,18 +153,28 @@ describe('RA-131 Change determination deadline', () => {
       // pulling the deadline forwards is now a first-class journey, and the
       // regression worth guarding is the bound coming back.
       //
-      // A date in the past is always earlier than an unelapsed due date, so
-      // this still does not need to read and parse the real "Due on" value.
+      // RA-611 ALSO CHANGED THIS CASE, without changing what it asserts. It
+      // used to submit a date a year in the PAST, on the reasoning that a past
+      // date is always earlier than an unelapsed due date and so the spec
+      // never had to read the real "Due on" value. RA-611 makes a past date
+      // invalid, so the shortcut is gone: the only way to submit a date that
+      // is both earlier than the current deadline AND not earlier than today
+      // is to know where the current deadline is. Hence the pin first.
       //
-      // Unlike its predecessor this submission SUCCEEDS, so it leaves the
-      // input page and applies a change. That is safe here: the cases below
-      // it in this block do not depend on the deadline's value, and the
-      // happy path re-pins it far out. The dedicated ra-601 spec owns the
-      // detail of what the header then shows.
+      // Unlike its pre-RA-601 predecessor this submission SUCCEEDS, so it
+      // leaves the input page and applies a change. That is safe here: the
+      // cases below it in this block do not depend on the deadline's value,
+      // and the happy path re-pins it far out. The dedicated ra-601 spec owns
+      // the detail of what the header then shows.
+      await slaExtend.changeDeadline(workItemId, {
+        reason: 'Pinning the determination deadline before reducing it',
+        date: farFutureDeadline()
+      })
+
       await slaExtend.gotoFor(workItemId)
       await slaExtend.fillForm({
         reason: 'Regulator advancing the determination deadline',
-        date: beforeClockStartDeadline()
+        date: earlierFutureDeadline()
       })
       await slaExtend.submitForm()
       await slaExtend.waitForDetailUrl(workItemId)

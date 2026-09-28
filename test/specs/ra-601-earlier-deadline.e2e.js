@@ -8,12 +8,13 @@ import {
   startAssessment
 } from '../support/re-accreditation-journey.js'
 import {
-  beforeClockStartDeadlineDate,
   beforeClockStartDeadline,
   earlierFutureDeadlineDate,
   earlierFutureDeadline,
   farFutureDeadline,
-  farFutureDeadlineDate
+  farFutureDeadlineDate,
+  todayDeadline,
+  todayDeadlineDate
 } from '../support/sla-extend-date.js'
 
 /**
@@ -32,12 +33,26 @@ import {
  * "Extend" to "Change" is what made it visibly wrong — a screen that offers
  * to CHANGE a date and then refuses every change in one direction.
  *
- * THE DECISION, so the assertions below are not mistaken for accidents:
- * there is no floor at all. Earlier than the current deadline is valid,
- * earlier than today is valid, and earlier than the SLA clock's `startedAt`
- * is valid — the product owner accepted that last one explicitly. The single
- * surviving rejection is the no-op: resubmitting the current deadline
- * unchanged, which is not a change and is told so.
+ * THE DECISION, so the assertions below are not mistaken for accidents.
+ * RA-601 removed the bound on DIRECTION: moving the deadline earlier than the
+ * current deadline is valid, and that has not changed. At the time it also
+ * removed the floor entirely, so a date before today and before the SLA
+ * clock's `startedAt` were valid too, the product owner having accepted the
+ * latter explicitly.
+ *
+ * RA-611 WITHDREW THAT SECOND HALF and this file has been updated in place to
+ * match, rather than left asserting the superseded behaviour. A caseworker
+ * backdated a live case by fourteen days and it saved, so a floor at TODAY is
+ * back: earlier than today is rejected, today itself is accepted. The
+ * direction bound is still gone. Keeping both rules in one file, with the
+ * rejection asserted by its TEXT, is what stops a future reader — or a future
+ * regression — collapsing them into "RA-611 reverted RA-601", which it did
+ * not. The ra-611 spec owns that journey in full; this file keeps the RA-601
+ * half honest and records where the two meet.
+ *
+ * The form therefore has two rejections: the past date, and the no-op —
+ * resubmitting the current deadline unchanged, which is not a change and is
+ * told so.
  *
  * The route, the form and every `sla-extend-*` testid are unchanged
  * (management-fe confirmed it touched no markup for RA-601), so this spec
@@ -55,7 +70,7 @@ describe('RA-601 Change the determination deadline to an earlier date', () => {
   // way from the input is an expectation that can drift away from it.
   const pinnedDeadline = farFutureDeadlineDate()
   const earlierDeadline = earlierFutureDeadlineDate()
-  const preClockDeadline = beforeClockStartDeadlineDate()
+  const todaysDate = todayDeadlineDate()
 
   before(async () => {
     await login.login()
@@ -156,70 +171,84 @@ describe('RA-601 Change the determination deadline to an earlier date', () => {
       )
     })
 
-    it('saves a deadline from before the SLA clock started (RA-601, accepted by the PO)', async () => {
-      // A year in the past, so it is earlier than `startedAt` whatever the
-      // runner's zone and however long fixture setup took. management-fe adds
-      // no floor of its own and no confirm step, so this validates straight
-      // through on the first submit.
-      await slaExtend.changeDeadline(workItemId, {
-        reason: 'Backdating the determination deadline (RA-601)',
+    it('now REJECTS a deadline earlier than today (RA-611 reverses this half)', async () => {
+      // THIS CASE USED TO ASSERT THE OPPOSITE, and the inversion is the record
+      // of a decision changing rather than a mistake being corrected. RA-601
+      // removed every bound on this date, and the product owner explicitly
+      // accepted the consequence that a deadline could be backdated to before
+      // the SLA clock started. RA-611 withdrew that specific consequence after
+      // a caseworker backdated a live case by fourteen days: a date earlier
+      // than TODAY is rejected again.
+      //
+      // RA-601 IS NOT REVERTED, which is the reason this case stays in this
+      // file instead of moving wholesale into the ra-611 spec. The rule RA-601
+      // removed was about DIRECTION — the new deadline had to be after the
+      // current one — and it is still gone, as the first case in this block
+      // proves. The rule RA-611 added is about POSITION. Asserting the text
+      // rather than merely that an error appeared is what keeps the two
+      // distinguishable: were the direction bound to come back, this case
+      // would still see an error summary and pass.
+      await slaExtend.gotoFor(workItemId)
+      await slaExtend.fillForm({
+        reason: 'Backdating the determination deadline (rejected since RA-611)',
         date: beforeClockStartDeadline()
+      })
+      await slaExtend.submitForm()
+
+      await slaExtend.assertErrorSummaryDisplayed()
+      await slaExtend.assertOnInputPage()
+      expect(await slaExtend.errorSummaryText()).toContain(
+        'The new determination deadline cannot be earlier than today'
+      )
+      // The bound RA-601 removed must not be what fired.
+      expect(await slaExtend.errorSummaryText()).not.toContain(
+        'must be after the current deadline'
+      )
+    })
+
+    it('still reduces the deadline all the way to today (RA-601 at its RA-611 limit)', async () => {
+      // How far RA-601 reaches now that RA-611 has put a floor under it: today
+      // is not "earlier than the current date", so the deadline can still be
+      // pulled backwards by years, right down to the boundary, and only stops
+      // one day short of where RA-601 alone would have allowed.
+      //
+      // This replaces the case that used to pin what a PAST deadline renders
+      // as in the header, and the question that case raised is now moot rather
+      // than unanswered: a past deadline is no longer reachable through this
+      // UI, so whether the header should signal a breach for one cannot arise
+      // from a regulator's own change. (The nightly SlaBreachBackgroundService
+      // still breaches items whose deadline simply lapses, and that flag is
+      // still one-way — but RA-611 means a caseworker can no longer put an
+      // item into that state deliberately, which was the part the product
+      // owner had not actually agreed to.)
+      //
+      // Opened afresh because the case above it ended on the rejected FORM, so
+      // there is no case header on screen to read "Due on" from.
+      await workItems.openWorkItem(workItemId)
+      const before = (await detail.caseHeaderFieldText('dueOn')).trim()
+
+      await slaExtend.changeDeadline(workItemId, {
+        reason: 'Determining this case today',
+        date: todayDeadline()
       })
 
       await detail.assertFlashBanner()
-      await detail.assertCaseHeaderDueOn(preClockDeadline)
-    })
-
-    it('records what a past deadline renders as, rather than what it ought to', async () => {
-      // WHAT THIS DOES AND DOES NOT CLAIM. Whether a work item whose deadline
-      // now sits in the past should read as "Breached" is an open question
-      // going back to the product owner — nobody specified it for RA-601. So
-      // this pins only what is actually true of the build, deliberately:
-      //
-      //   - The header keeps showing the real date. The em dash is reserved
-      //     for the Cancelled SLA state, which this item is not in, so a past
-      //     deadline must not blank the field.
-      //   - No SLA status badge reappears. RA-295 removed the "On track" /
-      //     "At risk" / "Breached" govukTag from the detail page outright, so
-      //     there is no breach affordance here to light up — a past deadline
-      //     looks exactly like a future one apart from the date itself.
-      //
-      // WHY BREACH IS NOT ASSERTED AT ALL, which is the part worth reading.
-      // `breached` is not derived on read: it is a persisted boolean on the
-      // item's `slaClock`, flipped by management-be's SlaBreachBackgroundService
-      // — a NIGHTLY sweep (SlaBreachJob:IntervalHours, default 24). So moving
-      // a deadline into the past does not breach the item at save time; it
-      // breaches up to a day later, whenever the sweep next runs. An e2e
-      // assertion either way would be asserting on a job's schedule.
-      //
-      // The sweep is also ONE-WAY. It skips items already marked breached and
-      // nothing anywhere resets the flag, so once the sweep has caught a
-      // backdated item, restoring the deadline to the future leaves it
-      // permanently breached with an `sla-breached` audit entry against it.
-      //
-      // RA-601 does not CREATE that state: an item whose deadline simply
-      // lapses has always reached it. What RA-601 changes is that reaching it
-      // becomes deliberate and immediate rather than a matter of waiting. So
-      // the point worth putting to the product owner is narrower than
-      // "backdating breaches the item", which they accepted — it is that the
-      // flag is ONE-WAY, so a regulator who backdates by mistake and then
-      // corrects the date cannot undo it. Those are two different decisions
-      // and only the first was on the table. Flagged rather than encoded here
-      // as if intended: asserting it would bless it.
-      //
-      // If the PO decides a past deadline SHOULD be signalled, this case is
-      // the one to rewrite, and its failure is the signal that it shipped.
-      await workItems.openWorkItem(workItemId)
+      await detail.waitForDueOnToChangeFrom(before)
+      await detail.assertCaseHeaderDueOn(todaysDate)
+      // Still a real date, never the em dash that means "no SLA clock".
       expect(await detail.hasRealDueOn()).toBe(true)
-      await detail.assertCaseHeaderDueOn(preClockDeadline)
+      // RA-295 removed the On track / At risk / Breached tag from this page and
+      // RA-611 does not bring it back.
       await expect(detail.slaStatusBadge()).not.toBeExisting()
     })
 
     it('can move the deadline forwards again afterwards', async () => {
       // RA-601 removes a bound; it must not install the opposite one. Once
-      // the deadline has been pulled back into the past, extending it again
-      // has to keep working — that is the journey a regulator who advanced a
-      // date by mistake actually needs.
+      // the deadline has been pulled all the way back to today, extending it
+      // again has to keep working — that is the journey a regulator who
+      // advanced a date too far actually needs, and since RA-611 it is the
+      // ONLY remedy available for an over-reduction: today is the floor, so a
+      // caseworker who reduces too far has to move forwards to recover.
       await slaExtend.changeDeadline(workItemId, {
         reason: 'Restoring the determination deadline after advancing it',
         date: farFutureDeadline()

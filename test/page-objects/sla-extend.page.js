@@ -32,6 +32,16 @@ import { Page } from './page.js'
  * unchanged, so this page object only gains the error-text getter needed to
  * tell the surviving rejection from the removed one.
  *
+ * RA-611 reinstates a floor, but not the one RA-601 removed: the new deadline
+ * may not be EARLIER THAN TODAY. Moving it earlier than the current deadline
+ * stays valid, and today itself is accepted. So the form has two rejections
+ * again, which is why the getters below reach the summary's title and link and
+ * the field-level message separately — asserting merely that "an error summary
+ * appeared" cannot tell the past-date guard from the no-op guard, nor either
+ * from the extension-only bound if it ever came back. The route, the form and
+ * every `sla-extend-*` testid are unchanged once more; the field error is read
+ * off govukDateInput's own generated `#new-deadline-error` id.
+ *
  * The date input's ids are `new-deadline-{day,month,year}`, confirmed
  * against management-fe's CM6 implementation once it landed (this repo
  * originally guessed `field-newDueDate-*`, following the `field-<name>`
@@ -177,6 +187,106 @@ class SlaExtendPage extends Page {
    */
   async errorSummaryText() {
     return this.errorSummary().getText()
+  }
+
+  /**
+   * RA-611. The error summary's TITLE, so a spec can pin the GOV.UK
+   * "There is a problem" heading the AC names rather than inferring it from
+   * the body text.
+   *
+   * Scoped inside the summary's testid: `.govuk-error-summary__title` on its
+   * own would match any error summary on the page.
+   */
+  async errorSummaryTitleText() {
+    return this.errorSummary().$('.govuk-error-summary__title').getText()
+  }
+
+  /**
+   * RA-611. Where the error summary's link points.
+   *
+   * GOV.UK requires the summary link to move focus to the offending field, and
+   * for this three-box date input management-fe anchors it at the DAY box
+   * (`EXTEND_DEADLINE_ANCHOR` in sla.controller.js) so focus lands on the first
+   * field of the group. Worth pinning: a summary whose link goes nowhere is an
+   * accessibility defect that renders identically to a correct one.
+   */
+  async errorSummaryLinkHref() {
+    return this.errorSummary().$('a').getAttribute('href')
+  }
+
+  /**
+   * RA-611. The FIELD-LEVEL error message on the new-deadline date input.
+   *
+   * The AC asks for the message in two places — the summary at the top and
+   * against the field itself — and only the summary was previously reachable
+   * from this page object, so a build that rendered the summary alone would
+   * have passed.
+   *
+   * `#new-deadline-error` is govukDateInput's own generated id for the
+   * `errorMessage` it is passed (`{id}-error`), where `new-deadline` is the
+   * `dateInputId` the controller supplies. No testid exists because the
+   * element is generated inside the GOV.UK macro rather than written by
+   * management-fe — adding one would mean forking the macro.
+   *
+   * The returned text carries GOV.UK's visually-hidden "Error:" prefix, so
+   * callers must use `toContain` rather than `toBe`.
+   */
+  deadlineFieldError() {
+    return $('#new-deadline-error')
+  }
+
+  async deadlineFieldErrorText() {
+    return this.deadlineFieldError().getText()
+  }
+
+  /**
+   * RA-611. Assert BOTH renderings of the same rejection: the summary at the
+   * top of the page and the message against the date input.
+   *
+   * Kept as one helper because the AC treats them as one requirement and
+   * because every caller wants the same text in both places — letting a spec
+   * assert one and forget the other is the failure mode this exists to close.
+   */
+  async assertDeadlineError(message) {
+    await this.assertErrorSummaryDisplayed()
+    await this.assertOnInputPage()
+    expect(await this.errorSummaryTitleText()).toBe('There is a problem')
+    expect(await this.errorSummaryText()).toContain(message)
+    await expect(this.deadlineFieldError()).toBeDisplayed()
+    expect(await this.deadlineFieldErrorText()).toContain(message)
+  }
+
+  /**
+   * RA-611. What the re-rendered form still holds after a rejected submit.
+   *
+   * GOV.UK's error pattern requires a rejected form to come back with the
+   * user's own answers in it, so they can correct the one field that was wrong
+   * rather than retype everything. That is invisible to an assertion on the
+   * error message alone, and losing it is an easy regression to ship when a
+   * validator is added.
+   */
+  async submittedValues() {
+    return {
+      reason: await $('#field-reason').getValue(),
+      day: await this.dayInput().getValue(),
+      month: await this.monthInput().getValue(),
+      year: await this.yearInput().getValue()
+    }
+  }
+
+  /**
+   * RA-611. Fill the form, submit it, and assert it came back rejected with
+   * `message`.
+   *
+   * The mirror of `changeDeadline()` for the rejection path. `changeDeadline`
+   * waits for the detail URL and so cannot be used here — a rejected submit
+   * re-renders the form (400) and never redirects.
+   */
+  async expectDeadlineRejected(workItemId, { reason, date, message }) {
+    await this.gotoFor(workItemId)
+    await this.fillForm({ reason, date })
+    await this.submitForm()
+    await this.assertDeadlineError(message)
   }
 
   /**
