@@ -24,13 +24,14 @@ import { Page } from './page.js'
  *     reduction). Copied from the duly-making page's existing
  *     govukDateInput + validator pattern (see duly-making.page.js).
  *
- * RA-601 removes CM6's extension-only lower bound. The deadline may now be
- * moved in either direction — earlier than the current deadline, earlier
- * than today, and earlier than the SLA clock's `startedAt` are all valid.
- * The only rejection left is the no-op: resubmitting the current deadline
- * unchanged. The route, the form and every `sla-extend-*` testid are again
- * unchanged, so this page object only gains the error-text getter needed to
- * tell the surviving rejection from the removed one.
+ * RA-601 removed CM6's extension-only lower bound, so the deadline may be
+ * moved in either direction: earlier than the current deadline is valid. At
+ * the time it left NO floor at all — earlier than today and earlier than the
+ * SLA clock's `startedAt` were valid too, and the no-op was the only rejection
+ * left. RA-611 has since withdrawn that part; read the paragraph below before
+ * relying on any of it. The route, the form and every `sla-extend-*` testid
+ * were unchanged, so RA-601 only added the error-text getter needed to tell
+ * the surviving rejection from the removed one.
  *
  * RA-611 reinstates a floor, but not the one RA-601 removed: the new deadline
  * may not be EARLIER THAN TODAY. Moving it earlier than the current deadline
