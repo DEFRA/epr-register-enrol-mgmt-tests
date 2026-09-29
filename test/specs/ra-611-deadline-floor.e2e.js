@@ -80,17 +80,20 @@ import {
  * TODAY the floor IS today and ACs 2-5 all collapse into the degenerate case the
  * superseded revision already covered.
  *
- * WHAT THIS FILE DOES NOT COVER, stated plainly rather than left to be inferred
- * from its absence: the 1-JANUARY BOUND. Making it bind requires a work item
- * whose payload carries a numeric `accreditationYear` AND whose duly-made anchor
- * falls before 1 January of it. Nothing this suite can create has one — the
+ * THE 1-JANUARY BOUND NEEDS A SEEDED FIXTURE, and the reason is worth reading
+ * before the block at the foot of this file. For that bound to BIND it has to be
+ * the later of the two, which needs a work item whose payload carries a numeric
+ * `accreditationYear` AND whose duly-made anchor falls before 1 January of it.
+ * Nothing this suite can create through the UI qualifies on either count: the
  * case-management create form does not collect an accreditation year (it arrives
- * on the upstream operator submission) and management-be deliberately treats an
+ * on the upstream operator submission), and management-be deliberately treats an
  * absent one as "no 1-January bound" rather than defaulting to the current year.
- * So for every item below the duly-made anchor is the floor on its own, and the
- * 1-January rule is inert. It is covered by a seeded fixture, in its own
- * describe block at the foot of this file, and that block is the only place the
- * bound is exercised.
+ * So on every item created above, the duly-made anchor is the floor by itself
+ * and the 1-January rule is inert whatever date is submitted — which is also
+ * true of production for any item that reaches case management without a year.
+ *
+ * management-be therefore seeds one fixture for it, and the final describe block
+ * is the only place in this suite where that bound is exercised.
  */
 
 describe('RA-611 The determination deadline floor: duly made, not today', () => {
@@ -402,6 +405,111 @@ describe('RA-611 The determination deadline floor: duly made, not today', () => 
       // submit flashed one, this first detail-page load is where it surfaces.
       await detail.assertNoFlashBanner()
       await detail.assertCaseHeaderDueOn(pinnedDeadline)
+    })
+  })
+  /**
+   * RA-611 (AC4) — the 1-JANUARY BOUND, the only place in this suite it binds.
+   *
+   * WHY THIS BLOCK USES A SEEDED FIXTURE AND HARD-CODED DATES, when every other
+   * date in this file is computed. Both are deliberate and they are the same
+   * decision.
+   *
+   * management-be seeds `RA-611 Pre Year Start Ltd` specifically for this bound,
+   * with `accreditationYear: 2026` and its SLA clock pinned to the ABSOLUTE
+   * instant `2025-11-14T00:00:00Z` — not derived from the run date, unlike every
+   * other seeded item's `submittedAt.AddDays(1)`. So:
+   *
+   *   duly-made anchor = 14 November 2025
+   *   1 January of the accreditation year = 1 January 2026   <- the LATER bound
+   *   floor = 1 January 2026
+   *
+   * Both dates are FIXED, so computing them from the run date would be strictly
+   * worse than writing them down: the arithmetic would be pretending to a
+   * generality the fixture does not have, and would silently produce the wrong
+   * expectation the moment the seed changed.
+   *
+   * MIDNIGHT UTC MATTERS HERE and was asked for rather than assumed. The floor
+   * compares Europe/London calendar dates, so a seeded clock carrying a
+   * time-of-day would sit on one date in UTC and the next in London for one hour
+   * a day through BST, and the error message would name a date this spec did not
+   * predict. Pinned to midnight UTC, the London and UTC dates always coincide.
+   *
+   * THIS FIXTURE IS 2026-SPECIFIC AND WILL NEED RE-POINTING. Its accreditation
+   * year and its clock are pinned as a coherent PAIR — the clock has to stay
+   * below 1 January of the year for the year bound to remain the later one — so
+   * when the live accreditation year moves on, both move together, in the seeder
+   * and here. management-be has a unit test asserting
+   * `StartedAt < 1 January of the payload's accreditationYear` so this cannot rot
+   * silently into a fixture that quietly exercises the duly-made bound instead.
+   */
+  describe('the accreditation year is the later bound', () => {
+    /** Fixed by the seeder; see the block comment. */
+    const ACCREDITATION_YEAR = 2026
+    const betweenAnchorAndYearStart = { day: 28, month: 12, year: 2025 }
+    const onYearStart = { day: 1, month: 1, year: ACCREDITATION_YEAR }
+    const belowTheAnchorToo = { day: 1, month: 11, year: 2025 }
+
+    let seededWorkItemId
+
+    before(async () => {
+      await login.login()
+      // Found by organisation name rather than by the seeder's deterministic id:
+      // the name is a published constant that management-be unit-tests for
+      // uniqueness across the seed set, so exactly one row comes back, whereas a
+      // deterministic id would couple this spec to the id derivation.
+      await workItems.goto()
+      await workItems.searchByOrgName('RA-611 Pre Year Start Ltd')
+      seededWorkItemId = await workItems.firstResultWorkItemId()
+    })
+
+    after(async () => {
+      await login.logout()
+    })
+
+    it('rejects a date between the anchor and 1 January, naming 1 January (RA-611 AC4)', async () => {
+      // 28 December 2025: ABOVE the duly-made anchor of 14 November 2025 and
+      // BELOW 1 January 2026. That gap is the only place the two bounds
+      // disagree, so it is the only date that can prove the later one wins — a
+      // build taking the EARLIER of the two would accept this outright, and one
+      // that ignored the year bound entirely would accept it as well.
+      await slaExtend.expectRejectedBeforeAccreditationYear(seededWorkItemId, {
+        reason: 'Backdating into the previous accreditation year',
+        date: betweenAnchorAndYearStart,
+        year: ACCREDITATION_YEAR
+      })
+    })
+
+    it('names 1 January even for a date below the anchor as well (RA-611 AC4)', async () => {
+      // 1 November 2025 violates BOTH bounds. Only the binding one may be
+      // reported, and the binding one is the later — so the caseworker is told
+      // about 1 January, not about the duly-made date they are also behind.
+      // Reporting the wrong bound here would send them to correct the date to
+      // 14 November 2025, which would then be refused again for a reason they
+      // had not been given.
+      await slaExtend.expectRejectedBeforeAccreditationYear(seededWorkItemId, {
+        reason: 'Backdating below both floors at once',
+        date: belowTheAnchorToo,
+        year: ACCREDITATION_YEAR
+      })
+    })
+
+    it('accepts 1 January itself, the floor (RA-611 AC4/AC5 boundary)', async () => {
+      // The year bound is strictly-below too, so its own boundary date passes.
+      // Run last in this block because it is the only case here that changes the
+      // seeded item, and it changes it to a date in the PAST — which is the
+      // corrected rule in one assertion: a deadline nine months behind the run
+      // date, accepted, because it clears this item's floor.
+      await workItems.openWorkItem(seededWorkItemId)
+      const before = (await detail.caseHeaderFieldText('dueOn')).trim()
+
+      await slaExtend.changeDeadline(seededWorkItemId, {
+        reason: 'Backdating to the start of the accreditation year',
+        date: onYearStart
+      })
+
+      await detail.assertFlashBanner()
+      await detail.waitForDueOnToChangeFrom(before)
+      await detail.assertCaseHeaderDueOn(deadlineDateFromParts(onYearStart))
     })
   })
 })
