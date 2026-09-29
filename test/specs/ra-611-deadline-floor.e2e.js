@@ -457,9 +457,16 @@ describe('RA-611 The determination deadline floor: duly made, not today', () => 
       // the name is a published constant that management-be unit-tests for
       // uniqueness across the seed set, so exactly one row comes back, whereas a
       // deterministic id would couple this spec to the id derivation.
-      await workItems.goto()
-      await workItems.searchByOrgName('RA-611 Pre Year Start Ltd')
-      seededWorkItemId = await workItems.firstResultWorkItemId()
+      //
+      // Through `findSeededWorkItemIdByOrgName` rather than a bare search, which
+      // is a correction rather than a preference. Searching without resetting
+      // the default filters first leaves the query implicitly scoped to the
+      // logged-in assignee, and this fixture is not assigned to the stub user —
+      // so the row exists and never appears, and the failure reads as "the
+      // fixture is not seeded". See that helper for the full trap.
+      seededWorkItemId = await workItems.findSeededWorkItemIdByOrgName(
+        'RA-611 Pre Year Start Ltd'
+      )
     })
 
     after(async () => {
