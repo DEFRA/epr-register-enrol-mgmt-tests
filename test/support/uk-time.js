@@ -95,48 +95,6 @@ export function utcDateParts(date, dayOffset = 0) {
   return { day: get('day'), month: get('month'), year: get('year') }
 }
 
-/**
- * Split a Date into the day/month/year numbers a GOV.UK date input expects,
- * evaluated in Europe/London.
- *
- * The UK-local sibling of `utcDateParts`, added for RA-611. Both exist on
- * purpose, and which one a spec wants is decided by the validator it is
- * driving, never by preference:
- *
- *   - `utcDateParts` for duly-making's payment date, whose validator computes
- *     "today" in UTC deliberately "to match the backend's notion of 'today'".
- *   - `ukDateParts` for RA-611's determination-deadline floor, whose validator
- *     resolves the UK-local calendar date with Intl and compares against the
- *     UTC midnight of that UK date (confirmed with management-fe on the
- *     RA-611 branch, not inferred from the pre-RA-611 `startOfUtcDay` helper
- *     that still serves other checks on the same form).
- *
- * The two disagree for the hour after UK midnight through BST, when London has
- * already rolled into the next calendar date and UTC has not (23:00–24:00 UTC).
- * Using the wrong one there does not fail loudly — it silently submits the
- * neighbouring day, so a "today is accepted" case submits YESTERDAY and reports
- * a correct build as broken, once a day for half the year. That is the entire
- * reason this function exists rather than callers sharing the UTC one.
- *
- * The offset is applied in whole days so the arithmetic never straddles a
- * boundary, matching `utcDateParts`.
- *
- * @param {Date} date
- * @param {number} [dayOffset] days to add (negative for the past)
- * @returns {{day: string, month: string, year: string}}
- */
-export function ukDateParts(date, dayOffset = 0) {
-  const shifted = new Date(date.getTime() + dayOffset * 86_400_000)
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/London',
-    day: 'numeric',
-    month: 'numeric',
-    year: 'numeric'
-  }).formatToParts(shifted)
-  const get = (type) => parts.find((p) => p.type === type)?.value ?? ''
-  return { day: get('day'), month: get('month'), year: get('year') }
-}
-
 export function recentUkDateTimeGdsWindow(now, toleranceMinutes = 5) {
   const window = new Set()
   for (let minutesAgo = 0; minutesAgo <= toleranceMinutes; minutesAgo++) {
