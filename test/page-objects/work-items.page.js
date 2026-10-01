@@ -345,6 +345,55 @@ class WorkItemsPage extends Page {
     return testId.replace('work-item-link-', '')
   }
 
+  /**
+   * Find a SEEDED work item by its organisation name and return its id.
+   *
+   * The whole run-up in one place, because doing it by hand has a trap in it and
+   * the trap fails in a thoroughly misleading way. Getting it wrong yields
+   *
+   *   Can't call getAttribute on element with selector
+   *   "[data-testid^=\"work-item-link-\"]" because element wasn't found
+   *
+   * which reads as "the fixture is not seeded" and sends you off to check the
+   * seeder, the backend's `SeedOnStartup` and the compose stack — when in fact
+   * the item is present and simply filtered out of the list.
+   *
+   * Three steps, each load-bearing:
+   *
+   *   1. `resetFilters()` FIRST. The default worklist carries filters of its own,
+   *      including an assignee scope, so a search run on top of them is
+   *      implicitly "...and assigned to me". Seeded items are assigned to
+   *      whoever the seeder says, which is generally not the logged-in stub
+   *      user, so the row exists and never appears.
+   *   2. The search itself, which `applyFiltersAndWait` submits.
+   *   3. A wait for `filtersApplied=1` in the URL before reading a row. Without
+   *      it the read can land on the PREVIOUS, unfiltered render — usually
+   *      returning the wrong item rather than failing, which is worse.
+   *
+   * Introduced for RA-611's accreditation-year fixture, but the pattern is
+   * lifted from application-details-full-payload.e2e.js, which had worked it out
+   * and written it inline. Callers that want the list left filtered can carry on
+   * driving the steps themselves; this is for the common case of "hand me that
+   * seeded item".
+   */
+  async findSeededWorkItemIdByOrgName(organisationName) {
+    await this.goto()
+    await this.resetFilters()
+    await this.searchByOrgName(organisationName)
+    await browser.waitUntil(
+      async () => (await browser.getUrl()).includes('filtersApplied=1'),
+      {
+        timeoutMsg: `org-name filter did not apply for "${organisationName}" (no filtersApplied=1)`
+      }
+    )
+    // Wait for the row itself rather than assuming the filtered render has
+    // arrived: the URL changes before the table does.
+    await $(WORK_ITEM_LINK_SELECTOR).waitForDisplayed({
+      timeoutMsg: `No work item found for organisation "${organisationName}" — is the fixture seeded?`
+    })
+    return this.firstResultWorkItemId()
+  }
+
   async clearSearch() {
     await this.clearAllFilters()
   }
