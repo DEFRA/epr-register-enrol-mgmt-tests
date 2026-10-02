@@ -1,4 +1,4 @@
-import { browser, $, expect } from '@wdio/globals'
+import { browser, $, $$, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail, {
@@ -70,7 +70,16 @@ describe('RA-603: several interim sites on one overseas reprocessing site', () =
       // so anything still missing from the source is genuinely not rendered.
       const source = await browser.getPageSource()
       expect(source).not.toContain(WITHDRAWN_INTERIM_SITE.name)
-      expect(source).not.toContain(WITHDRAWN_INTERIM_SITE.siteNumber)
+
+      // The site number is only three digits, so it is checked against the
+      // rendered site-number fields rather than the whole page source, where
+      // any GUID, asset hash or nonce containing "003" would trip it.
+      const fields = await $$('[data-testid="interim-site-site-number"]')
+      const siteNumbers = await Promise.all(
+        [...fields].map((el) => el.getText())
+      )
+      expect(siteNumbers).toHaveLength(ACTIVE_INTERIM_SITES.length)
+      expect(siteNumbers).not.toContain(WITHDRAWN_INTERIM_SITE.siteNumber)
     })
 
     it('counts only the interim sites it actually shows', async () => {
