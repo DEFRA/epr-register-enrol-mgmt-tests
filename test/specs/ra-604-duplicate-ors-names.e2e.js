@@ -64,14 +64,12 @@ describe('RA-604 duplicate overseas reprocessing site names', () => {
       site.name.includes(SHARED_ORS_NAME)
     )
     expect(duplicateSites).toHaveLength(DUPLICATE_ORS.length)
-    expect(
-      duplicateSites.map((site) => site.summaryAddress).sort()
-    ).toEqual(DUPLICATE_ORS.map((site) => site.summaryAddress).sort())
+    expect(duplicateSites.map((site) => site.summaryAddress).sort()).toEqual(
+      DUPLICATE_ORS.map((site) => site.summaryAddress).sort()
+    )
 
     for (const uniqueName of UNIQUE_ORS_NAMES) {
-      const uniqueSites = sites.filter((site) =>
-        site.name.includes(uniqueName)
-      )
+      const uniqueSites = sites.filter((site) => site.name.includes(uniqueName))
       expect(uniqueSites).toHaveLength(1)
       expect(uniqueSites[0].summaryAddress).toBeNull()
     }
@@ -83,9 +81,7 @@ describe('RA-604 duplicate overseas reprocessing site names', () => {
     const duplicateSites = await Promise.all(
       [...siteBlocks].map(async (element) => ({
         element,
-        name: await element
-          .$('[data-testid="overseas-site-name"]')
-          .getText()
+        name: await element.$('[data-testid="overseas-site-name"]').getText()
       }))
     )
     const matchingDuplicateSites = duplicateSites.filter((site) =>
@@ -94,9 +90,7 @@ describe('RA-604 duplicate overseas reprocessing site names', () => {
     expect(matchingDuplicateSites).toHaveLength(DUPLICATE_ORS.length)
     const expandedDuplicateAddresses = await Promise.all(
       matchingDuplicateSites.map(async ({ element }) => {
-        return element
-          .$('[data-testid="overseas-site-address"]')
-          .getText()
+        return element.$('[data-testid="overseas-site-address"]').getText()
       })
     )
     expect(expandedDuplicateAddresses.sort()).toEqual(
