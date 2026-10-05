@@ -46,11 +46,16 @@ function toXPathString(value) {
 }
 
 /**
- * RA-295 (AC01). The eight things the case header must carry, mapped to the
+ * RA-295 (AC01). The things the case header must carry, mapped to the
  * `data-testid` that surfaces each one. Exported so a spec asserts against the
  * same single source of truth the page object reads, rather than a second
  * hand-kept copy — and so a markup rename is a one-line change here rather
  * than a sweep through the specs.
+ *
+ * RA-493 adds `paymentDate` and `paymentAmount`. They render on EVERY item —
+ * reading "Not received" (PAYMENT_NOT_RECEIVED) until the item is duly made —
+ * so they belong in this always-present contract, and the RA-295 presence and
+ * responsive sweeps that iterate it now cover them too.
  */
 export const CASE_HEADER_FIELDS = {
   applicationsLink: 'case-header-applications-link',
@@ -61,8 +66,17 @@ export const CASE_HEADER_FIELDS = {
   status: 'case-header-status',
   assignedTo: 'case-header-assigned-to',
   dueOn: 'case-header-due-on',
-  registrationNumber: 'case-header-registration-number'
+  registrationNumber: 'case-header-registration-number',
+  paymentDate: 'case-header-payment-date',
+  paymentAmount: 'case-header-payment-amount'
 }
+
+/**
+ * RA-493 (AC04). What both payment header items read before the application
+ * is duly made. Exported so the RA-295 placeholder sweep can recognise it as
+ * the legitimate pre-duly-made value rather than treating it as real data.
+ */
+export const PAYMENT_NOT_RECEIVED = 'Not received'
 
 /**
  * RA-295 (AC02). The application information rows, in the exact order the AC

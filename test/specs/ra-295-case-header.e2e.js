@@ -2,7 +2,8 @@ import { browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail, {
-  CASE_HEADER_FIELDS
+  CASE_HEADER_FIELDS,
+  PAYMENT_NOT_RECEIVED
 } from '../page-objects/work-item-detail.page.js'
 import slaExtend from '../page-objects/sla-extend.page.js'
 import {
@@ -99,9 +100,15 @@ describe('RA-295 case header on the work item detail page', () => {
       // and correctly renders the em-dash fallback. Requiring a date here
       // would be asserting a bug. The populated case gets its own block at the
       // bottom of this file, against a clock pinned to known values.
+      //
+      // RA-493's "paymentDate" / "paymentAmount" are exempt for the same
+      // reason: payment is recorded by duly making, so this `submitted`
+      // fixture correctly reads "Not received" for both. Their populated and
+      // fallback cases are asserted in ra-493-header-payment-info.e2e.js.
+      const notYetPopulated = new Set(['dueOn', 'paymentDate', 'paymentAmount'])
       const placeholders = []
       for (const name of Object.keys(CASE_HEADER_FIELDS)) {
-        if (name === 'dueOn') {
+        if (notYetPopulated.has(name)) {
           continue
         }
         const text = (await detail.caseHeaderFieldText(name)).trim()
@@ -118,6 +125,18 @@ describe('RA-295 case header on the work item detail page', () => {
       // seeder ever starts stamping a clock on submitted items, this fails and
       // tells us the exemption above is now hiding something.
       expect(await detail.hasRealDueOn()).toBe(false)
+    })
+
+    it('reads "Not received" for both payment items before duly making', async () => {
+      // The complement of the RA-493 exemption above, for the same reason as
+      // the "Due on" one: if the seeder ever starts stamping a payment date
+      // on submitted items, this fails rather than the exemption hiding it.
+      await expect(detail.caseHeaderField('paymentDate')).toHaveText(
+        PAYMENT_NOT_RECEIVED
+      )
+      await expect(detail.caseHeaderField('paymentAmount')).toHaveText(
+        PAYMENT_NOT_RECEIVED
+      )
     })
 
     it('shows the organisation name and the organisation ID', async () => {
