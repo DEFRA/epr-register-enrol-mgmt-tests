@@ -370,9 +370,9 @@ class WorkItemsPage extends Page {
    *      it the read can land on the PREVIOUS, unfiltered render — usually
    *      returning the wrong item rather than failing, which is worse.
    *
-   * Introduced for RA-611's accreditation-year fixture, but the pattern is
-   * lifted from application-details-full-payload.e2e.js, which had worked it out
-   * and written it inline. Callers that want the list left filtered can carry on
+   * Introduced for RA-611's pre-year-start fixture, but the pattern is lifted
+   * from application-details-full-payload.e2e.js, which had worked it out and
+   * written it inline. Callers that want the list left filtered can carry on
    * driving the steps themselves; this is for the common case of "hand me that
    * seeded item".
    */

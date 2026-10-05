@@ -16,7 +16,25 @@
  *             (a) the SLA clock's start date — the duly-made anchor, i.e. the
  *                 first date the regulator had everything needed to determine
  *                 the application, and
- *             (b) 1 January of the payload's accreditationYear.
+ *             (b) 1 January of the CURRENT calendar year.
+ *
+ * (b) WAS WRONG UNTIL QA CAUGHT IT ON 5-OCT-2026 and the correction is the
+ * reason several helpers below were re-pointed. The bound was read off the work
+ * item payload's `accreditationYear` — the year the accreditation is VALID FOR,
+ * which is always AHEAD of determination (management-be's config holds 2027) —
+ * so live 2026 cases were floored at 1 January 2027 and had every date in 2026
+ * refused, their own existing deadlines included. Anthony Moody's ACs say
+ * "1st Jan of current year" and Giri confirmed the year is 2026; the bound is
+ * now resolved from the clock, and nothing in this file may reach for an
+ * accreditation year again.
+ *
+ * THE CORRECTION ALSO CHANGED WHO THE BOUND APPLIES TO, which matters more here
+ * than the year does. The accreditation-year bound was inert on anything this
+ * suite could create, because a UI-created work item carries no accreditation
+ * year at all. The current year is always resolvable, so the 1-January bound now
+ * applies to EVERY work item — which is what makes it reachable through the
+ * ordinary journey, and also what makes the duly-made helpers below dependent on
+ * their anchor staying inside the current year (see `DULY_MADE_DAYS_AGO`).
  *
  * BACKDATING INTO THE PAST IS THEREFORE LEGAL. An earlier revision of RA-611
  * floored the deadline at TODAY, and this file was written to that rule; the
@@ -39,12 +57,15 @@
  * The rule, as implemented in both layers and confirmed with each: reject when
  * the submitted deadline's Europe/London calendar date is strictly earlier than
  * the later of the UK calendar date of `SlaClock.StartedAt` and 1 January of
- * the accreditation year. Nothing resolves a wall clock — "today" plays no part
- * any more — but the clock's start is an INSTANT, so converting it to a
- * calendar date needs a zone, and that zone is Europe/London. (The today-floor
- * revision briefly looked as though it could drop to UTC; it cannot, and the
- * distinction was settled deliberately rather than left to whichever layer was
- * read last.)
+ * the current calendar year. The clock's start is an INSTANT, so converting it
+ * to a calendar date needs a zone, and that zone is Europe/London — as is the
+ * year the second bound is taken from. (The today-floor revision briefly looked
+ * as though it could drop to UTC; it cannot, and the distinction was settled
+ * deliberately rather than left to whichever layer was read last.)
+ *
+ * The corrected rule DOES resolve a wall clock, where the withdrawn
+ * accreditation-year reading did not — but only to the YEAR, so the floor moves
+ * exactly once a year, at midnight on 1 January, and never mid-run.
  *
  * Every anchor this file is used against is midnight UTC — `dulyMake` stamps
  * the clock as `paymentDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)` —
@@ -66,7 +87,7 @@
  * `gdsDateFromParts`.
  */
 
-import { formatUkDateGds, utcDateParts } from './uk-time.js'
+import { formatUkDateGds, ukCalendarYear, utcDateParts } from './uk-time.js'
 
 function middayOffsetByYears(years) {
   const date = new Date()
@@ -135,18 +156,28 @@ export function earlierFutureDeadline() {
  *   - Inside management-fe's payment-date validator, which floors back-dating
  *     at 12 months. Anything beyond that is rejected during fixture setup and
  *     the spec fails before it asserts anything.
- *   - Short enough that the anchor cannot slip into the PREVIOUS CALENDAR YEAR
- *     for most of the year, which would quietly bring 1 January into play as
- *     the later bound and change which of the two error messages fires. The
- *     accreditation-year bound is exercised deliberately and separately; it
- *     must not gatecrash the duly-made cases.
+ *   - Short enough that the anchor stays inside the CURRENT CALENDAR YEAR, so
+ *     the duly-made bound is the later of the two and its message is the one
+ *     that fires. The 1-January bound is exercised deliberately and separately;
+ *     it must not gatecrash the duly-made cases.
  *
- * The third point is the fragile one, so note what protects it: a UI-created
- * work item carries NO `accreditationYear` at all (management-fe's create form
- * does not collect one), and management-be's `ResolveAccreditationYearStart`
- * deliberately returns null rather than defaulting to the current year. So for
- * every item this file's helpers are used with, there is no 1-January bound in
- * play whatever the date, and the duly-made anchor is the floor by itself.
+ * ⚠ THE THIRD POINT IS A REAL CONSTRAINT NOW, AND IT BREAKS IN JANUARY AND
+ * FEBRUARY. It used to be protected for free: the bound read the payload's
+ * `accreditationYear`, a UI-created item has none, and management-be returned
+ * null rather than defaulting — so there was no 1-January bound at all on
+ * anything this suite created, whatever the anchor. The corrected bound resolves
+ * the current year from the clock, so it applies to every item, and sixty days
+ * back falls into the PREVIOUS year on any run before roughly 1 March. On such a
+ * run 1 January is the later bound, every rejection below reports the year
+ * wording instead of the duly-made wording, and the duly-made block fails on the
+ * message rather than on the rule.
+ *
+ * Left as a flat 60 rather than clamped, because clamping only moves the
+ * problem: the duly-made bound can only BIND in the window between 1 January
+ * and the anchor, and in early January that window is a few days wide — too
+ * narrow to hold "a month below the floor" at all. The honest fix is a seeded
+ * or injected clock, which this suite does not have. Until then this is a
+ * known-dated gap, recorded here and in the PR, not a silent one.
  */
 export const DULY_MADE_DAYS_AGO = 60
 
@@ -321,4 +352,147 @@ export function deadlineDateFromParts({ day, month, year }) {
  */
 export function gdsDateFromParts(parts) {
   return formatUkDateGds(deadlineDateFromParts(parts))
+}
+
+// ── RA-611: the 1-January bound, at the CURRENT year ──────────────────── //
+
+const DAY_MS = 86_400_000
+
+/**
+ * management-fe's payment-date floor, in months (`MAX_AGE_MONTHS` in its
+ * `duly-making/payment-date.js`). Mirrored rather than imported — this suite
+ * treats management-fe as a black box — and it caps how far back a duly-made
+ * anchor can be placed, which is the binding constraint on everything below.
+ */
+const PAYMENT_DATE_MAX_AGE_MONTHS = 12
+
+/** The UTC midnight of `now` shifted by whole days, as an epoch instant. */
+function utcMidnight(now, dayOffset = 0) {
+  const { day, month, year } = utcDateParts(now, dayOffset)
+  return Date.UTC(Number(year), Number(month) - 1, Number(day))
+}
+
+/** A UTC-midnight instant back as date-input parts. */
+function partsOfUtcMidnight(instant) {
+  const date = new Date(instant)
+  return {
+    day: date.getUTCDate(),
+    month: date.getUTCMonth() + 1,
+    year: date.getUTCFullYear()
+  }
+}
+
+/** The midpoint of two UTC-midnight instants, floored to a whole day. */
+function midpointDay(from, to) {
+  return from + Math.floor((to - from) / DAY_MS / 2) * DAY_MS
+}
+
+/**
+ * 1 January of the run's own calendar year — the bound itself, which is
+ * ACCEPTED.
+ *
+ * Europe/London via `ukCalendarYear`, because that is where management-fe takes
+ * the year from. The surrounding arithmetic is done on UTC midnights, and the
+ * two cannot disagree about the year: 1 January always falls inside GMT, where
+ * London and UTC are the same clock.
+ */
+export function yearStartDeadline(now = new Date()) {
+  return { day: 1, month: 1, year: ukCalendarYear(now) }
+}
+
+/**
+ * 31 December of the previous year — one day below the bound, and the smallest
+ * violation of it there is.
+ *
+ * EXPRESSED RELATIVE TO 1 JANUARY OF THE RUN'S OWN YEAR, never written down.
+ * "December 2025 is rejected" is a true sentence that stops meaning anything the
+ * moment the clock passes into 2027: the floor moves on 1 January, and a
+ * hard-coded date drifts from a boundary case into an ordinary one without
+ * failing.
+ */
+export function dayBeforeYearStartDeadline(now = new Date()) {
+  return partsOfUtcMidnight(Date.UTC(ukCalendarYear(now), 0, 1) - DAY_MS)
+}
+
+/**
+ * How far back to back-date a fixture's payment date so that its duly-made
+ * anchor lands BEFORE 1 January of the current year — which is what makes the
+ * year bound the LATER of the two, and so the one that binds.
+ *
+ * THIS IS WHY THE YEAR BOUND NO LONGER NEEDS A SEEDED FIXTURE. Under the
+ * withdrawn accreditation-year reading it did: nothing created through the
+ * case-management UI carried an accreditation year, so the bound was inert on
+ * every item this suite could build, and management-be had to seed one. The
+ * current year is always resolvable, so an ordinary journey item qualifies as
+ * soon as its anchor is back-dated far enough.
+ *
+ * COMPUTED, NOT A CONSTANT, and the two ends are why. The anchor has to sit
+ * inside a window bounded on both sides:
+ *
+ *   earliest: `PAYMENT_DATE_MAX_AGE_MONTHS` before today — management-fe refuses
+ *             an older payment date, and the fixture would fail during setup.
+ *   latest:   31 December of the previous year — any later and the anchor is the
+ *             later bound, the duly-made message fires instead, and the specs
+ *             fail on the wording rather than the rule.
+ *
+ * That window is never empty (today minus twelve months is always in the
+ * previous calendar year) but its width is roughly the number of days LEFT in
+ * the year, so it is ~88 days wide in early October and one day wide on
+ * 31 December. Taking the MIDPOINT spends the available room evenly on both
+ * constraints instead of hugging whichever end a fixed offset happened to
+ * favour: a flat -300 clears both today, with 44 days to spare, and silently
+ * stops reaching the previous year at all from about 28 October onwards.
+ */
+export function preYearStartAnchorDaysAgo(now = new Date()) {
+  const today = utcMidnight(now)
+  const latest = Date.UTC(ukCalendarYear(now), 0, 1) - DAY_MS
+
+  // Calendar-month arithmetic, the same way management-fe's validator does it,
+  // so this agrees with the check it has to satisfy rather than approximating
+  // twelve months as 365 days.
+  const earliestDate = new Date(today)
+  earliestDate.setUTCMonth(
+    earliestDate.getUTCMonth() - PAYMENT_DATE_MAX_AGE_MONTHS
+  )
+
+  return Math.round(
+    (today - midpointDay(earliestDate.getTime(), latest)) / DAY_MS
+  )
+}
+
+/**
+ * A date below BOTH bounds: a month under the anchor, which is itself below
+ * 1 January.
+ *
+ * Only the LATER bound may be reported, so this must still produce the
+ * 1-January message. A build reporting the duly-made date here would send the
+ * caseworker to correct the date to an anchor that is itself refused.
+ *
+ * No payment-date floor applies to it — it goes in the determination-deadline
+ * field, not the payment-date field — so it is free to predate the twelve-month
+ * window that constrains the anchor.
+ */
+export function belowPreYearStartAnchorDeadline(now = new Date()) {
+  return utcDateParts(now, -(preYearStartAnchorDaysAgo(now) + 30))
+}
+
+/**
+ * A date in the PAST that is above both bounds, and so must SAVE: the midpoint
+ * between 1 January of the current year and today.
+ *
+ * THE CASE THAT CANNOT PASS AGAINST THE BROKEN BUILD, which is why it is here
+ * rather than left to the duly-made block's equivalent. The defect QA found
+ * floored determination at 1 January of the ACCREDITATION year — 2027 — and so
+ * refused every date in 2026, this one included. A suite of rejection cases
+ * would have stayed green against it.
+ *
+ * The midpoint rather than a fixed distance back so it keeps clearance from both
+ * ends whatever the time of year. It degenerates to 1 January itself on a 1-Jan
+ * run, where no past date can clear the bound at all; the caller re-pins the
+ * deadline between its acceptance cases so that collision cannot surface as a
+ * no-op rejection.
+ */
+export function pastDeadlineAboveYearStart(now = new Date()) {
+  const yearStart = Date.UTC(ukCalendarYear(now), 0, 1)
+  return partsOfUtcMidnight(midpointDay(yearStart, utcMidnight(now)))
 }
