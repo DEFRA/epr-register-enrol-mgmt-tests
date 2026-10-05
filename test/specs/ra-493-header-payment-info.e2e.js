@@ -8,7 +8,7 @@ import {
   createReAccreditation,
   dulyMake
 } from '../support/re-accreditation-journey.js'
-import { formatUkDateGds, utcDateParts } from '../support/uk-time.js'
+import { formatUkHeaderDate, utcDateParts } from '../support/uk-time.js'
 
 /**
  * RA-493 — Case Management service: Display Duly Made payment information
@@ -57,7 +57,7 @@ const EXPECTED_AMOUNT = '£1,234.56'
  */
 function expectedPaymentDate(dayOffset) {
   const { day, month, year } = utcDateParts(new Date(), dayOffset)
-  return formatUkDateGds(
+  return formatUkHeaderDate(
     new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)))
   )
 }

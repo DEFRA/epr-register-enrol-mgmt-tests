@@ -32,11 +32,11 @@ import {
  *   - The seeded "Full Payload Verification Ltd" item carries the rich payload
  *     (registration number, operator org id, material) that a UI-created item
  *     has no way to supply, but it sits in `submitted` with no SLA clock
- *     running, so its "Due on" has nothing to show.
+ *     running, so its "Due date" has nothing to show.
  *   - A UI-created item can be driven through payment-received to start the
  *     SLA clock and then given a DETERMINISTIC due date via the
  *     change-determination-deadline flow, which is the only way to assert a
- *     real, exact "Due on" date rather than merely "something is rendered".
+ *     real, exact "Due date" date rather than merely "something is rendered".
  *     That used to go through the Override form's target-days + start-date
  *     pair; RA-572 retired Override, and the Change form's absolute date is a
  *     more direct way to pin the same thing — the date submitted IS the
@@ -119,7 +119,7 @@ describe('RA-295 case header on the work item detail page', () => {
       expect(placeholders).toEqual([])
     })
 
-    it('falls back to a placeholder for "Due on" before the SLA clock starts', async () => {
+    it('falls back to a placeholder for "Due date" before the SLA clock starts', async () => {
       // The complement of the exemption above, asserted rather than assumed:
       // this fixture is in `submitted`, so it must show the em dash. If the
       // seeder ever starts stamping a clock on submitted items, this fails and
@@ -129,7 +129,7 @@ describe('RA-295 case header on the work item detail page', () => {
 
     it('reads "Not received" for both payment items before duly making', async () => {
       // The complement of the RA-493 exemption above, for the same reason as
-      // the "Due on" one: if the seeder ever starts stamping a payment date
+      // the "Due date" one: if the seeder ever starts stamping a payment date
       // on submitted items, this fails rather than the exemption hiding it.
       await expect(detail.caseHeaderField('paymentDate')).toHaveText(
         PAYMENT_NOT_RECEIVED
@@ -230,7 +230,7 @@ describe('RA-295 case header on the work item detail page', () => {
   })
 
   describe('an item with a running SLA clock', () => {
-    // The seeded item above has no SLA clock, so its "Due on" cannot carry a
+    // The seeded item above has no SLA clock, so its "Due date" cannot carry a
     // real date. This drives a fresh item to the state where the clock starts,
     // then pins the clock to known values so the expected due date is an exact
     // string rather than an approximation.

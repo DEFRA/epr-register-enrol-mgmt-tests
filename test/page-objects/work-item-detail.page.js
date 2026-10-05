@@ -1,6 +1,6 @@
 import { $, $$, browser, expect } from '@wdio/globals'
 import { Page } from './page.js'
-import { formatUkDateGds } from '../support/uk-time.js'
+import { formatUkHeaderDate } from '../support/uk-time.js'
 
 /** The test-id attribute, and the CSS selector that matches any element carrying it. */
 const TESTID_ATTR = 'data-testid'
@@ -1122,7 +1122,7 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * Whether the header's "Due on" carries a real date rather than the em-dash
+   * Whether the header's "Due date" carries a real date rather than the em-dash
    * "no value" fallback.
    *
    * RA-295 replaces the old SLA tracker badge with this absolute due date, so
@@ -1139,7 +1139,7 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * RA-601. Assert the case header's "Due on" shows the given calendar date.
+   * RA-601. Assert the case header's "Due date" shows the given calendar date.
    *
    * WHY THIS TOLERATES ONE DAY EITHER SIDE. management-fe derives the change
    * from the whole-UTC-day gap between the item's current due date and the
@@ -1165,7 +1165,7 @@ class WorkItemDetailPage extends Page {
     const dayAfter = new Date(date.getTime())
     dayAfter.setDate(dayAfter.getDate() + 1)
 
-    const acceptable = [dayBefore, date, dayAfter].map(formatUkDateGds)
+    const acceptable = [dayBefore, date, dayAfter].map(formatUkHeaderDate)
     const rendered = (await this.caseHeaderFieldText('dueOn')).trim()
 
     // Thrown rather than asserted through `expect(bool).toBe(true)`: the
@@ -1175,14 +1175,14 @@ class WorkItemDetailPage extends Page {
     // sides means raising the error here.
     if (!acceptable.some((candidate) => rendered.includes(candidate))) {
       throw new Error(
-        `Expected the case header "Due on" to show one of ` +
+        `Expected the case header "Due date" to show one of ` +
           `${acceptable.join(' / ')}, but it showed "${rendered}"`
       )
     }
   }
 
   /**
-   * RA-601. Wait for the header's "Due on" to stop showing `previous`.
+   * RA-601. Wait for the header's "Due date" to stop showing `previous`.
    *
    * The change-deadline flow PRGs back to this page, so by the time the
    * detail URL is reached the new value is already rendered — but the item
@@ -1199,7 +1199,7 @@ class WorkItemDetailPage extends Page {
       },
       {
         timeout: 10000,
-        timeoutMsg: `Expected the case header "Due on" to change from "${previous}"`
+        timeoutMsg: `Expected the case header "Due date" to change from "${previous}"`
       }
     )
     return current

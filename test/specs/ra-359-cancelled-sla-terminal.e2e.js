@@ -102,7 +102,7 @@ describe('RA-359 — terminal work items do not advertise a running SLA', () => 
       await detail.assertState('Withdrawn')
     })
 
-    it('keeps the Due on field in the header for a stable layout', async () => {
+    it('keeps the Due date field in the header for a stable layout', async () => {
       // The field is not removed — the redesign keeps the header layout
       // stable; only its VALUE changes. Asserting absence here would be the
       // wrong contract and would mask a real date leaking back in.
