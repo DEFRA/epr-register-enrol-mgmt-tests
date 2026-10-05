@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import { ProxyAgent, setGlobalDispatcher } from 'undici'
 import { bootstrap } from 'global-agent'
+import { seedCookieConsentOnNavigation } from './test/support/cookie-consent.js'
 
 /**
  * Enable webdriver.io to use the outbound proxy.
@@ -121,6 +122,10 @@ export const config = {
   },
 
   // Hooks
+  // Answer the cookie banner up front so it doesn't sit over every journey.
+  before: function () {
+    seedCookieConsentOnNavigation(browser)
+  },
   afterTest: async function (_test, _context, { error }) {
     if (error) {
       await browser.takeScreenshot()
