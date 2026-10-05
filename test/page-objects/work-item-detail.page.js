@@ -717,6 +717,22 @@ class WorkItemDetailPage extends Page {
    * `.govuk-details__text` body, where WebdriverIO's getText() reads as ""
    * until expanded. Mirrors expandAllAuditEntryDetails() above.
    */
+  /**
+   * RA-603 AC10b: each interim site now folds down on its own, nested inside
+   * its parent ORS's disclosure. Expand the ORS disclosures FIRST - a nested
+   * <details> inside a collapsed parent is not interactable - then expand
+   * every interim one so the assertions below can read its detail rows.
+   */
+  async expandAllInterimSiteDetails() {
+    const disclosures = await $$('[data-testid="interim-site"]')
+    for (const disclosure of disclosures) {
+      const isOpen = await disclosure.getAttribute('open')
+      if (isOpen === null) {
+        await disclosure.$('.govuk-details__summary').click()
+      }
+    }
+  }
+
   async expandAllOverseasSiteDetails() {
     const disclosures = await $$('[data-testid="overseas-site"]')
     for (const disclosure of disclosures) {
