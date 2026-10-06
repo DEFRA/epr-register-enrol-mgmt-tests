@@ -103,6 +103,33 @@ export function formatUkHeaderDate(date) {
 }
 
 /**
+ * The Europe/London calendar YEAR a Date falls in.
+ *
+ * RA-611 needs it because the determination-deadline floor is backstopped at
+ * 1 January of the CURRENT calendar year, and management-fe resolves which year
+ * that is from the London calendar date of the injected clock — not from UTC
+ * and not from the runner's zone. An expectation computed any other way is
+ * wrong for the hour each evening that BST leads UTC into the next date, which
+ * for one evening a year is also the next YEAR.
+ *
+ * (In practice 1 January itself always falls inside GMT, where London and UTC
+ * coincide, so the two agree around new year. Deriving it in London anyway
+ * keeps this helper correct for any instant rather than only the ones RA-611
+ * happens to hand it.)
+ *
+ * @param {Date} date
+ * @returns {number}
+ */
+export function ukCalendarYear(date) {
+  return Number(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/London',
+      year: 'numeric'
+    }).format(date)
+  )
+}
+
+/**
  * The set of acceptable UK-local GDS strings for an event that happened "about
  * now", allowing for the delay between the server creating the record and the
  * test reading the rendered page. Returns one string per minute across the

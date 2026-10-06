@@ -31,8 +31,27 @@ const belowDulyMadeError = (dulyMadeOn) =>
     dulyMadeOn
   )}, when the application was duly made`
 
-const beforeAccreditationYearError = (year) =>
+const beforeYearStartError = (year) =>
   `The new determination deadline cannot be earlier than 1 January ${year}`
+
+/**
+ * RA-611. The 1-January bound the SECOND revision shipped, and which QA rejected
+ * on 5-Oct-2026.
+ *
+ * Asserted ABSENT by `assertDeadlineError`, alongside the two withdrawn bounds,
+ * because the wording of the correct message and the broken one is IDENTICAL
+ * apart from the year — so a spec that checked only "an error naming 1 January
+ * appeared" passed against the build that refused every date in the current
+ * year. The year is the whole defect, and the only way to assert it is to assert
+ * the year.
+ *
+ * Built from the current year rather than written down: the broken bound read the
+ * payload's `accreditationYear`, which is the year the accreditation is VALID FOR
+ * and always AHEAD of determination, so the sentence to refuse is the one naming
+ * 1 January of ANY year after this one.
+ */
+const aheadOfCurrentYearFloorError = (currentYear) =>
+  `cannot be earlier than 1 January ${currentYear + 1}`
 
 /**
  * RA-611. The floor the FIRST revision of RA-611 shipped, before Anthony Moody
@@ -89,7 +108,7 @@ const REMOVED_EXTENSION_ONLY_ERROR = 'must be after the current deadline'
  * below is
  *
  *   the LATER of (a) the SLA clock's start date — the duly-made anchor — and
- *                (b) 1 January of the payload's accreditationYear,
+ *                (b) 1 January of the CURRENT calendar year,
  *
  * compared as Europe/London calendar dates, strictly below, so a deadline
  * landing exactly on the floor is accepted. Moving the deadline earlier than the
@@ -355,40 +374,47 @@ class SlaExtendPage extends Page {
       message: belowDulyMadeError(dulyMadeOn)
     })
     // NOTHING FURTHER IS ASSERTED HERE, and the obvious extra check is a trap
-    // worth naming. The two floor messages share their first eight words, so
-    // it is tempting to add `not.toContain('1 January')` to prove the sibling
-    // bound did not fire. That assertion would be WRONG for two days a year:
-    // when the duly-made anchor itself falls on 1 January, its own message
-    // reads "...cannot be earlier than 1 January 2026, when the application was
-    // duly made" and legitimately contains the string. The clause
-    // "when the application was duly made" is the real discriminator, it is
-    // absent from the 1-January message by construction, and `toContain` on the
-    // full built message above already requires it.
+    // worth naming. The two floor messages share their first eight words, so it
+    // is tempting to add `not.toContain('1 January')` to prove the sibling bound
+    // did not fire. It would be redundant at best and misleading at worst: the
+    // clause "when the application was duly made" is the real discriminator, it
+    // is absent from the 1-January message by construction, and `toContain` on
+    // the full built message above already requires it. (An anchor landing on
+    // 1 January cannot reach this helper at all — both layers tie-break a shared
+    // date to the 1-January wording.)
   }
 
   /**
    * RA-611 (AC4). Submit `date` and expect it refused for falling below
-   * 1 January of the accreditation year, where that is the LATER bound.
+   * 1 January of the CURRENT calendar year, where that is the LATER bound.
    *
-   * Only reachable on a work item whose payload carries a numeric
-   * `accreditationYear`. That is worth knowing before writing a spec against
-   * this: nothing this suite creates through the case-management UI has one —
-   * the create form does not collect it, it arrives on the upstream operator
-   * submission — and management-be's `ResolveAccreditationYearStart`
-   * deliberately returns null rather than defaulting to the current year when
-   * it is absent. So on a UI-created item there is NO 1-January bound at all
-   * whatever date is submitted, and a spec pointed at one would sit here
-   * waiting for a message that cannot be produced.
+   * `year` is the run's own Europe/London calendar year — the caller passes it
+   * from `ukCalendarYear`, which is where management-fe takes it from too. It is
+   * NOT the work item's accreditation year: that was the defect, the field means
+   * the year the accreditation is valid for, and it is always ahead of
+   * determination.
+   *
+   * REACHABLE ON ANY WORK ITEM whose duly-made anchor falls before 1 January,
+   * which the ordinary journey can arrange by back-dating the payment date — see
+   * `preYearStartAnchorDaysAgo`. The previous revision needed a seeded fixture
+   * because the bound read a payload field that nothing created through the
+   * case-management UI carries; the current year is always resolvable, so it
+   * no longer does.
    */
-  async expectRejectedBeforeAccreditationYear(
-    workItemId,
-    { reason, date, year }
-  ) {
+  async expectRejectedBeforeYearStart(workItemId, { reason, date, year }) {
     await this.expectDeadlineRejected(workItemId, {
       reason,
       date,
-      message: beforeAccreditationYearError(year)
+      message: beforeYearStartError(year)
     })
+    // THE DEFECT QA FOUND, ASSERTED GONE. `assertDeadlineError` already requires
+    // the message to name 1 January of `year`; this additionally requires it not
+    // to name 1 January of the year AFTER, which is what the accreditation-year
+    // reading produced. Checked here rather than in `assertDeadlineError`
+    // because only this bound can render that sentence.
+    expect(await this.errorSummaryText()).not.toContain(
+      aheadOfCurrentYearFloorError(year)
+    )
     // The duly-made bound must not be what fired: its message is the one that
     // carries this clause, and on a tie the 1-January wording is specified to
     // win.

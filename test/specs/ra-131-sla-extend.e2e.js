@@ -38,10 +38,12 @@ import {
  * case stays here so the removed bound cannot quietly return.
  *
  * RA-611 then put back a DIFFERENT bound — a FLOOR at the later of the
- * duly-made date and 1 January of the accreditation year — which is not the one
- * RA-601 removed and must not be read as a revert of it. (Its first revision
+ * duly-made date and 1 January of the CURRENT calendar year — which is not the
+ * one RA-601 removed and must not be read as a revert of it. (Its first revision
  * floored the deadline at today; the spec was corrected on 29-Sep-2026 and
- * backdating above the floor is legal.) Two consequences here: a one-line
+ * backdating above the floor is legal. Its second read 1 January off the
+ * payload's accreditationYear, a year AHEAD of determination, and QA rejected it
+ * on 5-Oct-2026 — see ra-611-deadline-floor.e2e.js.) Two consequences here: a one-line
  * rejection guard sits next to the RA-601 case so the two rules are read
  * together, and the RA-601 case can no longer take its old shortcut of
  * submitting a past date to get something "earlier than the current due date".

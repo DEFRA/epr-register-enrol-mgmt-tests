@@ -49,7 +49,12 @@ import {
  * 29-Sep-2026 and the floor is now
  *
  *   the LATER of the SLA clock's start date (the duly-made date) and 1 January
- *   of the accreditation year,
+ *   of the CURRENT calendar year,
+ *
+ * the second of which was briefly, and wrongly, read off the payload's
+ * accreditationYear — the year the accreditation is valid for, always ahead of
+ * determination — which floored live cases a year into the future and was
+ * corrected after QA on 5-Oct-2026.
  *
  * strictly below, so the floor itself is accepted. BACKDATING IS THEREFORE
  * LEGAL, which matters to this file: the reason a date a year back is still
