@@ -13,7 +13,7 @@ import {
   farFutureDeadline,
   farFutureDeadlineDate
 } from '../support/sla-extend-date.js'
-import { formatUkDateGds } from '../support/uk-time.js'
+import { formatUkHeaderDate } from '../support/uk-time.js'
 
 /**
  * RA-572 — Case Management service: hide the "Override" function and reword
@@ -226,7 +226,7 @@ describe('RA-572 Override retired, Change is the single deadline route', () => {
       // go stale, and the form rejects anything not after the current due
       // date.
       await expect(detail.caseHeaderField('dueOn')).toHaveText(
-        expect.stringContaining(formatUkDateGds(farFutureDeadlineDate()))
+        expect.stringContaining(formatUkHeaderDate(farFutureDeadlineDate()))
       )
 
       // A due-date change is not a transition — the item has not moved state.

@@ -36,11 +36,13 @@ export function formatUkDateTimeGds(date) {
 /**
  * Format a Date as a GDS date in UK local time, e.g. "24 August 2026".
  *
- * RA-295's case-header "Due on" is a date, not a timestamp. It still has to be
- * computed in Europe/London rather than the runner's TZ: an SLA deadline that
- * lands just after midnight BST is the *previous* day in UTC, so formatting in
- * UTC would assert the wrong date for part of the year — exactly the class of
- * bug these helpers exist to catch.
+ * Used for list cards and messages. The case header renders RA-493's shorter
+ * "01 Nov 2026" form instead, so header assertions use `formatUkHeaderDate`.
+ * A date, not a timestamp, but it still has to be computed in Europe/London
+ * rather than the runner's TZ: an SLA deadline that lands just after midnight
+ * BST is the *previous* day in UTC, so formatting in UTC would assert the
+ * wrong date for part of the year — exactly the class of bug these helpers
+ * exist to catch.
  *
  * @param {Date} date
  * @returns {string}
@@ -52,6 +54,79 @@ export function formatUkDateGds(date) {
     month: 'long',
     year: 'numeric'
   }).format(date)
+}
+
+/**
+ * Month abbreviations exactly as date-fns' `MMM` token renders them.
+ *
+ * Deliberately NOT `Intl.DateTimeFormat('en-GB', { month: 'short' })`: modern
+ * ICU abbreviates September as "Sept" in en-GB, while management-fe formats
+ * with date-fns, which renders "Sep". Using Intl here would make every header
+ * date assertion fail for one month a year.
+ */
+const SHORT_MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec'
+]
+
+/**
+ * Format a Date as the case header renders its dates, in UK local time:
+ * two-digit day, short month, e.g. "01 Nov 2026" (date-fns `dd MMM yyyy`).
+ *
+ * RA-493 moved the case header's "Due date" and "Payment date" to this
+ * format. Everywhere else (list cards, error messages) keeps the long
+ * `formatUkDateGds` form, so only header assertions should use this. Computed
+ * in Europe/London for the same reason as `formatUkDateGds`.
+ *
+ * @param {Date} date
+ * @returns {string}
+ */
+export function formatUkHeaderDate(date) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    day: '2-digit',
+    month: 'numeric',
+    year: 'numeric'
+  }).formatToParts(date)
+  const get = (type) => parts.find((p) => p.type === type)?.value ?? ''
+  return `${get('day')} ${SHORT_MONTHS[Number(get('month')) - 1]} ${get('year')}`
+}
+
+/**
+ * The Europe/London calendar YEAR a Date falls in.
+ *
+ * RA-611 needs it because the determination-deadline floor is backstopped at
+ * 1 January of the CURRENT calendar year, and management-fe resolves which year
+ * that is from the London calendar date of the injected clock — not from UTC
+ * and not from the runner's zone. An expectation computed any other way is
+ * wrong for the hour each evening that BST leads UTC into the next date, which
+ * for one evening a year is also the next YEAR.
+ *
+ * (In practice 1 January itself always falls inside GMT, where London and UTC
+ * coincide, so the two agree around new year. Deriving it in London anyway
+ * keeps this helper correct for any instant rather than only the ones RA-611
+ * happens to hand it.)
+ *
+ * @param {Date} date
+ * @returns {number}
+ */
+export function ukCalendarYear(date) {
+  return Number(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/London',
+      year: 'numeric'
+    }).format(date)
+  )
 }
 
 /**
