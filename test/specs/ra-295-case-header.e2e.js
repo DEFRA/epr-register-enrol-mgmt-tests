@@ -2,7 +2,8 @@ import { browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail, {
-  CASE_HEADER_FIELDS
+  CASE_HEADER_FIELDS,
+  PAYMENT_NOT_RECEIVED
 } from '../page-objects/work-item-detail.page.js'
 import slaExtend from '../page-objects/sla-extend.page.js'
 import {
@@ -31,11 +32,11 @@ import {
  *   - The seeded "Full Payload Verification Ltd" item carries the rich payload
  *     (registration number, operator org id, material) that a UI-created item
  *     has no way to supply, but it sits in `submitted` with no SLA clock
- *     running, so its "Due on" has nothing to show.
+ *     running, so its "Due date" has nothing to show.
  *   - A UI-created item can be driven through payment-received to start the
  *     SLA clock and then given a DETERMINISTIC due date via the
  *     change-determination-deadline flow, which is the only way to assert a
- *     real, exact "Due on" date rather than merely "something is rendered".
+ *     real, exact "Due date" date rather than merely "something is rendered".
  *     That used to go through the Override form's target-days + start-date
  *     pair; RA-572 retired Override, and the Change form's absolute date is a
  *     more direct way to pin the same thing — the date submitted IS the
@@ -99,9 +100,15 @@ describe('RA-295 case header on the work item detail page', () => {
       // and correctly renders the em-dash fallback. Requiring a date here
       // would be asserting a bug. The populated case gets its own block at the
       // bottom of this file, against a clock pinned to known values.
+      //
+      // RA-493's "paymentDate" / "paymentAmount" are exempt for the same
+      // reason: payment is recorded by duly making, so this `submitted`
+      // fixture correctly reads "Not received" for both. Their populated and
+      // fallback cases are asserted in ra-493-header-payment-info.e2e.js.
+      const notYetPopulated = new Set(['dueOn', 'paymentDate', 'paymentAmount'])
       const placeholders = []
       for (const name of Object.keys(CASE_HEADER_FIELDS)) {
-        if (name === 'dueOn') {
+        if (notYetPopulated.has(name)) {
           continue
         }
         const text = (await detail.caseHeaderFieldText(name)).trim()
@@ -112,12 +119,24 @@ describe('RA-295 case header on the work item detail page', () => {
       expect(placeholders).toEqual([])
     })
 
-    it('falls back to a placeholder for "Due on" before the SLA clock starts', async () => {
+    it('falls back to a placeholder for "Due date" before the SLA clock starts', async () => {
       // The complement of the exemption above, asserted rather than assumed:
       // this fixture is in `submitted`, so it must show the em dash. If the
       // seeder ever starts stamping a clock on submitted items, this fails and
       // tells us the exemption above is now hiding something.
       expect(await detail.hasRealDueOn()).toBe(false)
+    })
+
+    it('reads "Not received" for both payment items before duly making', async () => {
+      // The complement of the RA-493 exemption above, for the same reason as
+      // the "Due date" one: if the seeder ever starts stamping a payment date
+      // on submitted items, this fails rather than the exemption hiding it.
+      await expect(detail.caseHeaderField('paymentDate')).toHaveText(
+        PAYMENT_NOT_RECEIVED
+      )
+      await expect(detail.caseHeaderField('paymentAmount')).toHaveText(
+        PAYMENT_NOT_RECEIVED
+      )
     })
 
     it('shows the organisation name and the organisation ID', async () => {
@@ -211,7 +230,7 @@ describe('RA-295 case header on the work item detail page', () => {
   })
 
   describe('an item with a running SLA clock', () => {
-    // The seeded item above has no SLA clock, so its "Due on" cannot carry a
+    // The seeded item above has no SLA clock, so its "Due date" cannot carry a
     // real date. This drives a fresh item to the state where the clock starts,
     // then pins the clock to known values so the expected due date is an exact
     // string rather than an approximation.
