@@ -22,6 +22,9 @@ same caseworker.
    `login.hasAuthenticatedNav()` is `true`.
 3. **the notice dismisses** — on session B, click
    `[data-testid="session-notice-dismiss"]` and assert the notice is gone.
+4. **Escape dismisses the JavaScript-enhanced notice (RA-631)** — on session B,
+   assert the notice has the `app-session-notice--toast` class, press Escape,
+   and assert the notice is removed from the DOM.
 
 The spec uses raw WDIO `$(...)` selectors for the notice rather than new
 `login.page.js` helpers — the notice is a single component with stable
