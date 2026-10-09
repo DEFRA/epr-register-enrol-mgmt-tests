@@ -203,11 +203,29 @@ class WorkItemDetailPage extends Page {
    * affordance AC03 is actually about.
    */
   async assignTo(userId) {
-    await this.assignmentControl('reassign').click()
-    await $('[data-testid="assign-form"]').waitForDisplayed()
+    await this.openAssignForm()
     await $('[data-testid="assign-select"]').selectByAttribute('value', userId)
     await $('[data-testid="assign-submit"]').click()
     await this.waitForDetailUrl()
+  }
+
+  /**
+   * Follow "Reassign the application" onto the assign interstitial and wait
+   * for its picker, without choosing anyone. assignTo() above builds on it;
+   * RA-537 uses it alone to inspect who the picker offers.
+   */
+  async openAssignForm() {
+    await this.assignmentControl('reassign').click()
+    await $('[data-testid="assign-form"]').waitForDisplayed()
+  }
+
+  /**
+   * RA-537. The assignee picker's option for a user, matched on the display
+   * name it shows (a partial match, so it holds whether or not the option
+   * also carries an email). Only meaningful after openAssignForm().
+   */
+  assigneeOption(displayName) {
+    return $('[data-testid="assign-select"]').$(`option*=${displayName}`)
   }
 
   /**
