@@ -160,6 +160,11 @@ describeIfEntraStub('RA-537 Entra ID stub login', () => {
       await detail.assertAssignedTo(ENTRA_STUB_USERS.eaRegulator.name)
     })
 
+    // Relies on EA Regulator having signed in through the stub earlier in
+    // the run (the test above does, and so do the regulator persona tests):
+    // management-fe adds an Entra ID user to its shared assignable-users
+    // directory only on a regulator-role login, and lists them by the
+    // id_token `name` claim after the built-in stub users.
     it('offers the Entra ID stub regulator to a built-in stub caseworker as an assignee', async () => {
       await login.login()
       await workItems.openWorkItem(workItemId)
