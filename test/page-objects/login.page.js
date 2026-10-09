@@ -1,5 +1,6 @@
 import { browser, $, expect } from '@wdio/globals'
 import { Page } from './page.js'
+import entraStubLogin from './entra-stub-login.page.js'
 
 class LoginPage extends Page {
   /**
@@ -177,6 +178,47 @@ class LoginPage extends Page {
     await browser.waitUntil(
       async () => new URL(await browser.getUrl()).pathname === '/work-items'
     )
+  }
+
+  /**
+   * RA-537. The stub chooser's "Sign in with Entra ID" button. Only
+   * rendered when management-fe has Entra ID configured — on CDP test and
+   * perf-test that is the Entra ID stub.
+   */
+  entraIdLoginButton() {
+    return $('[data-testid="entra-id-login"]')
+  }
+
+  /**
+   * RA-537. From the stub chooser, follow the "Sign in with Entra ID"
+   * button through to the Entra ID stub's login form, and return the stub's
+   * origin so a caller can clear the stub's own session (see
+   * EntraStubLoginPage.clearSession).
+   */
+  async openEntraStubLoginForm() {
+    await this.open('/auth/regulator/login')
+    await this.entraIdLoginButton().click()
+    await entraStubLogin.waitForLoginForm()
+    return entraStubLogin.origin()
+  }
+
+  /**
+   * RA-537. Log in through the Entra ID stub as one of its personas
+   * (ENTRA_STUB_USERS), then wait to be back on management-fe. `landsOn`
+   * is where a successful login ends up: /work-items for the regulator and
+   * support personas, whereas the no-role persona is refused by the
+   * callback itself and stays on /auth/regulator/callback.
+   */
+  async loginViaEntraStub(username, { landsOn = '/work-items' } = {}) {
+    const stubOrigin = await this.openEntraStubLoginForm()
+    await entraStubLogin.submit(username)
+    await browser.waitUntil(
+      async () => new URL(await browser.getUrl()).pathname === landsOn,
+      {
+        timeoutMsg: `Expected to land on ${landsOn} after the Entra ID stub login, got ${await browser.getUrl()}`
+      }
+    )
+    return stubOrigin
   }
 }
 
