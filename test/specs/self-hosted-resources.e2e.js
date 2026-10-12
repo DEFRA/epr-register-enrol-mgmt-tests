@@ -14,7 +14,7 @@ import login from '../page-objects/login.page.js'
  * support/cookie-consent.js), so no third-party request is acceptable here.
  */
 
-// The GA4 origins management-fe's CSP adds when analytics is switched on
+// The Tag Manager and GA4 origins management-fe's CSP adds when analytics is on
 // (src/server/common/analytics/origins.js). Nothing else may appear.
 const ANALYTICS_ORIGINS = {
   'connect-src': [
@@ -22,7 +22,10 @@ const ANALYTICS_ORIGINS = {
     'https://*.analytics.google.com',
     'https://www.googletagmanager.com'
   ],
-  'img-src': ['https://*.google-analytics.com'],
+  'img-src': [
+    'https://*.google-analytics.com',
+    'https://www.googletagmanager.com'
+  ],
   'script-src': ['https://www.googletagmanager.com']
 }
 
