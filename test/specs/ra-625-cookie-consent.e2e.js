@@ -7,6 +7,7 @@ import {
   decodeConsentRecord,
   setCookieConsentSeeding
 } from '../support/cookie-consent.js'
+import { skipUnlessAnalyticsIsOn } from '../support/analytics.js'
 
 // Every other spec has the banner answered up front; this one turns that off.
 // It runs on the logged-out page, which needs neither a session nor the backend.
@@ -35,12 +36,7 @@ async function startUnanswered() {
 describe('analytics cookie consent', () => {
   before(async function () {
     setCookieConsentSeeding(false)
-
-    // Analytics may not be switched on in the environment under test.
-    await browser.url('/cookies')
-    if (!(await $('[data-testid="analytics-cookies"]').isExisting())) {
-      this.skip()
-    }
+    await skipUnlessAnalyticsIsOn(this)
   })
 
   after(() => {
