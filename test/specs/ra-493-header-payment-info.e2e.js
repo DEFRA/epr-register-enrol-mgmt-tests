@@ -78,11 +78,9 @@ describe('RA-493 Duly Made payment information on the case header', () => {
     let workItemId
 
     before(async () => {
-      workItemId = await createReAccreditation(
-        'RA-493 Header Payment Ltd',
-        undefined,
-        { chargeAmountPence: CHARGE_AMOUNT_PENCE }
-      )
+      workItemId = await createReAccreditation('RA-493 Header Payment Ltd', {
+        chargeAmountPence: CHARGE_AMOUNT_PENCE
+      })
     })
 
     describe('AC04 — before it is duly made', () => {
