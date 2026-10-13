@@ -6,7 +6,6 @@ import {
   startAssessment
 } from './re-accreditation-journey.js'
 import { withdrawAsOperatorOrThrow } from './operator-withdrawal.js'
-import { uniquePostcode } from './unique-postcode.js'
 
 /** Site address line 1 shared by every fixture created below. */
 const FIXTURE_SITE_ADDRESS_LINE_1 = '1 Terminal Way'
@@ -50,7 +49,6 @@ export async function driveToDecisionReady({ organisationName, material }) {
     organisationName,
     siteAddressLine1: FIXTURE_SITE_ADDRESS_LINE_1,
     siteAddressTown: 'York',
-    siteAddressPostcode: uniquePostcode('YO1'),
     material,
     tonnageBand: '0-500'
   })
@@ -77,7 +75,6 @@ export async function createWithdrawnWorkItem({ organisationName, material }) {
     organisationName,
     siteAddressLine1: FIXTURE_SITE_ADDRESS_LINE_1,
     siteAddressTown: 'York',
-    siteAddressPostcode: uniquePostcode('YO1'),
     material,
     tonnageBand: '0-500'
   })
@@ -103,23 +100,14 @@ export async function createWithdrawnWorkItem({ organisationName, material }) {
  * has to reach `Duly made` first — that is where the SLA clock starts and the
  * "Due on" fields begin rendering a date (see ra-324 AC05).
  *
- * `postcode` is optional and defaults to a freshly-generated, collision-safe
- * one (see `unique-postcode.js`) — see the RA-318 application-reference
- * collision rules documented on `createReAccreditation` in
- * re-accreditation-journey.js. Starts from the list (`goto`) so it is safe
- * to call from any page.
+ * Starts from the list (`goto`) so it is safe to call from any page.
  */
-async function driveToDulyMade({
-  organisationName,
-  material,
-  postcode = uniquePostcode('YO1')
-}) {
+async function driveToDulyMade({ organisationName, material }) {
   await workItems.goto()
   const { id, applicationReference } = await workItems.createWorkItem({
     organisationName,
     siteAddressLine1: FIXTURE_SITE_ADDRESS_LINE_1,
     siteAddressTown: 'York',
-    siteAddressPostcode: postcode,
     material,
     tonnageBand: '0-500'
   })

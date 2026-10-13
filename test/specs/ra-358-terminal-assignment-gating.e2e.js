@@ -115,7 +115,6 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
         organisationName: 'Terminal Gating Stale Form Ltd',
         siteAddressLine1: '1 Stale Way',
         siteAddressTown: 'York',
-        siteAddressPostcode: 'YO1 2AH',
         material: 'plastic',
         tonnageBand: '0-500'
       })
@@ -224,7 +223,6 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
         organisationName: 'Terminal Gating Open Case Ltd',
         siteAddressLine1: '1 Open Way',
         siteAddressTown: 'York',
-        siteAddressPostcode: 'YO1 2AG',
         material: 'plastic',
         tonnageBand: '0-500'
       }))

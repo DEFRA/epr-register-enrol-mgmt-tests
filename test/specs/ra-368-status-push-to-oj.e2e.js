@@ -51,9 +51,7 @@ describe('RA-368 CM status push to OJ', () => {
 
   before(async () => {
     await login.login()
-    // Postcode last-3 ("1SP") unique across the suite for `plastic` — see
-    // `createReAccreditation`. Carried over from this spec's task-era version.
-    workItemId = await createReAccreditation('Status Push', 'SW1A 1SP')
+    workItemId = await createReAccreditation('Status Push')
   })
 
   after(async () => {

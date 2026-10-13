@@ -1,32 +1,22 @@
 /**
- * Collision-safe postcode suffixes for work-item fixtures.
+ * Collision-safe site postcodes for work-item fixtures.
  *
  * management-be's ApplicationReferenceGenerator (WorkItems/Core) derives
  * every applicationReference from (accreditation year, agency code, operator
- * org id, LAST 3 CHARACTERS of the regulator postcode, first 2 characters of
- * material). At most 5 work items can ever share one such tuple — the
- * generator's collision-retry loop appends a disambiguator digit for
- * attempts 2-5, then fails PERMANENTLY on the 6th with "Failed to generate a
- * unique applicationReference after 5 attempts". See the doc comment on
- * `createReAccreditation` in `re-accreditation-journey.js` for the full
- * mechanism.
+ * org segment, LAST 3 CHARACTERS of the regulator postcode, first 2
+ * characters of material). Every UI-created item carries the create form's
+ * demo org id and (unless a spec picks one) England, so the postcode suffix
+ * and material are the only inputs that vary. At most 5 work items can ever
+ * share one tuple: the generator's collision-retry loop appends a
+ * disambiguator digit for attempts 2-5, then fails PERMANENTLY with "Failed
+ * to generate a unique applicationReference after 5 attempts".
  *
- * The suite used to manage this by hand: every spec picks its own postcode
- * and a comment somewhere claims its last 3 characters are "unused across
- * the suite". That does not scale past a couple of dozen call sites, does
- * not survive wdio's own spec-file retries (a retry re-runs `before()`,
- * calling the same creation helper with the same hardcoded postcode again —
- * consuming another slot from the very tuple that may already be why the
- * first attempt was flaky), and does not survive a compose stack whose
- * mongo volume outlives a single run (local dev, or any environment that
- * doesn't `docker compose down -v` between runs) — this is the "a clean
- * database passes and a reused one fails" failure mode the suite's own
- * comments already warned about.
- *
- * This generator removes the bookkeeping instead of trying to do it better:
- * every call gets a value with overwhelming odds of not colliding with any
- * other call, in this process or another, in this run or a prior one — no
- * shared ledger of "already used" values required.
+ * A fixed postcode therefore uses up one of those 5 slots on every run, every
+ * wdio spec-file retry and every environment whose Mongo is never reset (CDP
+ * test, or a local compose stack started without `down -v`), until creation
+ * fails for good. `WorkItemsPage.createWorkItem` draws a fresh value from here
+ * whenever its caller does not pass one, which is how every creation helper
+ * gets a collision-safe postcode without any shared ledger of used values.
  */
 
 import { randomInt } from 'node:crypto'
@@ -53,7 +43,7 @@ const SUFFIX_SPACE = DIGITS * LETTERS * LETTERS // 6760
  * verified empirically to produce ~68% collisions across 20k calls in a
  * tight loop, i.e. almost the opposite of the intended effect.)
  */
-export function uniquePostcodeSuffix() {
+function uniquePostcodeSuffix() {
   const seed = randomInt(SUFFIX_SPACE)
   const digit = seed % DIGITS
   const letterPair = Math.floor(seed / DIGITS)
@@ -65,12 +55,11 @@ export function uniquePostcodeSuffix() {
 }
 
 /**
- * A full postcode with a unique suffix. Defaults to England's SW1A outward
- * code — the agency nearly every spec already targets. Pass `outward` for a
- * spec that specifically needs a different nation/agency (e.g. Scotland's
- * `EH1`, per ApplicationReferenceGenerator's postcode-area table) — the
- * suffix is still auto-generated, only the agency-determining prefix is
- * caller-controlled.
+ * A full postcode with a random suffix. Defaults to England's SW1A outward
+ * code. The agency in the reference comes from the create form's `nation`
+ * field (RA-526), not the postcode, so `outward` is cosmetic: pass one only
+ * to keep a spec's postcode consistent with a non-England `nation`, e.g.
+ * `uniquePostcode('EH1')` alongside `nation: 'Scotland'`.
  */
 export function uniquePostcode(outward = 'SW1A') {
   return `${outward} ${uniquePostcodeSuffix()}`

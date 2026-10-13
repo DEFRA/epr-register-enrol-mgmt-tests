@@ -7,7 +7,6 @@ import {
   dulyMake,
   startAssessment
 } from '../support/re-accreditation-journey.js'
-import { uniquePostcode } from '../support/unique-postcode.js'
 import { farFutureDeadline } from '../support/sla-extend-date.js'
 
 /**
@@ -133,7 +132,6 @@ describe('RA-599: reason for change in the application history', () => {
         organisationName: 'Reason History Test Ltd',
         siteAddressLine1: '9 Audit Trail Road',
         siteAddressTown: 'London',
-        siteAddressPostcode: uniquePostcode(),
         material: 'plastic',
         tonnageBand: '0-500'
       })

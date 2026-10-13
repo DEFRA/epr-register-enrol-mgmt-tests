@@ -35,15 +35,13 @@ describe('RA-410 Tasks are removed from Case Management', () => {
 
   before(async () => {
     await login.login()
-    // The postcode must be unique across the whole suite — see
-    // `createReAccreditation`. `SW1A 1AJ` is unused elsewhere in test/specs.
     // NOT named after this ticket on purpose. An organisation name is
     // rendered as the work-item tile link, so a fixture called "Tasks
     // Removed" produced an anchor matching the AC01 sweep below — this spec
     // failing against the item it had just created. `elementsLabelledTasks`
     // now excludes operator-supplied link text as well, but a fixture that
     // walks into its own assertion is worth not having either way.
-    workItemId = await createReAccreditation('Checklist Sweep', 'SW1A 1AU')
+    workItemId = await createReAccreditation('Checklist Sweep')
   })
 
   after(async () => {

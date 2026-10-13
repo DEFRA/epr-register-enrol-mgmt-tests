@@ -153,7 +153,6 @@ describe('RA-611 The determination deadline floor: duly made, not today', () => 
         organisationName: 'RA-611 Deadline Floor Ltd',
         siteAddressLine1: '1 Hindsight Way',
         siteAddressTown: 'Bristol',
-        siteAddressPostcode: 'BS1 1AA',
         material: 'plastic',
         tonnageBand: '0-500'
       })
@@ -504,7 +503,6 @@ describe('RA-611 The determination deadline floor: duly made, not today', () => 
           organisationName: 'RA-611 Pre Year Start Journey Ltd',
           siteAddressLine1: '1 New Year Lane',
           siteAddressTown: 'Bristol',
-          siteAddressPostcode: 'BS1 1AA',
           material: 'plastic',
           tonnageBand: '0-500'
         })

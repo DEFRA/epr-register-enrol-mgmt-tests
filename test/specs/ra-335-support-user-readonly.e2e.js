@@ -35,7 +35,6 @@ describe('RA-335 Support user read-only view', () => {
       organisationName: 'Support Readonly Ltd',
       siteAddressLine1: '1 Support Street',
       siteAddressTown: 'London',
-      siteAddressPostcode: 'SW1A 1SU',
       material: 'plastic',
       tonnageBand: '0-500'
     }))

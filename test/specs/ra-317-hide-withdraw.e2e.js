@@ -5,7 +5,6 @@ import detail from '../page-objects/work-item-detail.page.js'
 import decision from '../page-objects/decision.page.js'
 import { driveToDecisionReady } from '../support/terminal-states.js'
 import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
-import { uniquePostcode } from '../support/unique-postcode.js'
 
 /**
  * RA-317 — Case Management service: Hide withdraw functionality from Case Management.
@@ -65,7 +64,6 @@ describe('RA-317 — withdraw hidden from case management', () => {
         organisationName: 'RA-317 Hide Withdraw Ltd',
         siteAddressLine1: '1 Withdraw Free Way',
         siteAddressTown: 'London',
-        siteAddressPostcode: uniquePostcode(),
         material: 'plastic',
         tonnageBand: '0-500'
       })
@@ -145,7 +143,6 @@ describe('RA-317 — withdraw hidden from case management', () => {
         organisationName: 'RA-317 Operator Withdrawn Ltd',
         siteAddressLine1: '1 Operator Way',
         siteAddressTown: 'London',
-        siteAddressPostcode: uniquePostcode(),
         material: 'plastic',
         tonnageBand: '0-500'
       })

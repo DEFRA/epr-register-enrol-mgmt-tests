@@ -38,7 +38,6 @@ describe('Error pages', () => {
       organisationName: 'Error Page Test Ltd',
       siteAddressLine1: '1 Error Street',
       siteAddressTown: 'London',
-      siteAddressPostcode: 'SW1A 1AD',
       material: 'plastic',
       tonnageBand: '0-500'
     }))

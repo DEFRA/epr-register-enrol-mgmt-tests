@@ -44,7 +44,6 @@ describe('Audit log — work item snapshot fields', () => {
       organisationName: 'Snapshot Test Ltd',
       siteAddressLine1: '1 Audit Road',
       siteAddressTown: 'Manchester',
-      siteAddressPostcode: 'M1 1AA',
       material: 'glass',
       tonnageBand: '0-500'
     })

@@ -96,7 +96,6 @@ describe('RA-601 Change the determination deadline to an earlier date', () => {
         organisationName: 'RA-601 Earlier Deadline Ltd',
         siteAddressLine1: '1 Advance Avenue',
         siteAddressTown: 'Leeds',
-        siteAddressPostcode: 'LS1 1AB',
         material: 'plastic',
         tonnageBand: '0-500'
       })

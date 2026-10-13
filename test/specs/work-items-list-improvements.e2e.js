@@ -29,7 +29,6 @@ describe('Work items list improvements', () => {
       organisationName: 'Delta Recyclers Ltd',
       siteAddressLine1: '12 Improvement Road',
       siteAddressTown: 'Leeds',
-      siteAddressPostcode: 'LS1 2AL',
       material: 'aluminium',
       tonnageBand: '0-500'
     }))

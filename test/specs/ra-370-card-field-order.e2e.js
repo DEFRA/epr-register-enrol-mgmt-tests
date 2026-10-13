@@ -74,17 +74,14 @@ const uniqueOrg = (label) => `${label} ${Date.now()}`
  * one whose assessment has NOT started, so it has no slaState — and return its
  * id. Navigates to the Applications list first because the "Create work item"
  * link only renders there; createWorkItem leaves the browser on the new item's
- * detail page. Each caller passes a distinct postcode so the application
- * reference generator does not exhaust its collision-retry budget on items
- * sharing postcode + material.
+ * detail page.
  */
-async function createFreshItem(organisationName, postcode) {
+async function createFreshItem(organisationName) {
   await workItems.goto()
   const { id } = await workItems.createWorkItem({
     organisationName,
     siteAddressLine1: '1 Submitted On Way',
     siteAddressTown: 'London',
-    siteAddressPostcode: postcode,
     material: 'plastic',
     tonnageBand: '0-500'
   })
@@ -233,8 +230,8 @@ describe('RA-370 — application card field order and Submitted on', () => {
       await login.login()
       // Two cards under a shared token: the "consistent order for EVERY case
       // item" AC cannot be proven from a single hand-picked card.
-      firstId = await createFreshItem(`${token} One`, 'SW1A 9AA')
-      secondId = await createFreshItem(`${token} Two`, 'SW1A 9AB')
+      firstId = await createFreshItem(`${token} One`)
+      secondId = await createFreshItem(`${token} Two`)
       await listCardsFor(token)
     })
 
@@ -359,7 +356,7 @@ describe('RA-370 — application card field order and Submitted on', () => {
 
     before(async () => {
       await login.login()
-      itemId = await createFreshItem(org, 'SW1A 9AC')
+      itemId = await createFreshItem(org)
       await workItems.openWorkItem(itemId)
       await detail.selfAssign()
       await detail.assertAssignedTo('Stub Caseworker One')
@@ -399,7 +396,7 @@ describe('RA-370 — application card field order and Submitted on', () => {
 
     before(async () => {
       await login.login()
-      itemId = await createFreshItem(org, 'SW1A 9AD')
+      itemId = await createFreshItem(org)
       await driveToDulyMade(itemId)
     })
 
@@ -444,7 +441,7 @@ describe('RA-370 — application card field order and Submitted on', () => {
 
     before(async () => {
       await login.login()
-      itemId = await createFreshItem(org, 'SW1A 9AE')
+      itemId = await createFreshItem(org)
       await driveToAssessment(itemId)
     })
 

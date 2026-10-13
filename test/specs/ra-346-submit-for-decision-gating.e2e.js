@@ -43,12 +43,7 @@ describe('RA-346/RA-410 The decision route is gated on state, not on tasks', () 
 
   before(async () => {
     await login.login()
-    // The postcode must be unique across the whole suite — see
-    // `createReAccreditation`. `SW1A 1AG` is unused elsewhere in test/specs.
-    workItemId = await createReAccreditation(
-      'Submit For Decision Gate',
-      'SW1A 1AG'
-    )
+    workItemId = await createReAccreditation('Submit For Decision Gate')
   })
 
   after(async () => {

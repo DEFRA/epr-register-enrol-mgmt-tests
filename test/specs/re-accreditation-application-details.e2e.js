@@ -30,23 +30,25 @@ import detail from '../page-objects/work-item-detail.page.js'
 describe('Application information — sparse, form-created work item', () => {
   let workItemId
   let applicationReference
+  let siteAddressPostcode
 
   before(async () => {
     await login.login()
     await workItems.goto()
-    ;({ id: workItemId, applicationReference } = await workItems.createWorkItem(
-      {
-        organisationName: 'App Details Test Ltd',
-        siteAddressLine1: '1 Details Lane',
-        // Clear the form's pre-filled example line 2 so this item exercises
-        // the empty-line2 path (the line must be dropped from the address).
-        siteAddressLine2: '',
-        siteAddressTown: 'Leeds',
-        siteAddressPostcode: 'LS1 1AB',
-        material: 'paper',
-        tonnageBand: '500-5000'
-      }
-    ))
+    ;({
+      id: workItemId,
+      applicationReference,
+      siteAddressPostcode
+    } = await workItems.createWorkItem({
+      organisationName: 'App Details Test Ltd',
+      siteAddressLine1: '1 Details Lane',
+      // Clear the form's pre-filled example line 2 so this item exercises
+      // the empty-line2 path (the line must be dropped from the address).
+      siteAddressLine2: '',
+      siteAddressTown: 'Leeds',
+      material: 'paper',
+      tonnageBand: '500-5000'
+    }))
     await workItems.openWorkItem(workItemId)
   })
 
@@ -80,7 +82,7 @@ describe('Application information — sparse, form-created work item', () => {
 
     it('shows the postcode', async () => {
       await expect(detail.applicationDetailRow('site-address')).toHaveText(
-        expect.stringContaining('LS1 1AB')
+        expect.stringContaining(siteAddressPostcode)
       )
     })
 

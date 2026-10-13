@@ -42,7 +42,6 @@ async function driveToDecisionReady(suffix, material) {
     organisationName: `${token} ${suffix}`,
     siteAddressLine1: '1 Archive Street',
     siteAddressTown: 'York',
-    siteAddressPostcode: 'YO1 2AE',
     material,
     tonnageBand: '0-500'
   })
@@ -81,7 +80,6 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
         organisationName: `${token} Withdrawn`,
         siteAddressLine1: '1 Archive Street',
         siteAddressTown: 'York',
-        siteAddressPostcode: 'YO1 2AF',
         material: 'glass',
         tonnageBand: '0-500'
       })

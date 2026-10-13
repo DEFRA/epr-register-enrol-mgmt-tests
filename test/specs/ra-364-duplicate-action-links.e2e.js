@@ -124,13 +124,7 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createReAccreditation(
-        'RA364 Queried Ltd',
-        // Last 3 characters must be unique per (agency, material) — see the
-        // fixture rule in support/re-accreditation-journey.js. `1AE` is unused
-        // across the suite for England + plastic.
-        'SW1A 1AE'
-      )
+      workItemId = await createReAccreditation('RA364 Queried Ltd')
 
       await query.gotoFor(workItemId)
       await query.selectSection('business-plan')
@@ -251,11 +245,7 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createReAccreditation(
-        'RA364 Journey Ltd',
-        // `1AG` is unused across the suite for England + plastic.
-        'SW1A 1AG'
-      )
+      workItemId = await createReAccreditation('RA364 Journey Ltd')
       await workItems.openWorkItem(workItemId)
     })
 

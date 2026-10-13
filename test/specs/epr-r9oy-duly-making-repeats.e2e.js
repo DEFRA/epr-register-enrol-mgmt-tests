@@ -87,10 +87,10 @@ describe('epr-r9oy duly making repeats across applications', () => {
     // rendered on one page cannot be mistaken for the other's if this fails
     // mid-way. Both clear the 50000-pence floor `createReAccreditation`
     // requires.
-    firstId = await createReAccreditation('Duly Repeat One Ltd', 'SW1A 1DR', {
+    firstId = await createReAccreditation('Duly Repeat One Ltd', {
       chargeAmountPence: 163800
     })
-    secondId = await createReAccreditation('Duly Repeat Two Ltd', 'SW1A 2DR', {
+    secondId = await createReAccreditation('Duly Repeat Two Ltd', {
       chargeAmountPence: 273000
     })
     await login.logout()

@@ -38,7 +38,6 @@ describe('RA-249 — application reference survives approval', () => {
       organisationName: 'Persistent Reference Recyclers',
       siteAddressLine1: '1 Persistence Road',
       siteAddressTown: 'Cardiff',
-      siteAddressPostcode: 'CF1 1AA',
       material: 'plastic',
       tonnageBand: '500-5000'
     }))

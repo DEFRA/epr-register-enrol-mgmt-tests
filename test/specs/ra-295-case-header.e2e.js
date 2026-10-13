@@ -260,7 +260,6 @@ describe('RA-295 case header on the work item detail page', () => {
         organisationName: 'RA-295 Due On Ltd',
         siteAddressLine1: '1 Deadline Drive',
         siteAddressTown: 'Bristol',
-        siteAddressPostcode: 'BS1 1AA',
         material: 'plastic',
         tonnageBand: '0-500'
       }))

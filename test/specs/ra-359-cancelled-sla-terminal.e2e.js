@@ -37,9 +37,6 @@ import {
  * is one predicate away from gating on "terminal or not", and every RA-359
  * assertion above is a negative — the positive complement is what stops an
  * over-broad suppression from silently hiding live SLAs.
- *
- * Postcodes/materials are chosen for distinct RA-318 reference tuples (last-3
- * postcode + first-2 material); `9SL`/`9SR` are unused elsewhere in the suite.
  */
 const uniqueOrg = (label) => `${label} ${Date.now()}`
 
@@ -55,15 +52,13 @@ describe('RA-359 — terminal work items do not advertise a running SLA', () => 
     // A withdrawn item that HAD a live SLA (driven to Duly made first).
     ;({ id: withdrawnId } = await createWithdrawnWorkItemWithRunningSla({
       organisationName: withdrawnOrg,
-      material: 'plastic',
-      postcode: 'SW1A 9SL'
+      material: 'plastic'
     }))
 
     // A non-terminal item with a genuinely running SLA (the regression guard).
     liveId = await createDulyMadeWorkItem({
       organisationName: liveOrg,
-      material: 'paper',
-      postcode: 'SW1A 9SR'
+      material: 'paper'
     })
   })
 

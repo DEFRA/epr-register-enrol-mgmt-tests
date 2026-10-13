@@ -41,7 +41,6 @@ describe('RA-132 Reject action terminal flow', () => {
         organisationName: 'Reject Outcome Test Ltd',
         siteAddressLine1: '3 Rejection Row',
         siteAddressTown: 'Bristol',
-        siteAddressPostcode: 'BS1 1AA',
         material: 'paper',
         tonnageBand: '0-500'
       })

@@ -56,7 +56,6 @@ describe('Auth flows', () => {
         organisationName: 'Standard England Ltd',
         siteAddressLine1: '1 Standard Street',
         siteAddressTown: 'London',
-        siteAddressPostcode: 'SW1A 1AC',
         material: 'plastic',
         tonnageBand: '0-500'
       })
@@ -81,7 +80,6 @@ describe('Auth flows', () => {
         organisationName: 'Assign Wales Ltd',
         siteAddressLine1: '2 Assign Street',
         siteAddressTown: 'Cardiff',
-        siteAddressPostcode: 'CF10 1AA',
         material: 'plastic',
         tonnageBand: '0-500'
       })

@@ -42,7 +42,6 @@ describe('RA-316 duly making from the updated state', () => {
     await login.login()
     workItemId = await createReAccreditation(
       'Duly Making From Updated Ltd',
-      'SW1A 5DU',
       // £3,604.00. NOT a typo for £3,965 and NOT a bare band — it is a
       // COMPOSED fee, £3,276 plus one overseas reprocessing site at £328,
       // which is a legitimate real-world total. Leave it alone.

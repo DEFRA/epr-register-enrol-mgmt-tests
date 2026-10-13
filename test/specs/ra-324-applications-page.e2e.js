@@ -51,17 +51,14 @@ const uniqueOrg = (label) => `${label} ${Date.now()}`
  * return its id. Navigates to the Applications list first because the
  * "Create work item" link only renders there — createWorkItem leaves the
  * browser on the new item's detail page, so a caller creating a second item
- * without this goto would have no create link to click. Each caller passes a
- * distinct postcode so ApplicationReferenceGenerator does not exhaust its
- * collision-retry budget on items that share postcode + material.
+ * without this goto would have no create link to click.
  */
-async function createFreshItem(organisationName, postcode) {
+async function createFreshItem(organisationName) {
   await workItems.goto()
   const { id } = await workItems.createWorkItem({
     organisationName,
     siteAddressLine1: '1 Applications Way',
     siteAddressTown: 'London',
-    siteAddressPostcode: postcode,
     material: 'plastic',
     tonnageBand: '0-500'
   })
@@ -94,10 +91,7 @@ describe('RA-324 Applications page', () => {
 
     before(async () => {
       await login.login()
-      itemId = await createFreshItem(
-        uniqueOrg('Nav Applications Ltd'),
-        'SW1A 3AA'
-      )
+      itemId = await createFreshItem(uniqueOrg('Nav Applications Ltd'))
       await workItems.goto()
     })
 
@@ -146,8 +140,8 @@ describe('RA-324 Applications page', () => {
       await login.login()
       // Two fresh items under a shared token so the token search yields more
       // than one tile (AC04) while staying pagination-safe.
-      itemId = await createFreshItem(`${token} One`, 'SW1A 4AA')
-      otherId = await createFreshItem(`${token} Two`, 'SW1A 4AB')
+      itemId = await createFreshItem(`${token} One`)
+      otherId = await createFreshItem(`${token} Two`)
       await workItems.resetFilters() // RA-299: bare landing now defaults to assigned-to-me, excluding these unassigned items
       await workItems.searchByOrgName(token)
     })
@@ -226,7 +220,7 @@ describe('RA-324 Applications page', () => {
 
     before(async () => {
       await login.login()
-      itemId = await createFreshItem(org, 'SW1A 5AA')
+      itemId = await createFreshItem(org)
       await driveToDulyMade(itemId)
     })
 
@@ -274,7 +268,7 @@ describe('RA-324 Applications page', () => {
 
     before(async () => {
       await login.login()
-      itemId = await createFreshItem(org, 'SW1A 6AA')
+      itemId = await createFreshItem(org)
       await query.gotoFor(itemId)
       await query.selectSection('business-plan')
       await query.fillReason(
@@ -305,10 +299,7 @@ describe('RA-324 Applications page', () => {
 
     before(async () => {
       await login.login()
-      itemId = await createFreshItem(
-        uniqueOrg('Audit Applications Ltd'),
-        'SW1A 7AA'
-      )
+      itemId = await createFreshItem(uniqueOrg('Audit Applications Ltd'))
     })
 
     after(async () => {
@@ -342,7 +333,7 @@ describe('RA-324 Applications page', () => {
     before(async () => {
       await login.login()
       // Ensure the list is non-empty so there is a tile to measure against.
-      await createFreshItem(uniqueOrg('Viewport Applications Ltd'), 'SW1A 8AA')
+      await createFreshItem(uniqueOrg('Viewport Applications Ltd'))
       await browser.setWindowSize(1280, 900)
       await workItems.goto()
     })

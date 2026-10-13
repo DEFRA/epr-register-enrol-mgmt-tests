@@ -1,5 +1,6 @@
 import { browser, $, expect } from '@wdio/globals'
 import { Page } from './page.js'
+import { uniquePostcode } from '../support/unique-postcode.js'
 
 /** Prefix-matched testid of an application card's "open this item" link. */
 const WORK_ITEM_LINK_SELECTOR = '[data-testid^="work-item-link-"]'
@@ -101,7 +102,18 @@ class WorkItemsPage extends Page {
     )
   }
 
-  async createWorkItem(opts) {
+  /**
+   * Create a work item through the form and return
+   * `{ id, applicationReference, siteAddressPostcode }`.
+   *
+   * `siteAddressPostcode` defaults to a fresh `uniquePostcode()` (see
+   * `support/unique-postcode.js` for why the reference generator needs one)
+   * and is returned so a caller asserting on the rendered postcode can use
+   * the value actually submitted. Pass one only to pair a non-England
+   * `nation` with a matching outward code, e.g. `uniquePostcode('EH1')` —
+   * never a literal, which would be reused across runs.
+   */
+  async createWorkItem({ siteAddressPostcode = uniquePostcode(), ...opts }) {
     await this.clickCreateWorkItem()
     // The application reference is no longer entered on the form — the
     // case management backend generates it on submission. Callers read
@@ -154,7 +166,7 @@ class WorkItemsPage extends Page {
       }
     }
     await $('#field-siteAddress-town').setValue(opts.siteAddressTown)
-    await $('#field-siteAddress-postcode').setValue(opts.siteAddressPostcode)
+    await $('#field-siteAddress-postcode').setValue(siteAddressPostcode)
     await $('#field-material').selectByAttribute('value', opts.material)
     await $('#field-tonnageBand').selectByAttribute('value', opts.tonnageBand)
     // RA-526. Nation is a required form field, but the GET form pre-fills it
@@ -211,7 +223,7 @@ class WorkItemsPage extends Page {
     const applicationReference = match[0]
     const url = await browser.getUrl()
     const id = url.split('/').pop()
-    return { id, applicationReference }
+    return { id, applicationReference, siteAddressPostcode }
   }
 
   async openWorkItem(id) {
