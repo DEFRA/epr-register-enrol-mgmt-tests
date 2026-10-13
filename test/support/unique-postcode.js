@@ -21,21 +21,21 @@
 
 import { randomInt } from 'node:crypto'
 
-// digit + letter + letter, matching the shape of a real UK postcode inward
-// code (management-be's suffix extraction doesn't actually require this
-// shape — it just takes the last 3 characters — but keeping it realistic
-// avoids relying on that not mattering anywhere else in the stack).
-const DIGITS = 10
-const LETTERS = 26
-const SUFFIX_SPACE = DIGITS * LETTERS * LETTERS // 6760
+// management-be reads only the last 3 characters of the postcode, and
+// management-fe accepts any /^[A-Z0-9 ]{3,10}$/i value, so every character of
+// the suffix can come from the full alphanumeric set.
+const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+const SUFFIX_LENGTH = 3
+const SUFFIX_SPACE = ALPHABET.length ** SUFFIX_LENGTH // 46656
 
 /**
- * A 3-character suffix (e.g. "4QX") drawn uniformly at random from the full
- * 6760-value space via Node's CSPRNG. A given pair of calls collides with
- * probability 1/6760 — and even a collision isn't itself a test failure,
- * since ApplicationReferenceGenerator's own collision-retry loop absorbs up
- * to 4 more before giving up; this only needs to make hitting that ceiling
- * astronomically unlikely, not impossible.
+ * A 3-character suffix (e.g. "Q7X") drawn uniformly at random from the
+ * 46,656-value [0-9A-Z]^3 space via Node's CSPRNG.
+ *
+ * Headroom on a database that is never reset: at roughly 100 same-material
+ * items per suite run, the expected number of tuples that reach the 5-item
+ * ceiling stays well below one per run for several hundred runs (with the
+ * old 6,760-value digit+letter+letter space that point came at about 100).
  *
  * (An earlier version derived this from `process.hrtime.bigint() % 6760` to
  * avoid a dependency on randomness — don't reintroduce that. Reducing a
@@ -44,14 +44,13 @@ const SUFFIX_SPACE = DIGITS * LETTERS * LETTERS // 6760
  * tight loop, i.e. almost the opposite of the intended effect.)
  */
 function uniquePostcodeSuffix() {
-  const seed = randomInt(SUFFIX_SPACE)
-  const digit = seed % DIGITS
-  const letterPair = Math.floor(seed / DIGITS)
-  const letter1 = String.fromCodePoint(65 + (letterPair % LETTERS))
-  const letter2 = String.fromCodePoint(
-    65 + (Math.floor(letterPair / LETTERS) % LETTERS)
-  )
-  return `${digit}${letter1}${letter2}`
+  let seed = randomInt(SUFFIX_SPACE)
+  let suffix = ''
+  for (let i = 0; i < SUFFIX_LENGTH; i++) {
+    suffix += ALPHABET[seed % ALPHABET.length]
+    seed = Math.floor(seed / ALPHABET.length)
+  }
+  return suffix
 }
 
 /**
