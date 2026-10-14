@@ -62,7 +62,7 @@ describeOnComposeStack(
       await login.logout()
     })
 
-    it('surfaces the RA-######### application reference and the notification carries it', async () => {
+    it('shows the AP application reference, not the work-item id, and the notification carries it', async () => {
       // The detail-page caption reads "Work item AP..." (RA-196); the bare
       // reference after the "Work item " prefix is the exact value the emails
       // put in the ((reference)) placeholder. It must be the human application

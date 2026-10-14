@@ -50,12 +50,6 @@ import {
  * (`notificationEntriesForTemplate` /
  * `assertNotificationDetailRowForTemplate`) drive the assertions here without
  * new selectors.
- *
- * NOTE ON LOCAL EXECUTION: the officer-assignment send lives on the
- * management-be `feature/RA-227` branch. This spec runs against the real
- * backend in the fe/be PR pipelines, which resolve the mgmt-tests spec branch
- * AND the matching management-be branch by the PR head_ref — hence this branch
- * is named `feature/RA-227`.
  */
 
 // Must match Notify__RegulatorMailboxes__England in
