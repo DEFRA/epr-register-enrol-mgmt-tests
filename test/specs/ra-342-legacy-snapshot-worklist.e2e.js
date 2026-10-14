@@ -63,7 +63,12 @@ describe('RA-342 legacy template-snapshot worklist', () => {
   itOnComposeStack(
     'lists the seeded legacy-snapshot work item and opens its detail page',
     async function () {
-      await workItems.goto()
+      // resetFilters() rather than goto(): a bare landing defaults to "Your
+      // applications" (RA-299), and the legacy item is unassigned, so a search
+      // on top of that default never finds it (see findSeededWorkItemIdByOrgName
+      // for the same trap). That helper isn't used because it fails when the
+      // item is absent, and the root compose stack needs the skip below.
+      await workItems.resetFilters()
       await workItems.searchByOrgName(LEGACY_ORG_NAME)
 
       const rowCount = await workItems.getRowCount()
