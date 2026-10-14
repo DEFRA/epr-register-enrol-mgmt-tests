@@ -7,6 +7,7 @@ import {
   dulyMake,
   startAssessment
 } from '../support/re-accreditation-journey.js'
+import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-368, re-pointed by RA-410 — Case Management service pushes work item status changes to the Registration & Accreditation service.
@@ -46,7 +47,7 @@ import {
  * that push lives in `ra-410-decision-operator-failure.e2e.js`.
  */
 // eslint-disable-next-line local-rules/no-undocumented-service-acronyms -- verbatim Jira ticket title, predates this guard
-describe('RA-368 CM status push to OJ', () => {
+describeOnComposeStack('RA-368 CM status push to OJ', () => {
   let workItemId
 
   before(async () => {

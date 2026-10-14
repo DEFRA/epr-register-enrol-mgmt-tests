@@ -8,6 +8,7 @@ import {
   dulyMake,
   startAssessment
 } from '../support/re-accreditation-journey.js'
+import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-295 (AC03 + AC04) — assignment stays reachable through the redesign, and
@@ -166,7 +167,7 @@ describe('RA-295 assignment panel and query assignment notice', () => {
     })
   })
 
-  describe('the due-date links on a closed case', () => {
+  describeOnComposeStack('the due-date links on a closed case', () => {
     // AC03's "available throughout" is about ASSIGNMENT, and reassign/unassign
     // are unconditional. The SLA due-date links are NOT, and that distinction
     // matters more than it looks: `SlaService.ExtendAsync` in management-be has

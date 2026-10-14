@@ -11,6 +11,7 @@ import {
   armDecisionFailure,
   clearDecisionFailure
 } from '../support/operator-backend-stub.js'
+import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-410 / epr-p86e — the decision is atomic and OPERATOR-JOURNEY-GATED.
@@ -45,7 +46,7 @@ import {
  * genuine retry.
  */
 // eslint-disable-next-line local-rules/no-undocumented-service-acronyms -- verbatim Jira ticket title, predates this guard
-describe('RA-410 The OJ-gated decision fails atomically', () => {
+describeOnComposeStack('RA-410 The OJ-gated decision fails atomically', () => {
   let workItemId
 
   before(async () => {

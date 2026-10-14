@@ -6,6 +6,7 @@ import detail, {
   EXPORTER_ONLY_ROWS
 } from '../page-objects/work-item-detail.page.js'
 import { EXPORTER } from '../support/ra-434-seed.js'
+import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-295 (AC02) — all application data on a single page, in a consistent
@@ -32,7 +33,7 @@ import { EXPORTER } from '../support/ra-434-seed.js'
  * RA-434-processortype comment. The negative test below (a reprocessor with
  * no overseas data) is the other half of the AC.
  */
-describe('RA-295 application details on a single page', () => {
+describeOnComposeStack('RA-295 application details on a single page', () => {
   before(async () => {
     await login.login()
     await workItems.resetFilters()

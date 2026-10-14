@@ -3,6 +3,11 @@ import { seedCookieConsentOnNavigation } from './test/support/cookie-consent.js'
 
 const oneMinute = 60 * 1000
 
+// This config is the docker-compose run (compose.yml), so the specs that can
+// only pass against the compose stack run here. Set before any spec loads;
+// the worker processes inherit it. See test/support/compose-stack.js.
+process.env.COMPOSE_STACK = 'true'
+
 export const config = {
   //
   // ====================

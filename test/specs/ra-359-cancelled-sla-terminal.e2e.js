@@ -6,6 +6,7 @@ import {
   createDulyMadeWorkItem,
   createWithdrawnWorkItemWithRunningSla
 } from '../support/terminal-states.js'
+import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-359 (part 2) — terminal work items must not advertise a running SLA.
@@ -49,12 +50,6 @@ describe('RA-359 — terminal work items do not advertise a running SLA', () => 
   before(async () => {
     await login.login()
 
-    // A withdrawn item that HAD a live SLA (driven to Duly made first).
-    ;({ id: withdrawnId } = await createWithdrawnWorkItemWithRunningSla({
-      organisationName: withdrawnOrg,
-      material: 'plastic'
-    }))
-
     // A non-terminal item with a genuinely running SLA (the regression guard).
     liveId = await createDulyMadeWorkItem({
       organisationName: liveOrg,
@@ -66,49 +61,63 @@ describe('RA-359 — terminal work items do not advertise a running SLA', () => 
     await login.logout()
   })
 
-  describe('AC1 — the applications list card of a withdrawn item', () => {
-    beforeEach(async () => {
-      // includeArchived=true reveals terminal items, bounded by the org search
-      // so the presence check stays pagination-safe (RA-224 reveal journey).
-      await workItems.searchArchivedByOrgName(withdrawnOrg)
-      await expect(workItems.tileFor(withdrawnId)).toBeDisplayed()
-    })
-
-    it('does not show the SLA due date', async () => {
-      // The substantive assertion: a closed case must not advertise a running
-      // SLA. Pre-RA-359 this card carried a live "Due on" date.
-      expect(await workItems.tileHasField(withdrawnId, 'due-on')).toBe(false)
-    })
-
-    it('still renders the rest of the card', async () => {
-      // Guards against the assertion above passing vacuously because the whole
-      // card (or its footer) failed to render — `assigned-to` renders on every
-      // card post-RA-370, so its presence proves the footer is there and it is
-      // specifically `due-on` that has been suppressed.
-      expect(await workItems.tileHasField(withdrawnId, 'assigned-to')).toBe(
-        true
-      )
-    })
-  })
-
-  describe('AC3 — the case header on a withdrawn item detail page', () => {
+  // The withdrawal goes through management-be's operator endpoint directly
+  // (support/operator-withdrawal.js), so AC1 and AC3 run only on the compose
+  // stack. AC2's live item needs nothing compose-only and runs everywhere.
+  describeOnComposeStack('a withdrawn item that had a running SLA', () => {
     before(async () => {
-      await workItems.openWorkItem(withdrawnId)
-      await detail.assertState('Withdrawn')
+      // A withdrawn item that HAD a live SLA (driven to Duly made first).
+      const withdrawn = await createWithdrawnWorkItemWithRunningSla({
+        organisationName: withdrawnOrg,
+        material: 'plastic'
+      })
+      withdrawnId = withdrawn.id
     })
 
-    it('keeps the Due date field in the header for a stable layout', async () => {
-      // The field is not removed — the redesign keeps the header layout
-      // stable; only its VALUE changes. Asserting absence here would be the
-      // wrong contract and would mask a real date leaking back in.
-      expect(await detail.hasCaseHeaderField('dueOn')).toBe(true)
+    describe('AC1 — the applications list card of a withdrawn item', () => {
+      beforeEach(async () => {
+        // includeArchived=true reveals terminal items, bounded by the org search
+        // so the presence check stays pagination-safe (RA-224 reveal journey).
+        await workItems.searchArchivedByOrgName(withdrawnOrg)
+        await expect(workItems.tileFor(withdrawnId)).toBeDisplayed()
+      })
+
+      it('does not show the SLA due date', async () => {
+        // The substantive assertion: a closed case must not advertise a running
+        // SLA. Pre-RA-359 this card carried a live "Due on" date.
+        expect(await workItems.tileHasField(withdrawnId, 'due-on')).toBe(false)
+      })
+
+      it('still renders the rest of the card', async () => {
+        // Guards against the assertion above passing vacuously because the whole
+        // card (or its footer) failed to render — `assigned-to` renders on every
+        // card post-RA-370, so its presence proves the footer is there and it is
+        // specifically `due-on` that has been suppressed.
+        expect(await workItems.tileHasField(withdrawnId, 'assigned-to')).toBe(
+          true
+        )
+      })
     })
 
-    it('shows the em-dash fallback rather than a date', async () => {
-      // U+2014 EM DASH — the case header's "no value" fallback. The retained
-      // SlaDueDate is deliberately NOT rendered for a Cancelled item.
-      await expect(detail.caseHeaderField('dueOn')).toHaveText('—')
-      expect(await detail.hasRealDueOn()).toBe(false)
+    describe('AC3 — the case header on a withdrawn item detail page', () => {
+      before(async () => {
+        await workItems.openWorkItem(withdrawnId)
+        await detail.assertState('Withdrawn')
+      })
+
+      it('keeps the Due date field in the header for a stable layout', async () => {
+        // The field is not removed — the redesign keeps the header layout
+        // stable; only its VALUE changes. Asserting absence here would be the
+        // wrong contract and would mask a real date leaking back in.
+        expect(await detail.hasCaseHeaderField('dueOn')).toBe(true)
+      })
+
+      it('shows the em-dash fallback rather than a date', async () => {
+        // U+2014 EM DASH — the case header's "no value" fallback. The retained
+        // SlaDueDate is deliberately NOT rendered for a Cancelled item.
+        await expect(detail.caseHeaderField('dueOn')).toHaveText('—')
+        expect(await detail.hasRealDueOn()).toBe(false)
+      })
     })
   })
 

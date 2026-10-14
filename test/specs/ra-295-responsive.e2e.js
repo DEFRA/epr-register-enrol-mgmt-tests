@@ -5,6 +5,7 @@ import detail, {
   CASE_HEADER_FIELDS
 } from '../page-objects/work-item-detail.page.js'
 import { VIEWPORTS } from '../page-objects/page.js'
+import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-295 (AC05) — the redesigned pages stay usable on a narrow viewport.
@@ -23,7 +24,7 @@ import { VIEWPORTS } from '../page-objects/page.js'
  * Runs at 320px (the narrowest width GOV.UK supports) and at the 641px tablet
  * breakpoint where the collapse to a single column begins.
  */
-describe('RA-295 responsive layout', () => {
+describeOnComposeStack('RA-295 responsive layout', () => {
   before(async () => {
     await login.login()
   })
