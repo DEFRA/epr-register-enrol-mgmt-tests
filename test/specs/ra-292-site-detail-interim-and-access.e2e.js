@@ -5,6 +5,7 @@ import detail, {
   INTERIM_DETAIL_FIELDS
 } from '../page-objects/work-item-detail.page.js'
 import { ORG_NAME, ORS, INTERIM, AUTHORISERS } from '../support/ra-292-seed.js'
+import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-292 (AC04): interim site data, authority-to-issue contacts, page-wide
@@ -15,221 +16,226 @@ import { ORG_NAME, ORS, INTERIM, AUTHORISERS } from '../support/ra-292-seed.js'
  * see that file's header comment for the AC's full context and the design
  * rationale behind the omission-vs-em-dash behaviour being tested.
  */
-describe('RA-292: interim site detail, authority-to-issue contacts and access', () => {
-  before(async () => {
-    await login.login()
-    // RA-299: a bare landing defaults to assigned-to-me, and this seed item is
-    // unassigned — reset filters first or the search returns nothing.
-    await workItems.resetFilters()
-    await workItems.searchByOrgName(ORG_NAME)
-    await browser.waitUntil(
-      async () => (await browser.getUrl()).includes('filtersApplied=1'),
-      { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
-    )
-    expect(await workItems.getRowCount()).toBe(1)
-    await workItems.openFirstListedWorkItem()
-    // RA-486: each ORS now renders as a collapsed-by-default <details> —
-    // expand so nested interim-site content is readable by the assertions
-    // below.
-    await detail.expandAllOverseasSiteDetails()
-    // RA-603 (AC10b): each interim site now has its OWN collapsed <details>
-    // nested inside its ORS, so expanding the ORS is no longer enough. A
-    // collapsed field yields '' from getText(), which reads as missing data
-    // rather than hidden data.
-    await detail.expandAllInterimSiteDetails()
-  })
-
-  after(async () => {
-    await login.logout()
-  })
-
-  describe('AC04 — interim site data', () => {
-    it('displays every interim data point for the new interim site', async () => {
-      const values = await detail.blockFields(
-        'interimSite',
-        INTERIM.NEW.name,
-        INTERIM_DETAIL_FIELDS
+describeOnComposeStack(
+  'RA-292: interim site detail, authority-to-issue contacts and access',
+  () => {
+    before(async () => {
+      await login.login()
+      // RA-299: a bare landing defaults to assigned-to-me, and this seed item is
+      // unassigned — reset filters first or the search returns nothing.
+      await workItems.resetFilters()
+      await workItems.searchByOrgName(ORG_NAME)
+      await browser.waitUntil(
+        async () => (await browser.getUrl()).includes('filtersApplied=1'),
+        { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
       )
-      const missing = INTERIM_DETAIL_FIELDS.filter(
-        (key) => values[key] === null
-      )
-      expect(missing).toEqual([])
+      expect(await workItems.getRowCount()).toBe(1)
+      await workItems.openFirstListedWorkItem()
+      // RA-486: each ORS now renders as a collapsed-by-default <details> —
+      // expand so nested interim-site content is readable by the assertions
+      // below.
+      await detail.expandAllOverseasSiteDetails()
+      // RA-603 (AC10b): each interim site now has its OWN collapsed <details>
+      // nested inside its ORS, so expanding the ORS is no longer enough. A
+      // collapsed field yields '' from getText(), which reads as missing data
+      // rather than hidden data.
+      await detail.expandAllInterimSiteDetails()
     })
 
-    it('displays the correct interim values', async () => {
-      const site = INTERIM.NEW
-      const values = await detail.blockFields('interimSite', site.name, [
-        'interim-site-site-number',
-        'interim-site-address',
-        'interim-site-contact-name',
-        'interim-site-contact-email',
-        'interim-site-contact-phone'
-      ])
-      expect(values['interim-site-site-number']).toBe(site.siteNumber)
-      expect(values['interim-site-contact-name']).toBe(site.contactName)
-      expect(values['interim-site-contact-email']).toBe(site.contactEmail)
-      expect(values['interim-site-contact-phone']).toBe(site.contactPhone)
-
-      // Full string, for the same reason as the ORS address: a segment dropped
-      // from a comma-joined line is invisible to any substring check. The
-      // interim wire shape carries stateOrRegion and postcode where the ORS
-      // shape has neither, so this is six segments rather than four — and the
-      // two extra ones are the likeliest to be lost.
-      expect(values['interim-site-address']).toBe(site.fullAddress)
+    after(async () => {
+      await login.logout()
     })
 
-    it('displays the established interim site independently', async () => {
-      // The established interim site has no addressLine2 in the seed, which
-      // is the case a naive address join renders as "8 Speicherstrasse, ,
-      // Bremen". Asserting on the composed string is what catches that.
-      const site = INTERIM.ESTABLISHED
-      const values = await detail.blockFields('interimSite', site.name, [
-        'interim-site-site-number',
-        'interim-site-address',
-        'interim-site-contact-name'
-      ])
-      expect(values['interim-site-site-number']).toBe(site.siteNumber)
-      expect(values['interim-site-contact-name']).toBe(site.contactName)
+    describe('AC04 — interim site data', () => {
+      it('displays every interim data point for the new interim site', async () => {
+        const values = await detail.blockFields(
+          'interimSite',
+          INTERIM.NEW.name,
+          INTERIM_DETAIL_FIELDS
+        )
+        const missing = INTERIM_DETAIL_FIELDS.filter(
+          (key) => values[key] === null
+        )
+        expect(missing).toEqual([])
+      })
 
-      // Bremen has no addressLine2, which is the case a naive join renders as
-      // "8 Speicherstrasse, , Bremen". The empty-segment guard is kept
-      // alongside the equality check rather than replaced by it: equality says
-      // WHAT is wrong, `', ,'` says WHY, and on a six-segment string that
-      // distinction is worth one extra line.
-      expect(values['interim-site-address']).not.toContain(', ,')
-      expect(values['interim-site-address']).toBe(site.fullAddress)
+      it('displays the correct interim values', async () => {
+        const site = INTERIM.NEW
+        const values = await detail.blockFields('interimSite', site.name, [
+          'interim-site-site-number',
+          'interim-site-address',
+          'interim-site-contact-name',
+          'interim-site-contact-email',
+          'interim-site-contact-phone'
+        ])
+        expect(values['interim-site-site-number']).toBe(site.siteNumber)
+        expect(values['interim-site-contact-name']).toBe(site.contactName)
+        expect(values['interim-site-contact-email']).toBe(site.contactEmail)
+        expect(values['interim-site-contact-phone']).toBe(site.contactPhone)
+
+        // Full string, for the same reason as the ORS address: a segment dropped
+        // from a comma-joined line is invisible to any substring check. The
+        // interim wire shape carries stateOrRegion and postcode where the ORS
+        // shape has neither, so this is six segments rather than four — and the
+        // two extra ones are the likeliest to be lost.
+        expect(values['interim-site-address']).toBe(site.fullAddress)
+      })
+
+      it('displays the established interim site independently', async () => {
+        // The established interim site has no addressLine2 in the seed, which
+        // is the case a naive address join renders as "8 Speicherstrasse, ,
+        // Bremen". Asserting on the composed string is what catches that.
+        const site = INTERIM.ESTABLISHED
+        const values = await detail.blockFields('interimSite', site.name, [
+          'interim-site-site-number',
+          'interim-site-address',
+          'interim-site-contact-name'
+        ])
+        expect(values['interim-site-site-number']).toBe(site.siteNumber)
+        expect(values['interim-site-contact-name']).toBe(site.contactName)
+
+        // Bremen has no addressLine2, which is the case a naive join renders as
+        // "8 Speicherstrasse, , Bremen". The empty-segment guard is kept
+        // alongside the equality check rather than replaced by it: equality says
+        // WHAT is wrong, `', ,'` says WHY, and on a six-segment string that
+        // distinction is worth one extra line.
+        expect(values['interim-site-address']).not.toContain(', ,')
+        expect(values['interim-site-address']).toBe(site.fullAddress)
+      })
+
+      it('RA-486: shows recycling operation codes on the interim site itself', async () => {
+        // Antwerp seeds an ARRAY (['R12', 'R3']) and Bremen a bare STRING
+        // ('R13') — see ra-292-seed.js. `interim-site-operation-code` is a
+        // single `<dd>` holding one `<p>` per value (siteDetails() in
+        // detail.njk), so blockFieldText's single getText() already reads
+        // every line; asserted with toContain rather than an exact multi-line
+        // match, matching this file's own wasteCodes precedent, because the
+        // exact join format between lines is markup detail this suite is not
+        // entitled to pin.
+        const antwerp = await detail.blockFieldText(
+          'interimSite',
+          INTERIM.NEW.name,
+          'interim-site-operation-code'
+        )
+        for (const code of INTERIM.NEW.operationCode) {
+          expect(antwerp).toContain(code)
+        }
+
+        const bremen = await detail.blockFieldText(
+          'interimSite',
+          INTERIM.ESTABLISHED.name,
+          'interim-site-operation-code'
+        )
+        expect(bremen).toContain(INTERIM.ESTABLISHED.operationCode)
+      })
+
+      it('RA-486: interim recycling operation codes are display-only, no edit control', async () => {
+        // The plan is explicit that interim-site codes gain NO edit capability
+        // on the regulator side (unlike the ORS's own codes, which the
+        // Recycling operations tab's "Change" link can edit) — this asserts
+        // the negative directly rather than merely by omission, so a future
+        // edit affordance added inside the interim block is caught here even
+        // if no other RA-486 spec happens to look at this block.
+        const interim = await detail.flaggedBlockNamed(
+          'interimSite',
+          INTERIM.NEW.name
+        )
+        const interactiveElements = await interim.$$(
+          'a, button, [data-testid*="change"], [data-testid*="edit"]'
+        )
+        expect([...interactiveElements]).toHaveLength(0)
+      })
+
+      it('renders each interim site under its own ORS site', async () => {
+        // AC04 says the interim detail must be "clearly displayed", and an
+        // interim site shown against the wrong ORS is worse than one not shown
+        // at all. The nesting is the only thing on the page that says which
+        // reprocessing site a holding site belongs to.
+        const rotterdam = await detail.flaggedBlockNamed(
+          'overseasSite',
+          ORS.NEW.name
+        )
+        await expect(
+          rotterdam.$('[data-testid="interim-site-name"]')
+        ).toHaveText(expect.stringContaining(INTERIM.NEW.name))
+
+        const hamburg = await detail.flaggedBlockNamed(
+          'overseasSite',
+          ORS.ESTABLISHED.name
+        )
+        await expect(hamburg.$('[data-testid="interim-site-name"]')).toHaveText(
+          expect.stringContaining(INTERIM.ESTABLISHED.name)
+        )
+      })
     })
 
-    it('RA-486: shows recycling operation codes on the interim site itself', async () => {
-      // Antwerp seeds an ARRAY (['R12', 'R3']) and Bremen a bare STRING
-      // ('R13') — see ra-292-seed.js. `interim-site-operation-code` is a
-      // single `<dd>` holding one `<p>` per value (siteDetails() in
-      // detail.njk), so blockFieldText's single getText() already reads
-      // every line; asserted with toContain rather than an exact multi-line
-      // match, matching this file's own wasteCodes precedent, because the
-      // exact join format between lines is markup detail this suite is not
-      // entitled to pin.
-      const antwerp = await detail.blockFieldText(
-        'interimSite',
-        INTERIM.NEW.name,
-        'interim-site-operation-code'
-      )
-      for (const code of INTERIM.NEW.operationCode) {
-        expect(antwerp).toContain(code)
-      }
+    describe('AC04 — authority-to-issue contacts', () => {
+      it('shows the contact detail for every authoriser, not just the new one', async () => {
+        // "I should see the authority-to-issue contacts if included" — all of
+        // them. The flag decides which are highlighted, not which are shown.
+        // The email is asserted alongside the name because the name alone is
+        // not a contact. AC04 asks for the "authority-to-issue contacts", and a
+        // regulator who has to go and look someone up has not been given one.
+        for (const authoriser of Object.values(AUTHORISERS)) {
+          const contact = await detail.flaggedBlockNamed(
+            'authorityToIssueContact',
+            authoriser.name
+          )
+          await expect(contact).toHaveText(
+            expect.stringContaining(authoriser.name)
+          )
+          await expect(contact).toHaveText(
+            expect.stringContaining(authoriser.email)
+          )
+        }
+      })
 
-      const bremen = await detail.blockFieldText(
-        'interimSite',
-        INTERIM.ESTABLISHED.name,
-        'interim-site-operation-code'
-      )
-      expect(bremen).toContain(INTERIM.ESTABLISHED.operationCode)
-    })
-
-    it('RA-486: interim recycling operation codes are display-only, no edit control', async () => {
-      // The plan is explicit that interim-site codes gain NO edit capability
-      // on the regulator side (unlike the ORS's own codes, which the
-      // Recycling operations tab's "Change" link can edit) — this asserts
-      // the negative directly rather than merely by omission, so a future
-      // edit affordance added inside the interim block is caught here even
-      // if no other RA-486 spec happens to look at this block.
-      const interim = await detail.flaggedBlockNamed(
-        'interimSite',
-        INTERIM.NEW.name
-      )
-      const interactiveElements = await interim.$$(
-        'a, button, [data-testid*="change"], [data-testid*="edit"]'
-      )
-      expect([...interactiveElements]).toHaveLength(0)
-    })
-
-    it('renders each interim site under its own ORS site', async () => {
-      // AC04 says the interim detail must be "clearly displayed", and an
-      // interim site shown against the wrong ORS is worse than one not shown
-      // at all. The nesting is the only thing on the page that says which
-      // reprocessing site a holding site belongs to.
-      const rotterdam = await detail.flaggedBlockNamed(
-        'overseasSite',
-        ORS.NEW.name
-      )
-      await expect(rotterdam.$('[data-testid="interim-site-name"]')).toHaveText(
-        expect.stringContaining(INTERIM.NEW.name)
-      )
-
-      const hamburg = await detail.flaggedBlockNamed(
-        'overseasSite',
-        ORS.ESTABLISHED.name
-      )
-      await expect(hamburg.$('[data-testid="interim-site-name"]')).toHaveText(
-        expect.stringContaining(INTERIM.ESTABLISHED.name)
-      )
-    })
-  })
-
-  describe('AC04 — authority-to-issue contacts', () => {
-    it('shows the contact detail for every authoriser, not just the new one', async () => {
-      // "I should see the authority-to-issue contacts if included" — all of
-      // them. The flag decides which are highlighted, not which are shown.
-      // The email is asserted alongside the name because the name alone is
-      // not a contact. AC04 asks for the "authority-to-issue contacts", and a
-      // regulator who has to go and look someone up has not been given one.
-      for (const authoriser of Object.values(AUTHORISERS)) {
+      it('shows an email address against the new authoriser', async () => {
         const contact = await detail.flaggedBlockNamed(
           'authorityToIssueContact',
-          authoriser.name
+          AUTHORISERS.NEW.name
         )
         await expect(contact).toHaveText(
-          expect.stringContaining(authoriser.name)
+          expect.stringContaining(AUTHORISERS.NEW.email)
         )
-        await expect(contact).toHaveText(
-          expect.stringContaining(authoriser.email)
+      })
+    })
+
+    describe('AC04 — the page as a whole', () => {
+      it('renders no value as [object Object] or undefined', async () => {
+        // RA-292 adds template code that reaches into nested site objects.
+        // Nunjucks stringifies rather than throwing, so this class of bug ships
+        // as a 200 that looks fine until someone reads it.
+        await detail.assertNoUnrenderedValues()
+      })
+
+      it('keeps the pre-existing application information rows intact', async () => {
+        for (const key of [
+          'site-address',
+          'type',
+          'material',
+          'prn-tonnage',
+          'prn-authorisers',
+          'authority-to-issue',
+          'ors'
+        ]) {
+          expect(await detail.hasApplicationDetailRow(key)).toBe(true)
+        }
+      })
+
+      it('keeps the AC-prescribed row order', async () => {
+        // RA-295 fixed this order and RA-292 edits the same template. Reordering
+        // it as a side effect of adding site markup is a silent regression of
+        // another story's AC.
+        const order = await detail.applicationDetailRowOrder()
+        expect(order.indexOf('bes')).toBeLessThan(order.indexOf('ors'))
+        expect(order.indexOf('business-plan')).toBeLessThan(
+          order.indexOf('bes')
         )
-      }
+      })
     })
-
-    it('shows an email address against the new authoriser', async () => {
-      const contact = await detail.flaggedBlockNamed(
-        'authorityToIssueContact',
-        AUTHORISERS.NEW.name
-      )
-      await expect(contact).toHaveText(
-        expect.stringContaining(AUTHORISERS.NEW.email)
-      )
-    })
-  })
-
-  describe('AC04 — the page as a whole', () => {
-    it('renders no value as [object Object] or undefined', async () => {
-      // RA-292 adds template code that reaches into nested site objects.
-      // Nunjucks stringifies rather than throwing, so this class of bug ships
-      // as a 200 that looks fine until someone reads it.
-      await detail.assertNoUnrenderedValues()
-    })
-
-    it('keeps the pre-existing application information rows intact', async () => {
-      for (const key of [
-        'site-address',
-        'type',
-        'material',
-        'prn-tonnage',
-        'prn-authorisers',
-        'authority-to-issue',
-        'ors'
-      ]) {
-        expect(await detail.hasApplicationDetailRow(key)).toBe(true)
-      }
-    })
-
-    it('keeps the AC-prescribed row order', async () => {
-      // RA-295 fixed this order and RA-292 edits the same template. Reordering
-      // it as a side effect of adding site markup is a silent regression of
-      // another story's AC.
-      const order = await detail.applicationDetailRowOrder()
-      expect(order.indexOf('bes')).toBeLessThan(order.indexOf('ors'))
-      expect(order.indexOf('business-plan')).toBeLessThan(order.indexOf('bes'))
-    })
-  })
-})
+  }
+)
 
 /**
  * RA-292 access guards.
@@ -245,7 +251,7 @@ describe('RA-292: access to the new site data', () => {
     await expect($('h1=Stub Login')).toBeDisplayed()
   })
 
-  describe('as the read-only support user', () => {
+  describeOnComposeStack('as the read-only support user', () => {
     before(async () => {
       // RA-335: the support user sees case data but can take no action on it.
       // The new site detail is case data, so it must be visible — a guard

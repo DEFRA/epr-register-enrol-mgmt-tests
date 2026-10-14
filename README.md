@@ -91,6 +91,34 @@ and perf-test. Everywhere else it is skipped: locally and in the compose/GitHub
 runs management-fe has no Entra ID configured, so the button isn't rendered,
 and on dev it goes to real Entra ID.
 
+### Specs that only run against the compose stack
+
+Some specs can only pass against the docker-compose stack, never against the
+real services deployed on CDP. They are gated on `COMPOSE_STACK=true` through
+`test/support/compose-stack.js` (`describeOnComposeStack` /
+`itOnComposeStack`), at the narrowest `describe` or `it` that needs it, and
+are reported as skipped everywhere else. They depend on one of:
+
+- **(a) seeded fixtures.** These are management-be's `ReAccreditationSeeder`
+  items, which management-be seeds only on a Development host with
+  `WorkItems:SeedOnStartup` (see `test/support/ra-*-seed.js`), and the legacy
+  item that `docker/scripts/mongodb/` inserts.
+- **(b) direct calls to management-be** at `MANAGEMENT_BE_URL`. These simulate
+  the operator's resubmission and withdrawal (`test/support/query-resubmission.js`,
+  `test/support/operator-withdrawal.js`). On CDP that host isn't reachable from
+  the test run.
+- **(c) the operator backend stub** at `OPERATOR_BACKEND_STUB_URL`
+  (`test/support/operator-backend-stub.js`, `docker/stubs/`). Compose runs it in
+  place of the real Registration & Accreditation service backend.
+
+`wdio.github.conf.js` sets `COMPOSE_STACK=true`, so the GitHub compose runs
+(this repo's `check-pull-request.yml` and the `run-journey-tests` action that
+management-be and management-fe call) run every gated spec. The monorepo's root
+`compose.yml` sets it on its `mgmt-tests` service, which runs `npm test`. CDP
+doesn't set it, so `npm test` there skips them. To run the gated specs locally
+against a compose stack, export `COMPOSE_STACK=true` (plus `MANAGEMENT_BE_URL`
+and `OPERATOR_BACKEND_STUB_URL` if they aren't on their localhost defaults).
+
 ## Requirements of CDP Environment Tests
 
 1. Your service builds as a docker container using the `.github/workflows/publish.yml`

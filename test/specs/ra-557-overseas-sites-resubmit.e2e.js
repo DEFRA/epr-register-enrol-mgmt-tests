@@ -8,6 +8,7 @@ import {
 } from '../support/query-resubmission.js'
 import { dulyMake } from '../support/re-accreditation-journey.js'
 import { RA557_OVERSEAS_SITES_RESUBMIT_ORG_NAME } from '../support/ra-557-seed.js'
+import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-557 — Overseas reprocessing sites (ORS) removal not reflected on the
@@ -65,80 +66,83 @@ const siteB = {
   country: 'Germany'
 }
 
-describe('RA-557 Overseas reprocessing sites reflect a query resubmit', () => {
-  let workItemId
+describeOnComposeStack(
+  'RA-557 Overseas reprocessing sites reflect a query resubmit',
+  () => {
+    let workItemId
 
-  before(async () => {
-    await login.login()
-    // A bare landing defaults to assigned-to-me (RA-299), which would hide
-    // this unassigned seeded item — reset to an explicit empty filter so
-    // the search is not implicitly assignee-scoped (same discipline as
-    // ra-483-removed-overseas-site-hidden.e2e.js).
-    await workItems.resetFilters()
-    await workItems.searchByOrgName(RA557_OVERSEAS_SITES_RESUBMIT_ORG_NAME)
-    // Bounding check: prove exactly one row matched before trusting "first"
-    // to mean "the seeded fixture".
-    expect(await workItems.getRowCount()).toBe(1)
-    workItemId = await workItems.firstResultWorkItemId()
-  })
-
-  after(async () => {
-    await login.logout()
-  })
-
-  it('shows no overseas sites before any resubmission', async () => {
-    await workItems.openWorkItem(workItemId)
-    expect(await detail.overseasSiteCount()).toBe(0)
-  })
-
-  it('reflects an added overseas site after a resubmission', async () => {
-    await raiseQueryViaApi(workItemId, {
-      sections: ['overseas-reprocessing-sites'],
-      reason: 'Please provide the overseas reprocessing site details.'
-    })
-    await workItems.openWorkItem(workItemId)
-    await detail.assertState('Queried')
-
-    await resumeFromQuery(workItemId, {
-      sectionKeys: ['overseas-reprocessing-sites'],
-      sections: {
-        OverseasSites: { sites: [siteA, siteB] }
-      }
+    before(async () => {
+      await login.login()
+      // A bare landing defaults to assigned-to-me (RA-299), which would hide
+      // this unassigned seeded item — reset to an explicit empty filter so
+      // the search is not implicitly assignee-scoped (same discipline as
+      // ra-483-removed-overseas-site-hidden.e2e.js).
+      await workItems.resetFilters()
+      await workItems.searchByOrgName(RA557_OVERSEAS_SITES_RESUBMIT_ORG_NAME)
+      // Bounding check: prove exactly one row matched before trusting "first"
+      // to mean "the seeded fixture".
+      expect(await workItems.getRowCount()).toBe(1)
+      workItemId = await workItems.firstResultWorkItemId()
     })
 
-    await workItems.openWorkItem(workItemId)
-    expect(await detail.overseasSiteCount()).toBe(2)
-    expect(await detail.overseasSiteNames()).toEqual([
-      siteA.siteName,
-      siteB.siteName
-    ])
-  })
-
-  it('reflects a removed overseas site after a second query and resubmission', async () => {
-    // Advance to duly-made so a second query (query-during-duly-made) is
-    // available — the app allows only one open query per lifecycle stage.
-    await dulyMake(workItemId)
-
-    await raiseQueryViaApi(workItemId, {
-      sections: ['overseas-reprocessing-sites'],
-      reason:
-        'Please confirm one of the overseas reprocessing sites has closed.'
-    })
-    await workItems.openWorkItem(workItemId)
-    await detail.assertState('Queried')
-
-    // The operator resubmits with siteB removed. Before the RA-557 fix, this
-    // landed only in payload.latestSections and payload.overseasSites.sites
-    // stayed stale at [siteA, siteB].
-    await resumeFromQuery(workItemId, {
-      sectionKeys: ['overseas-reprocessing-sites'],
-      sections: {
-        OverseasSites: { sites: [siteA] }
-      }
+    after(async () => {
+      await login.logout()
     })
 
-    await workItems.openWorkItem(workItemId)
-    expect(await detail.overseasSiteCount()).toBe(1)
-    expect(await detail.overseasSiteNames()).toEqual([siteA.siteName])
-  })
-})
+    it('shows no overseas sites before any resubmission', async () => {
+      await workItems.openWorkItem(workItemId)
+      expect(await detail.overseasSiteCount()).toBe(0)
+    })
+
+    it('reflects an added overseas site after a resubmission', async () => {
+      await raiseQueryViaApi(workItemId, {
+        sections: ['overseas-reprocessing-sites'],
+        reason: 'Please provide the overseas reprocessing site details.'
+      })
+      await workItems.openWorkItem(workItemId)
+      await detail.assertState('Queried')
+
+      await resumeFromQuery(workItemId, {
+        sectionKeys: ['overseas-reprocessing-sites'],
+        sections: {
+          OverseasSites: { sites: [siteA, siteB] }
+        }
+      })
+
+      await workItems.openWorkItem(workItemId)
+      expect(await detail.overseasSiteCount()).toBe(2)
+      expect(await detail.overseasSiteNames()).toEqual([
+        siteA.siteName,
+        siteB.siteName
+      ])
+    })
+
+    it('reflects a removed overseas site after a second query and resubmission', async () => {
+      // Advance to duly-made so a second query (query-during-duly-made) is
+      // available — the app allows only one open query per lifecycle stage.
+      await dulyMake(workItemId)
+
+      await raiseQueryViaApi(workItemId, {
+        sections: ['overseas-reprocessing-sites'],
+        reason:
+          'Please confirm one of the overseas reprocessing sites has closed.'
+      })
+      await workItems.openWorkItem(workItemId)
+      await detail.assertState('Queried')
+
+      // The operator resubmits with siteB removed. Before the RA-557 fix, this
+      // landed only in payload.latestSections and payload.overseasSites.sites
+      // stayed stale at [siteA, siteB].
+      await resumeFromQuery(workItemId, {
+        sectionKeys: ['overseas-reprocessing-sites'],
+        sections: {
+          OverseasSites: { sites: [siteA] }
+        }
+      })
+
+      await workItems.openWorkItem(workItemId)
+      expect(await detail.overseasSiteCount()).toBe(1)
+      expect(await detail.overseasSiteNames()).toEqual([siteA.siteName])
+    })
+  }
+)

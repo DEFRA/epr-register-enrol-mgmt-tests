@@ -6,6 +6,7 @@ import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
 import notFound, {
   UNKNOWN_WORK_ITEM_ID
 } from '../page-objects/work-item-not-found.page.js'
+import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-358 — Case Management service: Withdrawn work items error message.
@@ -39,97 +40,100 @@ import notFound, {
  * stay correct if the format moves again.
  */
 describe('RA-358 — withdrawn work item message and not-found page', () => {
-  describe('AC1 — the detail page of a withdrawn work item', () => {
-    let workItemId
-    let applicationReference
+  describeOnComposeStack(
+    'AC1 — the detail page of a withdrawn work item',
+    () => {
+      let workItemId
+      let applicationReference
 
-    before(async () => {
-      await login.login()
-      await workItems.goto()
-      ;({ id: workItemId, applicationReference } =
-        await workItems.createWorkItem({
-          organisationName: 'Withdrawn Message Ltd',
-          siteAddressLine1: '1 Withdrawn Way',
-          siteAddressTown: 'London',
-          material: 'plastic',
-          tonnageBand: '0-500'
-        }))
+      before(async () => {
+        await login.login()
+        await workItems.goto()
+        ;({ id: workItemId, applicationReference } =
+          await workItems.createWorkItem({
+            organisationName: 'Withdrawn Message Ltd',
+            siteAddressLine1: '1 Withdrawn Way',
+            siteAddressTown: 'London',
+            material: 'plastic',
+            tonnageBand: '0-500'
+          }))
 
-      // Withdraw as the operator (RA-317 removed the Case Management service withdraw affordance),
-      // then open the item: the AC is about what a regulator sees AFTER an
-      // application is withdrawn — which is exactly AC03, an operator
-      // withdrawal surfacing in case management — and the suite has no shared
-      // withdrawn fixture to reuse (every withdrawal spec creates its own
-      // item, because the list hides terminal states and a shared one could
-      // not be found again).
-      await withdrawAsOperatorOrThrow(
-        workItemId,
-        'Withdrawn by the operator (test fixture)'
-      )
-      await workItems.openWorkItem(workItemId)
-      await detail.assertState('Withdrawn')
-    })
+        // Withdraw as the operator (RA-317 removed the Case Management service withdraw affordance),
+        // then open the item: the AC is about what a regulator sees AFTER an
+        // application is withdrawn — which is exactly AC03, an operator
+        // withdrawal surfacing in case management — and the suite has no shared
+        // withdrawn fixture to reuse (every withdrawal spec creates its own
+        // item, because the list hides terminal states and a shared one could
+        // not be found again).
+        await withdrawAsOperatorOrThrow(
+          workItemId,
+          'Withdrawn by the operator (test fixture)'
+        )
+        await workItems.openWorkItem(workItemId)
+        await detail.assertState('Withdrawn')
+      })
 
-    after(async () => {
-      await login.logout()
-    })
+      after(async () => {
+        await login.logout()
+      })
 
-    beforeEach(async () => {
-      // Each assertion re-opens the page: several of these navigate away
-      // (audit log, confirmation route) and the AC is specifically about what
-      // is on screen when you ARRIVE at a withdrawn item's detail page.
-      await workItems.openWorkItem(workItemId)
-      await workItems.waitForDetailPage()
-    })
+      beforeEach(async () => {
+        // Each assertion re-opens the page: several of these navigate away
+        // (audit log, confirmation route) and the AC is specifically about what
+        // is on screen when you ARRIVE at a withdrawn item's detail page.
+        await workItems.openWorkItem(workItemId)
+        await workItems.waitForDetailPage()
+      })
 
-    it('states prominently that the application has been withdrawn', async () => {
-      await detail.assertWithdrawnNotice()
-      // Worded in application terms, not "this work item is in a final state".
-      await expect(detail.withdrawnNotice()).toHaveText(/application/i)
-    })
+      it('states prominently that the application has been withdrawn', async () => {
+        await detail.assertWithdrawnNotice()
+        // Worded in application terms, not "this work item is in a final state".
+        await expect(detail.withdrawnNotice()).toHaveText(/application/i)
+      })
 
-    it('names the case by its application reference, not the work item id', async () => {
-      await detail.assertWithdrawnNoticeIdentifiedBy(
-        applicationReference,
-        workItemId
-      )
-    })
+      it('names the case by its application reference, not the work item id', async () => {
+        await detail.assertWithdrawnNoticeIdentifiedBy(
+          applicationReference,
+          workItemId
+        )
+      })
 
-    it('does not present the work item id as the page identity', async () => {
-      // The case header IS the page identity post-RA-295 (see RA-196), so the
-      // GUID must not be what it shows. The "Work item ID" summary row lower
-      // down deliberately still carries the GUID for debugging, which is why
-      // this is scoped to the identity rather than the whole page body.
-      const caption = await detail.getCaption()
-      expect(caption).toBe(applicationReference)
-      expect(caption).not.toContain(workItemId)
-    })
+      it('does not present the work item id as the page identity', async () => {
+        // The case header IS the page identity post-RA-295 (see RA-196), so the
+        // GUID must not be what it shows. The "Work item ID" summary row lower
+        // down deliberately still carries the GUID for debugging, which is why
+        // this is scoped to the identity rather than the whole page body.
+        const caption = await detail.getCaption()
+        expect(caption).toBe(applicationReference)
+        expect(caption).not.toContain(workItemId)
+      })
 
-    it('still serves the withdrawn item rather than 404ing', async () => {
-      // Guards the investigation finding that withdrawal is a state
-      // transition, not a delete: if the backend ever started filtering
-      // terminal states out of GET /work-items/{id}, AC1 would silently
-      // become untestable and the user would get AC2's page instead.
-      expect(await detail.hasCaseHeader()).toBe(true)
-      expect(await notFound.body().isExisting()).toBe(false)
-    })
+      it('still serves the withdrawn item rather than 404ing', async () => {
+        // Guards the investigation finding that withdrawal is a state
+        // transition, not a delete: if the backend ever started filtering
+        // terminal states out of GET /work-items/{id}, AC1 would silently
+        // become untestable and the user would get AC2's page instead.
+        expect(await detail.hasCaseHeader()).toBe(true)
+        expect(await notFound.body().isExisting()).toBe(false)
+      })
 
-    // RA-249 degradation: a withdrawn item with no application reference must
-    // fall back to unqualified copy ("This application has been withdrawn…")
-    // and omit the reference element entirely, rather than naming the case by
-    // its GUID. Not reachable from the browser — management-be generates a
-    // reference on creation and the UI offers no way to make one without,
-    // so there is no journey that produces such an item. Skipped rather than
-    // faked; covered at unit level by management-fe's withdrawn-notice tests.
-    it.skip('degrades to unqualified copy when the case has no application reference', async () => {})
+      // RA-249 degradation: a withdrawn item with no application reference must
+      // fall back to unqualified copy ("This application has been withdrawn…")
+      // and omit the reference element entirely, rather than naming the case by
+      // its GUID. Not reachable from the browser — management-be generates a
+      // reference on creation and the UI offers no way to make one without,
+      // so there is no journey that produces such an item. Skipped rather than
+      // faked; covered at unit level by management-fe's withdrawn-notice tests.
+      it.skip('degrades to unqualified copy when the case has no application reference', async () => {})
 
-    it('keeps the withdrawn message on the page after a reload', async () => {
-      // The message must be a property of the item's state, not a one-shot
-      // flash banner left over from the withdraw POST redirect.
-      await browser.refresh()
-      await detail.assertWithdrawnNotice()
-    })
-  })
+      it('keeps the withdrawn message on the page after a reload', async () => {
+        // The message must be a property of the item's state, not a one-shot
+        // flash banner left over from the withdraw POST redirect.
+        await browser.refresh()
+        await detail.assertWithdrawnNotice()
+      })
+    }
+  )
 
   describe('AC2 — the not-found page for an unknown work item id', () => {
     const unknownId = UNKNOWN_WORK_ITEM_ID

@@ -3,6 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import { ORG_NAME, ORS, INTERIM } from '../support/ra-292-seed.js'
+import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-469 / RA-486: the "Recycling operations" tab.
@@ -40,7 +41,7 @@ import { ORG_NAME, ORS, INTERIM } from '../support/ra-292-seed.js'
  * environment until that backend work lands, same as every other field
  * added there ahead of the backend.
  */
-describe('RA-469 / RA-486: Recycling operations tab', () => {
+describeOnComposeStack('RA-469 / RA-486: Recycling operations tab', () => {
   before(async () => {
     await login.login()
     // RA-299: a bare landing defaults to assigned-to-me, and this seed item
