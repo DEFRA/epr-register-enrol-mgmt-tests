@@ -51,7 +51,6 @@ describe('RA-358 — withdrawn work item message and not-found page', () => {
           organisationName: 'Withdrawn Message Ltd',
           siteAddressLine1: '1 Withdrawn Way',
           siteAddressTown: 'London',
-          siteAddressPostcode: 'SW1A 1AP',
           material: 'plastic',
           tonnageBand: '0-500'
         }))

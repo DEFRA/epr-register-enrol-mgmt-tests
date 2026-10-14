@@ -7,7 +7,6 @@ import query, {
   EXPORTER_ONLY_QUERY_SECTIONS
 } from '../page-objects/query.page.js'
 import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
-import { uniquePostcode } from '../support/unique-postcode.js'
 
 /**
  * RA-291 — Query an application.
@@ -25,30 +24,14 @@ import { uniquePostcode } from '../support/unique-postcode.js'
 
 const uniqueOrg = (label) => `${label} ${Date.now()}`
 
-/**
- * Create a Submitted application to query.
- *
- * `postcode` defaults to a freshly-generated, collision-safe one (see
- * `support/unique-postcode.js`). RA-448 phase 2 made operatorOrganisationId
- * a required create-form field, but every UI-created work item that doesn't
- * override it gets the same demo value ('500001') — so it adds no
- * discriminating entropy to ApplicationReferenceGenerator's derived
- * reference, which still effectively comes down to site postcode and
- * material alone. Items sharing both still exhaust the collision-retry
- * budget and the submission fails, which is why this no longer takes a
- * hand-picked literal.
- */
-const createSubmittedWorkItem = async (
-  organisationName,
-  postcode = uniquePostcode()
-) => {
+/** Create a Submitted application to query. */
+const createSubmittedWorkItem = async (organisationName) => {
   await workItems.goto()
   return (
     await workItems.createWorkItem({
       organisationName,
       siteAddressLine1: '1 Query Street',
       siteAddressTown: 'London',
-      siteAddressPostcode: postcode,
       material: 'plastic',
       tonnageBand: '0-500'
     })

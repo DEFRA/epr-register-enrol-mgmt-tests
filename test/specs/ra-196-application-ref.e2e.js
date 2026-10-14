@@ -25,7 +25,6 @@ describe('RA-196 — application reference shown instead of internal id', () => 
       organisationName: 'Reference Recyclers Ltd',
       siteAddressLine1: '1 Reference Way',
       siteAddressTown: 'Bristol',
-      siteAddressPostcode: 'BS1 1AA',
       material: 'aluminium',
       tonnageBand: '0-500'
     }))

@@ -34,13 +34,12 @@ import detail from '../page-objects/work-item-detail.page.js'
 
 const token = `Defaults${Date.now()}`
 
-const createItem = (organisationName, postcode) =>
+const createItem = (organisationName) =>
   workItems.goto().then(() =>
     workItems.createWorkItem({
       organisationName,
       siteAddressLine1: '1 Defaults Way',
       siteAddressTown: 'London',
-      siteAddressPostcode: postcode,
       material: 'plastic',
       tonnageBand: '0-500'
     })
@@ -88,8 +87,8 @@ describe('RA-299 — default sort, default assignee, session persistence', () =>
 
     before(async () => {
       await login.login()
-      mine = await createItem(`${token} Mine`, 'SW1A 9AE')
-      other = await createItem(`${token} Other`, 'SW1A 9AF')
+      mine = await createItem(`${token} Mine`)
+      other = await createItem(`${token} Other`)
       // Self-assign `mine` to the signed-in user so the default-assignee
       // filter has something concrete to include; `other` is left
       // unassigned so it has something concrete to exclude.
@@ -151,7 +150,7 @@ describe('RA-299 — default sort, default assignee, session persistence', () =>
 
     before(async () => {
       await login.login()
-      item = await createItem(`${token} Session`, 'SW1A 9AG')
+      item = await createItem(`${token} Session`)
       // Self-assign: a bare landing pre-checks the AC08 "mine" assignee
       // default, and searchByOrg below submits the whole form (including
       // that pre-checked radio) — an unassigned item would be excluded by

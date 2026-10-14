@@ -29,13 +29,12 @@ import workItems from '../page-objects/work-items.page.js'
 
 const token = `AppType${Date.now()}`
 
-const createItem = (organisationName, postcode, material) =>
+const createItem = (organisationName, material) =>
   workItems.goto().then(() =>
     workItems.createWorkItem({
       organisationName,
       siteAddressLine1: '1 Application Type Way',
       siteAddressTown: 'London',
-      siteAddressPostcode: postcode,
       material,
       tonnageBand: '0-500'
     })
@@ -47,8 +46,8 @@ describe('RA-299 — Application type filter and Glass material split', () => {
 
   before(async () => {
     await login.login()
-    glassItem = await createItem(`${token} Glass`, 'SW1A 9AC', 'glass')
-    plasticItem = await createItem(`${token} Plastic`, 'SW1A 9AD', 'plastic')
+    glassItem = await createItem(`${token} Glass`, 'glass')
+    plasticItem = await createItem(`${token} Plastic`, 'plastic')
   })
 
   after(async () => {

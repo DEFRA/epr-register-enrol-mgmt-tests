@@ -4,7 +4,6 @@ import detail from '../page-objects/work-item-detail.page.js'
 import dulyMaking from '../page-objects/duly-making.page.js'
 import decision from '../page-objects/decision.page.js'
 import { utcDateParts } from './uk-time.js'
-import { uniquePostcode } from './unique-postcode.js'
 
 /**
  * Shared re-accreditation journey steps.
@@ -45,34 +44,8 @@ import { uniquePostcode } from './unique-postcode.js'
 /**
  * Create a re-accreditation work item and return its id.
  *
- * `postcode` is OPTIONAL and defaults to a freshly-generated, collision-safe
- * one (see `unique-postcode.js`) — omit it unless the spec specifically
- * needs a particular nation/agency (Scotland/Wales/NI routing, say), in
- * which case pass a real postcode with that outward code and let the suffix
- * still be auto-generated: `uniquePostcode('EH1')`.
- *
- * `material` is fixed to `plastic` below.
- *
- * Why the postcode matters at all: the RA-318 application reference is
- * built from (accreditation year, agency code, operatorOrganisationId, LAST
- * 3 postcode characters, FIRST 2 material characters), and at most 5 work
- * items can EVER share one such tuple — management-be's generator
- * disambiguates with a retry loop producing `'0' + attempt % 10`, capped at
- * 5 attempts, then fails PERMANENTLY with "Failed to generate a unique
- * applicationReference after 5 attempts". No retry clears that once hit.
- *
- * This used to be the caller's problem: pick a postcode whose last 3
- * characters no other spec in the suite was already using for `plastic`,
- * coordinated by hand via comments. That didn't survive wdio's own
- * spec-file retries (a retry re-runs `before()`, calling this again with
- * the same hardcoded postcode — burning another slot from the very tuple
- * that may be why the first attempt was flaky) or a mongo volume that
- * outlives one run (local dev; any environment that skips `docker compose
- * down -v`) — "a clean database passes and a reused one fails" was a
- * symptom of hand-picked, non-random postcodes accumulating collisions
- * across runs, not of the mechanism itself. Letting every caller draw a
- * fresh random suffix removes the bookkeeping instead of trying to do it
- * more carefully.
+ * `material` is fixed to `plastic` below. The site postcode is left to
+ * `createWorkItem`'s collision-safe default (see `unique-postcode.js`).
  *
  * `chargeAmountPence` (RA-316) is optional and passed straight through.
  *
@@ -91,7 +64,6 @@ import { uniquePostcode } from './unique-postcode.js'
  */
 export async function createReAccreditation(
   namePrefix,
-  postcode = uniquePostcode(),
   { chargeAmountPence } = {}
 ) {
   await workItems.goto()
@@ -99,7 +71,6 @@ export async function createReAccreditation(
     organisationName: `${namePrefix} ${Date.now()}`,
     siteAddressLine1: '1 Decision Street',
     siteAddressTown: 'London',
-    siteAddressPostcode: postcode,
     material: 'plastic',
     tonnageBand: '0-500',
     chargeAmountPence

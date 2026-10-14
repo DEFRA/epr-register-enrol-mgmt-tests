@@ -29,7 +29,6 @@ describe('RA-186 — payload lives in the submitted audit entry', () => {
       organisationName,
       siteAddressLine1: '186 Audit Lane',
       siteAddressTown: 'Bristol',
-      siteAddressPostcode: 'BS1 1RA',
       material: 'plastic',
       tonnageBand: '0-500'
     }))

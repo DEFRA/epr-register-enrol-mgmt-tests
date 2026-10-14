@@ -70,6 +70,27 @@ You can check the progress of the build under the actions section of this reposi
 
 The results of the test run are made available in the portal.
 
+### How the specs log in
+
+Almost every spec logs in through management-fe's built-in **Stub Login**
+page (`/auth/regulator/login`, `test/page-objects/login.page.js`): the
+"Log in" button for a caseworker (optionally with a nation role) or "Sign in
+as support user". That page is enabled (`AUTH_STUB_ENABLED=true`) locally, in
+the compose/GitHub runs and on CDP test and perf-test, so those specs run the
+same everywhere. Nation personas exist only on the built-in stub, so specs
+that need them stay on it.
+
+On CDP **test** and **perf-test** the Stub Login page also shows "Sign in with
+Entra ID", which goes to the **Entra ID stub**
+([epr-register-enrol-entra-stub](https://github.com/DEFRA/epr-register-enrol-entra-stub))
+instead of real Entra ID. `test/specs/ra-537-entra-stub-login.e2e.js` logs in
+that way, as the stub's personas (listed in
+`test/page-objects/entra-stub-login.page.js`, password `pass`). It runs only
+when `ENTRA_STUB_LOGIN=true`, which cdp-app-config sets for this suite on test
+and perf-test. Everywhere else it is skipped: locally and in the compose/GitHub
+runs management-fe has no Entra ID configured, so the button isn't rendered,
+and on dev it goes to real Entra ID.
+
 ## Requirements of CDP Environment Tests
 
 1. Your service builds as a docker container using the `.github/workflows/publish.yml`

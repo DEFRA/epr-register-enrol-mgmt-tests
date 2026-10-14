@@ -6,7 +6,6 @@ import query, {
   EXPORTER_ONLY_QUERY_SECTIONS,
   REPROCESSOR_QUERY_SECTIONS
 } from '../page-objects/query.page.js'
-import { uniquePostcode } from '../support/unique-postcode.js'
 
 /**
  * RA-367 — hide the exporter-only query areas for reprocessor applications.
@@ -44,27 +43,14 @@ import { uniquePostcode } from '../support/unique-postcode.js'
 
 const uniqueOrg = (label) => `${label} ${Date.now()}`
 
-/**
- * Create a Submitted (reprocessor) application to query.
- *
- * Mirrors RA-291's helper, including the per-caller postcode: every UI-created
- * work item that doesn't override operatorOrganisationId gets the same demo
- * value ('500001', RA-448 phase 2's required field), so it adds no
- * discriminating entropy to the reference generator's output — collision
- * avoidance still rests on site postcode and material alone, and items
- * sharing both exhaust its collision-retry budget and the submission fails.
- */
-const createReprocessorWorkItem = async (
-  organisationName,
-  postcode = uniquePostcode()
-) => {
+/** Create a Submitted (reprocessor) application to query. Mirrors RA-291's helper. */
+const createReprocessorWorkItem = async (organisationName) => {
   await workItems.goto()
   return (
     await workItems.createWorkItem({
       organisationName,
       siteAddressLine1: '1 Query Areas Street',
       siteAddressTown: 'London',
-      siteAddressPostcode: postcode,
       material: 'plastic',
       tonnageBand: '0-500'
     })

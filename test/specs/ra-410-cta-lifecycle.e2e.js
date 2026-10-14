@@ -51,9 +51,7 @@ describe('RA-410 The green CTA lifecycle', () => {
     let workItemId
 
     before(async () => {
-      // The postcode must be unique across the whole suite — see
-      // `createReAccreditation`. `SW1A 1AK` is unused elsewhere.
-      workItemId = await createReAccreditation('CTA Happy Path', 'SW1A 1AK')
+      workItemId = await createReAccreditation('CTA Happy Path')
     })
 
     it('starts in submitted, offering only the Duly make CTA', async () => {
@@ -184,8 +182,7 @@ describe('RA-410 The green CTA lifecycle', () => {
     let workItemId
 
     before(async () => {
-      // `SW1A 1AW` is unused elsewhere — see `createReAccreditation`.
-      workItemId = await createReAccreditation('CTA Refused Path', 'SW1A 1AW')
+      workItemId = await createReAccreditation('CTA Refused Path')
       await driveToAssessmentInProgress(workItemId)
     })
 
@@ -222,8 +219,7 @@ describe('RA-410 The green CTA lifecycle', () => {
     let submittedId
 
     before(async () => {
-      // `SW1A 1AX` is unused elsewhere — see `createReAccreditation`.
-      submittedId = await createReAccreditation('CTA Self Assign', 'SW1A 1AX')
+      submittedId = await createReAccreditation('CTA Self Assign')
     })
 
     it('assigns from submitted without changing state', async () => {

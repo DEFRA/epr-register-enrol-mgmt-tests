@@ -77,7 +77,6 @@ describe('RA-306 sign out of the service', () => {
       organisationName: 'Sign Out Ltd',
       siteAddressLine1: '1 Session Street',
       siteAddressTown: 'London',
-      siteAddressPostcode: 'SW1A 3AA',
       material: 'plastic',
       tonnageBand: '0-500'
     })

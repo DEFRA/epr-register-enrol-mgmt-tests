@@ -1,5 +1,6 @@
 import { $, $$, browser, expect } from '@wdio/globals'
 import { Page } from './page.js'
+import { formatUkHeaderDate } from '../support/uk-time.js'
 
 /** The test-id attribute, and the CSS selector that matches any element carrying it. */
 const TESTID_ATTR = 'data-testid'
@@ -45,11 +46,16 @@ function toXPathString(value) {
 }
 
 /**
- * RA-295 (AC01). The eight things the case header must carry, mapped to the
+ * RA-295 (AC01). The things the case header must carry, mapped to the
  * `data-testid` that surfaces each one. Exported so a spec asserts against the
  * same single source of truth the page object reads, rather than a second
  * hand-kept copy — and so a markup rename is a one-line change here rather
  * than a sweep through the specs.
+ *
+ * RA-493 adds `paymentDate` and `paymentAmount`. They render on EVERY item —
+ * reading "Not received" (PAYMENT_NOT_RECEIVED) until the item is duly made —
+ * so they belong in this always-present contract, and the RA-295 presence and
+ * responsive sweeps that iterate it now cover them too.
  */
 export const CASE_HEADER_FIELDS = {
   applicationsLink: 'case-header-applications-link',
@@ -60,8 +66,17 @@ export const CASE_HEADER_FIELDS = {
   status: 'case-header-status',
   assignedTo: 'case-header-assigned-to',
   dueOn: 'case-header-due-on',
-  registrationNumber: 'case-header-registration-number'
+  registrationNumber: 'case-header-registration-number',
+  paymentDate: 'case-header-payment-date',
+  paymentAmount: 'case-header-payment-amount'
 }
+
+/**
+ * RA-493 (AC04). What both payment header items read before the application
+ * is duly made. Exported so the RA-295 placeholder sweep can recognise it as
+ * the legitimate pre-duly-made value rather than treating it as real data.
+ */
+export const PAYMENT_NOT_RECEIVED = 'Not received'
 
 /**
  * RA-295 (AC02). The application information rows, in the exact order the AC
@@ -188,11 +203,29 @@ class WorkItemDetailPage extends Page {
    * affordance AC03 is actually about.
    */
   async assignTo(userId) {
-    await this.assignmentControl('reassign').click()
-    await $('[data-testid="assign-form"]').waitForDisplayed()
+    await this.openAssignForm()
     await $('[data-testid="assign-select"]').selectByAttribute('value', userId)
     await $('[data-testid="assign-submit"]').click()
     await this.waitForDetailUrl()
+  }
+
+  /**
+   * Follow "Reassign the application" onto the assign interstitial and wait
+   * for its picker, without choosing anyone. assignTo() above builds on it;
+   * RA-537 uses it alone to inspect who the picker offers.
+   */
+  async openAssignForm() {
+    await this.assignmentControl('reassign').click()
+    await $('[data-testid="assign-form"]').waitForDisplayed()
+  }
+
+  /**
+   * RA-537. The assignee picker's option for a user, matched on the display
+   * name it shows (a partial match, so it holds whether or not the option
+   * also carries an email). Only meaningful after openAssignForm().
+   */
+  assigneeOption(displayName) {
+    return $('[data-testid="assign-select"]').$(`option*=${displayName}`)
   }
 
   /**
@@ -716,6 +749,22 @@ class WorkItemDetailPage extends Page {
    * `.govuk-details__text` body, where WebdriverIO's getText() reads as ""
    * until expanded. Mirrors expandAllAuditEntryDetails() above.
    */
+  /**
+   * RA-603 AC10b: each interim site now folds down on its own, nested inside
+   * its parent ORS's disclosure. Expand the ORS disclosures FIRST - a nested
+   * <details> inside a collapsed parent is not interactable - then expand
+   * every interim one so the assertions below can read its detail rows.
+   */
+  async expandAllInterimSiteDetails() {
+    const disclosures = await $$('[data-testid="interim-site"]')
+    for (const disclosure of disclosures) {
+      const isOpen = await disclosure.getAttribute('open')
+      if (isOpen === null) {
+        await disclosure.$('.govuk-details__summary').click()
+      }
+    }
+  }
+
   async expandAllOverseasSiteDetails() {
     const disclosures = await $$('[data-testid="overseas-site"]')
     for (const disclosure of disclosures) {
@@ -782,6 +831,50 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * The Application history headings (the bold `actionDisplayName`) for a
+   * backend `action`, in DOM order.
+   *
+   * Reads only the heading rather than the whole `<li>`, because the entry's
+   * "Show details" disclosure carries backend-shaped values — the
+   * notification template key `SlaExtended` among them — which are not user
+   * copy. Scanning those would fail a wording assertion for a reason that has
+   * nothing to do with the content. The `data-action` attribute is likewise
+   * out of reach of `getText()`, so the deliberately-unchanged `sla-extended`
+   * action value cannot trip the caller either.
+   */
+  async auditEntryHeadings(action) {
+    const headings = await $$(
+      `//*[@data-testid="work-item-audit-log"]//li[@data-action=${toXPathString(
+        action
+      )}]//strong`
+    )
+    const texts = []
+    for (const heading of headings) {
+      texts.push(await heading.getText())
+    }
+    return texts
+  }
+
+  /**
+   * RA-572 (AC02), backend slice. Every Application history heading for
+   * `action` describes a CHANGE, with no surviving "extend"/"extended" prose.
+   *
+   * Asserts at least one such entry exists first: against a history that
+   * never gained the entry the absence would hold vacuously, which is exactly
+   * how a wording regression would hide. Callers must drive the action on a
+   * work item the spec itself created — management-be deliberately does not
+   * backfill historical rows, so an item created before the change
+   * legitimately still reads "Determination deadline extended".
+   */
+  async assertNoStaleDeadlineWordingInHistory(action) {
+    const headings = await this.auditEntryHeadings(action)
+    expect(headings.length).toBeGreaterThan(0)
+    for (const heading of headings) {
+      expect(heading).not.toMatch(/extend/i)
+    }
+  }
+
+  /**
    * Like `auditEntriesForAction`, but polls for the entry count to reach
    * `count` rather than checking once. Some pushes are deferred onto a
    * background task queue (e.g. RA-519's status-changed push, RA-368) and
@@ -805,7 +898,7 @@ class WorkItemDetailPage extends Page {
    * The audit entries for `action` whose "Notification type" detail row matches
    * `template` (e.g. "OfficerAssignment"). A work item carries several
    * notifications sharing one action — submit alone records both the operator
-   * SubmissionConfirmation and the RA-240 RegulatorSubmission — so counting by
+   * SubmissionConfirmation and the regulator OperatorApplicationSubmission (RA-240, renamed by RA-581) — so counting by
    * action conflates them; count by template to pin an assertion to the
    * notification actually under test. Callers must
    * `expandAllAuditEntryDetails()` first so the detail rows are present.
@@ -842,28 +935,120 @@ class WorkItemDetailPage extends Page {
    *
    * A work item usually carries several notifications sharing one action —
    * submit alone records both the operator SubmissionConfirmation and the
-   * regulator RegulatorSubmission as `notification-sent`. Where the assertion
+   * regulator OperatorApplicationSubmission as `notification-sent`. Where the assertion
    * is about one specific template, use
    * `assertNotificationDetailRowForTemplate` instead so a row belonging to a
    * different template cannot satisfy it.
    */
   async assertNotificationDetailRow(action, key, valueSubstring) {
+    await this.assertAuditDetailRow(action, key, valueSubstring)
+  }
+
+  /**
+   * The XPath of the `<dd>` of the detail row whose `<dt>` is exactly `key`,
+   * on an audit entry for `action`, whose value contains `valueSubstring`.
+   *
+   * The substring predicate sits on the `<dd>` rather than on the `<li>` so a
+   * work item carrying SEVERAL entries for the same action (e.g. two
+   * determination-deadline changes) is disambiguated by the row's own content
+   * — no reliance on the audit log's newest-first/oldest-first ordering, which
+   * is management-fe's to decide and not something these specs should pin.
+   *
+   * Action, key and substring are all XPath-escaped via toXPathString so
+   * values containing quotes cannot corrupt the locator.
+   */
+  auditDetailRowValueXPath(action, key, valueSubstring) {
     const entry = toXPathString(action)
     const dt = toXPathString(key)
     const needle = toXPathString(valueSubstring)
+    return (
+      `//*[@data-testid="work-item-audit-log"]//li[@data-action=${entry}]` +
+      `//dt[normalize-space(.)=${dt}]/following-sibling::dd[contains(.,${needle})]`
+    )
+  }
+
+  /**
+   * Assert an audit entry for `action` surfaces a detail row keyed exactly
+   * `key` whose value contains `valueSubstring`.
+   *
+   * The general form of `assertNotificationDetailRow` (which now delegates
+   * here): the detail-row mechanism is not specific to notifications —
+   * management-fe's `detailRowsForAuditEntry` projects rows for many actions,
+   * including the `sla-extended` "Reason for change" row.
+   *
+   * Detail rows live inside the entry's "Show details" disclosure, so callers
+   * must `expandAllAuditEntryDetails()` first.
+   */
+  async assertAuditDetailRow(action, key, valueSubstring) {
     await expect(
-      $(
-        `//*[@data-testid="work-item-audit-log"]//li[@data-action=${entry}]` +
-          `//dt[normalize-space(.)=${dt}]/following-sibling::dd[contains(.,${needle})]`
-      )
+      $(this.auditDetailRowValueXPath(action, key, valueSubstring))
     ).toBeDisplayed()
+  }
+
+  /**
+   * Assert an audit entry for `action` carries a detail row for each of
+   * `keys` — the KEYS only, with nothing asserted about their values.
+   *
+   * For rows whose value is management-fe's to format (a GDS-formatted date,
+   * an actor's display name), the presence of the row is the part a spec can
+   * usefully pin: the exact rendering is content design's to tune, while a row
+   * silently disappearing is a regression. Each row in
+   * `detailRowsForAuditEntry` is individually guarded on its source data, so a
+   * projection change that drops one is invisible without this.
+   *
+   * Callers must `expandAllAuditEntryDetails()` first.
+   */
+  async assertAuditDetailRowKeys(action, keys) {
+    const entry = toXPathString(action)
+    for (const key of keys) {
+      const dt = toXPathString(key)
+      await expect(
+        $(
+          `//*[@data-testid="work-item-audit-log"]//li[@data-action=${entry}]` +
+            `//dt[normalize-space(.)=${dt}]`
+        )
+      ).toBeDisplayed()
+    }
+  }
+
+  /**
+   * The per-line paragraph texts of a MULTILINE audit detail row, identified
+   * by `action` + `key` + a substring of its value.
+   *
+   * management-fe renders a row flagged `multiline` as one
+   * `<p class="govuk-body">` per line inside the `<dd>` (see audit-log.njk),
+   * rather than as a single run-on string. Returning the paragraphs lets a
+   * spec assert the line structure itself, which `getText()` on the `<dd>`
+   * cannot distinguish from a run-on line reliably.
+   *
+   * Each paragraph is trimmed: a browser normalises a `<textarea>`'s line
+   * breaks to CRLF on form submit (HTML spec), and the template splits on
+   * "\n", so every line but the last can carry a trailing carriage return
+   * that is invisible to a regulator and is not what the assertion is about.
+   *
+   * Callers must `expandAllAuditEntryDetails()` first.
+   *
+   * The spread before `.map` is load-bearing, not style. WebdriverIO 9 gives
+   * an awaited `$$` its OWN `.map`, which resolves internally and returns a
+   * single promise rather than the array of promises `Promise.all` needs —
+   * passing it straight through throws "object is not iterable". Spreading
+   * first yields a real array, so `Array.prototype.map` applies. Same shape as
+   * `cardRefOrder`/`paginationHrefs` in work-items.page.js.
+   */
+  async auditDetailRowParagraphs(action, key, valueSubstring) {
+    const paragraphs = await $$(
+      `${this.auditDetailRowValueXPath(action, key, valueSubstring)}/p`
+    )
+    return Promise.all(
+      [...paragraphs].map(async (p) => (await p.getText()).trim())
+    )
   }
 
   /**
    * As `assertNotificationDetailRow`, but additionally scoped to the audit
    * entry whose "Notification type" row is `template`. Required whenever the
    * asserted value is not unique to the template under test — e.g. the England
-   * regulator mailbox is the recipient of both RegulatorSubmission (fired on
+   * regulator mailbox is the recipient of both OperatorApplicationSubmission (fired on
    * submit) and OfficerAssignment, so an unscoped Recipient assertion would
    * pass on the submit entry alone and could never fail.
    */
@@ -955,7 +1140,7 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * Whether the header's "Due on" carries a real date rather than the em-dash
+   * Whether the header's "Due date" carries a real date rather than the em-dash
    * "no value" fallback.
    *
    * RA-295 replaces the old SLA tracker badge with this absolute due date, so
@@ -969,6 +1154,73 @@ class WorkItemDetailPage extends Page {
     }
     const text = (await this.caseHeaderFieldText('dueOn')).trim()
     return text !== '' && text !== '—'
+  }
+
+  /**
+   * RA-601. Assert the case header's "Due date" shows the given calendar date.
+   *
+   * WHY THIS TOLERATES ONE DAY EITHER SIDE. management-fe derives the change
+   * from the whole-UTC-day gap between the item's current due date and the
+   * date submitted; management-be applies that gap to the existing
+   * `slaDueDate`, whose TIME component neither touches. So the result is the
+   * submitted calendar day in UTC carried at the fixture clock's original
+   * time of day — and this header renders in Europe/London. A fixture whose
+   * due time sits in the first or last hour of the UTC day therefore renders
+   * as the neighbouring London day through BST. The specs calling this do not
+   * control that time component (the clock is stamped by `dulyMake` from the
+   * payment date), so pinning a single string would be a once-a-year flake
+   * for a difference no AC cares about.
+   *
+   * The regressions this exists to catch — "the deadline did not move at
+   * all", "it moved to the backend's default target duration instead", "it
+   * came back as an em dash" — are all months or years wide, so a one-day
+   * allowance costs them nothing. Extracted from ra-295-case-header.e2e.js,
+   * which had it inline, when RA-601 gave it a second and third caller.
+   */
+  async assertCaseHeaderDueOn(date) {
+    const dayBefore = new Date(date.getTime())
+    dayBefore.setDate(dayBefore.getDate() - 1)
+    const dayAfter = new Date(date.getTime())
+    dayAfter.setDate(dayAfter.getDate() + 1)
+
+    const acceptable = [dayBefore, date, dayAfter].map(formatUkHeaderDate)
+    const rendered = (await this.caseHeaderFieldText('dueOn')).trim()
+
+    // Thrown rather than asserted through `expect(bool).toBe(true)`: the
+    // boolean form reports only "false is not true", which for a date that
+    // came back a year wrong tells whoever is reading the CI log nothing.
+    // expect-webdriverio takes no custom-message argument, so naming both
+    // sides means raising the error here.
+    if (!acceptable.some((candidate) => rendered.includes(candidate))) {
+      throw new Error(
+        `Expected the case header "Due date" to show one of ` +
+          `${acceptable.join(' / ')}, but it showed "${rendered}"`
+      )
+    }
+  }
+
+  /**
+   * RA-601. Wait for the header's "Due date" to stop showing `previous`.
+   *
+   * The change-deadline flow PRGs back to this page, so by the time the
+   * detail URL is reached the new value is already rendered — but the item
+   * is re-read from management-be on that request, and polling rather than
+   * asserting once keeps a slow backend read from reading as a lost update.
+   * Returns the new text so callers can report what it actually became.
+   */
+  async waitForDueOnToChangeFrom(previous) {
+    let current = previous
+    await browser.waitUntil(
+      async () => {
+        current = (await this.caseHeaderFieldText('dueOn')).trim()
+        return current !== previous
+      },
+      {
+        timeout: 10000,
+        timeoutMsg: `Expected the case header "Due date" to change from "${previous}"`
+      }
+    )
+    return current
   }
 
   /**

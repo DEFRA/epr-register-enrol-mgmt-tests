@@ -8,12 +8,11 @@ import {
   dulyMake,
   startAssessment
 } from '../support/re-accreditation-journey.js'
-import { uniquePostcode } from '../support/unique-postcode.js'
 import {
   farFutureDeadline,
   farFutureDeadlineDate
 } from '../support/sla-extend-date.js'
-import { formatUkDateGds } from '../support/uk-time.js'
+import { formatUkHeaderDate } from '../support/uk-time.js'
 
 /**
  * RA-572 — Case Management service: hide the "Override" function and reword
@@ -64,13 +63,7 @@ describe('RA-572 Override retired, Change is the single deadline route', () => {
 
   before(async () => {
     await login.login()
-    // uniquePostcode() gives a per-run-unique suffix (SW1A outward keeps the
-    // England + plastic fixture routing) so repeat or parallel runs never
-    // collide on the same seeded item.
-    workItemId = await createReAccreditation(
-      'RA572 Change Deadline Ltd',
-      uniquePostcode()
-    )
+    workItemId = await createReAccreditation('RA572 Change Deadline Ltd')
 
     // Start the SLA clock (dulyMake, from the payment date) then reach
     // assessment, where the due date can be changed.
@@ -226,11 +219,32 @@ describe('RA-572 Override retired, Change is the single deadline route', () => {
       // go stale, and the form rejects anything not after the current due
       // date.
       await expect(detail.caseHeaderField('dueOn')).toHaveText(
-        expect.stringContaining(formatUkDateGds(farFutureDeadlineDate()))
+        expect.stringContaining(formatUkHeaderDate(farFutureDeadlineDate()))
       )
 
       // A due-date change is not a transition — the item has not moved state.
       await detail.assertState('Updated')
+    })
+
+    // AC02 is not only the form's own copy: the change the regulator just
+    // made is written into the Application history, and that heading is
+    // composed in management-be, which RA-572 had no slice for. QA found the
+    // tab still reading "Determination deadline extended" after the rest of
+    // the journey had been reworded — the one place a regulator still saw the
+    // retired terminology. Runs after the change above because that change IS
+    // the entry under test.
+    it('records the change in the Application history as a CHANGE, not an extension', async () => {
+      await detail.gotoAudit()
+
+      // The stored action value `sla-extended` is deliberately unchanged, so
+      // the entry is still located by it — only the display string moved.
+      expect(await detail.auditEntryHeadings('sla-extended')).toContain(
+        'Determination deadline changed'
+      )
+
+      // ...and no "extend"/"extending"/"extended" prose survives in any
+      // heading for that action.
+      await detail.assertNoStaleDeadlineWordingInHistory('sla-extended')
     })
   })
 })

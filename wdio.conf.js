@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { seedCookieConsentOnNavigation } from './test/support/cookie-consent.js'
 
 const oneMinute = 60 * 1000
 
@@ -147,7 +148,10 @@ export const config = {
    * @param {Array.<String>} specs        List of spec file paths that are to be run
    * @param {object}         browser      instance of created browser/device session
    */
-  // before: function (capabilities, specs) {},
+  // Answer the cookie banner up front so it doesn't sit over every journey.
+  before: function () {
+    seedCookieConsentOnNavigation(browser)
+  },
   /**
    * Runs before a WebdriverIO command gets executed.
    * @param {string} commandName hook command name

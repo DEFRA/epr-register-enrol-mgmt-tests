@@ -32,6 +32,11 @@ describe('RA-292: interim site detail, authority-to-issue contacts and access', 
     // expand so nested interim-site content is readable by the assertions
     // below.
     await detail.expandAllOverseasSiteDetails()
+    // RA-603 (AC10b): each interim site now has its OWN collapsed <details>
+    // nested inside its ORS, so expanding the ORS is no longer enough. A
+    // collapsed field yields '' from getText(), which reads as missing data
+    // rather than hidden data.
+    await detail.expandAllInterimSiteDetails()
   })
 
   after(async () => {

@@ -10,7 +10,7 @@ import login from '../page-objects/login.page.js'
  *  - the session that just signed in sees a "you are signed in elsewhere"
  *    notice
  *  - the session that was already active is NOT signed out
- *  - the notice can be dismissed
+ *  - the notice can be dismissed by its button or the Escape key
  *
  * The exact alert-vs-info variant, the "a newer sign-in was detected" wording
  * and dismissal persistence are covered by concurrent-login.test.js in
@@ -66,5 +66,14 @@ describe('RA-462 concurrent-login notification', () => {
     await expect($(NOTICE)).toBeDisplayed()
     await $('[data-testid="session-notice-dismiss"]').click()
     await expect($(NOTICE)).not.toBeDisplayed()
+  })
+
+  it('RA-631: pressing Escape removes the JavaScript-enhanced notice', async () => {
+    await expect($(NOTICE)).toBeDisplayed()
+    await expect($(NOTICE)).toHaveElementClass('app-session-notice--toast')
+
+    await browser.keys('Escape')
+
+    await expect($(NOTICE)).not.toExist()
   })
 })

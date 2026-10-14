@@ -35,7 +35,6 @@ describe('RA-450 Application History Org ID shows the operator org id', () => {
       organisationName: 'RA-450 Org ID Ltd',
       siteAddressLine1: '1 History Road',
       siteAddressTown: 'Manchester',
-      siteAddressPostcode: 'M1 1AA',
       material: 'glass',
       tonnageBand: '0-500'
     })
