@@ -61,7 +61,7 @@ describe('RA-622 connected management access', () => {
       await expect($('[data-testid="add-ors-state"]')).toHaveText('Withdrawn')
     }
     await browser.url(
-      '/work-items?filtersApplied=1&assigneeMode=any&applicationType=add-overseas-site'
+      `/work-items?filtersApplied=1&assigneeMode=any&applicationType=add-overseas-site&search=${encodeURIComponent(receipt.caseId)}`
     )
     await expect(
       $('input[name="applicationType"][value="add-overseas-site"]')

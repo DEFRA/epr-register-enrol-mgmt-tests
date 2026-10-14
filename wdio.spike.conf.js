@@ -9,7 +9,13 @@ export const config = {
         port: Number(process.env.CHROMEDRIVER_PORT)
       }
     : {}),
-  specs: ['./test/specs/ra-622-management-access.e2e.js'],
+  specs: [
+    ['durability-capture', 'restart-readback'].includes(
+      process.env.RA_622_SPIKE_PHASE
+    )
+      ? './test/specs/ra-622-durability.e2e.js'
+      : './test/specs/ra-622-management-access.e2e.js'
+  ],
   capabilities: [
     {
       browserName: 'chrome',
