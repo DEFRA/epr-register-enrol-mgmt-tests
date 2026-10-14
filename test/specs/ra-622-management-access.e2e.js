@@ -79,8 +79,9 @@ describe('RA-622 connected management access', () => {
     expect(await detail.getAttribute('data-case-id')).toBe(receipt.caseId)
   })
 
-  it('starts assessment and sends the recorded refusal through the authenticated operator callback', async function () {
-    if (process.env.RA_622_SPIKE_PHASE !== 'refuse') {
+  it('starts assessment and sends the recorded decision through the authenticated operator callback', async function () {
+    const operation = process.env.RA_622_SPIKE_PHASE
+    if (!['refuse', 'approve'].includes(operation)) {
       this.skip()
     }
     const receipt = JSON.parse(
@@ -93,15 +94,18 @@ describe('RA-622 connected management access', () => {
       'Assessment in progress'
     )
     await expect($('[data-testid="add-ors-start-assessment"]')).not.toExist()
-    await expect($('[data-testid="add-ors-approve"]')).not.toExist()
+    await expect($('[data-testid="add-ors-approve"]')).toBeDisplayed()
     await browser.refresh()
-    await expect($('[data-testid="add-ors-refuse"]')).toBeDisplayed()
-    await $('[data-testid="add-ors-refuse"]').click()
-    await expect($('[data-testid="add-ors-state"]')).toHaveText('Refused')
+    await expect($(`[data-testid="add-ors-${operation}"]`)).toBeDisplayed()
+    await $(`[data-testid="add-ors-${operation}"]`).click()
+    await expect($('[data-testid="add-ors-state"]')).toHaveText(
+      operation === 'approve' ? 'Granted' : 'Refused'
+    )
     await expect(
       $('[data-testid="add-ors-delivery-confirmed"]')
     ).toBeDisplayed()
     await expect($('[data-testid="add-ors-refuse"]')).not.toExist()
+    await expect($('[data-testid="add-ors-approve"]')).not.toExist()
     await expect($('[data-testid="add-ors-retry-outcome"]')).not.toExist()
     await browser.refresh()
     await expect(
