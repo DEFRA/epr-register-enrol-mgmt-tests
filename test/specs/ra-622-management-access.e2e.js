@@ -37,6 +37,29 @@ describe('RA-622 connected management access', () => {
     const receipt = JSON.parse(
       await readFile(process.env.RA_622_SPIKE_RECEIPT_FILE, 'utf8')
     )
+    if (process.env.RA_622_SPIKE_PHASE === 'withdrawal-readback') {
+      const previous = receipt.withdrawnRequest
+      expect(previous.caseId).not.toBe(receipt.caseId)
+      await browser.url(`/work-items/${previous.caseId}`)
+      const closed = $('[data-testid="add-ors-detail"]')
+      await expect($('[data-testid="add-ors-state"]')).toHaveText('Withdrawn')
+      expect(await closed.getAttribute('data-request-id')).toBe(
+        previous.requestId
+      )
+      expect(await closed.getAttribute('data-site-id')).toBe(
+        previous.proposedSiteId
+      )
+      for (const action of [
+        'start-assessment',
+        'approve',
+        'refuse',
+        'retry-outcome'
+      ]) {
+        await expect($(`[data-testid="add-ors-${action}"]`)).not.toExist()
+      }
+      await browser.refresh()
+      await expect($('[data-testid="add-ors-state"]')).toHaveText('Withdrawn')
+    }
     await browser.url(
       '/work-items?filtersApplied=1&assigneeMode=any&applicationType=add-overseas-site'
     )
