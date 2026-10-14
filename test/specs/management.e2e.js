@@ -26,7 +26,6 @@ describe('Assign user journey', () => {
       organisationName: 'Alpha Recycling Ltd',
       siteAddressLine1: '10 Assign Street',
       siteAddressTown: 'Manchester',
-      siteAddressPostcode: 'M1 2AC',
       material: 'glass',
       tonnageBand: '0-500'
     }))
@@ -37,7 +36,6 @@ describe('Assign user journey', () => {
       organisationName: 'Beta Packaging Co',
       siteAddressLine1: '22 Progress Lane',
       siteAddressTown: 'Bristol',
-      siteAddressPostcode: 'BS1 2BB',
       material: 'plastic',
       tonnageBand: '500-5000'
     }))

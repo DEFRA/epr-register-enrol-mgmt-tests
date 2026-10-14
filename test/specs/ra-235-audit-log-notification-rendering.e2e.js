@@ -3,7 +3,6 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
-import { uniquePostcode } from '../support/unique-postcode.js'
 
 /**
  * RA-235 — E2E: audit-log notification rendering.
@@ -51,7 +50,6 @@ describe('RA-235 audit-log notification rendering', () => {
           organisationName: 'Audit Notify Render Ltd',
           siteAddressLine1: '235 Audit Way',
           siteAddressTown: 'London',
-          siteAddressPostcode: uniquePostcode(),
           material: 'plastic',
           tonnageBand: '0-500'
         })

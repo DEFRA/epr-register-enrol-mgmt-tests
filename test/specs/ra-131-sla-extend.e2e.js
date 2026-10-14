@@ -72,7 +72,6 @@ describe('RA-131 Change determination deadline', () => {
         organisationName: 'SLA Extend Test Ltd',
         siteAddressLine1: '1 Deadline Street',
         siteAddressTown: 'London',
-        siteAddressPostcode: 'SW1A 1AF',
         material: 'plastic',
         tonnageBand: '0-500'
       })

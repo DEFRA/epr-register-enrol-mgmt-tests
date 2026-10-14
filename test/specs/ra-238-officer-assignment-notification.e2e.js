@@ -76,7 +76,6 @@ describe('RA-238 officer-assignment notification outcomes', () => {
           organisationName: 'Officer Assign Notify Ltd',
           siteAddressLine1: '238 Assign Way',
           siteAddressTown: 'London',
-          siteAddressPostcode: uniquePostcode(),
           material: 'plastic',
           tonnageBand: '0-500',
           nation: 'England'

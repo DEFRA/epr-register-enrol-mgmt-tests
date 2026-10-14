@@ -2,7 +2,6 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import query from '../page-objects/query.page.js'
 import { startAssessment } from './re-accreditation-journey.js'
-import { uniquePostcode } from './unique-postcode.js'
 
 /**
  * RA-372 — driving the query → resubmission → continue-review lifecycle.
@@ -208,24 +207,13 @@ export function continueReviewViaApi(workItemId) {
   )
 }
 
-/**
- * Create a re-accreditation application, already open on its detail page.
- *
- * `postcode` is optional and defaults to a freshly-generated, collision-safe
- * one (see `unique-postcode.js`) — ApplicationReferenceGenerator derives the
- * reference from postcode and material, and items sharing both exhaust its
- * collision-retry budget, so avoid passing a fixed literal here.
- */
-export async function createApplication({
-  organisationName,
-  postcode = uniquePostcode()
-}) {
+/** Create a re-accreditation application, already open on its detail page. */
+export async function createApplication({ organisationName }) {
   await workItems.goto()
   const { id } = await workItems.createWorkItem({
     organisationName,
     siteAddressLine1: '1 Resubmission Row',
     siteAddressTown: 'London',
-    siteAddressPostcode: postcode,
     material: 'plastic',
     tonnageBand: '0-500'
   })

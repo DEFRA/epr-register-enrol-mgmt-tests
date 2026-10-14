@@ -36,7 +36,6 @@ describe('RA-316 duly making — payment date validation', () => {
     await login.login()
     workItemId = await createReAccreditation(
       'Duly Making Validation Ltd',
-      'SW1A 2DV',
       // £2,184.00 — distinct from every other RA-316 fixture on purpose.
       { chargeAmountPence: 218400 }
     )
@@ -146,7 +145,6 @@ describe('RA-316 duly making — payment date validation', () => {
       await login.login()
       backdatedId = await createReAccreditation(
         'Duly Making Backdated Ltd',
-        'SW1A 3DX',
         // £3,276.00
         { chargeAmountPence: 327600 }
       )
@@ -179,7 +177,6 @@ describe('RA-316 duly making — payment date validation', () => {
       await login.login()
       dulyMadeId = await createReAccreditation(
         'Duly Making Guard Ltd',
-        'SW1A 4DG',
         // £3,965.00 — the top bare band.
         { chargeAmountPence: 396500 }
       )

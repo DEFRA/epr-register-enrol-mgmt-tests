@@ -95,7 +95,6 @@ describe('RA-412 — Exporter applications are labelled correctly', () => {
         organisationName: `RA412 Reprocessor Control ${Date.now()}`,
         siteAddressLine1: '1 Applicant Type Way',
         siteAddressTown: 'London',
-        siteAddressPostcode: 'SW1A 9AF',
         material: 'plastic',
         tonnageBand: '0-500'
       }))

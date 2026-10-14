@@ -21,13 +21,12 @@ import { dulyMake } from '../support/re-accreditation-journey.js'
 
 const token = `AppFilters${Date.now()}`
 
-const createItem = (organisationName, postcode, material) =>
+const createItem = (organisationName, material) =>
   workItems.goto().then(() =>
     workItems.createWorkItem({
       organisationName,
       siteAddressLine1: '1 Filter Way',
       siteAddressTown: 'London',
-      siteAddressPostcode: postcode,
       material,
       tonnageBand: '0-500'
     })
@@ -56,9 +55,9 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
 
   before(async () => {
     await login.login()
-    dulyMade = await createItem(`${token} Glass`, 'SW1A 9AA', 'glass')
+    dulyMade = await createItem(`${token} Glass`, 'glass')
     await driveToDulyMade(dulyMade.id)
-    notStarted = await createItem(`${token} Plastic`, 'SW1A 9AB', 'plastic')
+    notStarted = await createItem(`${token} Plastic`, 'plastic')
   })
 
   after(async () => {

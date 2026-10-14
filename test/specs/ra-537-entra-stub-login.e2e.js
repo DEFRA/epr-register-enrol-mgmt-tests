@@ -6,7 +6,6 @@ import entraStubLogin, {
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import { isEntraStubLoginEnabled } from '../support/entra-stub-login.js'
-import { uniquePostcode } from '../support/unique-postcode.js'
 
 /**
  * RA-537 — log in to Case Management through the Entra ID stub.
@@ -141,7 +140,6 @@ describeIfEntraStub('RA-537 Entra ID stub login', () => {
         organisationName: 'Entra Stub Hybrid Ltd',
         siteAddressLine1: '1 Entra Street',
         siteAddressTown: 'London',
-        siteAddressPostcode: uniquePostcode(),
         material: 'plastic',
         tonnageBand: '0-500'
       }))

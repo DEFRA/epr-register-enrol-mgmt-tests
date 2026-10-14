@@ -41,12 +41,7 @@ describe('RA-346/RA-410 A determination can be logged only once', () => {
 
   before(async () => {
     await login.login()
-    // Distinct from the RA-346 submit-for-decision spec's postcode on
-    // purpose — see `createReAccreditation`. `SW1A 1AE` is unused elsewhere.
-    workItemId = await createReAccreditation(
-      'Approve Decision Gate',
-      'SW1A 1AE'
-    )
+    workItemId = await createReAccreditation('Approve Decision Gate')
     await driveToAssessmentInProgress(workItemId)
   })
 

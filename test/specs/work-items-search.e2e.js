@@ -24,7 +24,6 @@ describe('Applications list — organisation search', () => {
       organisationName: orgName,
       siteAddressLine1: '1 Search Street',
       siteAddressTown: 'Leeds',
-      siteAddressPostcode: 'LS1 2AJ',
       material: 'glass',
       tonnageBand: '0-500'
     }))

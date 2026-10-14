@@ -9,7 +9,6 @@ import {
   startAssessment
 } from '../support/re-accreditation-journey.js'
 import { raiseQuery } from '../support/query-resubmission.js'
-import { uniquePostcode } from '../support/unique-postcode.js'
 import { farFutureDeadline } from '../support/sla-extend-date.js'
 
 /**
@@ -54,13 +53,7 @@ describe('RA-351 Change the determination deadline from the queried state', () =
 
   before(async () => {
     await login.login()
-    // uniquePostcode() gives a per-run-unique suffix (SW1A outward keeps the
-    // England + plastic fixture routing) so repeat or parallel runs never
-    // collide on the same seeded item.
-    workItemId = await createReAccreditation(
-      'RA351 Queried SLA Ltd',
-      uniquePostcode()
-    )
+    workItemId = await createReAccreditation('RA351 Queried SLA Ltd')
 
     // Start the SLA clock (dulyMake, from the payment date) then reach
     // assessment, the last state before the query.

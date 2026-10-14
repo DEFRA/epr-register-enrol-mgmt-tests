@@ -7,7 +7,6 @@ import {
   dulyMake,
   startAssessment
 } from '../support/re-accreditation-journey.js'
-import { uniquePostcode } from '../support/unique-postcode.js'
 import { farFutureDeadline } from '../support/sla-extend-date.js'
 
 /**
@@ -42,7 +41,6 @@ describe('RA-581 Notify email reshape', () => {
         organisationName: 'RA-581 Notify Emails Ltd',
         siteAddressLine1: '581 Email Road',
         siteAddressTown: 'London',
-        siteAddressPostcode: uniquePostcode(),
         material: 'plastic',
         tonnageBand: '0-500',
         nation: 'England'

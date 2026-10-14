@@ -50,10 +50,8 @@ describe('RA-410 The OJ-gated decision fails atomically', () => {
 
   before(async () => {
     await login.login()
-    // `SW1A 1AO` is unused elsewhere — see `createReAccreditation`.
     workItemId = await createReAccreditation(
-      'CTA Registration & Accreditation service Failure',
-      'SW1A 1AO'
+      'CTA Registration & Accreditation service Failure'
     )
     await driveToAssessmentInProgress(workItemId)
   })

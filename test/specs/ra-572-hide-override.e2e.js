@@ -8,7 +8,6 @@ import {
   dulyMake,
   startAssessment
 } from '../support/re-accreditation-journey.js'
-import { uniquePostcode } from '../support/unique-postcode.js'
 import {
   farFutureDeadline,
   farFutureDeadlineDate
@@ -64,13 +63,7 @@ describe('RA-572 Override retired, Change is the single deadline route', () => {
 
   before(async () => {
     await login.login()
-    // uniquePostcode() gives a per-run-unique suffix (SW1A outward keeps the
-    // England + plastic fixture routing) so repeat or parallel runs never
-    // collide on the same seeded item.
-    workItemId = await createReAccreditation(
-      'RA572 Change Deadline Ltd',
-      uniquePostcode()
-    )
+    workItemId = await createReAccreditation('RA572 Change Deadline Ltd')
 
     // Start the SLA clock (dulyMake, from the payment date) then reach
     // assessment, where the due date can be changed.
