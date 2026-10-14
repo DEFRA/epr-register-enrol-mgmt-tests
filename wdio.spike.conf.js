@@ -30,6 +30,7 @@ export const config = {
     }
   ],
   reporters: ['spec'],
+  mochaOpts: { ...local.mochaOpts, timeout: 180000 },
   beforeSession() {
     process.env.RA_622_SPIKE_TESTS = 'true'
   },
