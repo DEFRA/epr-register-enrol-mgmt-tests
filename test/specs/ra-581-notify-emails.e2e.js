@@ -8,6 +8,7 @@ import {
   startAssessment
 } from '../support/re-accreditation-journey.js'
 import { farFutureDeadline } from '../support/sla-extend-date.js'
+import { itOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-581 — GOV.UK Notify email reshape, as observed through the audit log.
@@ -48,23 +49,34 @@ describe('RA-581 Notify email reshape', () => {
     ).id
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Not started')
+    // Duly made here rather than in the duly-made email test: that test is
+    // compose-only, and the assessment test below still needs a duly-made
+    // item wherever it runs.
+    await dulyMake(workItemId)
   })
 
   after(async () => {
     await login.logout()
   })
 
-  it('records distinct operator and regulator entries when the application is submitted', async () => {
-    await detail.gotoAudit()
-    await detail.assertAuditEntry('Operator submission confirmation email sent')
-    await detail.assertAuditEntry('Regulator submission email sent')
-  })
+  itOnComposeStack(
+    'records distinct operator and regulator entries when the application is submitted',
+    async () => {
+      await detail.gotoAudit()
+      await detail.assertAuditEntry(
+        'Operator submission confirmation email sent'
+      )
+      await detail.assertAuditEntry('Regulator submission email sent')
+    }
+  )
 
-  it('still emails the operator when the application is marked duly made', async () => {
-    await dulyMake(workItemId)
-    await detail.gotoAudit()
-    await detail.assertAuditEntry('Application marked duly made email sent')
-  })
+  itOnComposeStack(
+    'still emails the operator when the application is marked duly made',
+    async () => {
+      await detail.gotoAudit()
+      await detail.assertAuditEntry('Application marked duly made email sent')
+    }
+  )
 
   it('no longer emails anyone when assessment starts or the deadline changes', async () => {
     await startAssessment(workItemId)

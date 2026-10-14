@@ -3,6 +3,10 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import { uniquePostcode } from '../support/unique-postcode.js'
+import {
+  describeOnComposeStack,
+  itOnComposeStack
+} from '../support/compose-stack.js'
 
 /**
  * RA-238 — E2E: officer-assignment notification outcomes.
@@ -63,130 +67,133 @@ const ENGLAND_REGULATOR_MAILBOX = 'regulator-england@example.test'
 const OFFICER_ASSIGNMENT_TEMPLATE = 'OfficerAssignment'
 
 describe('RA-238 officer-assignment notification outcomes', () => {
-  describe('England work item — notification-sent to the regulator mailbox', () => {
-    let workItemId
+  describeOnComposeStack(
+    'England work item — notification-sent to the regulator mailbox',
+    () => {
+      let workItemId
 
-    before(async () => {
-      await login.login()
-      await workItems.goto()
-      // England is the only configured RegulatorMailboxes nation, so the
-      // assignment send resolves a recipient and succeeds.
-      workItemId = (
-        await workItems.createWorkItem({
-          organisationName: 'Officer Assign Notify Ltd',
-          siteAddressLine1: '238 Assign Way',
-          siteAddressTown: 'London',
-          material: 'plastic',
-          tonnageBand: '0-500',
-          nation: 'England'
-        })
-      ).id
-      await workItems.openWorkItem(workItemId)
-      await detail.assertUnassigned()
-    })
+      before(async () => {
+        await login.login()
+        await workItems.goto()
+        // England is the only configured RegulatorMailboxes nation, so the
+        // assignment send resolves a recipient and succeeds.
+        workItemId = (
+          await workItems.createWorkItem({
+            organisationName: 'Officer Assign Notify Ltd',
+            siteAddressLine1: '238 Assign Way',
+            siteAddressTown: 'London',
+            material: 'plastic',
+            tonnageBand: '0-500',
+            nation: 'England'
+          })
+        ).id
+        await workItems.openWorkItem(workItemId)
+        await detail.assertUnassigned()
+      })
 
-    after(async () => {
-      await login.logout()
-    })
+      after(async () => {
+        await login.logout()
+      })
 
-    it('records exactly one OfficerAssignment send when an officer is assigned', async () => {
-      await detail.assignTo('stub-caseworker-2')
-      await detail.assertAssignedTo('Stub Caseworker Two')
+      it('records exactly one OfficerAssignment send when an officer is assigned', async () => {
+        await detail.assignTo('stub-caseworker-2')
+        await detail.assertAssignedTo('Stub Caseworker Two')
 
-      await detail.gotoAudit()
-      await detail.expandAllAuditEntryDetails()
+        await detail.gotoAudit()
+        await detail.expandAllAuditEntryDetails()
 
-      // Counted by template, not by action: submit already recorded two
-      // notification-sent entries (the operator SubmissionConfirmation and the
-      // regulator OperatorApplicationSubmission (RA-240)), so counting all sends could never fail.
-      // An exact count also pins that assign sends once, not repeatedly.
-      const assignmentSends = await detail.notificationSentEntriesForTemplate(
-        OFFICER_ASSIGNMENT_TEMPLATE
-      )
-      expect(assignmentSends.length).toBe(1)
-    })
+        // Counted by template, not by action: submit already recorded two
+        // notification-sent entries (the operator SubmissionConfirmation and the
+        // regulator OperatorApplicationSubmission (RA-240)), so counting all sends could never fail.
+        // An exact count also pins that assign sends once, not repeatedly.
+        const assignmentSends = await detail.notificationSentEntriesForTemplate(
+          OFFICER_ASSIGNMENT_TEMPLATE
+        )
+        expect(assignmentSends.length).toBe(1)
+      })
 
-    it('addresses the assignment notification to the England regulator mailbox', async () => {
-      // Scoped to the OfficerAssignment entry: the regulator OperatorApplicationSubmission (RA-240, renamed by RA-581)
-      // fired on submit is addressed to this same mailbox, so an unscoped
-      // assertion would pass on that entry alone.
-      await detail.assertNotificationDetailRowForTemplate(
-        'notification-sent',
-        OFFICER_ASSIGNMENT_TEMPLATE,
-        'Recipient',
-        ENGLAND_REGULATOR_MAILBOX
-      )
-    })
+      it('addresses the assignment notification to the England regulator mailbox', async () => {
+        // Scoped to the OfficerAssignment entry: the regulator OperatorApplicationSubmission (RA-240, renamed by RA-581)
+        // fired on submit is addressed to this same mailbox, so an unscoped
+        // assertion would pass on that entry alone.
+        await detail.assertNotificationDetailRowForTemplate(
+          'notification-sent',
+          OFFICER_ASSIGNMENT_TEMPLATE,
+          'Recipient',
+          ENGLAND_REGULATOR_MAILBOX
+        )
+      })
 
-    it('routes the assignment notification via the England nation', async () => {
-      await detail.assertNotificationDetailRowForTemplate(
-        'notification-sent',
-        OFFICER_ASSIGNMENT_TEMPLATE,
-        'Nation',
-        'England'
-      )
-    })
+      it('routes the assignment notification via the England nation', async () => {
+        await detail.assertNotificationDetailRowForTemplate(
+          'notification-sent',
+          OFFICER_ASSIGNMENT_TEMPLATE,
+          'Nation',
+          'England'
+        )
+      })
 
-    it('stamps the application reference as the notification reference', async () => {
-      // RA-581: the regulator emails surface ((reference)) to the reader, so
-      // the send carries the human-facing application reference (the caption
-      // on the detail page), not the internal work item id.
-      await workItems.openWorkItem(workItemId)
-      const applicationReference = (await detail.getCaption())
-        .replace(/^Work items+/, '')
-        .trim()
-      expect(applicationReference).toMatch(/^AP[A-Z0-9]+$/)
+      it('stamps the application reference as the notification reference', async () => {
+        // RA-581: the regulator emails surface ((reference)) to the reader, so
+        // the send carries the human-facing application reference (the caption
+        // on the detail page), not the internal work item id.
+        await workItems.openWorkItem(workItemId)
+        const applicationReference = (await detail.getCaption())
+          .replace(/^Work items+/, '')
+          .trim()
+        expect(applicationReference).toMatch(/^AP[A-Z0-9]+$/)
 
-      await detail.gotoAudit()
-      await detail.expandAllAuditEntryDetails()
-      await detail.assertNotificationDetailRowForTemplate(
-        'notification-sent',
-        OFFICER_ASSIGNMENT_TEMPLATE,
-        'Reference',
-        applicationReference
-      )
-    })
+        await detail.gotoAudit()
+        await detail.expandAllAuditEntryDetails()
+        await detail.assertNotificationDetailRowForTemplate(
+          'notification-sent',
+          OFFICER_ASSIGNMENT_TEMPLATE,
+          'Reference',
+          applicationReference
+        )
+      })
 
-    it('records a second OfficerAssignment send when the officer is re-assigned', async () => {
-      await workItems.openWorkItem(workItemId)
-      await detail.assignTo('stub-caseworker-3')
-      await detail.assertAssignedTo('Stub Caseworker Three')
+      it('records a second OfficerAssignment send when the officer is re-assigned', async () => {
+        await workItems.openWorkItem(workItemId)
+        await detail.assignTo('stub-caseworker-3')
+        await detail.assertAssignedTo('Stub Caseworker Three')
 
-      await detail.gotoAudit()
-      await detail.expandAllAuditEntryDetails()
+        await detail.gotoAudit()
+        await detail.expandAllAuditEntryDetails()
 
-      const assignmentSends = await detail.notificationSentEntriesForTemplate(
-        OFFICER_ASSIGNMENT_TEMPLATE
-      )
-      expect(assignmentSends.length).toBe(2)
-      await detail.assertNotificationDetailRowForTemplate(
-        'notification-sent',
-        OFFICER_ASSIGNMENT_TEMPLATE,
-        'Recipient',
-        ENGLAND_REGULATOR_MAILBOX
-      )
-    })
+        const assignmentSends = await detail.notificationSentEntriesForTemplate(
+          OFFICER_ASSIGNMENT_TEMPLATE
+        )
+        expect(assignmentSends.length).toBe(2)
+        await detail.assertNotificationDetailRowForTemplate(
+          'notification-sent',
+          OFFICER_ASSIGNMENT_TEMPLATE,
+          'Recipient',
+          ENGLAND_REGULATOR_MAILBOX
+        )
+      })
 
-    it('records a third OfficerAssignment send when the officer is unassigned', async () => {
-      await workItems.openWorkItem(workItemId)
-      await detail.unassign()
-      await detail.assertUnassigned()
+      it('records a third OfficerAssignment send when the officer is unassigned', async () => {
+        await workItems.openWorkItem(workItemId)
+        await detail.unassign()
+        await detail.assertUnassigned()
 
-      await detail.gotoAudit()
-      await detail.expandAllAuditEntryDetails()
+        await detail.gotoAudit()
+        await detail.expandAllAuditEntryDetails()
 
-      const assignmentSends = await detail.notificationSentEntriesForTemplate(
-        OFFICER_ASSIGNMENT_TEMPLATE
-      )
-      expect(assignmentSends.length).toBe(3)
-      await detail.assertNotificationDetailRowForTemplate(
-        'notification-sent',
-        OFFICER_ASSIGNMENT_TEMPLATE,
-        'Recipient',
-        ENGLAND_REGULATOR_MAILBOX
-      )
-    })
-  })
+        const assignmentSends = await detail.notificationSentEntriesForTemplate(
+          OFFICER_ASSIGNMENT_TEMPLATE
+        )
+        expect(assignmentSends.length).toBe(3)
+        await detail.assertNotificationDetailRowForTemplate(
+          'notification-sent',
+          OFFICER_ASSIGNMENT_TEMPLATE,
+          'Recipient',
+          ENGLAND_REGULATOR_MAILBOX
+        )
+      })
+    }
+  )
 
   describe('Unconfigured nation (Scotland) — notification-skipped', () => {
     let workItemId
@@ -220,51 +227,63 @@ describe('RA-238 officer-assignment notification outcomes', () => {
       await detail.assertAssignedTo('Stub Caseworker Two')
     })
 
-    it('records a notification-skipped entry rather than notification-sent', async () => {
-      await detail.gotoAudit()
-      await detail.expandAllAuditEntryDetails()
+    itOnComposeStack(
+      'records a notification-skipped entry rather than notification-sent',
+      async () => {
+        await detail.gotoAudit()
+        await detail.expandAllAuditEntryDetails()
 
-      // Scoped by template throughout: submit on this Scotland item already
-      // recorded a notification-skipped for the regulator OperatorApplicationSubmission (RA-240, renamed by RA-581),
-      // also with reason missing-regulator-mailbox, so counting skips by action
-      // alone would pass whether or not assignment notified at all.
-      const assignmentSkips = await detail.notificationEntriesForTemplate(
-        'notification-skipped',
-        OFFICER_ASSIGNMENT_TEMPLATE
-      )
-      expect(assignmentSkips.length).toBe(1)
+        // Scoped by template throughout: submit on this Scotland item already
+        // recorded a notification-skipped for the regulator OperatorApplicationSubmission (RA-240, renamed by RA-581),
+        // also with reason missing-regulator-mailbox, so counting skips by action
+        // alone would pass whether or not assignment notified at all.
+        const assignmentSkips = await detail.notificationEntriesForTemplate(
+          'notification-skipped',
+          OFFICER_ASSIGNMENT_TEMPLATE
+        )
+        expect(assignmentSkips.length).toBe(1)
 
-      // And no OfficerAssignment send happened for the unconfigured nation.
-      const regulatorSends = await detail.notificationSentEntriesForTemplate(
-        OFFICER_ASSIGNMENT_TEMPLATE
-      )
-      expect(regulatorSends.length).toBe(0)
-    })
+        // And no OfficerAssignment send happened for the unconfigured nation.
+        const regulatorSends = await detail.notificationSentEntriesForTemplate(
+          OFFICER_ASSIGNMENT_TEMPLATE
+        )
+        expect(regulatorSends.length).toBe(0)
+      }
+    )
 
-    it('gives the reason "missing-regulator-mailbox" on the skipped entry', async () => {
-      await detail.assertNotificationDetailRowForTemplate(
-        'notification-skipped',
-        OFFICER_ASSIGNMENT_TEMPLATE,
-        'Reason',
-        'missing-regulator-mailbox'
-      )
-    })
+    itOnComposeStack(
+      'gives the reason "missing-regulator-mailbox" on the skipped entry',
+      async () => {
+        await detail.assertNotificationDetailRowForTemplate(
+          'notification-skipped',
+          OFFICER_ASSIGNMENT_TEMPLATE,
+          'Reason',
+          'missing-regulator-mailbox'
+        )
+      }
+    )
 
-    it('records the nation that had no configured mailbox', async () => {
-      await detail.assertNotificationDetailRowForTemplate(
-        'notification-skipped',
-        OFFICER_ASSIGNMENT_TEMPLATE,
-        'Nation',
-        'Scotland'
-      )
-    })
+    itOnComposeStack(
+      'records the nation that had no configured mailbox',
+      async () => {
+        await detail.assertNotificationDetailRowForTemplate(
+          'notification-skipped',
+          OFFICER_ASSIGNMENT_TEMPLATE,
+          'Nation',
+          'Scotland'
+        )
+      }
+    )
 
-    it('records the OfficerAssignment notification type on the skipped entry', async () => {
-      await detail.assertNotificationDetailRow(
-        'notification-skipped',
-        'Notification type',
-        OFFICER_ASSIGNMENT_TEMPLATE
-      )
-    })
+    itOnComposeStack(
+      'records the OfficerAssignment notification type on the skipped entry',
+      async () => {
+        await detail.assertNotificationDetailRow(
+          'notification-skipped',
+          'Notification type',
+          OFFICER_ASSIGNMENT_TEMPLATE
+        )
+      }
+    )
   })
 })

@@ -7,6 +7,7 @@ import {
   createReAccreditation,
   driveToAssessmentInProgress
 } from '../support/re-accreditation-journey.js'
+import { itOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-410 — the Log decision page's own validation behaviour.
@@ -96,7 +97,7 @@ describe('RA-410 The green CTA lifecycle', () => {
       expect(await detail.hasLogDecisionCta()).toBe(true)
     })
 
-    it('accepts the form once an option is chosen', async () => {
+    itOnComposeStack('accepts the form once an option is chosen', async () => {
       // The validation must not have been implemented by breaking submit.
       await detail.clickLogDecision()
       await decision.selectOutcome('approved')

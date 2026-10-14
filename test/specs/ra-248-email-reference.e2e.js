@@ -1,6 +1,7 @@
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
+import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-248 — lifecycle emails carry the human application reference, not the
@@ -27,63 +28,66 @@ import detail from '../page-objects/work-item-detail.page.js'
  * reference as well. The management-be ReAccreditation*HookTests assert the
  * `((reference))` personalisation for every template.
  */
-describe('RA-248 lifecycle email reference is the application reference', () => {
-  let workItemId
+describeOnComposeStack(
+  'RA-248 lifecycle email reference is the application reference',
+  () => {
+    let workItemId
 
-  const UUID_RE =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    const UUID_RE =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-  before(async () => {
-    await login.login()
-    await workItems.goto()
-    workItemId = (
-      await workItems.createWorkItem({
-        organisationName: 'Reference Number Test Ltd',
-        siteAddressLine1: '248 Reference Road',
-        siteAddressTown: 'London',
-        material: 'plastic',
-        tonnageBand: '0-500',
-        operatorEmail: 'test@defra.gov.uk',
-        // England is the nation this stack configures a regulator mailbox
-        // for, so the assignment send is recorded rather than skipped.
-        nation: 'England'
-      })
-    ).id
+    before(async () => {
+      await login.login()
+      await workItems.goto()
+      workItemId = (
+        await workItems.createWorkItem({
+          organisationName: 'Reference Number Test Ltd',
+          siteAddressLine1: '248 Reference Road',
+          siteAddressTown: 'London',
+          material: 'plastic',
+          tonnageBand: '0-500',
+          operatorEmail: 'test@defra.gov.uk',
+          // England is the nation this stack configures a regulator mailbox
+          // for, so the assignment send is recorded rather than skipped.
+          nation: 'England'
+        })
+      ).id
 
-    await workItems.openWorkItem(workItemId)
-    await detail.assertState('Not started')
-    await detail.assertUnassigned()
-  })
+      await workItems.openWorkItem(workItemId)
+      await detail.assertState('Not started')
+      await detail.assertUnassigned()
+    })
 
-  after(async () => {
-    await login.logout()
-  })
+    after(async () => {
+      await login.logout()
+    })
 
-  it('surfaces the RA-######### application reference and the notification carries it', async () => {
-    // The detail-page caption reads "Work item AP..." (RA-196); the bare
-    // reference after the "Work item " prefix is the exact value the emails
-    // put in the ((reference)) placeholder. It must be the human application
-    // reference, not the internal work-item Guid.
-    const applicationReference = (await detail.getCaption())
-      .replace(/^Work item\s+/, '')
-      .trim()
+    it('surfaces the RA-######### application reference and the notification carries it', async () => {
+      // The detail-page caption reads "Work item AP..." (RA-196); the bare
+      // reference after the "Work item " prefix is the exact value the emails
+      // put in the ((reference)) placeholder. It must be the human application
+      // reference, not the internal work-item Guid.
+      const applicationReference = (await detail.getCaption())
+        .replace(/^Work item\s+/, '')
+        .trim()
 
-    expect(applicationReference).toMatch(/^AP[A-Z0-9]+$/)
-    expect(applicationReference).not.toMatch(UUID_RE)
-    expect(applicationReference).not.toBe(workItemId)
+      expect(applicationReference).toMatch(/^AP[A-Z0-9]+$/)
+      expect(applicationReference).not.toMatch(UUID_RE)
+      expect(applicationReference).not.toBe(workItemId)
 
-    // Assigning an officer fires the regulator OfficerAssignment email; its
-    // audit entry records the reference the send used.
-    await detail.assignTo('stub-caseworker-2')
-    await detail.assertAssignedTo('Stub Caseworker Two')
+      // Assigning an officer fires the regulator OfficerAssignment email; its
+      // audit entry records the reference the send used.
+      await detail.assignTo('stub-caseworker-2')
+      await detail.assertAssignedTo('Stub Caseworker Two')
 
-    await detail.gotoAudit()
-    await detail.expandAllAuditEntryDetails()
-    await detail.assertNotificationDetailRowForTemplate(
-      'notification-sent',
-      'OfficerAssignment',
-      'Reference',
-      applicationReference
-    )
-  })
-})
+      await detail.gotoAudit()
+      await detail.expandAllAuditEntryDetails()
+      await detail.assertNotificationDetailRowForTemplate(
+        'notification-sent',
+        'OfficerAssignment',
+        'Reference',
+        applicationReference
+      )
+    })
+  }
+)

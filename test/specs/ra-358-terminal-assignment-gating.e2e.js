@@ -155,7 +155,7 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
     })
   })
 
-  describe('an approved work item', () => {
+  describeOnComposeStack('an approved work item', () => {
     let workItemId
 
     before(async () => {
@@ -179,7 +179,7 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
     })
   })
 
-  describe('a rejected work item', () => {
+  describeOnComposeStack('a rejected work item', () => {
     let workItemId
 
     before(async () => {

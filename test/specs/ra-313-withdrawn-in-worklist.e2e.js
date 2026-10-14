@@ -8,7 +8,7 @@ import {
   logDecision,
   startAssessment
 } from '../support/re-accreditation-journey.js'
-import { itOnComposeStack } from '../support/compose-stack.js'
+import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-313 AC01 — a withdrawn application is identifiable in the worklist.
@@ -68,14 +68,14 @@ async function driveToDecisionReady(suffix, material) {
   return id
 }
 
-describe('RA-313 terminal-state applications stay on the worklist', () => {
-  let approvedId
-  let rejectedId
-  let withdrawnId
+describeOnComposeStack(
+  'RA-313 terminal-state applications stay on the worklist',
+  () => {
+    let approvedId
+    let rejectedId
+    let withdrawnId
 
-  itOnComposeStack(
-    'drives a work item to the Withdrawn terminal state',
-    async () => {
+    it('drives a work item to the Withdrawn terminal state', async () => {
       await login.login()
       await workItems.goto()
       withdrawnId = (
@@ -101,32 +101,29 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
       await detail.assertState('Withdrawn')
 
       await login.logout()
-    }
-  )
+    })
 
-  it('drives a work item to the Rejected terminal state', async () => {
-    rejectedId = await driveToDecisionReady('Rejected', 'paper')
+    it('drives a work item to the Rejected terminal state', async () => {
+      rejectedId = await driveToDecisionReady('Rejected', 'paper')
 
-    await login.login()
-    await logDecision(rejectedId, 'refused')
-    await detail.assertState('Refused')
+      await login.login()
+      await logDecision(rejectedId, 'refused')
+      await detail.assertState('Refused')
 
-    await login.logout()
-  })
+      await login.logout()
+    })
 
-  it('drives a work item to the Approved terminal state', async () => {
-    approvedId = await driveToDecisionReady('Approved', 'plastic')
+    it('drives a work item to the Approved terminal state', async () => {
+      approvedId = await driveToDecisionReady('Approved', 'plastic')
 
-    await login.login()
-    await logDecision(approvedId, 'approved')
-    await detail.assertState('Granted')
+      await login.login()
+      await logDecision(approvedId, 'approved')
+      await detail.assertState('Granted')
 
-    await login.logout()
-  })
+      await login.logout()
+    })
 
-  itOnComposeStack(
-    'shows the withdrawn application on the default worklist as "Withdrawn"',
-    async () => {
+    it('shows the withdrawn application on the default worklist as "Withdrawn"', async () => {
       // AC01 proper. No archived filter and no status filter — the two things
       // that used to be the ONLY way to see a withdrawn application. Bounded by
       // the org search so the assertion is not at the mercy of pagination.
@@ -146,33 +143,30 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
       )
 
       await login.logout()
-    }
-  )
+    })
 
-  it('shows the decided applications on the default worklist too', async () => {
-    // The RA-224 revert is not withdrawn-only: a regulator looking for a
-    // granted or refused application finds it where every other application
-    // is. This is the case that used to assert "No work items match your
-    // filters". resetFilters() for the same reason as the case above.
-    await login.login()
-    await workItems.resetFilters()
-    await workItems.searchByOrgName(token)
+    it('shows the decided applications on the default worklist too', async () => {
+      // The RA-224 revert is not withdrawn-only: a regulator looking for a
+      // granted or refused application finds it where every other application
+      // is. This is the case that used to assert "No work items match your
+      // filters". resetFilters() for the same reason as the case above.
+      await login.login()
+      await workItems.resetFilters()
+      await workItems.searchByOrgName(token)
 
-    await expect(workItems.workItemLink(rejectedId)).toExist()
-    await expect(workItems.workItemLink(approvedId)).toExist()
-    await expect(workItems.workItemStateTag(rejectedId)).toHaveText(
-      expect.stringContaining('Refused')
-    )
-    await expect(workItems.workItemStateTag(approvedId)).toHaveText(
-      expect.stringContaining('Granted')
-    )
+      await expect(workItems.workItemLink(rejectedId)).toExist()
+      await expect(workItems.workItemLink(approvedId)).toExist()
+      await expect(workItems.workItemStateTag(rejectedId)).toHaveText(
+        expect.stringContaining('Refused')
+      )
+      await expect(workItems.workItemStateTag(approvedId)).toHaveText(
+        expect.stringContaining('Granted')
+      )
 
-    await login.logout()
-  })
+      await login.logout()
+    })
 
-  itOnComposeStack(
-    'still lists them when "Show archived" is enabled',
-    async () => {
+    it('still lists them when "Show archived" is enabled', async () => {
       // `includeArchived` is now inert: nothing is hidden, so nothing is left
       // for it to reveal. Kept as a regression guard because the checkbox is
       // still on the Applications page (the UI was signed off against a
@@ -187,6 +181,6 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
       await expect(workItems.workItemLink(approvedId)).toExist()
 
       await login.logout()
-    }
-  )
-})
+    })
+  }
+)

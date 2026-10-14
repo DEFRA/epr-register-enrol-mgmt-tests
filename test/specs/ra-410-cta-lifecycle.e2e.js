@@ -10,6 +10,10 @@ import {
   dulyMake,
   logDecision
 } from '../support/re-accreditation-journey.js'
+import {
+  describeOnComposeStack,
+  itOnComposeStack
+} from '../support/compose-stack.js'
 
 /**
  * RA-410 — the three green call-to-action buttons that replace Tasks.
@@ -124,50 +128,56 @@ describe('RA-410 The green CTA lifecycle', () => {
       expect(await decision.isOutcomeSelected('refused')).toBe(false)
     })
 
-    it('step 3: Approved reaches the Granted terminal state', async () => {
-      await decision.selectOutcome('approved')
-      await decision.submit()
-      await decision.waitForDetailUrl(workItemId)
+    itOnComposeStack(
+      'step 3: Approved reaches the Granted terminal state',
+      async () => {
+        await decision.selectOutcome('approved')
+        await decision.submit()
+        await decision.waitForDetailUrl(workItemId)
 
-      await detail.assertStateId('approved')
-      await detail.assertState('Granted')
-      await detail.assertApprovalPanelVisible()
-      // RA-415 reworked the accreditation id format (was `ACC-2027-P-XXXXXXXX`).
-      // Mirror the pattern management-be now generates — see the matching
-      // assertion (and the note on why the trailing segment isn't asserted as
-      // a specific material code) in re-accreditation-approval.e2e.js.
-      expect(await detail.getAccreditationId()).toMatch(
-        /^A\d{2}[ESNW][RX][A-Z0-9]{6}[A-Z0-9]{3}[A-Z]{2}$/
-      )
-    })
+        await detail.assertStateId('approved')
+        await detail.assertState('Granted')
+        await detail.assertApprovalPanelVisible()
+        // RA-415 reworked the accreditation id format (was `ACC-2027-P-XXXXXXXX`).
+        // Mirror the pattern management-be now generates — see the matching
+        // assertion (and the note on why the trailing segment isn't asserted as
+        // a specific material code) in re-accreditation-approval.e2e.js.
+        expect(await detail.getAccreditationId()).toMatch(
+          /^A\d{2}[ESNW][RX][A-Z0-9]{6}[A-Z0-9]{3}[A-Z]{2}$/
+        )
+      }
+    )
 
-    it('does not park the item in awaiting-decision, and ends at approved', async () => {
-      // The atomic decision, gated by the Registration & Accreditation service, discharges the awaiting-decision waypoint
-      // SERVER-SIDE inside the single call, so the item is never left resting
-      // there. What the audit history must show is the item ARRIVING at the
-      // terminal state — asserting the real END STATE rather than the internal
-      // hop, which is not a state the caseworker was ever stopped at.
-      await detail.gotoAudit()
-      const transitions = await detail.appliedTransitions()
+    itOnComposeStack(
+      'does not park the item in awaiting-decision, and ends at approved',
+      async () => {
+        // The atomic decision, gated by the Registration & Accreditation service, discharges the awaiting-decision waypoint
+        // SERVER-SIDE inside the single call, so the item is never left resting
+        // there. What the audit history must show is the item ARRIVING at the
+        // terminal state — asserting the real END STATE rather than the internal
+        // hop, which is not a state the caseworker was ever stopped at.
+        await detail.gotoAudit()
+        const transitions = await detail.appliedTransitions()
 
-      // appliedTransitions() renders the raw state-id edge, not the display
-      // label ("Granted") — see the same convention in ra-316-duly-making.e2e.js
-      // ('submitted → duly-made'). Whatever shape management-be gives the
-      // internal hop in the history — a collapsed `assessment-in-progress →
-      // approved` edge or a declared `… → approved` one — the terminal edge
-      // lands on `approved`. Deliberately NOT asserting the intermediate
-      // `→ awaiting-decision` edge: whether the audit surfaces the internal hop
-      // is management-be's call, and the AC is that the item does not REST
-      // there, not that the edge is invisible.
-      expect(transitions.join(' | ')).toContain('→ approved')
+        // appliedTransitions() renders the raw state-id edge, not the display
+        // label ("Granted") — see the same convention in ra-316-duly-making.e2e.js
+        // ('submitted → duly-made'). Whatever shape management-be gives the
+        // internal hop in the history — a collapsed `assessment-in-progress →
+        // approved` edge or a declared `… → approved` one — the terminal edge
+        // lands on `approved`. Deliberately NOT asserting the intermediate
+        // `→ awaiting-decision` edge: whether the audit surfaces the internal hop
+        // is management-be's call, and the AC is that the item does not REST
+        // there, not that the edge is invisible.
+        expect(transitions.join(' | ')).toContain('→ approved')
 
-      // ...and the item is emphatically not sitting in awaiting-decision now:
-      // it is in the terminal state, with no affordance to rest at the waypoint.
-      await workItems.openWorkItem(workItemId)
-      await detail.assertStateId('approved')
-    })
+        // ...and the item is emphatically not sitting in awaiting-decision now:
+        // it is in the terminal state, with no affordance to rest at the waypoint.
+        await workItems.openWorkItem(workItemId)
+        await detail.assertStateId('approved')
+      }
+    )
 
-    it('withdraws every CTA once terminal', async () => {
+    itOnComposeStack('withdraws every CTA once terminal', async () => {
       // Re-open the detail page: the previous `it` may have left the browser on
       // the audit log, and these assertions read the detail page directly.
       await workItems.openWorkItem(workItemId)
@@ -178,7 +188,7 @@ describe('RA-410 The green CTA lifecycle', () => {
     })
   })
 
-  describe('Refused reaches the rejected terminal state', () => {
+  describeOnComposeStack('Refused reaches the rejected terminal state', () => {
     let workItemId
 
     before(async () => {

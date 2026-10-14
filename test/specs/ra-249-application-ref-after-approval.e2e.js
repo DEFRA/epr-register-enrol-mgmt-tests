@@ -7,6 +7,7 @@ import {
   logDecision,
   startAssessment
 } from '../support/re-accreditation-journey.js'
+import { itOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-249 — the application reference must survive approval.
@@ -66,30 +67,33 @@ describe('RA-249 — application reference survives approval', () => {
     await login.logout()
   })
 
-  it('keeps the AP* application ref after the decision maker approves it', async () => {
-    await login.login()
-    await workItems.openWorkItem(createdId)
-    await detail.assertStateId('assessment-in-progress')
+  itOnComposeStack(
+    'keeps the AP* application ref after the decision maker approves it',
+    async () => {
+      await login.login()
+      await workItems.openWorkItem(createdId)
+      await detail.assertStateId('assessment-in-progress')
 
-    await logDecision(createdId, 'approved')
+      await logDecision(createdId, 'approved')
 
-    await detail.assertState('Granted')
-    await detail.assertApprovalPanelVisible()
+      await detail.assertState('Granted')
+      await detail.assertApprovalPanelVisible()
 
-    // The core RA-249 assertion: after approval the page identity must still be
-    // the human AP* reference, never the internal GUID / a UUID.
-    //
-    // RA-504 removed the Reference footer that used to carry a second copy of
-    // this in an "Application reference" row, so the case header caption is now
-    // the surviving render — it is driven by the same reference and is where a
-    // regression to the GUID would show.
-    const caption = await detail.getCaption()
-    expect(caption).toBe(applicationReference)
-    expect(caption).toMatch(/^AP[A-Z0-9]+$/)
-    expect(caption).not.toBe(createdId)
-    expect(caption).not.toContain(createdId)
-    expect(caption).not.toMatch(UUID_RE)
+      // The core RA-249 assertion: after approval the page identity must still be
+      // the human AP* reference, never the internal GUID / a UUID.
+      //
+      // RA-504 removed the Reference footer that used to carry a second copy of
+      // this in an "Application reference" row, so the case header caption is now
+      // the surviving render — it is driven by the same reference and is where a
+      // regression to the GUID would show.
+      const caption = await detail.getCaption()
+      expect(caption).toBe(applicationReference)
+      expect(caption).toMatch(/^AP[A-Z0-9]+$/)
+      expect(caption).not.toBe(createdId)
+      expect(caption).not.toContain(createdId)
+      expect(caption).not.toMatch(UUID_RE)
 
-    await login.logout()
-  })
+      await login.logout()
+    }
+  )
 })

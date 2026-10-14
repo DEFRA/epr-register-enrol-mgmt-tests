@@ -7,6 +7,7 @@ import {
   logDecision,
   startAssessment
 } from '../support/re-accreditation-journey.js'
+import { itOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * The decision rationale. Distinctive prose rather than "test note": it is
@@ -71,71 +72,77 @@ describe('RA-203 Approval sends operator decision notification', () => {
     await login.logout()
   })
 
-  it('records a "Decision recorded: approved email sent" audit entry after approval with a note', async () => {
-    await login.login()
-    await workItems.openWorkItem(workItemId)
-    await detail.assertStateId('assessment-in-progress')
+  itOnComposeStack(
+    'records a "Decision recorded: approved email sent" audit entry after approval with a note',
+    async () => {
+      await login.login()
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('assessment-in-progress')
 
-    // RA-410 moved the decision note from the approve interstitial onto the
-    // Log decision page. The field is what feeds `decision_notes`, so a
-    // decision WITHOUT one is not the case this spec is about.
-    await logDecision(workItemId, 'approved', { note: DECISION_NOTE })
-    await detail.assertState('Granted')
+      // RA-410 moved the decision note from the approve interstitial onto the
+      // Log decision page. The field is what feeds `decision_notes`, so a
+      // decision WITHOUT one is not the case this spec is about.
+      await logDecision(workItemId, 'approved', { note: DECISION_NOTE })
+      await detail.assertState('Granted')
 
-    // The notification hook fired and the send succeeded, so the audit
-    // log carries the "Decision recorded: approved email sent" entry —
-    // proving the approval wires through to a notification end-to-end.
-    await detail.gotoAudit()
-    await detail.expandAllAuditEntryDetails()
-    await detail.assertAuditEntry('Decision recorded: approved email sent')
+      // The notification hook fired and the send succeeded, so the audit
+      // log carries the "Decision recorded: approved email sent" entry —
+      // proving the approval wires through to a notification end-to-end.
+      await detail.gotoAudit()
+      await detail.expandAllAuditEntryDetails()
+      await detail.assertAuditEntry('Decision recorded: approved email sent')
 
-    // The note reached the work item as a note in its own right. This is the
-    // link in the chain the e2e can actually see: management-be builds
-    // `decision_notes` from the work item's LATEST note, so "the note was
-    // recorded before the decision" is the observable precondition for the
-    // email carrying it. The personalisation value itself is not surfaced in
-    // the audit log, so that last hop stays management-be's unit-level
-    // concern (NotifyTemplateContractTests) — asserted here as far as the UI
-    // honestly reaches, and no further.
-    await detail.assertAuditEntry('Note added')
-    await detail.assertAuditEntry(DECISION_NOTE)
+      // The note reached the work item as a note in its own right. This is the
+      // link in the chain the e2e can actually see: management-be builds
+      // `decision_notes` from the work item's LATEST note, so "the note was
+      // recorded before the decision" is the observable precondition for the
+      // email carrying it. The personalisation value itself is not surfaced in
+      // the audit log, so that last hop stays management-be's unit-level
+      // concern (NotifyTemplateContractTests) — asserted here as far as the UI
+      // honestly reaches, and no further.
+      await detail.assertAuditEntry('Note added')
+      await detail.assertAuditEntry(DECISION_NOTE)
 
-    await login.logout()
-  })
+      await login.logout()
+    }
+  )
 
-  it('records the note BEFORE the decision, not after', async () => {
-    // ORDERING IS THE WHOLE MECHANISM, not an implementation detail. The
-    // notification hook fires DURING the decision write and reads whatever is
-    // then the latest note. A note posted after the decision would leave the
-    // email carrying the previous note or a blank rationale — and because
-    // management-be falls back to an empty string rather than failing, that
-    // regression sends silently: no error, no failed notification, nothing in
-    // the audit log to notice. Exactly how `decision_notes` came to be dead
-    // before RA-410 restored the field.
-    //
-    // So the ONLY thing standing between a correct email and a silently blank
-    // one is the order of two writes, which makes it worth an explicit
-    // assertion rather than trusting the happy path above.
-    await login.login()
-    await workItems.openWorkItem(workItemId)
-    await detail.gotoAudit()
+  itOnComposeStack(
+    'records the note BEFORE the decision, not after',
+    async () => {
+      // ORDERING IS THE WHOLE MECHANISM, not an implementation detail. The
+      // notification hook fires DURING the decision write and reads whatever is
+      // then the latest note. A note posted after the decision would leave the
+      // email carrying the previous note or a blank rationale — and because
+      // management-be falls back to an empty string rather than failing, that
+      // regression sends silently: no error, no failed notification, nothing in
+      // the audit log to notice. Exactly how `decision_notes` came to be dead
+      // before RA-410 restored the field.
+      //
+      // So the ONLY thing standing between a correct email and a silently blank
+      // one is the order of two writes, which makes it worth an explicit
+      // assertion rather than trusting the happy path above.
+      await login.login()
+      await workItems.openWorkItem(workItemId)
+      await detail.gotoAudit()
 
-    const noteIndex = await detail.auditEntryIndex('Note added')
-    const decisionIndex = await detail.auditEntryIndex(
-      'Decision recorded: approved email sent'
-    )
+      const noteIndex = await detail.auditEntryIndex('Note added')
+      const decisionIndex = await detail.auditEntryIndex(
+        'Decision recorded: approved email sent'
+      )
 
-    expect(noteIndex).toBeGreaterThanOrEqual(0)
-    expect(decisionIndex).toBeGreaterThanOrEqual(0)
-    // The audit log arrives from the backend already sorted NEWEST-FIRST
-    // (RA-568) and is rendered as a top-to-bottom timeline (see
-    // `decorateAuditLog` in management-fe), so "written first" means a
-    // HIGHER index. Checked against that source rather than assumed — an
-    // earlier draft of this assertion had it backwards on a guess about
-    // ordering, which would have failed in CI looking like a product bug
-    // rather than a test bug.
-    expect(noteIndex).toBeGreaterThan(decisionIndex)
+      expect(noteIndex).toBeGreaterThanOrEqual(0)
+      expect(decisionIndex).toBeGreaterThanOrEqual(0)
+      // The audit log arrives from the backend already sorted NEWEST-FIRST
+      // (RA-568) and is rendered as a top-to-bottom timeline (see
+      // `decorateAuditLog` in management-fe), so "written first" means a
+      // HIGHER index. Checked against that source rather than assumed — an
+      // earlier draft of this assertion had it backwards on a guess about
+      // ordering, which would have failed in CI looking like a product bug
+      // rather than a test bug.
+      expect(noteIndex).toBeGreaterThan(decisionIndex)
 
-    await login.logout()
-  })
+      await login.logout()
+    }
+  )
 })

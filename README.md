@@ -110,6 +110,21 @@ are reported as skipped everywhere else. They depend on one of:
 - **(c) the operator backend stub** at `OPERATOR_BACKEND_STUB_URL`
   (`test/support/operator-backend-stub.js`, `docker/stubs/`). Compose runs it in
   place of the real Registration & Accreditation service backend.
+- **(d) compose's Notify configuration.** `docker/config/management-be.env`
+  turns Notify on with every trigger on and gives only England a regulator
+  mailbox. The notification audit entries the specs assert differ on CDP:
+  perf-test leaves Notify off, so management-be writes no notification entries
+  at all; test turns the `OfficerAssignment`, `OperatorApplicationSubmission`,
+  `ApplicationWithdrawn` and `QueryResponse` triggers off; and dev, test and
+  perf-test all route every nation to a mailbox, so the
+  `missing-regulator-mailbox` skip never happens there.
+- **(e) a logged decision** (approve / refuse, via `logDecision`,
+  `approveWorkItem` or `rejectWorkItem`). management-be records a decision only
+  after the Registration & Accreditation service accepts the status push (and,
+  for an approval, issues the accreditation number). The compose stub answers
+  both. On CDP the real service has no application for a work item created
+  through Case Management's create form, so it returns 404, management-be
+  abandons the decision and the item stays in `assessment-in-progress`.
 
 `wdio.github.conf.js` sets `COMPOSE_STACK=true`, so the GitHub compose runs
 (this repo's `check-pull-request.yml` and the `run-journey-tests` action that

@@ -8,6 +8,7 @@ import {
   driveToAssessmentInProgress,
   logDecision
 } from '../support/re-accreditation-journey.js'
+import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-346 (issue 2), re-pointed by RA-410 — a determination can be logged
@@ -76,7 +77,7 @@ describe('RA-346/RA-410 A determination can be logged only once', () => {
     })
   })
 
-  describe('once the determination is approved', () => {
+  describeOnComposeStack('once the determination is approved', () => {
     before(async () => {
       await logDecision(workItemId, 'approved')
     })

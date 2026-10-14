@@ -7,6 +7,7 @@ import {
   logDecision,
   startAssessment
 } from '../support/re-accreditation-journey.js'
+import { itOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-132 — Rejecting a re-accreditation drives it to the Refused terminal
@@ -61,39 +62,45 @@ describe('RA-132 Reject action terminal flow', () => {
     await login.logout()
   })
 
-  it('refuses the work item as the decision maker and surfaces the read-only outcome', async () => {
-    await login.login()
+  itOnComposeStack(
+    'refuses the work item as the decision maker and surfaces the read-only outcome',
+    async () => {
+      await login.login()
 
-    // RA-410: the determination is logged through the "Log decision" CTA and
-    // an Approved/Refused radio. `reject` is no longer a caller-invocable
-    // action — management-be does not list it in `availableActions` at all —
-    // so the old `triggerAction('reject')` route cannot reach this state.
-    //
-    // "Refused" is the LABEL only: the state id underneath is still
-    // `rejected`, which is what `logDecision` asserts on the way through.
-    await logDecision(workItemId, 'refused')
-    await detail.assertState('Refused')
+      // RA-410: the determination is logged through the "Log decision" CTA and
+      // an Approved/Refused radio. `reject` is no longer a caller-invocable
+      // action — management-be does not list it in `availableActions` at all —
+      // so the old `triggerAction('reject')` route cannot reach this state.
+      //
+      // "Refused" is the LABEL only: the state id underneath is still
+      // `rejected`, which is what `logDecision` asserts on the way through.
+      await logDecision(workItemId, 'refused')
+      await detail.assertState('Refused')
 
-    // RA-132: the terminal state replaces the generic action panel with a
-    // read-only "Outcome" panel and a red "Refused" state tag.
-    await detail.assertReadOnlyOutcomePanel('Refused')
-    await detail.assertNoDecisionActions()
+      // RA-132: the terminal state replaces the generic action panel with a
+      // read-only "Outcome" panel and a red "Refused" state tag.
+      await detail.assertReadOnlyOutcomePanel('Refused')
+      await detail.assertNoDecisionActions()
 
-    // No approval confirmation panel is rendered for a rejected item — that
-    // panel is built only for the approved state.
-    await expect(
-      $('[data-testid="re-accreditation-approval-panel"]')
-    ).not.toBeExisting()
+      // No approval confirmation panel is rendered for a rejected item — that
+      // panel is built only for the approved state.
+      await expect(
+        $('[data-testid="re-accreditation-approval-panel"]')
+      ).not.toBeExisting()
 
-    await login.logout()
-  })
+      await login.logout()
+    }
+  )
 
-  it('keeps the read-only outcome on return — reject is terminal and idempotent', async () => {
-    await login.login()
-    await workItems.openWorkItem(workItemId)
-    await detail.assertState('Refused')
-    await detail.assertReadOnlyOutcomePanel('Refused')
-    await detail.assertNoDecisionActions()
-    await login.logout()
-  })
+  itOnComposeStack(
+    'keeps the read-only outcome on return — reject is terminal and idempotent',
+    async () => {
+      await login.login()
+      await workItems.openWorkItem(workItemId)
+      await detail.assertState('Refused')
+      await detail.assertReadOnlyOutcomePanel('Refused')
+      await detail.assertNoDecisionActions()
+      await login.logout()
+    }
+  )
 })
