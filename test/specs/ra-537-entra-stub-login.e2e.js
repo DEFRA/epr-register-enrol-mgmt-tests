@@ -20,10 +20,11 @@ import { isEntraStubLoginEnabled } from '../support/entra-stub-login.js'
  * that, in this hybrid mode, a regulator who signed in through the stub is
  * assignable alongside the built-in stub caseworkers.
  *
- * Skipped unless ENTRA_STUB_LOGIN=true (see support/entra-stub-login.js):
- * local and compose/GitHub runs have no Entra ID configured, so the button
- * isn't rendered there, and the built-in stub logins used by the rest of
- * the suite are unaffected either way.
+ * Runs when ENTRA_STUB_LOGIN=true (see support/entra-stub-login.js): on CDP
+ * test, and on the compose stack, which runs the same stub. A local run
+ * against a stack with no Entra ID configured has no button to click, and
+ * the built-in stub logins used by the rest of the suite are unaffected
+ * either way.
  */
 const describeIfEntraStub = isEntraStubLoginEnabled() ? describe : describe.skip
 

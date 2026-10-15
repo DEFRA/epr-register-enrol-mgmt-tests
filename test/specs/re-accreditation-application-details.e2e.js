@@ -2,13 +2,14 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
+import { createWorkItemViaApi } from '../support/work-item-api.js'
 
 /**
  * Application information for a work item created through the case management
  * form — i.e. the SPARSE case.
  *
  * Complements application-details-full-payload.e2e.js, which covers the rich
- * seeded payload. A form-created item populates only organisation name, site
+ * payload. A form-created item populates only organisation name, site
  * address, material and tonnage band, so it is the only fixture that exercises
  * how the UI copes with everything else being absent. Empty states are exactly
  * where a template regression hides: a section that renders a stray label, an
@@ -131,6 +132,20 @@ describe('Application information — sparse, form-created work item', () => {
   })
 
   describe('prior year section (RA-254), folded onto the detail page', () => {
+    // The prior year's accreditation comes from ReEx, keyed on the
+    // operator's organisation id. The create form only accepts a real
+    // six-digit organisation id, which ReEx knows nothing about on CDP test,
+    // so this block uses an item submitted through the API for an `e2e-`
+    // test organisation, whose prior year management-be answers from its
+    // own test data rather than ReEx.
+    before(async () => {
+      const { id } = await createWorkItemViaApi({
+        organisationNamePrefix: 'App Details Prior Year Ltd'
+      })
+      await workItems.openWorkItem(id)
+      await workItems.waitForDetailPage()
+    })
+
     it('renders the heading and all of its parts', async () => {
       // Asserted unconditionally, on purpose. My first version skipped the
       // body when the heading was absent, on the reasoning that management-fe
@@ -138,9 +153,7 @@ describe('Application information — sparse, form-created work item', () => {
       // the test unfalsifiable: it reported green both when the section
       // rendered correctly AND when it had vanished entirely.
       //
-      // The retired spec asserted this section's presence unconditionally and
-      // passed, so it does render reliably against the compose stack. If the
-      // lookup genuinely becomes unreliable, a red test saying so is the right
+      // If the lookup genuinely becomes unreliable, a red test saying so is the right
       // outcome — far better than a silent pass hiding a section that stopped
       // rendering.
       expect(await detail.hasPriorYear('heading')).toBe(true)

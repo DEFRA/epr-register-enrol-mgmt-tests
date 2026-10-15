@@ -178,6 +178,30 @@ services:
       retries: 5
 
   ################################################################################
+  # The Entra ID stub CDP test points management-fe's "Sign in with Entra ID"
+  # button at (RA-537). The browser and management-fe both reach it by its
+  # service name, so its external and internal URLs are the same.
+  epr-register-enrol-entra-stub:
+    image: defradigital/epr-register-enrol-entra-stub:${ENTRA_STUB:-latest}
+    environment:
+      - PORT=3010
+      - STUB_EXTERNAL_URL=http://epr-register-enrol-entra-stub:3010
+      - STUB_INTERNAL_URL=http://epr-register-enrol-entra-stub:3010
+      - CALLBACK_CM_URL=http://epr-register-enrol-management-fe:3000
+      - ENABLE_SECURE_CONTEXT=false
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:3010/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 5s
+      start_period: 5s
+      retries: 5
+
+  ################################################################################
   epr-register-enrol-management-fe:
     image: defradigital/epr-register-enrol-management-fe:${MANAGEMENT_FE:-latest}
     env_file:
@@ -185,10 +209,13 @@ services:
       - ./docker/config/management-fe.env
     environment:
       - PORT=3000
-      # CDP test's value. RA-603's multiple interim sites need it on.
-      - MULTIPLE_INTERIM_SITES_ENABLED=${MULTIPLE_INTERIM_SITES_ENABLED:-false}
+      # RA-603's multiple interim sites (and RA-292's "Interim sites" label)
+      # exist only with this on. On for CDP test with the RA-000 config change.
+      - MULTIPLE_INTERIM_SITES_ENABLED=${MULTIPLE_INTERIM_SITES_ENABLED:-true}
     depends_on:
       epr-register-enrol-management-be:
+        condition: service_healthy
+      epr-register-enrol-entra-stub:
         condition: service_healthy
       redis:
         condition: service_healthy

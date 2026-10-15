@@ -1,10 +1,15 @@
-import { browser, expect } from '@wdio/globals'
+import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail, {
   CONTACT_DETAIL_ROWS
 } from '../page-objects/work-item-detail.page.js'
-import { REPROCESSOR, EXPORTER } from '../support/ra-434-seed.js'
+import {
+  EXPORTER,
+  REPROCESSOR,
+  createExporterWorkItem,
+  createReprocessorWorkItem
+} from '../support/ra-434-fixture.js'
 
 /**
  * RA-434 / RA-480 — the "Additional information" tab.
@@ -28,20 +33,13 @@ import { REPROCESSOR, EXPORTER } from '../support/ra-434-seed.js'
  */
 describe('RA-434: Additional information tab', () => {
   describe('reprocessor fixture (no wasteProcessingType)', () => {
+    let item
+
     before(async () => {
       await login.login()
-      // RA-299: a bare landing defaults to assigned-to-me, which would hide
-      // this unassigned seeded item — reset to an explicit empty filter.
-      await workItems.resetFilters()
-      await workItems.searchByOrgName(REPROCESSOR.ORG_NAME)
-      await browser.waitUntil(
-        async () => (await browser.getUrl()).includes('filtersApplied=1'),
-        { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
-      )
-      // Hard gate: the search must resolve to exactly the one seeded item,
-      // so "the first row" is unambiguous.
-      expect(await workItems.getRowCount()).toBe(1)
-      await workItems.openFirstListedWorkItem()
+      item = await createReprocessorWorkItem()
+      await workItems.openWorkItem(item.id)
+      await workItems.waitForDetailPage()
       await detail.gotoAdditionalInformation()
     })
 
@@ -62,7 +60,7 @@ describe('RA-434: Additional information tab', () => {
     it('shows the registered name', async () => {
       expect(
         await detail.additionalInformationRowText('organisation-name')
-      ).toContain(REPROCESSOR.ORG_NAME)
+      ).toContain(item.organisationName)
     })
 
     it('shows the companies house number', async () => {
@@ -81,7 +79,7 @@ describe('RA-434: Additional information tab', () => {
       const siteAddress =
         await detail.additionalInformationRowText('site-address')
       expect(siteAddress).toContain(REPROCESSOR.SITE_ADDRESS_LINE)
-      expect(siteAddress).toContain(REPROCESSOR.SITE_ADDRESS_POSTCODE)
+      expect(siteAddress).toContain(item.payload.siteAddressPostcode)
 
       // Compared as VALUES ONLY (not full row text): the two rows' labels
       // ("Site address" vs "Registered address") differ regardless, which
@@ -117,23 +115,20 @@ describe('RA-434: Additional information tab', () => {
   })
 
   describe('exporter fixture (wasteProcessingType: exporter, no siteAddress)', () => {
+    let item
+
     before(async () => {
       await login.login()
-      await workItems.resetFilters()
-      await workItems.searchByOrgName(EXPORTER.ORG_NAME)
-      await browser.waitUntil(
-        async () => (await browser.getUrl()).includes('filtersApplied=1'),
-        { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
-      )
-      expect(await workItems.getRowCount()).toBe(1)
-      await workItems.openFirstListedWorkItem()
+      item = await createExporterWorkItem()
+      await workItems.openWorkItem(item.id)
+      await workItems.waitForDetailPage()
       await detail.gotoAdditionalInformation()
     })
 
     it('shows the registered name, companies house number and permit numbers', async () => {
       expect(
         await detail.additionalInformationRowText('organisation-name')
-      ).toContain(EXPORTER.ORG_NAME)
+      ).toContain(item.organisationName)
       expect(
         await detail.additionalInformationRowText('companies-house-number')
       ).toContain(EXPORTER.COMPANIES_HOUSE_NUMBER)

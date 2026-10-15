@@ -754,10 +754,18 @@ class WorkItemDetailPage extends Page {
    * its parent ORS's disclosure. Expand the ORS disclosures FIRST - a nested
    * <details> inside a collapsed parent is not interactable - then expand
    * every interim one so the assertions below can read its detail rows.
+   *
+   * The fold-down only exists while management-fe's
+   * MULTIPLE_INTERIM_SITES_ENABLED flag is on. With it off an interim site
+   * renders as a plain, always-visible block, so there is nothing to expand
+   * and the block is left alone.
    */
   async expandAllInterimSiteDetails() {
     const disclosures = await $$('[data-testid="interim-site"]')
     for (const disclosure of disclosures) {
+      if ((await disclosure.getTagName()) !== 'details') {
+        continue
+      }
       const isOpen = await disclosure.getAttribute('open')
       if (isOpen === null) {
         await disclosure.$('.govuk-details__summary').click()
@@ -1391,10 +1399,10 @@ class WorkItemDetailPage extends Page {
           status: res.status,
           contentType: res.headers.get('content-type'),
           // The response BODY is the only thing that distinguishes the two
-          // seeded objects. Status and content-type are identical for both,
+          // stored objects. Status and content-type are identical for both,
           // so an href bug serving document one for both entries would look
-          // like two healthy 200s — which is exactly the failure the backend
-          // seeder warns about when it says to keep the two s3Keys distinct.
+          // like two healthy 200s — which is why the fixture keeps the two
+          // s3Keys distinct.
           body: await res.text()
         })
       }
@@ -3049,7 +3057,7 @@ class WorkItemDetailPage extends Page {
 
   /**
    * AC3: the search box only renders once the application has more than one
-   * page's worth of sites (>20) — absent here since this fixture seeds four.
+   * page's worth of sites (>20) — absent here since this fixture has four.
    */
   recyclingOperationsSearchForm() {
     return $('[data-testid="recycling-operations-search-form"]')

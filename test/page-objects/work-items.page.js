@@ -2,6 +2,7 @@ import { browser, $, expect } from '@wdio/globals'
 import { Page } from './page.js'
 import { uniquePostcode } from '../support/unique-postcode.js'
 import { uniqueOrganisationName } from '../support/unique-name.js'
+import { SIMULATED_DELIVERED_EMAIL } from '../support/operator-backend-api.js'
 
 /** Prefix-matched testid of an application card's "open this item" link. */
 const WORK_ITEM_LINK_SELECTOR = '[data-testid^="work-item-link-"]'
@@ -129,12 +130,15 @@ class WorkItemsPage extends Page {
     // The application reference is no longer entered on the form — the
     // case management backend generates it on submission. Callers read
     // it back from the success banner after the work item is created.
-    // Email field is pre-filled with test@defra.gov.uk. Callers
-    // may override via opts.operatorEmail; otherwise we leave the default value
-    // in place.
-    if (opts.operatorEmail !== undefined) {
-      await $('#field-operatorEmail').setValue(opts.operatorEmail)
-    }
+    // The email field is pre-filled with a demo address that is a real
+    // mailbox, and the operator's own Notify emails go to it, so it is always
+    // replaced: by the caller's address, or by GOV.UK Notify's simulated
+    // delivered address, which Notify accepts without sending anything.
+    const operatorEmail = await $('#field-operatorEmail')
+    await operatorEmail.clearValue()
+    await operatorEmail.setValue(
+      opts.operatorEmail ?? SIMULATED_DELIVERED_EMAIL
+    )
     await $('#field-organisationName').setValue(organisationName)
     // RA-448. Both fields are pre-filled with a demo value (500001 /
     // reg-demo-001) on GET, same convention as operatorEmail above — most
@@ -243,9 +247,8 @@ class WorkItemsPage extends Page {
 
   /**
    * Open the first work item currently listed by clicking its row link.
-   * Used to reach a backend-seeded item whose id is not known to the test —
-   * pair it with a bounding search (e.g. searchByOrgName) so exactly one row
-   * is present and the "first" row is unambiguous.
+   * Pair it with a bounding search (e.g. searchByOrgName on a unique name)
+   * so exactly one row is present and the "first" row is unambiguous.
    */
   async openFirstListedWorkItem() {
     const link = await $(WORK_ITEM_LINK_SELECTOR)
@@ -359,7 +362,7 @@ class WorkItemsPage extends Page {
 
   /**
    * Reads the work item id out of the first result row's link testid.
-   * Used for seeded items whose id is not known up front (unlike items
+   * Used for items whose id is not known up front (unlike items
    * created via createWorkItem, which return their id directly).
    */
   async firstResultWorkItemId() {

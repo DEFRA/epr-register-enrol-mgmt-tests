@@ -5,6 +5,7 @@ import detail, {
   CASE_HEADER_FIELDS
 } from '../page-objects/work-item-detail.page.js'
 import { VIEWPORTS } from '../page-objects/page.js'
+import { createFullPayloadWorkItem } from '../support/full-payload-fixture.js'
 
 /**
  * RA-295 (AC05) — the redesigned pages stay usable on a narrow viewport.
@@ -24,8 +25,11 @@ import { VIEWPORTS } from '../page-objects/page.js'
  * breakpoint where the collapse to a single column begins.
  */
 describe('RA-295 responsive layout', () => {
+  let item
+
   before(async () => {
     await login.login()
+    item = await createFullPayloadWorkItem()
   })
 
   after(async () => {
@@ -39,7 +43,7 @@ describe('RA-295 responsive layout', () => {
   describe('the individual work item page', () => {
     before(async () => {
       await workItems.resetFilters()
-      await workItems.searchByOrgName('Full Payload Verification Ltd')
+      await workItems.searchByOrgName(item.organisationName)
       expect(await workItems.getRowCount()).toBe(1)
       await workItems.openFirstListedWorkItem()
     })
@@ -111,7 +115,7 @@ describe('RA-295 responsive layout', () => {
         beforeEach(async () => {
           await workItems.setViewport(viewport)
           await workItems.resetFilters()
-          await workItems.searchByOrgName('Full Payload Verification Ltd')
+          await workItems.searchByOrgName(item.organisationName)
         })
 
         it('still lists the matching application', async () => {
@@ -119,7 +123,7 @@ describe('RA-295 responsive layout', () => {
         })
 
         it('keeps the application card on screen and unclipped', async () => {
-          const id = await workItems.firstResultWorkItemId()
+          const id = item.id
           const card = await workItems.tileFor(id)
           await expect(card).toBeDisplayed()
           expect(await workItems.isWithinViewport(card)).toBe(true)

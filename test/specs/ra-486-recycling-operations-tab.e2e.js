@@ -1,8 +1,12 @@
-import { browser, expect } from '@wdio/globals'
+import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import { ORG_NAME, ORS, INTERIM } from '../support/ra-292-seed.js'
+import {
+  INTERIM,
+  ORS,
+  createOrsInterimAuthorityWorkItem
+} from '../support/ra-292-fixture.js'
 
 /**
  * RA-469 / RA-486: the "Recycling operations" tab.
@@ -31,28 +35,17 @@ import { ORG_NAME, ORS, INTERIM } from '../support/ra-292-seed.js'
  * so the moment product turns the tab back on, THIS suite is what notices
  * the click-through path needs adding, rather than the gap going unnoticed.
  *
- * Fixture: reuses ra-292-seed.js's four-site ORS_INTERIM_AUTHORITY item —
+ * Fixture: ra-292-fixture.js's four-site ORS / interim / authority item —
  * Bilbao (LEGACY, no codes, no interim site), Hamburg (ESTABLISHED, R4 only,
  * HAS an interim site), Port Klang (NON_EU, no codes, no interim site) and
- * Rotterdam (NEW, R3+R12, HAS an interim site). See that module's own header
- * for why some of the fields this spec asserts on are not yet seeded by
- * management-be — the specs below are expected to fail against a live
- * environment until that backend work lands, same as every other field
- * added there ahead of the backend.
+ * Rotterdam (NEW, R3+R12, HAS an interim site).
  */
 describe('RA-469 / RA-486: Recycling operations tab', () => {
   before(async () => {
     await login.login()
-    // RA-299: a bare landing defaults to assigned-to-me, and this seed item
-    // is unassigned — reset filters first or the search returns nothing.
-    await workItems.resetFilters()
-    await workItems.searchByOrgName(ORG_NAME)
-    await browser.waitUntil(
-      async () => (await browser.getUrl()).includes('filtersApplied=1'),
-      { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
-    )
-    expect(await workItems.getRowCount()).toBe(1)
-    await workItems.openFirstListedWorkItem()
+    const item = await createOrsInterimAuthorityWorkItem()
+    await workItems.openWorkItem(item.id)
+    await workItems.waitForDetailPage()
     await detail.gotoRecyclingOperations()
   })
 
@@ -70,9 +63,9 @@ describe('RA-469 / RA-486: Recycling operations tab', () => {
   })
 
   it('AC2: lists every overseas site, sorted alphabetically by name', async () => {
-    // Sites are ALWAYS sorted by name, independent of the seed's siteId /
+    // Sites are ALWAYS sorted by name, independent of the payload's siteId /
     // backend order (Rotterdam=1, Hamburg=2, Bilbao=3, Port Klang=4) — so
-    // the expected order below is alphabetical, not seed order, and a
+    // the expected order below is alphabetical, not payload order, and a
     // template that merely rendered backend order would fail this.
     expect(await detail.recyclingOperationsSiteOrder()).toEqual([
       String(ORS.LEGACY.siteId),
@@ -145,7 +138,7 @@ describe('RA-469 / RA-486: Recycling operations tab', () => {
       // Hamburg: operationCodes is ['R4'] only — no R12/R13 — but it DOES
       // have an interim site (Bremen). Before RA-486 the line was gated on
       // the ORS's own R12/R13, so this fixture would have hidden it despite
-      // Hamburg genuinely having an interim site. This is the one seeded
+      // Hamburg genuinely having an interim site. This is the one
       // site that can tell the two implementations apart; Rotterdam's R12
       // would pass under either.
       expect(
@@ -199,7 +192,7 @@ describe('RA-469 / RA-486: Recycling operations tab', () => {
 
   it('AC3: does not offer the search box for a fixture under the one-page threshold', async () => {
     // showSearch gates on the TOTAL site count exceeding 20 (one page) —
-    // this fixture seeds four, so the box must not render. The complementary
+    // this fixture has four, so the box must not render. The complementary
     // AC4 filtering coverage below deliberately does NOT depend on this box
     // being present; see that describe block's own comment.
     await expect(detail.recyclingOperationsSearchForm()).not.toBeExisting()

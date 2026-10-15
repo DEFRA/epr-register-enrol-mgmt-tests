@@ -4,7 +4,12 @@ import workItems from '../page-objects/work-items.page.js'
 import detail, {
   INTERIM_DETAIL_FIELDS
 } from '../page-objects/work-item-detail.page.js'
-import { ORG_NAME, ORS, INTERIM, AUTHORISERS } from '../support/ra-292-seed.js'
+import {
+  AUTHORISERS,
+  INTERIM,
+  ORS,
+  createOrsInterimAuthorityWorkItem
+} from '../support/ra-292-fixture.js'
 
 /**
  * RA-292 (AC04): interim site data, authority-to-issue contacts, page-wide
@@ -18,16 +23,9 @@ import { ORG_NAME, ORS, INTERIM, AUTHORISERS } from '../support/ra-292-seed.js'
 describe('RA-292: interim site detail, authority-to-issue contacts and access', () => {
   before(async () => {
     await login.login()
-    // RA-299: a bare landing defaults to assigned-to-me, and this seed item is
-    // unassigned — reset filters first or the search returns nothing.
-    await workItems.resetFilters()
-    await workItems.searchByOrgName(ORG_NAME)
-    await browser.waitUntil(
-      async () => (await browser.getUrl()).includes('filtersApplied=1'),
-      { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
-    )
-    expect(await workItems.getRowCount()).toBe(1)
-    await workItems.openFirstListedWorkItem()
+    const item = await createOrsInterimAuthorityWorkItem()
+    await workItems.openWorkItem(item.id)
+    await workItems.waitForDetailPage()
     // RA-486: each ORS now renders as a collapsed-by-default <details> —
     // expand so nested interim-site content is readable by the assertions
     // below.
@@ -79,7 +77,7 @@ describe('RA-292: interim site detail, authority-to-issue contacts and access', 
     })
 
     it('displays the established interim site independently', async () => {
-      // The established interim site has no addressLine2 in the seed, which
+      // The established interim site has no addressLine2 in the fixture, which
       // is the case a naive address join renders as "8 Speicherstrasse, ,
       // Bremen". Asserting on the composed string is what catches that.
       const site = INTERIM.ESTABLISHED
@@ -101,8 +99,8 @@ describe('RA-292: interim site detail, authority-to-issue contacts and access', 
     })
 
     it('RA-486: shows recycling operation codes on the interim site itself', async () => {
-      // Antwerp seeds an ARRAY (['R12', 'R3']) and Bremen a bare STRING
-      // ('R13') — see ra-292-seed.js. `interim-site-operation-code` is a
+      // Antwerp carries an ARRAY (['R12', 'R3']) and Bremen a bare STRING
+      // ('R13') — see ra-292-fixture.js. `interim-site-operation-code` is a
       // single `<dd>` holding one `<p>` per value (siteDetails() in
       // detail.njk), so blockFieldText's single getText() already reads
       // every line; asserted with toContain rather than an exact multi-line
@@ -253,14 +251,9 @@ describe('RA-292: access to the new site data', () => {
       // that exposed an action alongside it a regression of its read-ONLY
       // half.
       await login.loginAsSupportUser()
-      await workItems.resetFilters()
-      await workItems.searchByOrgName(ORG_NAME)
-      await browser.waitUntil(
-        async () => (await browser.getUrl()).includes('filtersApplied=1'),
-        { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
-      )
-      expect(await workItems.getRowCount()).toBe(1)
-      await workItems.openFirstListedWorkItem()
+      const item = await createOrsInterimAuthorityWorkItem()
+      await workItems.openWorkItem(item.id)
+      await workItems.waitForDetailPage()
       // RA-486: each ORS now renders as a collapsed-by-default <details> —
       // expand so nested interim-site content is readable by the
       // assertions below.

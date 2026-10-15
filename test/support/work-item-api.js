@@ -57,6 +57,8 @@ function basePayload({ organisationName, token }) {
     companiesHouseNumber: '12345678',
     siteAddress: '1 E2E Way, London',
     siteAddressPostcode: uniquePostcode(),
+    // RA-526: the submission states its nation; nothing derives it.
+    nation: 'England',
     chargeAmountPence: 54600
   }
 }
@@ -69,8 +71,11 @@ function basePayload({ organisationName, token }) {
  *
  * `payload` is the payload management-be stored (with the nation and
  * reference it derived), so a spec can assert against the values actually
- * submitted. `fields` may be a function of the generated base payload, for a
- * fixture whose values depend on it (e.g. reusing the generated postcode).
+ * submitted.
+ *
+ * `fields` is either an object spread over the base payload, or a function
+ * that receives the base payload and returns the whole payload, for a fixture
+ * that must leave a base field out (e.g. an exporter has no site address).
  */
 export async function createWorkItemViaApi({
   organisationNamePrefix,
@@ -81,10 +86,8 @@ export async function createWorkItemViaApi({
     organisationName: uniqueOrganisationName(organisationNamePrefix),
     token
   })
-  const payload = {
-    ...base,
-    ...(typeof fields === 'function' ? fields(base) : fields)
-  }
+  const payload =
+    typeof fields === 'function' ? fields(base) : { ...base, ...fields }
   const result = expectStatus(
     await managementBeRequest('POST', '/work-items', {
       body: { typeId: 're-accreditation', source: 'mgmt-tests', payload }

@@ -1,35 +1,31 @@
-import { browser, expect } from '@wdio/globals'
+import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import {
   DUPLICATE_ORS,
-  ORG_NAME,
   SHARED_ORS_NAME,
-  UNIQUE_ORS_NAMES
-} from '../support/ra-604-seed.js'
+  UNIQUE_ORS_NAMES,
+  createDuplicateOrsNamesWorkItem
+} from '../support/ra-604-fixture.js'
 
 /**
  * RA-604: show condensed addresses in collapsed ORS summaries when names
  * repeat, while retaining each complete address in the expanded site details.
  *
- * Runs against management-be's `duplicate-ors-names` seed. It includes two
- * ORSs with the same name and two uniquely named ORSs on the same application.
+ * Runs against its own duplicate-names application
+ * (support/ra-604-fixture.js). It includes two ORSs with the same name and two
+ * uniquely named ORSs on the same application.
  */
 describe('RA-604 duplicate overseas reprocessing site names', () => {
   before(async () => {
     await login.login()
-    await workItems.resetFilters()
-    await workItems.searchByOrgName(ORG_NAME)
-    await browser.waitUntil(
-      async () => (await browser.getUrl()).includes('filtersApplied=1'),
-      { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
-    )
-    expect(await workItems.getRowCount()).toBe(1)
-    await workItems.openFirstListedWorkItem()
+    const item = await createDuplicateOrsNamesWorkItem()
+    await workItems.openWorkItem(item.id)
+    await workItems.waitForDetailPage()
     await detail.applicationDetailRow('ors').waitForDisplayed({
       timeoutMsg:
-        'the ORS row never rendered for the duplicate-name seed application'
+        'the ORS row never rendered for the duplicate-name application'
     })
   })
 

@@ -7,6 +7,10 @@ import detail, {
 } from '../page-objects/work-item-detail.page.js'
 import slaExtend from '../page-objects/sla-extend.page.js'
 import {
+  FULL_PAYLOAD,
+  createFullPayloadWorkItem
+} from '../support/full-payload-fixture.js'
+import {
   dulyMake,
   startAssessment
 } from '../support/re-accreditation-journey.js'
@@ -29,7 +33,8 @@ import {
  * Two fixtures are needed, because no single work item exercises the whole
  * header:
  *
- *   - The seeded "Full Payload Verification Ltd" item carries the rich payload
+ *   - A full-payload item submitted through the API
+ *     (support/full-payload-fixture.js) carries the rich payload
  *     (registration number, operator org id, material) that a UI-created item
  *     has no way to supply, but it sits in `submitted` with no SLA clock
  *     running, so its "Due date" has nothing to show.
@@ -45,10 +50,13 @@ import {
  * Both are covered below rather than picking one and hand-waving the other.
  */
 describe('RA-295 case header on the work item detail page', () => {
+  let item
+
   before(async () => {
-    // No nation → a multi-nation "see all" user, so the seeded item is visible
-    // regardless of which nation it was seeded into.
+    // No nation → a multi-nation "see all" user, so the item is visible
+    // regardless of which nation it was routed to.
     await login.login()
+    item = await createFullPayloadWorkItem()
   })
 
   after(async () => {
@@ -58,14 +66,14 @@ describe('RA-295 case header on the work item detail page', () => {
   describe('reached by navigating from the work items list', () => {
     before(async () => {
       // A bare landing defaults to "assigned to me" (RA-299), which would hide
-      // this unassigned seeded item — reset to an explicit empty filter first.
+      // this unassigned item — reset to an explicit empty filter first.
       await workItems.resetFilters()
-      await workItems.searchByOrgName('Full Payload Verification Ltd')
+      await workItems.searchByOrgName(item.organisationName)
       await browser.waitUntil(
         async () => (await browser.getUrl()).includes('filtersApplied=1'),
         { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
       )
-      // Hard gate: the search must resolve to exactly the one seeded item.
+      // Hard gate: the search must resolve to exactly the one item.
       // 0 means it is absent or archived; >1 means the org name is no longer
       // unique. Failing here beats opening the wrong row and timing out
       // opaquely further down.
@@ -95,7 +103,7 @@ describe('RA-295 case header on the work item detail page', () => {
       // satisfy it. Every field is therefore also checked for a real value.
       //
       // "dueOn" is deliberately exempt: management-be confirmed the SLA clock
-      // is stamped by the submitted → duly-made transition, so a seeded item
+      // is stamped by the submitted → duly-made transition, so an item
       // in `submitted` (which this fixture is) has slaDueDate: null by design
       // and correctly renders the em-dash fallback. Requiring a date here
       // would be asserting a bug. The populated case gets its own block at the
@@ -121,15 +129,15 @@ describe('RA-295 case header on the work item detail page', () => {
 
     it('falls back to a placeholder for "Due date" before the SLA clock starts', async () => {
       // The complement of the exemption above, asserted rather than assumed:
-      // this fixture is in `submitted`, so it must show the em dash. If the
-      // seeder ever starts stamping a clock on submitted items, this fails and
+      // this fixture is in `submitted`, so it must show the em dash. If
+      // management-be ever starts stamping a clock on submitted items, this fails and
       // tells us the exemption above is now hiding something.
       expect(await detail.hasRealDueOn()).toBe(false)
     })
 
     it('reads "Not received" for both payment items before duly making', async () => {
       // The complement of the RA-493 exemption above, for the same reason as
-      // the "Due date" one: if the seeder ever starts stamping a payment date
+      // the "Due date" one: if management-be ever starts stamping a payment date
       // on submitted items, this fails rather than the exemption hiding it.
       await expect(detail.caseHeaderField('paymentDate')).toHaveText(
         PAYMENT_NOT_RECEIVED
@@ -143,22 +151,22 @@ describe('RA-295 case header on the work item detail page', () => {
       // AC01 asks for "Org name and ID" — both, distinctly. Asserting only the
       // name would pass against a header that dropped the ID entirely.
       await expect(detail.caseHeaderField('orgName')).toHaveText(
-        expect.stringContaining('Full Payload Verification Ltd')
+        expect.stringContaining(item.organisationName)
       )
       await expect(detail.caseHeaderField('orgId')).toHaveText(
-        // RA-503: operatorOrgNumber ('500010') is now the operator/regulator-safe
-        // value the header prefers over operatorOrganisationId ('500009', ReEx's
-        // internal id in a real submission) — the fixture deliberately carries
+        // RA-503: operatorOrgNumber is now the operator/regulator-safe value
+        // the header prefers over operatorOrganisationId (ReEx's internal id
+        // in a real submission) — the fixture deliberately carries
         // both with distinct values so this assertion has teeth. See
         // ra-450-history-org-id.e2e.js for the matching precedence coverage on
         // the Application History audit-log page.
-        expect.stringContaining('500010')
+        expect.stringContaining(FULL_PAYLOAD.OPERATOR_ORG_NUMBER)
       )
     })
 
     it('shows the registration number', async () => {
       await expect(detail.caseHeaderField('registrationNumber')).toHaveText(
-        expect.stringContaining('EPR-100999')
+        expect.stringContaining(FULL_PAYLOAD.REGISTRATION_NUMBER)
       )
     })
 
@@ -169,7 +177,7 @@ describe('RA-295 case header on the work item detail page', () => {
     })
 
     it('shows the status', async () => {
-      // The seeded fixture sits in stateId `submitted`, whose DISPLAY name is
+      // The fixture sits in stateId `submitted`, whose DISPLAY name is
       // "Not started" — the two are deliberately different, and asserting the
       // state id here would be asserting something the user never sees.
       //
@@ -189,8 +197,7 @@ describe('RA-295 case header on the work item detail page', () => {
     })
 
     it('shows a non-empty accreditation ref', async () => {
-      // The seeded reference is generated deterministically from the seed key
-      // by the backend, so its literal value is not knowable here — assert it
+      // The reference is generated by the backend on submission, so its literal value is not knowable here — assert it
       // is present and non-empty. RA-504 removed the Reference footer that used
       // to carry a second copy of this identifier, so the cross-check against
       // the footer ref that this test previously made no longer applies (the
@@ -212,7 +219,7 @@ describe('RA-295 case header on the work item detail page', () => {
   describe('markup the redesign removes', () => {
     before(async () => {
       await workItems.resetFilters()
-      await workItems.searchByOrgName('Full Payload Verification Ltd')
+      await workItems.searchByOrgName(item.organisationName)
       expect(await workItems.getRowCount()).toBe(1)
       await workItems.openFirstListedWorkItem()
     })
@@ -230,7 +237,7 @@ describe('RA-295 case header on the work item detail page', () => {
   })
 
   describe('an item with a running SLA clock', () => {
-    // The seeded item above has no SLA clock, so its "Due date" cannot carry a
+    // The full-payload item above has no SLA clock, so its "Due date" cannot carry a
     // real date. This drives a fresh item to the state where the clock starts,
     // then pins the clock to known values so the expected due date is an exact
     // string rather than an approximation.
@@ -238,7 +245,7 @@ describe('RA-295 case header on the work item detail page', () => {
     // The SLA tracker badge removal is asserted HERE rather than alongside the
     // other removals, and that placement is the whole point. The old template
     // rendered the badge inside `{% if workItem.slaState %}`, so on an item
-    // with no clock — like the seeded fixture above — it never rendered in the
+    // with no clock — like the full-payload item above — it never rendered in the
     // first place. Asserting its absence there passed against the pre-RA-295
     // build too: a vacuous test that could never have caught a regression.
     // This block is the only place in the suite with a guaranteed running

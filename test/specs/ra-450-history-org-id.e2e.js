@@ -2,6 +2,10 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
+import {
+  FULL_PAYLOAD,
+  createFullPayloadWorkItem
+} from '../support/full-payload-fixture.js'
 
 /**
  * RA-450 — Case Management service: Application History Org ID field is incorrect for Route to
@@ -67,19 +71,20 @@ describe('RA-450 Application History Org ID shows the operator org id', () => {
  * The block above (RA-450) drives a work item through the case-management
  * "create work item" form, which only ever sets operatorOrganisationId (as a
  * validated 6-digit number, RA-448) — it has no operatorOrgNumber field, so
- * it cannot exercise this precedence. The seeded "Full Payload Verification
- * Ltd" item mirrors what a real operator submission sends: both fields, with
- * DISTINCT values (operatorOrgNumber 500010, operatorOrganisationId 500009 —
- * ReEx's internal id on a genuine submission), so this assertion has teeth
- * rather than the two happening to coincide.
+ * it cannot exercise this precedence. The full-payload item
+ * (support/full-payload-fixture.js) mirrors what a real operator submission
+ * sends: both fields, with DISTINCT values (operatorOrgNumber 500010, and an
+ * `e2e-` test organisation id standing in for ReEx's internal id), so this
+ * assertion has teeth rather than the two happening to coincide.
  */
 describe('RA-503 Application History Org ID prefers operatorOrgNumber', () => {
+  let item
+
   before(async () => {
     await login.login()
-    await workItems.resetFilters()
-    await workItems.searchByOrgName('Full Payload Verification Ltd')
-    expect(await workItems.getRowCount()).toBe(1)
-    await workItems.openFirstListedWorkItem()
+    item = await createFullPayloadWorkItem()
+    await workItems.openWorkItem(item.id)
+    await workItems.waitForDetailPage()
     await detail.gotoAudit()
     await detail.expandAllAuditEntryDetails()
   })
@@ -90,11 +95,11 @@ describe('RA-503 Application History Org ID prefers operatorOrgNumber', () => {
 
   it('shows operatorOrgNumber in the Org ID snapshot row', async () => {
     const orgId = await detail.auditSnapshotRowValue('Org ID')
-    expect(orgId.trim()).toBe('500010')
+    expect(orgId.trim()).toBe(FULL_PAYLOAD.OPERATOR_ORG_NUMBER)
   })
 
   it('does NOT show operatorOrganisationId in the Org ID row', async () => {
     const orgId = await detail.auditSnapshotRowValue('Org ID')
-    expect(orgId.trim()).not.toBe('500009')
+    expect(orgId.trim()).not.toBe(item.operatorOrganisationId)
   })
 })

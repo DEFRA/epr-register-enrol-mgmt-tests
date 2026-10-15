@@ -134,11 +134,10 @@ describe('RA-410 The green CTA lifecycle', () => {
       await detail.assertState('Granted')
       await detail.assertApprovalPanelVisible()
       // RA-415 reworked the accreditation id format (was `ACC-2027-P-XXXXXXXX`).
-      // Mirror the pattern management-be now generates — see the matching
-      // assertion (and the note on why the trailing segment isn't asserted as
-      // a specific material code) in re-accreditation-approval.e2e.js.
+      // The same shape as re-accreditation-approval.e2e.js asserts, for this
+      // plastic (PL) application.
       expect(await detail.getAccreditationId()).toMatch(
-        /^A\d{2}[ESNW][RX][A-Z0-9]{6}[A-Z0-9]{3}[A-Z]{2}$/
+        /^A\d{2}[ESNW][RX]\d{6}\d{4}PL$/
       )
     })
 

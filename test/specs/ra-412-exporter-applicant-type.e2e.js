@@ -1,10 +1,9 @@
 import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
-import {
-  GLOBAL_GLASS_EXPORTS_ORG_NAME,
-  GLOBAL_GLASS_EXPORTS_MATERIAL_LABEL
-} from '../support/ra-412-seed.js'
+import { uniqueOrganisationName } from '../support/unique-name.js'
+import { uniquePostcode } from '../support/unique-postcode.js'
+import { createWorkItemViaApi } from '../support/work-item-api.js'
 
 /**
  * RA-412 — Work items list mislabels every Exporter application as
@@ -17,16 +16,12 @@ import {
  * type: Exporter" filter matched nothing, however many genuine Exporter
  * applications existed.
  *
- * This spec exercises both fixes against the genuine Exporter application
- * seeded by management-be (management-be#118, `ra-412-seed.js`). It is
- * deliberately NOT a fresh fixture built via "Create work item": that form
- * has no operator-type field, so every item it creates carries no
- * `wasteProcessingType` and can only ever prove the pre-RA-314 fallback
- * ("Reprocessor") — already covered incidentally by every other spec that
- * creates a work item through the UI (e.g. ra-370-card-field-order.e2e.js).
- * Only a seeded Exporter fixture can prove the positive case this ticket
- * fixes, so the "returns a Reprocessor item unaffected" side of the filter
- * assertion below uses a fresh UI-created item as the negative control.
+ * This spec exercises both fixes against a genuine Exporter application,
+ * submitted through the API with `wasteProcessingType: "exporter"`
+ * (`createWorkItemViaApi`). It is deliberately NOT a fixture built via
+ * "Create work item": that form has no operator-type field, so every item it
+ * creates carries no `wasteProcessingType` and can only ever prove the
+ * pre-RA-314 fallback ("Reprocessor").
  *
  * Filter wiring (confirmed against management-fe#179 / management-be#118):
  * the "Applicant type" Exporter checkbox still posts `typeId=exporter`
@@ -35,30 +30,44 @@ import {
  * `exporter` typeId) AND the new `wasteProcessingTypes: ['Exporter']` param,
  * which management-be matches against `payload.wasteProcessingType`.
  *
- * Known, deliberately uncovered gap: nothing here asserts a card still reads
- * "Reprocessor" for a work item whose payload carries an EXPLICIT
- * `wasteProcessingType: "reprocessor"` (as opposed to the field being
- * absent). No such fixture is seeded in this stack — every currently-seeded
- * item is either flagged "exporter" or omits the field entirely — so that
- * regression case (an implementation that treats any non-empty value as
- * Exporter) cannot be reached through the UI. Tracked for whoever adds a
- * matching management-be fixture.
+ * The negative controls are two Reprocessor applications: one whose payload
+ * carries an EXPLICIT `wasteProcessingType: "reprocessor"`, which catches an
+ * implementation that treats any non-empty value as Exporter, and one that
+ * omits the field, the pre-RA-314 shape.
  */
 describe('RA-412 — Exporter applications are labelled correctly', () => {
-  // The seeded Exporter fixture, resolved once and shared by both describe
-  // blocks below (searching by org name is not free, and re-running it per
-  // block just risks the two copies drifting out of sync).
+  // One token scopes the filter assertions to this spec's three items, so
+  // they hold however many other applications the list holds.
+  const token = uniqueOrganisationName('RA412 Applicant Type')
   let exporterItemId
+  let explicitReprocessorId
+  let unflaggedReprocessorId
 
   before(async () => {
     await login.login()
+    ;({ id: exporterItemId } = await createWorkItemViaApi({
+      organisationNamePrefix: `${token} Exporter`,
+      fields: (base) => {
+        const { siteAddress, siteAddressPostcode, ...withoutSite } = base
+        return {
+          ...withoutSite,
+          material: 'glass',
+          wasteProcessingType: 'exporter',
+          // An exporter's regulator (and the application reference's
+          // postcode segment) comes from its registered office.
+          companyRegisterAddressPostcode: uniquePostcode('CF10')
+        }
+      }
+    }))
+    ;({ id: explicitReprocessorId } = await createWorkItemViaApi({
+      organisationNamePrefix: `${token} Explicit Reprocessor`,
+      fields: { wasteProcessingType: 'reprocessor' }
+    }))
+    ;({ id: unflaggedReprocessorId } = await createWorkItemViaApi({
+      organisationNamePrefix: `${token} Unflagged Reprocessor`
+    }))
     await workItems.resetFilters()
-    await workItems.searchByOrgName(GLOBAL_GLASS_EXPORTS_ORG_NAME)
-    // Bounding check: prove exactly one row matched before trusting "first"
-    // to mean "the seeded fixture" (mirrors
-    // ra-295-list-registration-number.e2e.js).
-    expect(await workItems.getTileCount()).toBe(1)
-    exporterItemId = await workItems.firstResultWorkItemId()
+    await workItems.searchByOrgName(token)
   })
 
   after(async () => {
@@ -72,41 +81,33 @@ describe('RA-412 — Exporter applications are labelled correctly', () => {
       ).toHaveText('Exporter')
     })
 
+    it('shows "Reprocessor" for an explicit reprocessor and for an unflagged one', async () => {
+      await expect(
+        workItems.tileField(explicitReprocessorId, 'applicant-type')
+      ).toHaveText('Reprocessor')
+      await expect(
+        workItems.tileField(unflaggedReprocessorId, 'applicant-type')
+      ).toHaveText('Reprocessor')
+    })
+
     it('renders the exact card title with the real applicant type', async () => {
       await expect(workItems.tileTitle(exporterItemId)).toHaveText(
-        `${GLOBAL_GLASS_EXPORTS_MATERIAL_LABEL} reaccreditation (Exporter)`
+        // management-fe's materials.js renders the raw `glass` token as the
+        // single label "Glass".
+        'Glass reaccreditation (Exporter)'
       )
     })
   })
 
   describe('Applicant type filter', () => {
-    let reprocessorId
-
-    before(async () => {
-      // Negative control: a fresh UI-created item. The create form has no
-      // operator-type field, so this carries no wasteProcessingType at all
-      // and falls back to "Reprocessor" — it must be EXCLUDED from an
-      // Exporter-only result set. Proves the filter actually discriminates,
-      // rather than merely proving the seeded item is reachable some other
-      // way (e.g. if Exporter selection silently dropped the type
-      // constraint and returned everything).
-      await workItems.goto()
-      ;({ id: reprocessorId } = await workItems.createWorkItem({
-        organisationNamePrefix: 'RA412 Reprocessor Control',
-        siteAddressLine1: '1 Applicant Type Way',
-        siteAddressTown: 'London',
-        material: 'plastic',
-        tonnageBand: '0-500'
-      }))
-    })
-
-    it('Exporter option returns the genuine Exporter application and excludes a Reprocessor one', async () => {
+    it('Exporter option returns the genuine Exporter application and excludes both Reprocessor ones', async () => {
       await workItems.resetFilters()
       await workItems.checkType('exporter')
-      await workItems.applyFilters()
+      await workItems.searchByOrgName(token)
 
       await expect(workItems.tileFor(exporterItemId)).toBeDisplayed()
-      await expect(workItems.tileFor(reprocessorId)).not.toBeExisting()
+      await expect(workItems.tileFor(explicitReprocessorId)).not.toBeExisting()
+      await expect(workItems.tileFor(unflaggedReprocessorId)).not.toBeExisting()
     })
   })
 })

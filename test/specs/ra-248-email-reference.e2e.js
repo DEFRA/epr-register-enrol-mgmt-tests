@@ -43,7 +43,6 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
         siteAddressTown: 'London',
         material: 'plastic',
         tonnageBand: '0-500',
-        operatorEmail: 'test@defra.gov.uk',
         // England is the nation this stack configures a regulator mailbox
         // for, so the assignment send is recorded rather than skipped.
         nation: 'England'

@@ -5,37 +5,31 @@ import detail, {
   INTERIM_DETAIL_FIELDS
 } from '../page-objects/work-item-detail.page.js'
 import {
-  ORG_NAME,
   ORS_NAME,
   ACTIVE_INTERIM_SITES,
-  WITHDRAWN_INTERIM_SITE
-} from '../support/ra-603-seed.js'
+  WITHDRAWN_INTERIM_SITE,
+  createMultipleInterimSitesWorkItem
+} from '../support/ra-603-fixture.js'
 
 /**
  * RA-603 AC10b: an overseas reprocessing site can carry several interim sites, and a regulator
  * folds each one down on its own to read that site's details and R codes.
  *
- * Runs against the `multiple-interim-sites` seed item, whose single ORS carries three interim
- * sites: two active and one withdrawn. That mix is deliberate — a fixture of identical, all-active
+ * Runs against its own multiple-interim-sites application (support/ra-603-fixture.js), whose
+ * single ORS carries three interim sites: two active and one withdrawn. That mix is deliberate — a fixture of identical, all-active
  * interim sites would pass just as well against a page that rendered only the first, badged every
  * site as new, or ignored `removedAt` entirely.
  *
- * Depends on MULTIPLE_INTERIM_SITES_ENABLED being true, which
- * `docker/config/management-fe.env` sets for this stack. The flag is off by default in
- * management-fe, so without it this spec would legitimately see only one interim site.
+ * Depends on management-fe's MULTIPLE_INTERIM_SITES_ENABLED being true (compose.yml passes it
+ * through). The flag is off by default in management-fe, so without it this spec would
+ * legitimately see only one interim site.
  */
 describe('RA-603: several interim sites on one overseas reprocessing site', () => {
   before(async () => {
     await login.login()
-    // A bare landing defaults to assigned-to-me and this seed item is unassigned (RA-299).
-    await workItems.resetFilters()
-    await workItems.searchByOrgName(ORG_NAME)
-    await browser.waitUntil(
-      async () => (await browser.getUrl()).includes('filtersApplied=1'),
-      { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
-    )
-    expect(await workItems.getRowCount()).toBe(1)
-    await workItems.openFirstListedWorkItem()
+    const item = await createMultipleInterimSitesWorkItem()
+    await workItems.openWorkItem(item.id)
+    await workItems.waitForDetailPage()
     // Each ORS is a collapsed <details> (RA-486) and each interim site is now a <details> nested
     // inside it (RA-603). The parent has to open first — a nested disclosure inside a collapsed
     // parent cannot be clicked.

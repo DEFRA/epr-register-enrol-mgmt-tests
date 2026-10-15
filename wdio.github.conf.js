@@ -13,6 +13,8 @@ process.env.OPERATOR_BACKEND_URL ??= 'http://localhost:8080'
 process.env.MANAGEMENT_BE_SHARED_SECRET ??= 'E2eComposeMgmtTestsToManagementBe'
 process.env.OPERATOR_BACKEND_SHARED_SECRET ??=
   'E2eComposeMgmtTestsToOperatorBackend'
+// The compose stack runs the Entra ID stub, as CDP test does (RA-537).
+process.env.ENTRA_STUB_LOGIN ??= 'true'
 
 export const config = {
   //

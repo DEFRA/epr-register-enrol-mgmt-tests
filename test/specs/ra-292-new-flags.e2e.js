@@ -1,8 +1,13 @@
-import { browser, expect, $ } from '@wdio/globals'
+import { expect, $ } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import { ORG_NAME, ORS, INTERIM, AUTHORISERS } from '../support/ra-292-seed.js'
+import {
+  AUTHORISERS,
+  INTERIM,
+  ORS,
+  createOrsInterimAuthorityWorkItem
+} from '../support/ra-292-fixture.js'
 
 /**
  * RA-292 (AC01, AC02, AC03): new ORS sites, new interim sites and new
@@ -20,7 +25,7 @@ import { ORG_NAME, ORS, INTERIM, AUTHORISERS } from '../support/ra-292-seed.js'
  * so each AC below is asserted as a pair against the same page: the new thing
  * carries the tag AND the established thing next to it does not.
  *
- * The seeded item (management-be seed key `ors-interim-authority`) is built
+ * The fixture item (support/ra-292-fixture.js) is built
  * for precisely that: three ORS sites and three authorisers covering the flag
  * being true, false, and absent entirely. The absent case is not redundant
  * with false — Nunjucks resolves a missing key to undefined, so a template
@@ -32,20 +37,9 @@ import { ORG_NAME, ORS, INTERIM, AUTHORISERS } from '../support/ra-292-seed.js'
 describe('RA-292: new ORS, interim site and authority-to-issue flags', () => {
   before(async () => {
     await login.login()
-    // RA-299: a bare landing defaults to assigned-to-me, and this seed item is
-    // unassigned — reset to an explicit empty filter so the search is not
-    // implicitly assignee-scoped and silently returns nothing.
-    await workItems.resetFilters()
-    await workItems.searchByOrgName(ORG_NAME)
-    await browser.waitUntil(
-      async () => (await browser.getUrl()).includes('filtersApplied=1'),
-      { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
-    )
-    // Hard gate: the search must resolve to exactly the one seeded item, so
-    // "the first row" is unambiguous and every assertion below is known to be
-    // reading the fixture it was written against.
-    expect(await workItems.getRowCount()).toBe(1)
-    await workItems.openFirstListedWorkItem()
+    const item = await createOrsInterimAuthorityWorkItem()
+    await workItems.openWorkItem(item.id)
+    await workItems.waitForDetailPage()
     // RA-486: each ORS now renders as a collapsed-by-default <details> —
     // expand so nested interim-site content is readable by the assertions
     // below.
@@ -61,7 +55,7 @@ describe('RA-292: new ORS, interim site and authority-to-issue flags', () => {
   })
 
   describe('AC01 — a new ORS is flagged as new', () => {
-    it('renders every seeded ORS site on the overview page', async () => {
+    it('renders every submitted ORS site on the overview page', async () => {
       // Establishes the baseline the conditionality assertions depend on. If
       // only one site rendered, "the established site has no tag" would pass
       // for the trivial reason that the site is not on the page at all.
@@ -234,7 +228,7 @@ describe('RA-292: new ORS, interim site and authority-to-issue flags', () => {
   })
 
   describe('AC03 — a new authority-to-issue contact is flagged as new', () => {
-    it('renders every seeded authority-to-issue contact', async () => {
+    it('renders every submitted authority-to-issue contact', async () => {
       const contacts = await detail.flaggedBlockTexts('authorityToIssueContact')
       expect(contacts).toHaveLength(3)
       const joined = contacts.join(' | ')

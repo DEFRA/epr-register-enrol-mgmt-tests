@@ -3,6 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
+import { SIMULATED_DELIVERED_EMAIL } from '../support/operator-backend-api.js'
 
 /**
  * RA-235 — E2E: audit-log notification rendering.
@@ -18,8 +19,8 @@ import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
  * Part of epic RA-227.
  *
  * SENT path is exercised through the withdraw flow (RA-204): withdrawing a
- * re-accreditation work item with the seeded default operator email
- * (test@defra.gov.uk) sends the "Withdrawn" email, which the backend
+ * re-accreditation work item with GOV.UK Notify's simulated delivered
+ * operator email (createWorkItem's default) sends the "Withdrawn" email, which the backend
  * records as a `notification-sent` audit entry carrying the recipient,
  * notification type (templateKey) and reference (the application reference).
  *
@@ -42,9 +43,9 @@ describe('RA-235 audit-log notification rendering', () => {
     before(async () => {
       await login.login()
       await workItems.goto()
-      // operatorEmail left at the seeded default (test@defra.gov.uk) so the
-      // withdraw send succeeds rather than being skipped — that default is
-      // therefore the recipient we assert on below.
+      // createWorkItem's default operator email (GOV.UK Notify's simulated
+      // delivered address) makes the withdraw send succeed rather than be
+      // skipped — that default is therefore the recipient we assert on below.
       workItemId = (
         await workItems.createWorkItem({
           organisationNamePrefix: 'Audit Notify Render Ltd',
@@ -80,7 +81,7 @@ describe('RA-235 audit-log notification rendering', () => {
       await detail.assertNotificationDetailRow(
         'notification-sent',
         'Recipient',
-        'test@defra.gov.uk'
+        SIMULATED_DELIVERED_EMAIL
       )
     })
 

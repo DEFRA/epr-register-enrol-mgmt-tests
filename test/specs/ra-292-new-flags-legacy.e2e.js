@@ -1,15 +1,16 @@
-import { browser, expect } from '@wdio/globals'
+import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import { LEGACY_ORG_NAME } from '../support/ra-292-seed.js'
+import { createWorkItemViaApi } from '../support/work-item-api.js'
 
 /**
  * RA-292 backwards compatibility.
  *
  * Every work item submitted before this story carries none of `isNewSite` or
- * `isNew` — and the pre-RA-292 seed items carry no `overseasSites` and no
- * `prns` at all. The new template code reaches into nested site objects that
+ * `isNew` — and a pre-RA-292 submission carries no `overseasSites` and no
+ * `prns` at all, which is what this spec submits (`createWorkItemViaApi` with
+ * only the base fields). The new template code reaches into nested site objects that
  * simply are not there on those items.
  *
  * Nunjucks does not throw on a missing key, which is what makes this worth a
@@ -26,16 +27,15 @@ import { LEGACY_ORG_NAME } from '../support/ra-292-seed.js'
  * AC01/02/03 block in the same process.
  */
 describe('RA-292: a pre-RA-292 work item still renders cleanly', () => {
+  let item
+
   before(async () => {
     await login.login()
-    await workItems.resetFilters()
-    await workItems.searchByOrgName(LEGACY_ORG_NAME)
-    await browser.waitUntil(
-      async () => (await browser.getUrl()).includes('filtersApplied=1'),
-      { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
-    )
-    expect(await workItems.getRowCount()).toBe(1)
-    await workItems.openFirstListedWorkItem()
+    item = await createWorkItemViaApi({
+      organisationNamePrefix: 'RA292 Pre-RA-292 Application Ltd'
+    })
+    await workItems.openWorkItem(item.id)
+    await workItems.waitForDetailPage()
   })
 
   after(async () => {
@@ -45,7 +45,7 @@ describe('RA-292: a pre-RA-292 work item still renders cleanly', () => {
   it('loads the overview page without erroring', async () => {
     await expect(detail.applicationDetails()).toBeDisplayed()
     await expect(detail.caseHeaderField('orgName')).toHaveText(
-      expect.stringContaining(LEGACY_ORG_NAME)
+      expect.stringContaining(item.organisationName)
     )
   })
 

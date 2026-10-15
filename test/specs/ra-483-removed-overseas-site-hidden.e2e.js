@@ -1,8 +1,12 @@
-import { browser, expect } from '@wdio/globals'
+import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import recyclingOperations from '../page-objects/recycling-operations.page.js'
+import {
+  FULL_PAYLOAD,
+  createFullPayloadWorkItem
+} from '../support/full-payload-fixture.js'
 
 /**
  * RA-483 — a removed ("deselected") Overseas Reprocessing Site must not be
@@ -19,9 +23,8 @@ import recyclingOperations from '../page-objects/recycling-operations.page.js'
  * "It is gone from the data" is therefore not something case management can
  * assume — the filtering is a real behaviour that needs a real test.
  *
- * Runs against the `full-payload-verification` ReAccreditation seed item,
- * whose `payload.overseasSites.sites` carries a deliberate PAIR
- * (ReAccreditationSeeder):
+ * Runs against its own full-payload item (support/full-payload-fixture.js),
+ * whose `payload.overseasSites.sites` carries a deliberate PAIR:
  *
  *   siteId 1  Full Payload Verification Overseas Site  Netherlands  selected: true
  *   siteId 2  Removed Overseas Site                    Germany      selected: false
@@ -35,8 +38,8 @@ import recyclingOperations from '../page-objects/recycling-operations.page.js'
  */
 describe('RA-483 — removed overseas sites are hidden in case management', () => {
   // The still-selected site, which MUST render.
-  const selectedSiteName = 'Full Payload Verification Overseas Site'
-  const selectedSiteCountry = 'Netherlands'
+  const selectedSiteName = FULL_PAYLOAD.SELECTED_OVERSEAS_SITE.name
+  const selectedSiteCountry = FULL_PAYLOAD.SELECTED_OVERSEAS_SITE.country
 
   // Every distinctive string belonging to the removed site. Asserting on the
   // name alone would miss a template that dropped the name line but still
@@ -49,12 +52,11 @@ describe('RA-483 — removed overseas sites are hidden in case management', () =
     'Hamburg'
   ]
 
-  // The seeded `siteId` values, which the Recycling operations tab's row and
-  // Change-link testids are suffixed with.
+  // The fixture's `siteId` values, which the Recycling operations tab's row
+  // and Change-link testids are suffixed with.
   //
-  // These are OWNED BY management-be's ReAccreditationSeeder, not by this
-  // suite. If that fixture is ever re-numbered — or switches to generated ids
-  // — these selectors go stale, and the failure mode is ASYMMETRIC in a way
+  // If the fixture is ever re-numbered — or switches to generated ids — these
+  // selectors go stale, and the failure mode is ASYMMETRIC in a way
   // that matters: a stale REMOVED id reads as a pass, because the row simply
   // is not found and "not found" is exactly what the negative asserts. Only
   // the positives fail loudly. That is the second reason every negative below
@@ -66,26 +68,16 @@ describe('RA-483 — removed overseas sites are hidden in case management', () =
 
   before(async () => {
     await login.login()
-    // A bare landing defaults to assigned-to-me (RA-299), which hides this
-    // unassigned seeded item — reset to an explicit empty filter so the search
-    // is not implicitly assignee-scoped.
-    await workItems.resetFilters()
-    await workItems.searchByOrgName('Full Payload Verification Ltd')
-    await browser.waitUntil(
-      async () => (await browser.getUrl()).includes('filtersApplied=1'),
-      { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
-    )
-    // Hard gate: the search must resolve to exactly the one seeded item, so
-    // "the first row" is unambiguous.
-    expect(await workItems.getRowCount()).toBe(1)
-    await workItems.openFirstListedWorkItem()
+    const item = await createFullPayloadWorkItem()
+    await workItems.openWorkItem(item.id)
+    await workItems.waitForDetailPage()
     // The ORS row only exists on an Exporter application. Waiting for it here
     // means a missing-row failure is reported once, as a clear timeout, rather
     // than as a confusing "element not found" inside whichever assertion below
     // happened to run first.
     await detail.applicationDetailRow('ors').waitForDisplayed({
       timeoutMsg:
-        'the ORS row never rendered — the seeded exporter application is not ' +
+        'the ORS row never rendered — the exporter application is not ' +
         'showing its overseas sites at all'
     })
   })

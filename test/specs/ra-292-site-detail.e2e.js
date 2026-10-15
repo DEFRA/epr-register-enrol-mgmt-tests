@@ -1,10 +1,14 @@
-import { browser, expect } from '@wdio/globals'
+import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail, {
   ORS_DETAIL_FIELDS
 } from '../page-objects/work-item-detail.page.js'
-import { ORG_NAME, ORS, INTERIM } from '../support/ra-292-seed.js'
+import {
+  INTERIM,
+  ORS,
+  createOrsInterimAuthorityWorkItem
+} from '../support/ra-292-fixture.js'
 
 /**
  * RA-292 (AC04): the site data behind the flag.
@@ -44,16 +48,9 @@ import { ORG_NAME, ORS, INTERIM } from '../support/ra-292-seed.js'
 describe('RA-292: ORS and interim site detail on the work item overview', () => {
   before(async () => {
     await login.login()
-    // RA-299: a bare landing defaults to assigned-to-me, and this seed item is
-    // unassigned — reset filters first or the search returns nothing.
-    await workItems.resetFilters()
-    await workItems.searchByOrgName(ORG_NAME)
-    await browser.waitUntil(
-      async () => (await browser.getUrl()).includes('filtersApplied=1'),
-      { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
-    )
-    expect(await workItems.getRowCount()).toBe(1)
-    await workItems.openFirstListedWorkItem()
+    const item = await createOrsInterimAuthorityWorkItem()
+    await workItems.openWorkItem(item.id)
+    await workItems.waitForDetailPage()
     // RA-486: each ORS now renders as a collapsed-by-default <details> —
     // expand so its detail fields and any nested interim site are readable
     // by the assertions below.
@@ -179,7 +176,7 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
       // The type here was genuinely disputed across three repos for part of
       // this story (prose vs nullable boolean). It is pinned now only because
       // legacy-be's model settles it — `public bool? ConditionsOfExport` —
-      // and management-be's seed and management-fe's rendering both agree.
+      // and the fixture and management-fe's rendering both agree.
       expect(
         await detail.blockFieldText(
           'overseasSite',
@@ -210,7 +207,7 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
     })
 
     it('lists all three Basel/OECD waste codes for the new site', async () => {
-      // The seed carries three codes in separate fields. A template that
+      // The fixture carries three codes in separate fields. A template that
       // renders the first and stops passes a "waste codes are shown" check
       // while losing two thirds of the data — the same failure mode RA-295
       // found in the supporting-documents list.
@@ -393,7 +390,7 @@ describe('RA-292: ORS and interim site detail on the work item overview', () => 
       ])
       expect(values['overseas-site-ors-id']).toBe(ORS.LEGACY.orsId)
 
-      // Bilbao is the ONLY seeded site with no structured address lines, so it
+      // Bilbao is the ONLY site with no structured address lines, so it
       // is the only one that exercises management-fe's segment-wise
       // de-duplication: its legacy flat `siteAddress` already ends in "Bilbao",
       // and joining that against `townOrCity` and `country` without de-duping

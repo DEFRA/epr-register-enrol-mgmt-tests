@@ -36,8 +36,8 @@ describe('RA-204 Withdrawal notification', () => {
     before(async () => {
       await login.login()
       await workItems.goto()
-      // operatorEmail is left at the seeded default (test@defra.gov.uk)
-      // so the notification is sent rather than skipped.
+      // createWorkItem gives the item GOV.UK Notify's simulated delivered
+      // operator email, so the notification is sent rather than skipped.
       workItemId = (
         await workItems.createWorkItem({
           organisationNamePrefix: 'Withdraw Notify With Note Ltd',
