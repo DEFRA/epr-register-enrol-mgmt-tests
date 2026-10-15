@@ -9,6 +9,7 @@
  *
  *   MANAGEMENT_BE_URL       epr-register-enrol-management-be
  *   OPERATOR_BACKEND_URL    epr-register-enrol-backend (the operator journey)
+ *   CDP_UPLOADER_URL        cdp-uploader, for fixture files (cdp-uploader.js)
  *
  * The wdio config sets both for its environment (`wdio.github.conf.js` for
  * the compose stack, `wdio.conf.js` for CDP). Every base URL and every
@@ -159,6 +160,34 @@ export function operatorBackendRequest(method, path, { body } = {}) {
     headers,
     body
   })
+}
+
+/**
+ * Call cdp-uploader. It authenticates nothing (it is a platform service the
+ * operator journey reaches directly), so only the base URL comes from here.
+ * `path` may also be an absolute URL cdp-uploader returned. `body` is sent
+ * as-is (e.g. FormData) unless it is a plain object, which is sent as JSON.
+ */
+export async function cdpUploaderRequest(method, path, { body } = {}) {
+  const url = new URL(path, `${requireEnv('CDP_UPLOADER_URL')}/`)
+  const isJson =
+    body !== undefined && Object.getPrototypeOf(body) === Object.prototype
+  const res = await fetch(url, {
+    method,
+    headers: isJson ? { 'content-type': 'application/json' } : {},
+    body: isJson ? JSON.stringify(body) : body,
+    // The upload answers with a redirect to `redirect`, which is not a page
+    // the runner needs to follow.
+    redirect: 'manual',
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+  })
+  let payload = null
+  try {
+    payload = await res.json()
+  } catch {
+    payload = null
+  }
+  return { status: res.status, headers: res.headers, body: payload }
 }
 
 /**

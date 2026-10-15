@@ -27,6 +27,7 @@
  * a nullable boolean.
  */
 
+import { uploadPdf } from './cdp-uploader.js'
 import { SIMULATED_DELIVERED_EMAIL } from './operator-backend-api.js'
 import { uniquePostcode } from './unique-postcode.js'
 import { createWorkItemViaApi } from './work-item-api.js'
@@ -264,23 +265,22 @@ export const AUTHORISERS = {
   }
 }
 
-const besEvidenceFile = {
-  fileId: 'ra292-bes-evidence-001',
-  filename: 'bes-evidence.pdf',
-  contentType: 'application/pdf',
-  uploadedAt: '2026-06-01T10:00:00.000Z',
-  scanStatus: 'Clean',
-  besEvidenceValidFromDate: '2026-01-01T00:00:00Z',
-  besEvidenceExpiryDate: '2027-01-01T00:00:00Z',
-  s3Key: 'bes-evidence/full-payload-verification/bes-evidence.pdf',
-  s3Bucket: 'epr-register-enrol-bes-evidence'
-}
-
 /**
  * The RA-292 payload fields, for this fixture and for fixtures derived from
  * it (RA-604's duplicate ORS names).
  */
-export function orsInterimAuthorityFields() {
+export async function orsInterimAuthorityFields() {
+  // Uploaded through cdp-uploader, so the file this item lists is a real
+  // object rather than a dangling key.
+  const besEvidenceFile = {
+    ...(await uploadPdf(
+      'bes-evidence.pdf',
+      '%PDF-1.4 RA-292 BES evidence fixture content'
+    )),
+    uploadedAt: '2026-06-01T10:00:00.000Z',
+    besEvidenceValidFromDate: '2026-01-01T00:00:00Z',
+    besEvidenceExpiryDate: '2027-01-01T00:00:00Z'
+  }
   return {
     registrationNumber: 'EPR-100292',
     wasteProcessingType: 'exporter',
@@ -437,9 +437,9 @@ export function orsInterimAuthorityFields() {
 }
 
 /** Submit a new RA-292 item; returns what `createWorkItemViaApi` returns. */
-export function createOrsInterimAuthorityWorkItem() {
+export async function createOrsInterimAuthorityWorkItem() {
   return createWorkItemViaApi({
     organisationNamePrefix: 'Overseas Reprocessing Verification Ltd',
-    fields: orsInterimAuthorityFields()
+    fields: await orsInterimAuthorityFields()
   })
 }

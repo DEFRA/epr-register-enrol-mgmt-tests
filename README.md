@@ -126,7 +126,7 @@ directly. `test/support/backend-api.js` holds every base URL and header:
 | `MANAGEMENT_BE_SHARED_SECRET`    | signs management-be requests (v3 HMAC) as the `epr-register-enrol-mgmt-tests` caller, when set |
 | `OPERATOR_BACKEND_SHARED_SECRET` | sent as `Authorization: Bearer` to the operator backend, when set                              |
 
-`wdio.conf.js` derives the URLs from `ENVIRONMENT` unless they are set, and
+`wdio.conf.js` derives the three URLs from `ENVIRONMENT` unless they are set, and
 reads the secrets from the environment. `wdio.github.conf.js` points at the
 compose stack's published ports and secrets.
 
@@ -164,7 +164,10 @@ Accreditation service backend with their deployed settings rather than
 Development ones: no seeded data, a shared secret on every
 service-to-service call, and ReEx, GOV.UK Notify and CDP's outbound proxy
 stood in for by `docker/stubs/external-services-stub.mjs`, so the backends use
-their real HTTP clients. The settings the RA-000 cdp-app-config change touched
+their real HTTP clients. It also runs cdp-uploader and the Entra ID stub.
+Specs that follow a download link upload their own PDFs through cdp-uploader
+(`test/support/cdp-uploader.js`, `CDP_UPLOADER_URL`, `FILE_UPLOAD_S3_BUCKET`)
+on every run, so nothing is pre-loaded into S3. The settings the RA-000 cdp-app-config change touched
 are switchable. The defaults are CDP test after that change; to reproduce CDP
 test as it was before it:
 

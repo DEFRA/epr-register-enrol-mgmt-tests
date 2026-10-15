@@ -10,6 +10,7 @@ const oneMinute = 60 * 1000
 // test/support/backend-api.js.
 process.env.MANAGEMENT_BE_URL ??= 'http://localhost:8085'
 process.env.OPERATOR_BACKEND_URL ??= 'http://localhost:8080'
+process.env.CDP_UPLOADER_URL ??= 'http://localhost:7337'
 process.env.MANAGEMENT_BE_SHARED_SECRET ??= 'E2eComposeMgmtTestsToManagementBe'
 process.env.OPERATOR_BACKEND_SHARED_SECRET ??=
   'E2eComposeMgmtTestsToOperatorBackend'

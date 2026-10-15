@@ -36,6 +36,10 @@ process.env.OPERATOR_BACKEND_URL ??= cdpServiceUrl(
   'epr-register-enrol-backend',
   'http://localhost:8080'
 )
+process.env.CDP_UPLOADER_URL ??= cdpServiceUrl(
+  'cdp-uploader',
+  'http://localhost:7337'
+)
 
 export const config = {
   //

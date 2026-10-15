@@ -10,12 +10,13 @@
  * "Full Payload Verification Ltd" item, which these specs used to look up by
  * name.
  *
- * The sampling-plan and BES-evidence files name objects in the
- * `epr-register-enrol-sampling-plans` / `-bes-evidence` buckets at fixed
- * keys. The compose stack puts those objects there
- * (docker/scripts/localstack/10-setup-buckets.sh).
+ * The sampling-plan and BES-evidence files are uploaded through cdp-uploader
+ * on every call (`cdp-uploader.js`), so their download links resolve to real
+ * objects on CDP test and on the compose stack alike. The two sampling-plan
+ * files have different bodies, so a link serving the wrong one is caught.
  */
 
+import { uploadPdf } from './cdp-uploader.js'
 import { uniquePostcode } from './unique-postcode.js'
 import { createWorkItemViaApi } from './work-item-api.js'
 
@@ -43,23 +44,36 @@ export const FULL_PAYLOAD = {
   }
 }
 
-const cleanPdf = (fileId, filename, uploadedAt, s3Key, s3Bucket) => ({
-  fileId,
-  filename,
-  contentType: 'application/pdf',
-  // A real submission sends this as an ISO-8601 string, never a BSON date.
-  uploadedAt,
-  scanStatus: 'Clean',
-  s3Key,
-  s3Bucket
-})
+/** Upload one fixture PDF and stamp the upload time the specs assert. */
+async function fixturePdf(filename, content, uploadedAt) {
+  // A real submission sends uploadedAt as an ISO-8601 string, never a BSON
+  // date.
+  return { ...(await uploadPdf(filename, content)), uploadedAt }
+}
 
 /**
  * Submit a new full-payload item. Returns what `createWorkItemViaApi`
  * returns: `{ id, organisationName, applicationReference,
  * operatorOrganisationId, payload }`.
  */
-export function createFullPayloadWorkItem() {
+export async function createFullPayloadWorkItem() {
+  const [samplingPlan, samplingPlanAppendix, besEvidence] = await Promise.all([
+    fixturePdf(
+      'sampling-plan.pdf',
+      '%PDF-1.4 fixture content for e2e download tests',
+      '2026-06-01T10:00:00.000Z'
+    ),
+    fixturePdf(
+      'sampling-plan-appendix.pdf',
+      '%PDF-1.4 appendix fixture content for e2e download tests',
+      '2026-06-02T10:00:00.000Z'
+    ),
+    fixturePdf(
+      'bes-evidence.pdf',
+      '%PDF-1.4 BES evidence fixture content for e2e download tests',
+      '2026-06-01T10:00:00.000Z'
+    )
+  ])
   return createWorkItemViaApi({
     organisationNamePrefix: 'Full Payload Verification Ltd',
     fields: {
@@ -109,24 +123,7 @@ export function createFullPayloadWorkItem() {
       },
       // RA-295 AC02: more than one file, so a template that renders only
       // files[0] is caught.
-      samplingPlan: {
-        files: [
-          cleanPdf(
-            'sampling-plan-001',
-            'sampling-plan.pdf',
-            '2026-06-01T10:00:00.000Z',
-            'sampling-plans/full-payload-verification/sampling-plan.pdf',
-            'epr-register-enrol-sampling-plans'
-          ),
-          cleanPdf(
-            'sampling-plan-002',
-            'sampling-plan-appendix.pdf',
-            '2026-06-02T10:00:00.000Z',
-            'sampling-plans/full-payload-verification/sampling-plan-appendix.pdf',
-            'epr-register-enrol-sampling-plans'
-          )
-        ]
-      },
+      samplingPlan: { files: [samplingPlan, samplingPlanAppendix] },
       overseasSites: {
         sites: [
           {
@@ -135,17 +132,7 @@ export function createFullPayloadWorkItem() {
             siteAddress: '1 Overseas Lane, Rotterdam',
             country: FULL_PAYLOAD.SELECTED_OVERSEAS_SITE.country,
             selected: true,
-            besEvidence: {
-              files: [
-                cleanPdf(
-                  'bes-evidence-001',
-                  'bes-evidence.pdf',
-                  '2026-06-01T10:00:00.000Z',
-                  'bes-evidence/full-payload-verification/bes-evidence.pdf',
-                  'epr-register-enrol-bes-evidence'
-                )
-              ]
-            }
+            besEvidence: { files: [besEvidence] }
           },
           {
             siteId: 2,

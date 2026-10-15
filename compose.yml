@@ -68,6 +68,52 @@ services:
       # of localstack's /docker-entrypoint-initaws.d) — matches the mount
       # convention already used by management-be/-fe's compose/floci/start.d.
       - ./docker/scripts/localstack:/etc/floci/init/start.d:ro
+    healthcheck:
+      test: ['CMD', 'test', '-f', '/tmp/floci-init-complete']
+      interval: 2s
+      start_period: 15s
+      retries: 10
+
+  ################################################################################
+  # cdp-uploader, as the operator journey uses on CDP. Specs that assert a file
+  # download upload their fixture PDFs through it on every run
+  # (test/support/cdp-uploader.js), so the test runner reaches it over its
+  # published port. Uploads are scanned by its mock virus scanner.
+  cdp-uploader:
+    image: defradigital/cdp-uploader:${CDP_UPLOADER_VERSION:-latest}
+    env_file:
+      - ./docker/config/defaults.env
+    environment:
+      PORT: 7337
+      NODE_ENV: development
+      # Its single-instance Redis client sends no credentials, so it has its
+      # own Redis rather than the password-protected one management-fe uses.
+      REDIS_HOST: cdp-uploader-redis
+      USE_SINGLE_INSTANCE_CACHE: true
+      MOCK_VIRUS_SCAN_ENABLED: true
+      MOCK_VIRUS_RESULT_DELAY: 1
+      SQS_ENDPOINT: http://floci:4566
+      S3_ENDPOINT: http://floci:4566
+      SQS_SCAN_RESULTS: http://floci:4566/000000000000/cdp-clamav-results
+      SQS_SCAN_RESULTS_CALLBACK: http://floci:4566/000000000000/cdp-uploader-scan-results-callback.fifo
+      SQS_DOWNLOAD_REQUESTS: http://floci:4566/000000000000/cdp-uploader-download-requests
+      SQS_MOCK_CLAMAV: http://floci:4566/000000000000/mock-clamav
+      CONSUMER_BUCKETS: epr-register-enrol-file-uploads
+    depends_on:
+      floci:
+        condition: service_healthy
+      cdp-uploader-redis:
+        condition: service_healthy
+    ports:
+      - ${CDP_UPLOADER_PORT:-7337}:7337
+
+  cdp-uploader-redis:
+    image: redis:7
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'PING']
+      interval: 5s
+      start_period: 2s
+      retries: 5
 
   ################################################################################
   redis:

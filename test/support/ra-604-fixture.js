@@ -30,8 +30,8 @@ export const UNIQUE_ORS_NAMES = [
   'Port Klang Reprocessing Facility'
 ]
 
-export function createDuplicateOrsNamesWorkItem() {
-  const fields = orsInterimAuthorityFields()
+export async function createDuplicateOrsNamesWorkItem() {
+  const fields = await orsInterimAuthorityFields()
   fields.registrationNumber = 'EPR-100604'
   fields.overseasSites.sites[0].siteName = SHARED_ORS_NAME
   fields.overseasSites.sites[1].siteName = SHARED_ORS_NAME

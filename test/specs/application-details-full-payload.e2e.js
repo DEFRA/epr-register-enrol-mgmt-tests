@@ -209,9 +209,7 @@ describe('Full operator payload on the work item detail page', () => {
       // the filename only proves the loop ran; `download-file.controller.js`
       // reaches BES files through a SEPARATE
       // `overseasSites.sites[].besEvidence.files` lookup from the sampling-plan
-      // branch, so nothing else in the suite exercises it. Without this the
-      // `epr-register-enrol-bes-evidence` localstack fixture is seeded and
-      // never fetched.
+      // branch, so nothing else in the suite exercises it.
       const responses = await detail.fetchSupportingDocumentResponses('bes')
       expect(responses.length).toBeGreaterThan(0)
       for (const response of responses) {
