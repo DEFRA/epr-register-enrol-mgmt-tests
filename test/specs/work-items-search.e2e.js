@@ -15,18 +15,19 @@ import workItems from '../page-objects/work-items.page.js'
  */
 describe('Applications list — organisation search', () => {
   let workItemId
-  const orgName = `Search Test Org ${Date.now()}`
+  let orgName
 
   before(async () => {
     await login.login()
     await workItems.goto()
-    ;({ id: workItemId } = await workItems.createWorkItem({
-      organisationName: orgName,
-      siteAddressLine1: '1 Search Street',
-      siteAddressTown: 'Leeds',
-      material: 'glass',
-      tonnageBand: '0-500'
-    }))
+    ;({ id: workItemId, organisationName: orgName } =
+      await workItems.createWorkItem({
+        organisationNamePrefix: 'Search Test Org',
+        siteAddressLine1: '1 Search Street',
+        siteAddressTown: 'Leeds',
+        material: 'glass',
+        tonnageBand: '0-500'
+      }))
     // RA-299: a bare goto() now pre-checks the "assigned to me" default,
     // which searchByOrg's form submit would carry through and exclude this
     // (unassigned) item — reset to an explicit empty state instead.
@@ -67,7 +68,10 @@ describe('Applications list — organisation search', () => {
     })
 
     it('finds the work item by a partial organisation name', async () => {
-      await workItems.searchByOrg('Search Test Org')
+      // Drop the leading word: still a partial match, but one that carries
+      // the unique suffix, so earlier runs' "Search Test Org" items cannot
+      // crowd this one off the first page.
+      await workItems.searchByOrg(orgName.replace(/^Search /, ''))
       await expect(workItems.workItemLink(workItemId)).toExist()
     })
 

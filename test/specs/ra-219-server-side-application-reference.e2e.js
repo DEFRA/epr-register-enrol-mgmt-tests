@@ -23,14 +23,19 @@ import detail from '../page-objects/work-item-detail.page.js'
 describe('RA-219 — server-generated application reference', () => {
   let createdId
   let applicationReference
+  let organisationName
 
   before(async () => {
     await login.login()
     await workItems.goto()
     // createWorkItem never enters a reference — it reads the
     // server-generated one back from the success banner.
-    ;({ id: createdId, applicationReference } = await workItems.createWorkItem({
-      organisationName: 'Server Reference Recyclers Ltd',
+    ;({
+      id: createdId,
+      applicationReference,
+      organisationName
+    } = await workItems.createWorkItem({
+      organisationNamePrefix: 'Server Reference Recyclers Ltd',
       siteAddressLine1: '1 Server Way',
       siteAddressTown: 'Leeds',
       material: 'glass',
@@ -74,7 +79,7 @@ describe('RA-219 — server-generated application reference', () => {
       // (unassigned) item — reset to an explicit empty state first so the
       // search isn't implicitly assignee-scoped.
       await workItems.resetFilters()
-      await workItems.searchByOrg('Server Reference Recyclers Ltd')
+      await workItems.searchByOrg(organisationName)
     })
 
     it('renders the server-generated reference as the card ref link text', async () => {

@@ -7,6 +7,7 @@ import {
   logDecision,
   startAssessment
 } from '../support/re-accreditation-journey.js'
+import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js'
 
 /**
  * RA-132 — Rejecting a re-accreditation drives it to the Refused terminal
@@ -19,7 +20,9 @@ import {
  * the same terminal state would satisfy either spec alone.
  *
  * RA-410 rebuilt the journey onto the three green CTAs and removed Tasks:
- *   1. A caseworker creates a re-accreditation work item (Not started).
+ *   1. An operator submits a re-accreditation through the operator journey
+ *      backend, which creates the work item (Not started). The decision is
+ *      pushed to that backend, so it must own the application.
  *   2. "Duly make" + payment ref/date          -> Duly made.
  *   3. "Assign to yourself and start"          -> Assessment in progress.
  *   4. "Log decision" + the Refused radio      -> Refused.
@@ -35,16 +38,7 @@ describe('RA-132 Reject action terminal flow', () => {
 
   it('creates a re-accreditation and drives it to assessment-in-progress', async () => {
     await login.login()
-    await workItems.goto()
-    workItemId = (
-      await workItems.createWorkItem({
-        organisationName: 'Reject Outcome Test Ltd',
-        siteAddressLine1: '3 Rejection Row',
-        siteAddressTown: 'Bristol',
-        material: 'paper',
-        tonnageBand: '0-500'
-      })
-    ).id
+    workItemId = (await createOperatorBackedWorkItem()).id
 
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Not started')

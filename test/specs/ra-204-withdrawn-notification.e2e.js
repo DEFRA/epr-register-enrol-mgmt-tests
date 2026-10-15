@@ -3,7 +3,6 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-204 — Withdrawal email notification.
@@ -30,18 +29,18 @@ import { describeOnComposeStack } from '../support/compose-stack.js'
  * the operator endpoint mandates a non-empty reason, so the former
  * "without a note" path is no longer reachable (see the note where it was).
  */
-describeOnComposeStack('RA-204 Withdrawal notification', () => {
+describe('RA-204 Withdrawal notification', () => {
   describe('withdraw with a note', () => {
     let workItemId
 
     before(async () => {
       await login.login()
       await workItems.goto()
-      // operatorEmail is left at the seeded default (test@defra.gov.uk)
-      // so the notification is sent rather than skipped.
+      // createWorkItem gives the item GOV.UK Notify's simulated delivered
+      // operator email, so the notification is sent rather than skipped.
       workItemId = (
         await workItems.createWorkItem({
-          organisationName: 'Withdraw Notify With Note Ltd',
+          organisationNamePrefix: 'Withdraw Notify With Note Ltd',
           siteAddressLine1: '1 Notify Way',
           siteAddressTown: 'London',
           material: 'plastic',

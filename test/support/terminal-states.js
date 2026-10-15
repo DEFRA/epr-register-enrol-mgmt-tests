@@ -6,6 +6,7 @@ import {
   startAssessment
 } from './re-accreditation-journey.js'
 import { withdrawAsOperatorOrThrow } from './operator-withdrawal.js'
+import { createOperatorBackedWorkItem } from './operator-backend-api.js'
 
 /** Site address line 1 shared by every fixture created below. */
 const FIXTURE_SITE_ADDRESS_LINE_1 = '1 Terminal Way'
@@ -36,6 +37,11 @@ const FIXTURE_SITE_ADDRESS_LINE_1 = '1 Terminal Way'
  * Create a work item and drive it to `assessment-in-progress` — the state
  * from which a decision can be logged.
  *
+ * The item is submitted through the Registration & Accreditation service
+ * backend (`createOperatorBackedWorkItem`), because a decision is pushed to
+ * that backend and only lands for an application it owns. Returns
+ * `{ id, organisationName, operatorOrganisationId, operatorApplicationId }`.
+ *
  * REPLACES `driveToAwaitingDecision`. `awaiting-decision` still exists in
  * management-be's state machine, but RA-410 made it an internal hop applied
  * server-side inside the single decision call: no affordance parks an item
@@ -44,21 +50,15 @@ const FIXTURE_SITE_ADDRESS_LINE_1 = '1 Terminal Way'
  *
  * Assumes the caller is already logged in.
  */
-export async function driveToDecisionReady({ organisationName, material }) {
-  const { id } = await workItems.createWorkItem({
-    organisationName,
-    siteAddressLine1: FIXTURE_SITE_ADDRESS_LINE_1,
-    siteAddressTown: 'York',
-    material,
-    tonnageBand: '0-500'
-  })
+export async function driveToDecisionReady() {
+  const item = await createOperatorBackedWorkItem()
 
   // Submitted -> Duly made, via the "Duly make" CTA and a payment date.
-  await dulyMake(id)
+  await dulyMake(item.id)
   // Duly made -> Assessment in progress, via "Assign to yourself and start".
-  await startAssessment(id)
+  await startAssessment(item.id)
 
-  return id
+  return item
 }
 
 /**
@@ -70,14 +70,18 @@ export async function driveToDecisionReady({ organisationName, material }) {
  * caller still gets a proven-terminal fixture. This IS the AC03 scenario — an
  * operator withdraws and the withdrawn state shows in case management.
  */
-export async function createWithdrawnWorkItem({ organisationName, material }) {
-  const { id, applicationReference } = await workItems.createWorkItem({
-    organisationName,
-    siteAddressLine1: FIXTURE_SITE_ADDRESS_LINE_1,
-    siteAddressTown: 'York',
-    material,
-    tonnageBand: '0-500'
-  })
+export async function createWithdrawnWorkItem({
+  organisationNamePrefix,
+  material
+}) {
+  const { id, applicationReference, organisationName } =
+    await workItems.createWorkItem({
+      organisationNamePrefix,
+      siteAddressLine1: FIXTURE_SITE_ADDRESS_LINE_1,
+      siteAddressTown: 'York',
+      material,
+      tonnageBand: '0-500'
+    })
 
   await withdrawAsOperatorOrThrow(
     id,
@@ -87,7 +91,7 @@ export async function createWithdrawnWorkItem({ organisationName, material }) {
   await workItems.openWorkItem(id)
   await detail.assertState('Withdrawn')
 
-  return { id, applicationReference }
+  return { id, applicationReference, organisationName }
 }
 
 /**
@@ -102,15 +106,16 @@ export async function createWithdrawnWorkItem({ organisationName, material }) {
  *
  * Starts from the list (`goto`) so it is safe to call from any page.
  */
-async function driveToDulyMade({ organisationName, material }) {
+async function driveToDulyMade({ organisationNamePrefix, material }) {
   await workItems.goto()
-  const { id, applicationReference } = await workItems.createWorkItem({
-    organisationName,
-    siteAddressLine1: FIXTURE_SITE_ADDRESS_LINE_1,
-    siteAddressTown: 'York',
-    material,
-    tonnageBand: '0-500'
-  })
+  const { id, applicationReference, organisationName } =
+    await workItems.createWorkItem({
+      organisationNamePrefix,
+      siteAddressLine1: FIXTURE_SITE_ADDRESS_LINE_1,
+      siteAddressTown: 'York',
+      material,
+      tonnageBand: '0-500'
+    })
 
   // Submitted -> Duly made via the shared journey helper. RA-316 removed the
   // old submitted-state tasks and the auto-duly-made hook; the route is now
@@ -119,7 +124,7 @@ async function driveToDulyMade({ organisationName, material }) {
   // date. dulyMake opens the item and asserts it reaches "Duly made".
   await dulyMake(id)
 
-  return { id, applicationReference }
+  return { id, applicationReference, organisationName }
 }
 
 /**
@@ -128,8 +133,8 @@ async function driveToDulyMade({ organisationName, material }) {
  * date, both of which the Cancelled-SLA suppression must leave alone.
  */
 export async function createDulyMadeWorkItem(fixture) {
-  const { id } = await driveToDulyMade(fixture)
-  return id
+  const { id, organisationName } = await driveToDulyMade(fixture)
+  return { id, organisationName }
 }
 
 /**
@@ -147,7 +152,8 @@ export async function createDulyMadeWorkItem(fixture) {
  * current state server-side, so the caller does not name it (RA-317).
  */
 export async function createWithdrawnWorkItemWithRunningSla(fixture) {
-  const { id, applicationReference } = await driveToDulyMade(fixture)
+  const { id, applicationReference, organisationName } =
+    await driveToDulyMade(fixture)
 
   await withdrawAsOperatorOrThrow(
     id,
@@ -157,7 +163,7 @@ export async function createWithdrawnWorkItemWithRunningSla(fixture) {
   await workItems.openWorkItem(id)
   await detail.assertState('Withdrawn')
 
-  return { id, applicationReference }
+  return { id, applicationReference, organisationName }
 }
 
 /**

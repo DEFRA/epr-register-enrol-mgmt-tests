@@ -93,7 +93,7 @@ describe('RA-601 Change the determination deadline to an earlier date', () => {
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
-        organisationName: 'RA-601 Earlier Deadline Ltd',
+        organisationNamePrefix: 'RA-601 Earlier Deadline Ltd',
         siteAddressLine1: '1 Advance Avenue',
         siteAddressTown: 'Leeds',
         material: 'plastic',

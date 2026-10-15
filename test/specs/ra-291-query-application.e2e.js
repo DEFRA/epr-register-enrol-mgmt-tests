@@ -7,7 +7,6 @@ import query, {
   EXPORTER_ONLY_QUERY_SECTIONS
 } from '../page-objects/query.page.js'
 import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-291 — Query an application.
@@ -23,20 +22,16 @@ import { describeOnComposeStack } from '../support/compose-stack.js'
  * cannot be raised.
  */
 
-const uniqueOrg = (label) => `${label} ${Date.now()}`
-
 /** Create a Submitted application to query. */
-const createSubmittedWorkItem = async (organisationName) => {
+const createSubmittedWorkItem = async (organisationNamePrefix) => {
   await workItems.goto()
-  return (
-    await workItems.createWorkItem({
-      organisationName,
-      siteAddressLine1: '1 Query Street',
-      siteAddressTown: 'London',
-      material: 'plastic',
-      tonnageBand: '0-500'
-    })
-  ).id
+  return workItems.createWorkItem({
+    organisationNamePrefix,
+    siteAddressLine1: '1 Query Street',
+    siteAddressTown: 'London',
+    material: 'plastic',
+    tonnageBand: '0-500'
+  })
 }
 
 describe('RA-291 Query an application', () => {
@@ -45,7 +40,7 @@ describe('RA-291 Query an application', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createSubmittedWorkItem(uniqueOrg('Query Nav Ltd'))
+      ;({ id: workItemId } = await createSubmittedWorkItem('Query Nav Ltd'))
     })
 
     after(async () => {
@@ -109,9 +104,8 @@ describe('RA-291 Query an application', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createSubmittedWorkItem(
-        uniqueOrg('Query Sections Ltd')
-      )
+      ;({ id: workItemId } =
+        await createSubmittedWorkItem('Query Sections Ltd'))
     })
 
     after(async () => {
@@ -148,7 +142,7 @@ describe('RA-291 Query an application', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createSubmittedWorkItem(uniqueOrg('Query Invalid Ltd'))
+      ;({ id: workItemId } = await createSubmittedWorkItem('Query Invalid Ltd'))
     })
 
     after(async () => {
@@ -160,8 +154,8 @@ describe('RA-291 Query an application', () => {
     // Queried. Uses its own fresh work item so it does not consume the
     // shared `workItemId` the later validation tests still need unqueried.
     it('accepts a query with no reason and moves the application to Queried', async () => {
-      const noReasonWorkItemId = await createSubmittedWorkItem(
-        uniqueOrg('Query No Reason Ltd')
+      const { id: noReasonWorkItemId } = await createSubmittedWorkItem(
+        'Query No Reason Ltd'
       )
       await query.gotoFor(noReasonWorkItemId)
       await query.selectSection('business-plan')
@@ -208,7 +202,7 @@ describe('RA-291 Query an application', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createSubmittedWorkItem(uniqueOrg('Query Count Ltd'))
+      ;({ id: workItemId } = await createSubmittedWorkItem('Query Count Ltd'))
     })
 
     after(async () => {
@@ -248,7 +242,7 @@ describe('RA-291 Query an application', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createSubmittedWorkItem(uniqueOrg('Query Submit Ltd'))
+      ;({ id: workItemId } = await createSubmittedWorkItem('Query Submit Ltd'))
     })
 
     after(async () => {
@@ -347,128 +341,124 @@ describe('RA-291 Query an application', () => {
    * operator backend does, across all three affected fields in one
    * resubmission.
    */
-  describeOnComposeStack(
-    'Case Management service summary reflects a resubmission after a query',
-    () => {
-      let workItemId
+  describe('Case Management service summary reflects a resubmission after a query', () => {
+    let workItemId
 
-      before(async () => {
-        await login.login()
-        workItemId = await createSubmittedWorkItem(
-          uniqueOrg('Query Resubmit Ltd')
-        )
-      })
+    before(async () => {
+      await login.login()
+      ;({ id: workItemId } =
+        await createSubmittedWorkItem('Query Resubmit Ltd'))
+    })
 
-      after(async () => {
-        await login.logout()
-      })
+    after(async () => {
+      await login.logout()
+    })
 
-      it('shows the resubmitted business plan, PRN tonnage and sampling plan values after resume-from-query', async () => {
-        await query.gotoFor(workItemId)
-        await query.selectSections([
+    it('shows the resubmitted business plan, PRN tonnage and sampling plan values after resume-from-query', async () => {
+      await query.gotoFor(workItemId)
+      await query.selectSections([
+        'business-plan',
+        'prn-tonnage',
+        'sampling-and-inspection-plan'
+      ])
+      await query.fillReason(
+        'Please provide the missing business plan, PRN tonnage and sampling plan detail.'
+      )
+      await query.submit()
+      await query.waitForDetailUrl(workItemId)
+      await detail.assertState('Queried')
+
+      // Before resubmission the rows exist but are empty (none of these were
+      // collected via the "Create work item" form).
+      await workItems.openWorkItem(workItemId)
+      expect(await detail.applicationDetailRowText('business-plan')).toContain(
+        '—'
+      )
+      expect(await detail.applicationDetailRowText('prn-tonnage')).toContain(
+        '—'
+      )
+      expect(
+        await detail.applicationDetailRowText('sampling-inspection-plan')
+      ).toContain('No documents uploaded.')
+
+      await resumeFromQuery(workItemId, {
+        sectionKeys: [
           'business-plan',
           'prn-tonnage',
           'sampling-and-inspection-plan'
-        ])
-        await query.fillReason(
-          'Please provide the missing business plan, PRN tonnage and sampling plan detail.'
-        )
-        await query.submit()
-        await query.waitForDetailUrl(workItemId)
-        await detail.assertState('Queried')
-
-        // Before resubmission the rows exist but are empty (none of these were
-        // collected via the "Create work item" form).
-        await workItems.openWorkItem(workItemId)
-        expect(
-          await detail.applicationDetailRowText('business-plan')
-        ).toContain('—')
-        expect(await detail.applicationDetailRowText('prn-tonnage')).toContain(
-          '—'
-        )
-        expect(
-          await detail.applicationDetailRowText('sampling-inspection-plan')
-        ).toContain('No documents uploaded.')
-
-        await resumeFromQuery(workItemId, {
-          sectionKeys: [
-            'business-plan',
-            'prn-tonnage',
-            'sampling-and-inspection-plan'
-          ],
-          sections: {
-            BusinessPlan: {
-              newInfrastructureDetail:
-                'RA-291 regression: resubmitted investment plan.',
-              newInfrastructurePercent: 42,
-              // RA-456: the 7th "other" category, exercised alongside
-              // newInfrastructure so this payload covers the field the
-              // resume-from-query merge most recently gained.
-              otherDetail:
-                'RA-291 regression: resubmitted other-activities plan.',
-              otherPercent: 8
-            },
-            Prns: {
-              plannedTonnageBand: 'UpTo5000'
-            },
-            SamplingPlan: {
-              files: [
-                {
-                  fileId: 'ra-291-regression-file',
-                  filename: 'ra-291-regression-sampling-plan.pdf',
-                  scanStatus: 'Clean',
-                  uploadedAt: new Date().toISOString()
-                }
-              ]
-            }
+        ],
+        sections: {
+          BusinessPlan: {
+            newInfrastructureDetail:
+              'RA-291 regression: resubmitted investment plan.',
+            newInfrastructurePercent: 42,
+            // RA-456: the 7th "other" category, exercised alongside
+            // newInfrastructure so this payload covers the field the
+            // resume-from-query merge most recently gained.
+            otherDetail:
+              'RA-291 regression: resubmitted other-activities plan.',
+            otherPercent: 8
+          },
+          Prns: {
+            plannedTonnageBand: 'UpTo5000'
+          },
+          SamplingPlan: {
+            files: [
+              {
+                fileId: 'ra-291-regression-file',
+                filename: 'ra-291-regression-sampling-plan.pdf',
+                scanStatus: 'Clean',
+                uploadedAt: new Date().toISOString()
+              }
+            ]
           }
-        })
-
-        await workItems.openWorkItem(workItemId)
-        const businessPlan =
-          await detail.applicationDetailRowText('business-plan')
-        expect(businessPlan).toContain(
-          'RA-291 regression: resubmitted investment plan.'
-        )
-        expect(businessPlan).toContain('42% of PRN income')
-        expect(businessPlan).toContain(
-          'RA-291 regression: resubmitted other-activities plan.'
-        )
-        expect(businessPlan).toContain('8% of PRN income')
-
-        expect(await detail.applicationDetailRowText('prn-tonnage')).toContain(
-          'Up to 5,000 tonnes'
-        )
-
-        expect(await detail.supportingDocumentNames()).toContain(
-          'ra-291-regression-sampling-plan.pdf'
-        )
+        }
       })
 
-      it('shows the "More than 10,000 tonnes" label for the highest PRN tonnage band after resume-from-query', async () => {
-        const highTonnageWorkItemId = await createSubmittedWorkItem(
-          uniqueOrg('Query Resubmit High Tonnage Ltd')
-        )
+      await workItems.openWorkItem(workItemId)
+      const businessPlan =
+        await detail.applicationDetailRowText('business-plan')
+      expect(businessPlan).toContain(
+        'RA-291 regression: resubmitted investment plan.'
+      )
+      expect(businessPlan).toContain('42% of PRN income')
+      expect(businessPlan).toContain(
+        'RA-291 regression: resubmitted other-activities plan.'
+      )
+      expect(businessPlan).toContain('8% of PRN income')
 
-        await raiseQuery(highTonnageWorkItemId, {
-          sections: ['prn-tonnage'],
-          reason: 'Please confirm the planned PRN tonnage band.'
-        })
+      expect(await detail.applicationDetailRowText('prn-tonnage')).toContain(
+        'Up to 5,000 tonnes'
+      )
 
-        await resumeFromQuery(highTonnageWorkItemId, {
-          sectionKeys: ['prn-tonnage'],
-          sections: {
-            Prns: {
-              plannedTonnageBand: 'Over10000'
-            }
-          }
-        })
+      expect(await detail.supportingDocumentNames()).toContain(
+        'ra-291-regression-sampling-plan.pdf'
+      )
+    })
 
-        await workItems.openWorkItem(highTonnageWorkItemId)
-        expect(await detail.applicationDetailRowText('prn-tonnage')).toContain(
-          'More than 10,000 tonnes'
-        )
+    it('shows the "More than 10,000 tonnes" label for the highest PRN tonnage band after resume-from-query', async () => {
+      const { id: highTonnageWorkItemId } = await createSubmittedWorkItem(
+        'Query Resubmit High Tonnage Ltd'
+      )
+
+      await raiseQuery(highTonnageWorkItemId, {
+        sections: ['prn-tonnage'],
+        reason: 'Please confirm the planned PRN tonnage band.'
       })
-    }
-  )
+
+      await resumeFromQuery(highTonnageWorkItemId, {
+        sectionKeys: ['prn-tonnage'],
+        sections: {
+          Prns: {
+            plannedTonnageBand: 'Over10000'
+          }
+        }
+      })
+
+      await workItems.openWorkItem(highTonnageWorkItemId)
+      expect(await detail.applicationDetailRowText('prn-tonnage')).toContain(
+        'More than 10,000 tonnes'
+      )
+    })
+  })
 })

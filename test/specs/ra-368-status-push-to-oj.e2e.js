@@ -3,11 +3,13 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import {
-  createReAccreditation,
   dulyMake,
   startAssessment
 } from '../support/re-accreditation-journey.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
+import {
+  createOperatorBackedWorkItem,
+  waitForOperatorApplicationStatus
+} from '../support/operator-backend-api.js'
 
 /**
  * RA-368, re-pointed by RA-410 — Case Management service pushes work item status changes to the Registration & Accreditation service.
@@ -31,11 +33,14 @@ import { describeOnComposeStack } from '../support/compose-stack.js'
  *
  *   - The OUTCOME. This stack used to leave `OperatorBackendApi:Enabled=false`,
  *     so every push was SKIPPED and the deterministic entry was
- *     `status-push-skipped`. RA-410 wires an `operator-backend-stub` into the
- *     compose stack and turns the push ON; the stub answers 200 by default, so
- *     the deterministic outcome is now `status-push-sent`. This is strictly
- *     MORE coverage — the send path the older, disabled spec could not reach
- *     is now the one under test.
+ *     `status-push-skipped`. The push is now ON, to the real Registration &
+ *     Accreditation service backend, so the outcome is `status-push-sent`.
+ *
+ * RA-000: the item is submitted through that backend
+ * (`createOperatorBackedWorkItem`), so it is an application the backend owns
+ * and the push is genuinely accepted rather than 404'd. That also lets the
+ * spec read the backend's own copy of the application back and prove each
+ * push landed: its `applicationStatus` follows the case-management state.
  *
  * The two call sites RA-368 cares about both still fire their own push:
  *   - `duly-make` (submitted -> duly-made), and
@@ -43,16 +48,19 @@ import { describeOnComposeStack } from '../support/compose-stack.js'
  *
  * The decision actions (submit-for-decision/approve/reject) are deliberately
  * NOT here: their Registration & Accreditation service push is owned by ReAccreditationLogDecisionService as a
- * single pre-commit gate and excluded from this hook — the failure path for
- * that push lives in `ra-410-decision-operator-failure.e2e.js`.
+ * single pre-commit gate and excluded from this hook. The failure path for
+ * that push is covered by management-be's integration tests
+ * (ReAccreditationEndpointTests), against a failing fake of that service.
  */
 // eslint-disable-next-line local-rules/no-undocumented-service-acronyms -- verbatim Jira ticket title, predates this guard
-describeOnComposeStack('RA-368 CM status push to OJ', () => {
+describe('RA-368 CM status push to OJ', () => {
   let workItemId
+  let application
 
   before(async () => {
     await login.login()
-    workItemId = await createReAccreditation('Status Push')
+    application = await createOperatorBackedWorkItem()
+    workItemId = application.id
   })
 
   after(async () => {
@@ -61,7 +69,8 @@ describeOnComposeStack('RA-368 CM status push to OJ', () => {
 
   it('records a status-push-sent entry for the duly-make transition', async () => {
     // "Duly make" CTA + payment date page = the submitted -> duly-made
-    // transition. The stub answers 200, so the hook records `status-push-sent`.
+    // transition. The backend accepts it, so the hook records
+    // `status-push-sent`.
     await dulyMake(workItemId)
 
     await workItems.openWorkItem(workItemId)
@@ -80,6 +89,14 @@ describeOnComposeStack('RA-368 CM status push to OJ', () => {
     )
   })
 
+  it('moves the Registration & Accreditation service application to Duly made', async () => {
+    const pushed = await waitForOperatorApplicationStatus(
+      application,
+      'DulyMade'
+    )
+    expect(pushed.caseManagementStatusUpdatedAt).toBeTruthy()
+  })
+
   it('records a second status-push-sent entry for the payment-received action', async () => {
     // "Assign to yourself and start" drives the duly-made ->
     // assessment-in-progress transition, whose action id is `payment-received`
@@ -94,5 +111,11 @@ describeOnComposeStack('RA-368 CM status push to OJ', () => {
       2
     )
     expect(sentEntries.length).toBe(2)
+  })
+
+  it('moves the Registration & Accreditation service application on from Duly made', async () => {
+    // assessment-in-progress has no status of its own on that side; it
+    // reads as Updated.
+    await waitForOperatorApplicationStatus(application, 'Updated')
   })
 })

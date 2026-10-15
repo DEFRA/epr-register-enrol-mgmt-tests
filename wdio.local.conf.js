@@ -12,6 +12,14 @@ if (debug) {
   execArgv.push('--inspect')
 }
 
+// The test runner (this Node process, not the browser) creates work items and
+// plays the operator's service through the local stack's published backend
+// ports. Set before any spec loads; the worker processes inherit them. See
+// test/support/backend-api.js.
+process.env.MANAGEMENT_BE_URL ??= 'http://localhost:8085'
+process.env.OPERATOR_BACKEND_URL ??= 'http://localhost:8080'
+process.env.CDP_UPLOADER_URL ??= 'http://localhost:7337'
+
 export const config = {
   //
   // ====================

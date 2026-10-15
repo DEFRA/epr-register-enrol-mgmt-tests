@@ -9,7 +9,6 @@ import {
   driveToDecisionReady,
   rejectWorkItem
 } from '../support/terminal-states.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-358 (scope addition) — a closed case cannot be assigned.
@@ -59,14 +58,14 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
    * failure wasted time earlier in this work. See
    * `assertNoUsableAssignmentAffordances` in the detail page object.
    */
-  describeOnComposeStack('a withdrawn work item', () => {
+  describe('a withdrawn work item', () => {
     let workItemId
 
     before(async () => {
       await login.login()
       await workItems.goto()
       ;({ id: workItemId } = await createWithdrawnWorkItem({
-        organisationName: 'Terminal Gating Withdrawn Ltd',
+        organisationNamePrefix: 'Terminal Gating Withdrawn Ltd',
         material: 'plastic'
       }))
     })
@@ -113,7 +112,7 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
       // the shared item above is already withdrawn by the time this runs.
       await workItems.goto()
       const { id: staleId } = await workItems.createWorkItem({
-        organisationName: 'Terminal Gating Stale Form Ltd',
+        organisationNamePrefix: 'Terminal Gating Stale Form Ltd',
         siteAddressLine1: '1 Stale Way',
         siteAddressTown: 'York',
         material: 'plastic',
@@ -161,10 +160,7 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
     before(async () => {
       await login.login()
       await workItems.goto()
-      workItemId = await driveToDecisionReady({
-        organisationName: 'Terminal Gating Approved Ltd',
-        material: 'paper'
-      })
+      ;({ id: workItemId } = await driveToDecisionReady())
       await approveWorkItem(workItemId)
     })
 
@@ -185,10 +181,7 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
     before(async () => {
       await login.login()
       await workItems.goto()
-      workItemId = await driveToDecisionReady({
-        organisationName: 'Terminal Gating Rejected Ltd',
-        material: 'aluminium'
-      })
+      ;({ id: workItemId } = await driveToDecisionReady())
       await rejectWorkItem(workItemId)
     })
 
@@ -221,7 +214,7 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
       await login.login()
       await workItems.goto()
       ;({ id: workItemId } = await workItems.createWorkItem({
-        organisationName: 'Terminal Gating Open Case Ltd',
+        organisationNamePrefix: 'Terminal Gating Open Case Ltd',
         siteAddressLine1: '1 Open Way',
         siteAddressTown: 'York',
         material: 'plastic',

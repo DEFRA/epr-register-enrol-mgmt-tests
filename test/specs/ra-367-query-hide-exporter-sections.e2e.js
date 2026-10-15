@@ -6,6 +6,7 @@ import query, {
   EXPORTER_ONLY_QUERY_SECTIONS,
   REPROCESSOR_QUERY_SECTIONS
 } from '../page-objects/query.page.js'
+import { createExporterWorkItem } from '../support/ra-434-fixture.js'
 
 /**
  * RA-367 — hide the exporter-only query areas for reprocessor applications.
@@ -30,31 +31,23 @@ import query, {
  *   - AC01 uses a work item created through the case management "Create work
  *     item" form. Such items carry no `wasteProcessingType`, so they are
  *     reprocessors — exactly the discriminator AC01 needs, and the same
- *     creation path RA-291's query specs use. No seeded fixture required.
+ *     creation path RA-291's query specs use.
  *   - AC02 needs a work item whose payload sets `wasteProcessingType='exporter'`.
- *     No such fixture exists: ReAccreditationSeeder.cs (management-be) sets no
- *     `wasteProcessingType` on any seed, and the Create form has no
- *     applicant-type field, so an exporter work item cannot be reached from
- *     this harness today. RA-367 ships no management-be change, so no exporter
- *     seed is coming with it; AC02 is therefore explicitly PENDING on follow-up
- *     issue epr-if2r (exporter e2e seed infrastructure) — see the describe.skip
- *     block, written out in full and ready to run once that seed exists.
+ *     The Create form has no applicant-type field, so the exporter is
+ *     submitted through the API instead (RA-434's exporter fixture,
+ *     support/ra-434-fixture.js).
  */
 
-const uniqueOrg = (label) => `${label} ${Date.now()}`
-
 /** Create a Submitted (reprocessor) application to query. Mirrors RA-291's helper. */
-const createReprocessorWorkItem = async (organisationName) => {
+const createReprocessorWorkItem = async (organisationNamePrefix) => {
   await workItems.goto()
-  return (
-    await workItems.createWorkItem({
-      organisationName,
-      siteAddressLine1: '1 Query Areas Street',
-      siteAddressTown: 'London',
-      material: 'plastic',
-      tonnageBand: '0-500'
-    })
-  ).id
+  return workItems.createWorkItem({
+    organisationNamePrefix,
+    siteAddressLine1: '1 Query Areas Street',
+    siteAddressTown: 'London',
+    material: 'plastic',
+    tonnageBand: '0-500'
+  })
 }
 
 describe('RA-367 Exporter-only query areas', () => {
@@ -63,9 +56,9 @@ describe('RA-367 Exporter-only query areas', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createReprocessorWorkItem(
-        uniqueOrg('Query Reprocessor Ltd')
-      )
+      ;({ id: workItemId } = await createReprocessorWorkItem(
+        'Query Reprocessor Ltd'
+      ))
     })
 
     after(async () => {
@@ -108,32 +101,17 @@ describe('RA-367 Exporter-only query areas', () => {
     })
   })
 
-  // AC02 — an exporter application shows all six areas.
-  //
-  // PENDING on follow-up issue epr-if2r (exporter e2e seed infrastructure): no
-  // exporter fixture exists in the harness and RA-367 ships no management-be
-  // change to add one. This is the positive half AC01's hiding needs to be
-  // meaningful (without it, "reprocessor hides two" could pass against a build
-  // that never emits BES/ORS to anyone), so it is written out in full and left
-  // ready to enable the moment a work item whose payload carries
-  // `wasteProcessingType='exporter'` is seeded. (The exporter path is also
-  // covered by management-fe unit tests in the interim.)
-  //
-  // TO ENABLE: change `describe.skip` to `describe`, and replace
-  // EXPORTER_FIXTURE_ORG_NAME with that seed's unique org name. The body already
-  // reaches the fixture the same way the other seeded specs do (resetFilters →
-  // searchByOrgName → single-row gate → firstResultWorkItemId) and only GETs its
-  // query form, so the shared fixture is left unqueried.
-  const EXPORTER_FIXTURE_ORG_NAME = null // e.g. 'Exporter Verification Ltd' — set when be seeds it
-  describe.skip('AC02 — an exporter application shows all six areas', () => {
+  // AC02 — an exporter application shows all six areas. The positive half
+  // AC01's hiding needs to be meaningful: without it, "reprocessor hides two"
+  // could pass against a build that never emits BES/ORS to anyone. The
+  // exporter is RA-434's fixture, submitted through the API, and this block
+  // only GETs its query form.
+  describe('AC02 — an exporter application shows all six areas', () => {
     let workItemId
 
     before(async () => {
       await login.login()
-      await workItems.resetFilters()
-      await workItems.searchByOrgName(EXPORTER_FIXTURE_ORG_NAME)
-      expect(await workItems.getRowCount()).toBe(1)
-      workItemId = await workItems.firstResultWorkItemId()
+      ;({ id: workItemId } = await createExporterWorkItem())
     })
 
     after(async () => {

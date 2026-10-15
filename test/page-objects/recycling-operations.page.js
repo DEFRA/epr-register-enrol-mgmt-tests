@@ -65,10 +65,10 @@ class RecyclingOperationsPage extends Page {
    * order, so an index-based lookup would silently drift as soon as the
    * fixture gains a site whose name sorts earlier.
    *
-   * The ids callers pass come from management-be's `ReAccreditationSeeder`,
-   * which owns them — this suite does not. If a row is unexpectedly not
-   * found, check that seed's `payload.overseasSites.sites[].siteId` values
-   * before suspecting the frontend.
+   * The ids callers pass are the fixture's own
+   * `payload.overseasSites.sites[].siteId` values (support/ra-292-fixture.js).
+   * If a row is unexpectedly not found, check those before suspecting the
+   * frontend.
    */
   siteRow(siteId) {
     return $(`[data-testid="recycling-operations-site-${siteId}"]`)

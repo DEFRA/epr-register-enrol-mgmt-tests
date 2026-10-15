@@ -8,7 +8,6 @@ import {
   createReAccreditation,
   dulyMake
 } from '../support/re-accreditation-journey.js'
-import { itOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-364 — Case Management service: Work item UI showing duplicated links.
@@ -125,7 +124,7 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createReAccreditation('RA364 Queried Ltd')
+      ;({ id: workItemId } = await createReAccreditation('RA364 Queried Ltd'))
 
       await query.gotoFor(workItemId)
       await query.selectSection('business-plan')
@@ -209,40 +208,34 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       expect(await detail.countActionsWithId('query')).toBe(0)
     })
 
-    itOnComposeStack(
-      'reaches the terminal withdrawn state via the operator backend',
-      async () => {
-        // Pre-RA-317 this step clicked the surviving Withdraw link to prove the
-        // filter kept a FUNCTIONAL action rather than an arbitrary survivor. With
-        // withdraw removed from case management, `queried` has no caller-invocable
-        // action left, so the shared item is driven to `withdrawn` the way it
-        // genuinely happens now — the operator backend — purely to set up the
-        // terminal-panel assertion that follows.
-        await withdrawAsOperatorOrThrow(
-          workItemId,
-          'RA-364: withdrawn to inspect the terminal actions panel'
-        )
-        await workItems.openWorkItem(workItemId)
-        await detail.assertState('Withdrawn')
-      }
-    )
+    it('reaches the terminal withdrawn state via the operator backend', async () => {
+      // Pre-RA-317 this step clicked the surviving Withdraw link to prove the
+      // filter kept a FUNCTIONAL action rather than an arbitrary survivor. With
+      // withdraw removed from case management, `queried` has no caller-invocable
+      // action left, so the shared item is driven to `withdrawn` the way it
+      // genuinely happens now — the operator backend — purely to set up the
+      // terminal-panel assertion that follows.
+      await withdrawAsOperatorOrThrow(
+        workItemId,
+        'RA-364: withdrawn to inspect the terminal actions panel'
+      )
+      await workItems.openWorkItem(workItemId)
+      await detail.assertState('Withdrawn')
+    })
 
-    itOnComposeStack(
-      'shows the terminal-state panel once withdrawn, not an empty container',
-      async () => {
-        // AC06's empty-state half, for a re-accreditation item.
-        //
-        // Note this is `re-accreditation-readonly-actions`, NOT the generic
-        // `work-item-no-actions`: detail-v1.njk overrides the whole `actionsPanel`
-        // block in a terminal state. assertActionsPanelWellFormed() accepts either
-        // shape but insists on exactly one of them, and rejects the regression
-        // this AC is really about — a rendered-but-empty `work-item-actions`.
-        await workItems.openWorkItem(workItemId)
-        await detail.assertActionsPanelWellFormed()
-        await expect(detail.readOnlyActionsNotice()).toBeDisplayed()
-        expect(await detail.actionControlIds()).toEqual([])
-      }
-    )
+    it('shows the terminal-state panel once withdrawn, not an empty container', async () => {
+      // AC06's empty-state half, for a re-accreditation item.
+      //
+      // Note this is `re-accreditation-readonly-actions`, NOT the generic
+      // `work-item-no-actions`: detail-v1.njk overrides the whole `actionsPanel`
+      // block in a terminal state. assertActionsPanelWellFormed() accepts either
+      // shape but insists on exactly one of them, and rejects the regression
+      // this AC is really about — a rendered-but-empty `work-item-actions`.
+      await workItems.openWorkItem(workItemId)
+      await detail.assertActionsPanelWellFormed()
+      await expect(detail.readOnlyActionsNotice()).toBeDisplayed()
+      expect(await detail.actionControlIds()).toEqual([])
+    })
   })
 
   describe('AC05/AC06 — states whose actions are genuinely caller-invocable', () => {
@@ -252,7 +245,7 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createReAccreditation('RA364 Journey Ltd')
+      ;({ id: workItemId } = await createReAccreditation('RA364 Journey Ltd'))
       await workItems.openWorkItem(workItemId)
     })
 

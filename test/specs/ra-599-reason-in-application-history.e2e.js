@@ -129,7 +129,7 @@ describe('RA-599: reason for change in the application history', () => {
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
-        organisationName: 'Reason History Test Ltd',
+        organisationNamePrefix: 'Reason History Test Ltd',
         siteAddressLine1: '9 Audit Trail Road',
         siteAddressTown: 'London',
         material: 'plastic',

@@ -86,38 +86,57 @@ Entra ID", which goes to the **Entra ID stub**
 instead of real Entra ID. `test/specs/ra-537-entra-stub-login.e2e.js` logs in
 that way, as the stub's personas (listed in
 `test/page-objects/entra-stub-login.page.js`, password `pass`). It runs only
-when `ENTRA_STUB_LOGIN=true`, which cdp-app-config sets for this suite on test
-and perf-test. Everywhere else it is skipped: locally and in the compose/GitHub
-runs management-fe has no Entra ID configured, so the button isn't rendered,
-and on dev it goes to real Entra ID.
+when `ENTRA_STUB_LOGIN=true`: cdp-app-config sets it for this suite on test and
+perf-test, and `wdio.github.conf.js` sets it for the compose stack, which runs
+the same stub. On a local stack with no Entra ID configured the button isn't
+rendered, and on dev it goes to real Entra ID, so the spec is skipped there.
 
-### Specs that only run against the compose stack
+### Test data: every spec creates its own work items
 
-Some specs can only pass against the docker-compose stack, never against the
-real services deployed on CDP. They are gated on `COMPOSE_STACK=true` through
-`test/support/compose-stack.js` (`describeOnComposeStack` /
-`itOnComposeStack`), at the narrowest `describe` or `it` that needs it, and
-are reported as skipped everywhere else. They depend on one of:
+CDP test's Mongo is never reset, so no spec relies on data it did not create,
+on list positions, or on fixed organisation names. Each spec creates uniquely
+named items in one of three ways (the two seeded fixtures below aside):
 
-- **(a) seeded fixtures.** These are management-be's `ReAccreditationSeeder`
-  items, which management-be seeds only on a Development host with
-  `WorkItems:SeedOnStartup` (see `test/support/ra-*-seed.js`), and the legacy
-  item that `docker/scripts/mongodb/` inserts.
-- **(b) direct calls to management-be** at `MANAGEMENT_BE_URL`. These simulate
-  the operator's resubmission and withdrawal (`test/support/query-resubmission.js`,
-  `test/support/operator-withdrawal.js`). On CDP that host isn't reachable from
-  the test run.
-- **(c) the operator backend stub** at `OPERATOR_BACKEND_STUB_URL`
-  (`test/support/operator-backend-stub.js`, `docker/stubs/`). Compose runs it in
-  place of the real Registration & Accreditation service backend.
+- **The "Create work item" form** (`WorkItemsPage.createWorkItem`), for specs
+  that need only the fields the form captures.
+- **Path A: case-management-only items** (`test/support/work-item-api.js`).
+  A signed `POST /work-items` to management-be with a rich payload, for
+  display, list, assignment, SLA, query and Notify specs. The rich fixtures
+  live in `test/support/*-fixture.js`. Each item's `operatorOrganisationId`
+  starts `e2e-`, which marks it as a test organisation whose ReEx lookups
+  management-be answers from its own test data. The operator's side of a
+  query or withdrawal is played by `query-resubmission.js` and
+  `operator-withdrawal.js`, calling management-be as the operator's service.
+- **Path B: operator-journey-backed items**
+  (`test/support/operator-backend-api.js`). The application is built and
+  submitted through the Registration & Accreditation service backend, which
+  creates the case-management item itself. Every spec that approves or
+  refuses, or checks the status pushed to that backend, uses this path,
+  because the backend only accepts a decision for an application it owns.
 
-`wdio.github.conf.js` sets `COMPOSE_STACK=true`, so the GitHub compose runs
-(this repo's `check-pull-request.yml` and the `run-journey-tests` action that
-management-be and management-fe call) run every gated spec. The monorepo's root
-`compose.yml` sets it on its `mgmt-tests` service, which runs `npm test`. CDP
-doesn't set it, so `npm test` there skips them. To run the gated specs locally
-against a compose stack, export `COMPOSE_STACK=true` (plus `MANAGEMENT_BE_URL`
-and `OPERATOR_BACKEND_STUB_URL` if they aren't on their localhost defaults).
+Two cases need a document no API can create: RA-342's work item with legacy
+template-snapshot fields, and RA-611's item whose SLA clock started before
+1 January. management-be seeds both with fixed ids
+(`test/support/seeded-fixtures.js`) when `TestOrganisations__Enabled=true`, and
+replaces them with the pristine copy every time it starts. Specs open them by
+id, and leave them usable by the next run, because between restarts they keep
+whatever the last run did.
+
+Every operator email is GOV.UK Notify's simulated delivered address.
+
+The test runner (a Node process, not the browser) reaches the backends
+directly. `test/support/backend-api.js` holds every base URL and header:
+
+| Variable                         | Meaning                                                                                        |
+| -------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `MANAGEMENT_BE_URL`              | management-be base URL                                                                         |
+| `OPERATOR_BACKEND_URL`           | Registration & Accreditation service backend base URL                                          |
+| `MANAGEMENT_BE_SHARED_SECRET`    | signs management-be requests (v3 HMAC) as the `epr-register-enrol-mgmt-tests` caller, when set |
+| `OPERATOR_BACKEND_SHARED_SECRET` | sent as `Authorization: Bearer` to the operator backend, when set                              |
+
+`wdio.conf.js` derives the three URLs from `ENVIRONMENT` unless they are set, and
+reads the secrets from the environment. `wdio.github.conf.js` points at the
+compose stack's published ports and secrets.
 
 ## Requirements of CDP Environment Tests
 
@@ -146,47 +165,47 @@ By default, the provided workflow will run when triggered manually from GitHub o
 
 If you want to use the repository exclusively for running docker composed based test suites consider displaying the publish.yml workflow.
 
-### Stale seed data: use `docker compose down -v` after a seed change
+### The compose stack mirrors CDP test
 
-`epr-register-enrol-management-be` seeds its work items with
-`CreateIfAbsentAsync`, which **inserts but never updates**. A seed item is
-keyed on a deterministic id, so:
-
-- a **new** seed key appears on the next backend boot, even against a mongo
-  volume that has already been seeded — no reset needed;
-- a **changed value on an existing** seed key does **not**. The old document
-  stays exactly as it was.
-
-The failure this produces is nastier than it sounds: specs assert against
-values the seeder now claims to emit, the backend serves the old document, and
-the run fails with content mismatches that look for all the world like a broken
-frontend template. It is easy to lose an hour to it.
-
-So whenever the backend's seed data changes — or specs start failing on values
-you can see are correct in `ReAccreditationSeeder.cs`:
+`compose.yml` runs management-be, management-fe and the Registration &
+Accreditation service backend with their deployed settings rather than
+Development ones: no demo seed data, a shared secret on every
+service-to-service call, and ReEx and CDP's outbound proxy stood in for by
+`docker/stubs/external-services-stub.mjs`, so the backends use their real HTTP
+clients. With no Notify API key, management-be uses its no-op GOV.UK Notify
+client, which writes the same audit entries. It also runs cdp-uploader and the
+Entra ID stub. With `TestOrganisations__Enabled=true`, management-be seeds the
+two `e2e-` fixtures no API can create (RA-342's legacy snapshot and RA-611's
+pre-year-start clock, ids in `test/support/seeded-fixtures.js`) and resets them
+at every start, exactly as on CDP test.
+Specs that follow a download link upload their own PDFs through cdp-uploader
+(`test/support/cdp-uploader.js`, `CDP_UPLOADER_URL`, `FILE_UPLOAD_S3_BUCKET`)
+on every run, so nothing is pre-loaded into S3. The settings the RA-000 cdp-app-config change touched
+are switchable. The defaults are CDP test after that change; to reproduce CDP
+test as it was before it:
 
 ```bash
-docker compose down -v   # -v drops the mongo volume; without it the old seed persists
-docker compose up -d
+docker compose --env-file docker/config/cdp-test-baseline.env up -d --wait
 ```
 
-The same applies to the published image tags. `compose.yml` defaults to
-`:latest` for both services, which can lag `main`; to run against a specific
-build, set `MANAGEMENT_BE` / `MANAGEMENT_FE` to a tag you have built locally:
+`compose.yml` defaults to `:latest` for every service image, which can lag
+`main`; to run against a specific build, set `MANAGEMENT_BE` /
+`MANAGEMENT_FE` / `OPERATOR_BE` to a tag you have built locally:
 
 ```bash
-MANAGEMENT_BE=mytag MANAGEMENT_FE=mytag docker compose up -d
+MANAGEMENT_BE=mytag MANAGEMENT_FE=mytag OPERATOR_BE=mytag docker compose up -d
 ```
 
 ### Journey tests failing on specs you didn't write
 
-**Merge `main` into all three branches before investigating.**
+**Merge `main` into every paired branch before investigating.**
 
 PR CI tests the **merge commit** — your branch merged into `main` — so it runs
 every spec on `main`, including ones added after you branched. But
 `run-journey-tests` **branch-matches**: it looks for a branch of the same name
-in `epr-register-enrol-management-fe` and `-management-be` and, when one exists,
-builds those services from _that branch_ rather than from `main`.
+in `epr-register-enrol-management-fe`, `-management-be` and
+`epr-register-enrol-backend` and, when one exists, builds those services from
+_that branch_ rather than from `main`.
 
 Those two facts pull in opposite directions. If a story merges to `main` after
 your branch was cut, you get its **new specs** running against **partner code
@@ -203,11 +222,11 @@ objects your change actually touches.
 
 Merging `main` into **this** repo is **not sufficient**, and that is the
 non-obvious half. It brings the new specs in, but the partner _images_ still
-have to carry the code those specs exercise. All three branches need it:
+have to carry the code those specs exercise. Every paired branch needs it:
 
 ```bash
-# in each of mgmt-tests, management-fe and management-be,
-# on the shared branch name:
+# in each of mgmt-tests, management-fe, management-be and
+# epr-register-enrol-backend, on the shared branch name:
 git merge origin/main
 ```
 
@@ -225,8 +244,8 @@ anyway.
 
 CI runs `wdio` **on the runner host** (`setup-node` → `npm ci` →
 `npm run test:github`), with the stack in Docker. So a spec helper that fetches
-the backend directly at `http://localhost:8085` works, because `compose.yml`
-publishes that port to the host. Only the _browser_ is in a container.
+a backend directly at `http://localhost:8085` or `:8080` works, because
+`compose.yml` publishes those ports to the host. Only the _browser_ is in a container.
 
 Run `wdio` **inside** a container joined to the compose network instead — a
 reasonable thing to do when the host's Node version doesn't match `.nvmrc` —
@@ -237,6 +256,7 @@ name:
 
 ```bash
 -e MANAGEMENT_BE_URL=http://epr-register-enrol-management-be:8085
+-e OPERATOR_BACKEND_URL=http://epr-register-enrol-backend:8080
 ```
 
 The wider lesson is worth more than the fix:

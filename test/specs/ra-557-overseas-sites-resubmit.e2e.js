@@ -2,13 +2,10 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import {
-  raiseQueryViaApi,
-  resumeFromQuery
-} from '../support/query-resubmission.js'
+import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
 import { dulyMake } from '../support/re-accreditation-journey.js'
-import { RA557_OVERSEAS_SITES_RESUBMIT_ORG_NAME } from '../support/ra-557-seed.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
+import { uniquePostcode } from '../support/unique-postcode.js'
+import { createWorkItemViaApi } from '../support/work-item-api.js'
 
 /**
  * RA-557 — Overseas reprocessing sites (ORS) removal not reflected on the
@@ -30,24 +27,14 @@ import { describeOnComposeStack } from '../support/compose-stack.js'
  * against a real "before" list, the way `dulyMake` (submitted OR the
  * post-resubmit `updated` state) is documented to support.
  *
- * The query itself is raised via `raiseQueryViaApi` (a direct call to
- * management-be's own `/query` endpoint) rather than through the query
- * page: `overseas-reprocessing-sites` is an EXPORTER-ONLY query section
- * (RA-367), gated both client-side (the checkbox is never rendered) and
- * server-side by management-fe's own query controller. management-be's own
- * validator carries no such restriction, so calling it directly is the
- * honest way to exercise the actual bug (a resubmitted ORS section failing
- * to merge onto payload.overseasSites).
- *
- * The work item itself has to be a seeded EXPORTER fixture
- * (`ra-557-seed.js`), not one created via "Create work item": that form has
- * no `wasteProcessingType` field, and the ORS row on the Application
- * summary page only renders at all for an exporter application (the same
- * gate as the query section above) — so a UI-created item could never show
- * the result even after a correct resubmission. The fixture is PRIVATE to
- * this spec (see `ra-557-seed.js`) because this spec mutates its lifecycle
- * state, which a shared fixture cannot safely tolerate under CI's parallel
- * spec execution.
+ * The work item is an EXPORTER application with no overseas sites yet,
+ * submitted through the API (`createWorkItemViaApi`), not created via
+ * "Create work item": that form has no `wasteProcessingType` field, and both
+ * the `overseas-reprocessing-sites` query section (RA-367) and the ORS row on
+ * the Application summary page only exist for an exporter application — so a
+ * UI-created item could neither be queried on its overseas sites nor show
+ * the result. Because the item is an exporter, the query is raised through
+ * the query page like any other.
  */
 
 const siteA = {
@@ -66,83 +53,80 @@ const siteB = {
   country: 'Germany'
 }
 
-describeOnComposeStack(
-  'RA-557 Overseas reprocessing sites reflect a query resubmit',
-  () => {
-    let workItemId
+describe('RA-557 Overseas reprocessing sites reflect a query resubmit', () => {
+  let workItemId
 
-    before(async () => {
-      await login.login()
-      // A bare landing defaults to assigned-to-me (RA-299), which would hide
-      // this unassigned seeded item — reset to an explicit empty filter so
-      // the search is not implicitly assignee-scoped (same discipline as
-      // ra-483-removed-overseas-site-hidden.e2e.js).
-      await workItems.resetFilters()
-      await workItems.searchByOrgName(RA557_OVERSEAS_SITES_RESUBMIT_ORG_NAME)
-      // Bounding check: prove exactly one row matched before trusting "first"
-      // to mean "the seeded fixture".
-      expect(await workItems.getRowCount()).toBe(1)
-      workItemId = await workItems.firstResultWorkItemId()
-    })
-
-    after(async () => {
-      await login.logout()
-    })
-
-    it('shows no overseas sites before any resubmission', async () => {
-      await workItems.openWorkItem(workItemId)
-      expect(await detail.overseasSiteCount()).toBe(0)
-    })
-
-    it('reflects an added overseas site after a resubmission', async () => {
-      await raiseQueryViaApi(workItemId, {
-        sections: ['overseas-reprocessing-sites'],
-        reason: 'Please provide the overseas reprocessing site details.'
-      })
-      await workItems.openWorkItem(workItemId)
-      await detail.assertState('Queried')
-
-      await resumeFromQuery(workItemId, {
-        sectionKeys: ['overseas-reprocessing-sites'],
-        sections: {
-          OverseasSites: { sites: [siteA, siteB] }
+  before(async () => {
+    await login.login()
+    ;({ id: workItemId } = await createWorkItemViaApi({
+      organisationNamePrefix: 'RA-557 Overseas Sites Resubmit Ltd',
+      fields: (base) => {
+        const { siteAddress, ...withoutSiteAddress } = base
+        return {
+          ...withoutSiteAddress,
+          wasteProcessingType: 'exporter',
+          // An exporter's regulator (and the application reference's
+          // postcode segment) comes from its registered office.
+          companyRegisterAddressPostcode: uniquePostcode('BS1'),
+          companiesHouseNumber: '15975346'
         }
-      })
+      }
+    }))
+  })
 
-      await workItems.openWorkItem(workItemId)
-      expect(await detail.overseasSiteCount()).toBe(2)
-      expect(await detail.overseasSiteNames()).toEqual([
-        siteA.siteName,
-        siteB.siteName
-      ])
+  after(async () => {
+    await login.logout()
+  })
+
+  it('shows no overseas sites before any resubmission', async () => {
+    await workItems.openWorkItem(workItemId)
+    expect(await detail.overseasSiteCount()).toBe(0)
+  })
+
+  it('reflects an added overseas site after a resubmission', async () => {
+    await raiseQuery(workItemId, {
+      sections: ['overseas-reprocessing-sites'],
+      reason: 'Please provide the overseas reprocessing site details.'
     })
 
-    it('reflects a removed overseas site after a second query and resubmission', async () => {
-      // Advance to duly-made so a second query (query-during-duly-made) is
-      // available — the app allows only one open query per lifecycle stage.
-      await dulyMake(workItemId)
-
-      await raiseQueryViaApi(workItemId, {
-        sections: ['overseas-reprocessing-sites'],
-        reason:
-          'Please confirm one of the overseas reprocessing sites has closed.'
-      })
-      await workItems.openWorkItem(workItemId)
-      await detail.assertState('Queried')
-
-      // The operator resubmits with siteB removed. Before the RA-557 fix, this
-      // landed only in payload.latestSections and payload.overseasSites.sites
-      // stayed stale at [siteA, siteB].
-      await resumeFromQuery(workItemId, {
-        sectionKeys: ['overseas-reprocessing-sites'],
-        sections: {
-          OverseasSites: { sites: [siteA] }
-        }
-      })
-
-      await workItems.openWorkItem(workItemId)
-      expect(await detail.overseasSiteCount()).toBe(1)
-      expect(await detail.overseasSiteNames()).toEqual([siteA.siteName])
+    await resumeFromQuery(workItemId, {
+      sectionKeys: ['overseas-reprocessing-sites'],
+      sections: {
+        OverseasSites: { sites: [siteA, siteB] }
+      }
     })
-  }
-)
+
+    await workItems.openWorkItem(workItemId)
+    expect(await detail.overseasSiteCount()).toBe(2)
+    expect(await detail.overseasSiteNames()).toEqual([
+      siteA.siteName,
+      siteB.siteName
+    ])
+  })
+
+  it('reflects a removed overseas site after a second query and resubmission', async () => {
+    // Advance to duly-made so a second query (query-during-duly-made) is
+    // available — the app allows only one open query per lifecycle stage.
+    await dulyMake(workItemId)
+
+    await raiseQuery(workItemId, {
+      sections: ['overseas-reprocessing-sites'],
+      reason:
+        'Please confirm one of the overseas reprocessing sites has closed.'
+    })
+
+    // The operator resubmits with siteB removed. Before the RA-557 fix, this
+    // landed only in payload.latestSections and payload.overseasSites.sites
+    // stayed stale at [siteA, siteB].
+    await resumeFromQuery(workItemId, {
+      sectionKeys: ['overseas-reprocessing-sites'],
+      sections: {
+        OverseasSites: { sites: [siteA] }
+      }
+    })
+
+    await workItems.openWorkItem(workItemId)
+    expect(await detail.overseasSiteCount()).toBe(1)
+    expect(await detail.overseasSiteNames()).toEqual([siteA.siteName])
+  })
+})

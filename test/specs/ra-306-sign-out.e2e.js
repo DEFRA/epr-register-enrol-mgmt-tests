@@ -74,7 +74,7 @@ describe('RA-306 sign out of the service', () => {
     await login.login()
     await workItems.goto()
     const { id } = await workItems.createWorkItem({
-      organisationName: 'Sign Out Ltd',
+      organisationNamePrefix: 'Sign Out Ltd',
       siteAddressLine1: '1 Session Street',
       siteAddressTown: 'London',
       material: 'plastic',
