@@ -41,7 +41,7 @@ describeOnComposeStack('RA-204 Withdrawal notification', () => {
       // so the notification is sent rather than skipped.
       workItemId = (
         await workItems.createWorkItem({
-          organisationName: 'Withdraw Notify With Note Ltd',
+          organisationNamePrefix: 'Withdraw Notify With Note Ltd',
           siteAddressLine1: '1 Notify Way',
           siteAddressTown: 'London',
           material: 'plastic',

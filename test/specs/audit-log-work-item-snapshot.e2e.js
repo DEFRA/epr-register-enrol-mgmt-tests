@@ -41,7 +41,7 @@ describe('Audit log — work item snapshot fields', () => {
     await login.login()
     await workItems.goto()
     await workItems.createWorkItem({
-      organisationName: 'Snapshot Test Ltd',
+      organisationNamePrefix: 'Snapshot Test Ltd',
       siteAddressLine1: '1 Audit Road',
       siteAddressTown: 'Manchester',
       material: 'glass',

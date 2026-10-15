@@ -9,6 +9,7 @@ import {
   startAssessment
 } from '../support/re-accreditation-journey.js'
 import { itOnComposeStack } from '../support/compose-stack.js'
+import { uniqueOrganisationName } from '../support/unique-name.js'
 
 /**
  * RA-313 AC01 — a withdrawn application is identifiable in the worklist.
@@ -29,18 +30,18 @@ import { itOnComposeStack } from '../support/compose-stack.js'
  * this spec creates, so the presence checks stay pagination-safe even when
  * the list holds unrelated items from other specs.
  */
-const token = `RA313Worklist${Date.now()}`
+const token = uniqueOrganisationName('RA313Worklist')
 
 /**
  * Create a re-accreditation work item under the shared token and drive it
  * through the CTA journey to assessment-in-progress, ready for a
- * decision-maker to approve or reject. Returns the work item id.
+ * decision-maker to approve or reject. Returns `{ id, organisationName }`.
  */
 async function driveToDecisionReady(suffix, material) {
   await login.login()
   await workItems.goto()
-  const { id } = await workItems.createWorkItem({
-    organisationName: `${token} ${suffix}`,
+  const { id, organisationName } = await workItems.createWorkItem({
+    organisationNamePrefix: `${token} ${suffix}`,
     siteAddressLine1: '1 Archive Street',
     siteAddressTown: 'York',
     material,
@@ -65,7 +66,7 @@ async function driveToDecisionReady(suffix, material) {
   await detail.assertStateId('assessment-in-progress')
 
   await login.logout()
-  return id
+  return { id, organisationName }
 }
 
 describe('RA-313 terminal-state applications stay on the worklist', () => {
@@ -80,7 +81,7 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
       await workItems.goto()
       withdrawnId = (
         await workItems.createWorkItem({
-          organisationName: `${token} Withdrawn`,
+          organisationNamePrefix: `${token} Withdrawn`,
           siteAddressLine1: '1 Archive Street',
           siteAddressTown: 'York',
           material: 'glass',
@@ -105,7 +106,7 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
   )
 
   it('drives a work item to the Rejected terminal state', async () => {
-    rejectedId = await driveToDecisionReady('Rejected', 'paper')
+    rejectedId = (await driveToDecisionReady('Rejected', 'paper')).id
 
     await login.login()
     await logDecision(rejectedId, 'refused')
@@ -115,7 +116,7 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
   })
 
   it('drives a work item to the Approved terminal state', async () => {
-    approvedId = await driveToDecisionReady('Approved', 'plastic')
+    approvedId = (await driveToDecisionReady('Approved', 'plastic')).id
 
     await login.login()
     await logDecision(approvedId, 'approved')

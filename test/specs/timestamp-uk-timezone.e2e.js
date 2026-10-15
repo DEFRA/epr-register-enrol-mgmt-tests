@@ -36,7 +36,7 @@ describe('RA-197 — timestamps display in UK local time (BST/GMT)', () => {
     await login.login()
     await workItems.goto()
     await workItems.createWorkItem({
-      organisationName: 'Timezone Test Ltd',
+      organisationNamePrefix: 'Timezone Test Ltd',
       siteAddressLine1: '1 Clock Lane',
       siteAddressTown: 'London',
       material: 'glass',

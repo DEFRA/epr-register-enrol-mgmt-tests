@@ -30,7 +30,7 @@ describe('RA-153 — self-assign: a caseworker takes an unassigned work item', (
   it('creates a work item and self-assigns it without a 403', async () => {
     await workItems.goto()
     ;({ id: workItemId } = await workItems.createWorkItem({
-      organisationName: 'Self Assign Test Ltd',
+      organisationNamePrefix: 'Self Assign Test Ltd',
       siteAddressLine1: '1 Take It Street',
       siteAddressTown: 'London',
       material: 'plastic',

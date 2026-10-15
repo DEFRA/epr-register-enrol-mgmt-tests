@@ -51,9 +51,9 @@ describeOnComposeStack('RA-410 The OJ-gated decision fails atomically', () => {
 
   before(async () => {
     await login.login()
-    workItemId = await createReAccreditation(
+    ;({ id: workItemId } = await createReAccreditation(
       'CTA Registration & Accreditation service Failure'
-    )
+    ))
     await driveToAssessmentInProgress(workItemId)
   })
 

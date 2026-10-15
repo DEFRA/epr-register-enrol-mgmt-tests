@@ -50,7 +50,7 @@ describe('RA-235 audit-log notification rendering', () => {
         // therefore the recipient we assert on below.
         workItemId = (
           await workItems.createWorkItem({
-            organisationName: 'Audit Notify Render Ltd',
+            organisationNamePrefix: 'Audit Notify Render Ltd',
             siteAddressLine1: '235 Audit Way',
             siteAddressTown: 'London',
             material: 'plastic',

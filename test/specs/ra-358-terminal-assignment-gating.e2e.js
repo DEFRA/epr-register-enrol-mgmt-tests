@@ -66,7 +66,7 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
       await login.login()
       await workItems.goto()
       ;({ id: workItemId } = await createWithdrawnWorkItem({
-        organisationName: 'Terminal Gating Withdrawn Ltd',
+        organisationNamePrefix: 'Terminal Gating Withdrawn Ltd',
         material: 'plastic'
       }))
     })
@@ -113,7 +113,7 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
       // the shared item above is already withdrawn by the time this runs.
       await workItems.goto()
       const { id: staleId } = await workItems.createWorkItem({
-        organisationName: 'Terminal Gating Stale Form Ltd',
+        organisationNamePrefix: 'Terminal Gating Stale Form Ltd',
         siteAddressLine1: '1 Stale Way',
         siteAddressTown: 'York',
         material: 'plastic',
@@ -161,10 +161,10 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
     before(async () => {
       await login.login()
       await workItems.goto()
-      workItemId = await driveToDecisionReady({
-        organisationName: 'Terminal Gating Approved Ltd',
+      ;({ id: workItemId } = await driveToDecisionReady({
+        organisationNamePrefix: 'Terminal Gating Approved Ltd',
         material: 'paper'
-      })
+      }))
       await approveWorkItem(workItemId)
     })
 
@@ -185,10 +185,10 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
     before(async () => {
       await login.login()
       await workItems.goto()
-      workItemId = await driveToDecisionReady({
-        organisationName: 'Terminal Gating Rejected Ltd',
+      ;({ id: workItemId } = await driveToDecisionReady({
+        organisationNamePrefix: 'Terminal Gating Rejected Ltd',
         material: 'aluminium'
-      })
+      }))
       await rejectWorkItem(workItemId)
     })
 
@@ -221,7 +221,7 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
       await login.login()
       await workItems.goto()
       ;({ id: workItemId } = await workItems.createWorkItem({
-        organisationName: 'Terminal Gating Open Case Ltd',
+        organisationNamePrefix: 'Terminal Gating Open Case Ltd',
         siteAddressLine1: '1 Open Way',
         siteAddressTown: 'York',
         material: 'plastic',

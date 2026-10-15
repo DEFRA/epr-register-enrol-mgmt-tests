@@ -1,4 +1,3 @@
-import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import query from '../page-objects/query.page.js'
 import { startAssessment } from './re-accreditation-journey.js'
@@ -205,20 +204,6 @@ export function continueReviewViaApi(workItemId) {
     `/work-items/re-accreditation/${workItemId}/continue-review`,
     undefined
   )
-}
-
-/** Create a re-accreditation application, already open on its detail page. */
-export async function createApplication({ organisationName }) {
-  await workItems.goto()
-  const { id } = await workItems.createWorkItem({
-    organisationName,
-    siteAddressLine1: '1 Resubmission Row',
-    siteAddressTown: 'London',
-    material: 'plastic',
-    tonnageBand: '0-500'
-  })
-  await workItems.openWorkItem(id)
-  return id
 }
 
 /**

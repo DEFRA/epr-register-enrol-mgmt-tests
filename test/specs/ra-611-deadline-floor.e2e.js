@@ -151,7 +151,7 @@ describe('RA-611 The determination deadline floor: duly made, not today', () => 
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
-        organisationName: 'RA-611 Deadline Floor Ltd',
+        organisationNamePrefix: 'RA-611 Deadline Floor Ltd',
         siteAddressLine1: '1 Hindsight Way',
         siteAddressTown: 'Bristol',
         material: 'plastic',
@@ -501,7 +501,7 @@ describe('RA-611 The determination deadline floor: duly made, not today', () => 
       await workItems.goto()
       preYearStartWorkItemId = (
         await workItems.createWorkItem({
-          organisationName: 'RA-611 Pre Year Start Journey Ltd',
+          organisationNamePrefix: 'RA-611 Pre Year Start Journey Ltd',
           siteAddressLine1: '1 New Year Lane',
           siteAddressTown: 'Bristol',
           material: 'plastic',

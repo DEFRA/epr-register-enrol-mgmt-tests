@@ -33,7 +33,7 @@ describe('RA-450 Application History Org ID shows the operator org id', () => {
     await workItems.goto()
     const created = await workItems.createWorkItem({
       operatorOrganisationId: OPERATOR_ORG_ID,
-      organisationName: 'RA-450 Org ID Ltd',
+      organisationNamePrefix: 'RA-450 Org ID Ltd',
       siteAddressLine1: '1 History Road',
       siteAddressTown: 'Manchester',
       material: 'glass',

@@ -52,7 +52,7 @@ describeOnComposeStack('RA-368 CM status push to OJ', () => {
 
   before(async () => {
     await login.login()
-    workItemId = await createReAccreditation('Status Push')
+    ;({ id: workItemId } = await createReAccreditation('Status Push'))
   })
 
   after(async () => {

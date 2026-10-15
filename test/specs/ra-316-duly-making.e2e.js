@@ -41,9 +41,9 @@ describe('RA-316 duly making', () => {
     // band, so no two render the same figure — see the AC02 charge test for
     // why that matters, and `createReAccreditation` for the 50000-pence
     // floor any new value has to clear.
-    workItemId = await createReAccreditation('Duly Making Ltd', {
+    ;({ id: workItemId } = await createReAccreditation('Duly Making Ltd', {
       chargeAmountPence: 54600
-    })
+    }))
     await login.logout()
   })
 

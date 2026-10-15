@@ -38,7 +38,7 @@ describe('RA-132 Reject action terminal flow', () => {
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
-        organisationName: 'Reject Outcome Test Ltd',
+        organisationNamePrefix: 'Reject Outcome Test Ltd',
         siteAddressLine1: '3 Rejection Row',
         siteAddressTown: 'Bristol',
         material: 'paper',

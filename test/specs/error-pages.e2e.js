@@ -35,7 +35,7 @@ describe('Error pages', () => {
     await login.login()
     await workItems.goto()
     ;({ id: workItemId } = await workItems.createWorkItem({
-      organisationName: 'Error Page Test Ltd',
+      organisationNamePrefix: 'Error Page Test Ltd',
       siteAddressLine1: '1 Error Street',
       siteAddressTown: 'London',
       material: 'plastic',

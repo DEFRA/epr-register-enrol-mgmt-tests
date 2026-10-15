@@ -3,6 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems, { TILE_FIELD_ORDER } from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import { formatUkDateGds } from '../support/uk-time.js'
+import { uniqueOrganisationName } from '../support/unique-name.js'
 import {
   dulyMake,
   startAssessment
@@ -67,25 +68,23 @@ import {
  * ordering assertions and the page object read from one source of truth.
  */
 
-const uniqueOrg = (label) => `${label} ${Date.now()}`
-
 /**
  * Create a fresh (Submitted / "Not started") re-accreditation work item — i.e.
- * one whose assessment has NOT started, so it has no slaState — and return its
- * id. Navigates to the Applications list first because the "Create work item"
+ * one whose assessment has NOT started, so it has no slaState — and return
+ * `{ id, organisationName }`. Navigates to the Applications list first because the "Create work item"
  * link only renders there; createWorkItem leaves the browser on the new item's
  * detail page.
  */
-async function createFreshItem(organisationName) {
+async function createFreshItem(organisationNamePrefix) {
   await workItems.goto()
-  const { id } = await workItems.createWorkItem({
-    organisationName,
+  const { id, organisationName } = await workItems.createWorkItem({
+    organisationNamePrefix,
     siteAddressLine1: '1 Submitted On Way',
     siteAddressTown: 'London',
     material: 'plastic',
     tonnageBand: '0-500'
   })
-  return id
+  return { id, organisationName }
 }
 
 /**
@@ -222,7 +221,7 @@ describe('RA-370 — application card field order and Submitted on', () => {
   // ── AC1/AC2/AC3/AC4/AC5 — cards whose assessment has not started ─────────── //
 
   describe('assessment not started', () => {
-    const token = uniqueOrg('RA370 NotStarted')
+    const token = uniqueOrganisationName('RA370 NotStarted')
     let firstId
     let secondId
 
@@ -230,8 +229,8 @@ describe('RA-370 — application card field order and Submitted on', () => {
       await login.login()
       // Two cards under a shared token: the "consistent order for EVERY case
       // item" AC cannot be proven from a single hand-picked card.
-      firstId = await createFreshItem(`${token} One`)
-      secondId = await createFreshItem(`${token} Two`)
+      ;({ id: firstId } = await createFreshItem(`${token} One`))
+      ;({ id: secondId } = await createFreshItem(`${token} Two`))
       await listCardsFor(token)
     })
 
@@ -351,12 +350,13 @@ describe('RA-370 — application card field order and Submitted on', () => {
   // ── AC4 — assigned card ──────────────────────────────────────────────────── //
 
   describe('assigned card', () => {
-    const org = uniqueOrg('RA370 Assigned Ltd')
+    let org
     let itemId
 
     before(async () => {
       await login.login()
-      itemId = await createFreshItem(org)
+      ;({ id: itemId, organisationName: org } =
+        await createFreshItem('RA370 Assigned Ltd'))
       await workItems.openWorkItem(itemId)
       await detail.selfAssign()
       await detail.assertAssignedTo('Stub Caseworker One')
@@ -391,12 +391,13 @@ describe('RA-370 — application card field order and Submitted on', () => {
   // ── AC2/AC5 — duly-made: pre-assessment AND clock running, so BOTH dates ─── //
 
   describe('duly made (clock running)', () => {
-    const org = uniqueOrg('RA370 DulyMade Ltd')
+    let org
     let itemId
 
     before(async () => {
       await login.login()
-      itemId = await createFreshItem(org)
+      ;({ id: itemId, organisationName: org } =
+        await createFreshItem('RA370 DulyMade Ltd'))
       await driveToDulyMade(itemId)
     })
 
@@ -436,12 +437,14 @@ describe('RA-370 — application card field order and Submitted on', () => {
   // ── AC2/AC5 — assessment in progress: past pre-assessment, clock running ─── //
 
   describe('assessment in progress', () => {
-    const org = uniqueOrg('RA370 InProgress Ltd')
+    let org
     let itemId
 
     before(async () => {
       await login.login()
-      itemId = await createFreshItem(org)
+      ;({ id: itemId, organisationName: org } = await createFreshItem(
+        'RA370 InProgress Ltd'
+      ))
       await driveToAssessment(itemId)
     })
 

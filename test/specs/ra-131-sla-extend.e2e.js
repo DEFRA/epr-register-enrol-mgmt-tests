@@ -69,7 +69,7 @@ describe('RA-131 Change determination deadline', () => {
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
-        organisationName: 'SLA Extend Test Ltd',
+        organisationNamePrefix: 'SLA Extend Test Ltd',
         siteAddressLine1: '1 Deadline Street',
         siteAddressTown: 'London',
         material: 'plastic',

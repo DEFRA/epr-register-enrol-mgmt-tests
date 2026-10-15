@@ -37,7 +37,7 @@ describe('RA-295 assignment panel and query assignment notice', () => {
     await login.login()
     await workItems.resetFilters()
     ;({ id: workItemId } = await workItems.createWorkItem({
-      organisationName: 'RA-295 Assignment Panel Ltd',
+      organisationNamePrefix: 'RA-295 Assignment Panel Ltd',
       siteAddressLine1: '1 Panel Place',
       siteAddressTown: 'Leeds',
       material: 'plastic',
@@ -184,7 +184,7 @@ describe('RA-295 assignment panel and query assignment notice', () => {
     before(async () => {
       await workItems.resetFilters()
       ;({ id: closedItemId } = await workItems.createWorkItem({
-        organisationName: 'RA-295 Closed Case Ltd',
+        organisationNamePrefix: 'RA-295 Closed Case Ltd',
         siteAddressLine1: '1 Closure Court',
         siteAddressTown: 'Hull',
         material: 'paper',

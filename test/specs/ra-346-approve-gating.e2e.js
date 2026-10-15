@@ -41,7 +41,7 @@ describe('RA-346/RA-410 A determination can be logged only once', () => {
 
   before(async () => {
     await login.login()
-    workItemId = await createReAccreditation('Approve Decision Gate')
+    ;({ id: workItemId } = await createReAccreditation('Approve Decision Gate'))
     await driveToAssessmentInProgress(workItemId)
   })
 

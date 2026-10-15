@@ -71,7 +71,9 @@ describeOnComposeStack(
         // Reaches `updated` with `originStateId: 'submitted'` — the exact shape
         // the bug is about — the same way ra-316-duly-making-from-updated does:
         // query while still pre-duly-made, then let the operator backend resume.
-        workItemId = await createReAccreditation('RA454 Query Before Duly Ltd')
+        ;({ id: workItemId } = await createReAccreditation(
+          'RA454 Query Before Duly Ltd'
+        ))
         await raiseQuery(workItemId, {
           reason:
             'RA-454: please resend the business plan before we duly make this.'
@@ -171,7 +173,9 @@ describeOnComposeStack(
 
         before(async () => {
           await login.login()
-          apiWorkItemId = await createReAccreditation('RA454 Continue API Ltd')
+          ;({ id: apiWorkItemId } = await createReAccreditation(
+            'RA454 Continue API Ltd'
+          ))
           await raiseQuery(apiWorkItemId, {
             reason:
               'RA-454: endpoint guard — queried before duly making, please resend the business plan.'
@@ -205,7 +209,9 @@ describeOnComposeStack(
 
       before(async () => {
         await login.login()
-        workItemId = await createReAccreditation('RA454 Query After Duly Ltd')
+        ;({ id: workItemId } = await createReAccreditation(
+          'RA454 Query After Duly Ltd'
+        ))
         // Duly make, then self-assign and start — the item is now in
         // `assessment-in-progress`. Querying from here and resuming leaves it in
         // `updated` with `originStateId: 'assessment-in-progress'`.

@@ -95,7 +95,7 @@ describeOnComposeStack(
         // constraint and returned everything).
         await workItems.goto()
         ;({ id: reprocessorId } = await workItems.createWorkItem({
-          organisationName: `RA412 Reprocessor Control ${Date.now()}`,
+          organisationNamePrefix: 'RA412 Reprocessor Control',
           siteAddressLine1: '1 Applicant Type Way',
           siteAddressTown: 'London',
           material: 'plastic',

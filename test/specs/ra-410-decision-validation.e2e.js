@@ -33,7 +33,7 @@ describe('RA-410 The green CTA lifecycle', () => {
     let workItemId
 
     before(async () => {
-      workItemId = await createReAccreditation('CTA Validation')
+      workItemId = (await createReAccreditation('CTA Validation')).id
       await driveToAssessmentInProgress(workItemId)
       await detail.clickLogDecision()
       await decision.assertOnPage()
@@ -133,7 +133,7 @@ describe('RA-410 The green CTA lifecycle', () => {
     const OVER_LONG_NOTE = 'x'.repeat(2001)
 
     before(async () => {
-      workItemId = await createReAccreditation('CTA Long Note')
+      workItemId = (await createReAccreditation('CTA Long Note')).id
       await driveToAssessmentInProgress(workItemId)
       await detail.clickLogDecision()
       await decision.assertOnPage()

@@ -51,7 +51,7 @@ describe('RA-410 The green CTA lifecycle', () => {
     let workItemId
 
     before(async () => {
-      workItemId = await createReAccreditation('CTA Happy Path')
+      workItemId = (await createReAccreditation('CTA Happy Path')).id
     })
 
     it('starts in submitted, offering only the Duly make CTA', async () => {
@@ -182,7 +182,7 @@ describe('RA-410 The green CTA lifecycle', () => {
     let workItemId
 
     before(async () => {
-      workItemId = await createReAccreditation('CTA Refused Path')
+      workItemId = (await createReAccreditation('CTA Refused Path')).id
       await driveToAssessmentInProgress(workItemId)
     })
 
@@ -219,7 +219,7 @@ describe('RA-410 The green CTA lifecycle', () => {
     let submittedId
 
     before(async () => {
-      submittedId = await createReAccreditation('CTA Self Assign')
+      submittedId = (await createReAccreditation('CTA Self Assign')).id
     })
 
     it('assigns from submitted without changing state', async () => {

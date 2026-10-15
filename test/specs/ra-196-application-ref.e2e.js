@@ -17,12 +17,17 @@ import detail from '../page-objects/work-item-detail.page.js'
 describe('RA-196 — application reference shown instead of internal id', () => {
   let createdId
   let applicationReference
+  let organisationName
 
   before(async () => {
     await login.login()
     await workItems.goto()
-    ;({ id: createdId, applicationReference } = await workItems.createWorkItem({
-      organisationName: 'Reference Recyclers Ltd',
+    ;({
+      id: createdId,
+      applicationReference,
+      organisationName
+    } = await workItems.createWorkItem({
+      organisationNamePrefix: 'Reference Recyclers Ltd',
       siteAddressLine1: '1 Reference Way',
       siteAddressTown: 'Bristol',
       material: 'aluminium',
@@ -43,8 +48,10 @@ describe('RA-196 — application reference shown instead of internal id', () => 
     before(async () => {
       // RA-299: a bare landing now defaults to "assigned to me" — the item
       // created above is unassigned, so use the explicit empty submission
-      // (shows all regardless of assignee) rather than goto() to find it.
+      // (shows all regardless of assignee) rather than goto() to find it,
+      // then bound the list to the item's unique name.
       await workItems.resetFilters()
+      await workItems.searchByOrgName(organisationName)
     })
 
     it('shows the application reference as the row link text', async () => {

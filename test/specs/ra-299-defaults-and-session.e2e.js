@@ -1,6 +1,7 @@
 import { $, browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
+import { uniqueOrganisationName } from '../support/unique-name.js'
 import detail from '../page-objects/work-item-detail.page.js'
 
 /**
@@ -32,12 +33,12 @@ import detail from '../page-objects/work-item-detail.page.js'
  * request "explicit" and suppress the defaults under test).
  */
 
-const token = `Defaults${Date.now()}`
+const token = uniqueOrganisationName('Defaults')
 
-const createItem = (organisationName) =>
+const createItem = (organisationNamePrefix) =>
   workItems.goto().then(() =>
     workItems.createWorkItem({
-      organisationName,
+      organisationNamePrefix,
       siteAddressLine1: '1 Defaults Way',
       siteAddressTown: 'London',
       material: 'plastic',

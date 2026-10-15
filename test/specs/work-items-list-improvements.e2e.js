@@ -21,12 +21,13 @@ import workItems from '../page-objects/work-items.page.js'
  */
 describe('Work items list improvements', () => {
   let createdId
+  let organisationName
 
   before(async () => {
     await login.login()
     await workItems.goto()
-    ;({ id: createdId } = await workItems.createWorkItem({
-      organisationName: 'Delta Recyclers Ltd',
+    ;({ id: createdId, organisationName } = await workItems.createWorkItem({
+      organisationNamePrefix: 'Delta Recyclers Ltd',
       siteAddressLine1: '12 Improvement Road',
       siteAddressTown: 'Leeds',
       material: 'aluminium',
@@ -48,12 +49,12 @@ describe('Work items list improvements', () => {
       // via an explicit empty submission rather than goto(), which now
       // defaults to assigned-to-me and would exclude this unassigned item.
       await workItems.resetFilters()
-      await workItems.searchByOrgName('Delta Recyclers Ltd')
+      await workItems.searchByOrgName(organisationName)
     })
 
     it('shows the organisation name from the work item payload in the tile', async () => {
       await expect(workItems.tileField(createdId, 'org-name')).toHaveText(
-        expect.stringContaining('Delta Recyclers Ltd')
+        expect.stringContaining(organisationName)
       )
     })
 

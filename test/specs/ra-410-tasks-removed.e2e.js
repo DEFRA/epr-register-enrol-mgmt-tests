@@ -32,6 +32,7 @@ import {
  */
 describe('RA-410 Tasks are removed from Case Management', () => {
   let workItemId
+  let organisationName
 
   before(async () => {
     await login.login()
@@ -41,7 +42,8 @@ describe('RA-410 Tasks are removed from Case Management', () => {
     // failing against the item it had just created. `elementsLabelledTasks`
     // now excludes operator-supplied link text as well, but a fixture that
     // walks into its own assertion is worth not having either way.
-    workItemId = await createReAccreditation('Checklist Sweep')
+    ;({ id: workItemId, organisationName } =
+      await createReAccreditation('Checklist Sweep'))
   })
 
   after(async () => {
@@ -106,6 +108,9 @@ describe('RA-410 Tasks are removed from Case Management', () => {
   describe('AC01 — no Tasks affordance elsewhere in the service', () => {
     it('on the work items list', async () => {
       await workItems.goto()
+      // Bounded to this item's unique name: it is self-assigned by now, but
+      // the "assigned to me" default would otherwise need it on page 1.
+      await workItems.searchByOrgName(organisationName)
       // Positive control: the list genuinely rendered.
       await expect(workItems.workItemLink(workItemId)).toBeDisplayed()
 

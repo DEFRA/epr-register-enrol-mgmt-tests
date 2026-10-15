@@ -63,7 +63,9 @@ describe('RA-572 Override retired, Change is the single deadline route', () => {
 
   before(async () => {
     await login.login()
-    workItemId = await createReAccreditation('RA572 Change Deadline Ltd')
+    ;({ id: workItemId } = await createReAccreditation(
+      'RA572 Change Deadline Ltd'
+    ))
 
     // Start the SLA clock (dulyMake, from the payment date) then reach
     // assessment, where the due date can be changed.

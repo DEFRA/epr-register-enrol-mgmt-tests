@@ -23,20 +23,16 @@ import { describeOnComposeStack } from '../support/compose-stack.js'
  * cannot be raised.
  */
 
-const uniqueOrg = (label) => `${label} ${Date.now()}`
-
 /** Create a Submitted application to query. */
-const createSubmittedWorkItem = async (organisationName) => {
+const createSubmittedWorkItem = async (organisationNamePrefix) => {
   await workItems.goto()
-  return (
-    await workItems.createWorkItem({
-      organisationName,
-      siteAddressLine1: '1 Query Street',
-      siteAddressTown: 'London',
-      material: 'plastic',
-      tonnageBand: '0-500'
-    })
-  ).id
+  return workItems.createWorkItem({
+    organisationNamePrefix,
+    siteAddressLine1: '1 Query Street',
+    siteAddressTown: 'London',
+    material: 'plastic',
+    tonnageBand: '0-500'
+  })
 }
 
 describe('RA-291 Query an application', () => {
@@ -45,7 +41,7 @@ describe('RA-291 Query an application', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createSubmittedWorkItem(uniqueOrg('Query Nav Ltd'))
+      ;({ id: workItemId } = await createSubmittedWorkItem('Query Nav Ltd'))
     })
 
     after(async () => {
@@ -109,9 +105,8 @@ describe('RA-291 Query an application', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createSubmittedWorkItem(
-        uniqueOrg('Query Sections Ltd')
-      )
+      ;({ id: workItemId } =
+        await createSubmittedWorkItem('Query Sections Ltd'))
     })
 
     after(async () => {
@@ -148,7 +143,7 @@ describe('RA-291 Query an application', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createSubmittedWorkItem(uniqueOrg('Query Invalid Ltd'))
+      ;({ id: workItemId } = await createSubmittedWorkItem('Query Invalid Ltd'))
     })
 
     after(async () => {
@@ -160,8 +155,8 @@ describe('RA-291 Query an application', () => {
     // Queried. Uses its own fresh work item so it does not consume the
     // shared `workItemId` the later validation tests still need unqueried.
     it('accepts a query with no reason and moves the application to Queried', async () => {
-      const noReasonWorkItemId = await createSubmittedWorkItem(
-        uniqueOrg('Query No Reason Ltd')
+      const { id: noReasonWorkItemId } = await createSubmittedWorkItem(
+        'Query No Reason Ltd'
       )
       await query.gotoFor(noReasonWorkItemId)
       await query.selectSection('business-plan')
@@ -208,7 +203,7 @@ describe('RA-291 Query an application', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createSubmittedWorkItem(uniqueOrg('Query Count Ltd'))
+      ;({ id: workItemId } = await createSubmittedWorkItem('Query Count Ltd'))
     })
 
     after(async () => {
@@ -248,7 +243,7 @@ describe('RA-291 Query an application', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createSubmittedWorkItem(uniqueOrg('Query Submit Ltd'))
+      ;({ id: workItemId } = await createSubmittedWorkItem('Query Submit Ltd'))
     })
 
     after(async () => {
@@ -354,9 +349,8 @@ describe('RA-291 Query an application', () => {
 
       before(async () => {
         await login.login()
-        workItemId = await createSubmittedWorkItem(
-          uniqueOrg('Query Resubmit Ltd')
-        )
+        ;({ id: workItemId } =
+          await createSubmittedWorkItem('Query Resubmit Ltd'))
       })
 
       after(async () => {
@@ -446,8 +440,8 @@ describe('RA-291 Query an application', () => {
       })
 
       it('shows the "More than 10,000 tonnes" label for the highest PRN tonnage band after resume-from-query', async () => {
-        const highTonnageWorkItemId = await createSubmittedWorkItem(
-          uniqueOrg('Query Resubmit High Tonnage Ltd')
+        const { id: highTonnageWorkItemId } = await createSubmittedWorkItem(
+          'Query Resubmit High Tonnage Ltd'
         )
 
         await raiseQuery(highTonnageWorkItemId, {

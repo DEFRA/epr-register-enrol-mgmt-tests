@@ -42,7 +42,7 @@ describe('RA-203 Approval sends operator decision notification', () => {
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
-        organisationName: 'Decision Notify Test Ltd',
+        organisationNamePrefix: 'Decision Notify Test Ltd',
         siteAddressLine1: '4 Decision Road',
         siteAddressTown: 'London',
         material: 'plastic',

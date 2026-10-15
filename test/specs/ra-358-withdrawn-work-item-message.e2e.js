@@ -51,7 +51,7 @@ describe('RA-358 — withdrawn work item message and not-found page', () => {
         await workItems.goto()
         ;({ id: workItemId, applicationReference } =
           await workItems.createWorkItem({
-            organisationName: 'Withdrawn Message Ltd',
+            organisationNamePrefix: 'Withdrawn Message Ltd',
             siteAddressLine1: '1 Withdrawn Way',
             siteAddressTown: 'London',
             material: 'plastic',

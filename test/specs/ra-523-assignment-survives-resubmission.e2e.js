@@ -54,15 +54,17 @@ import {
  * directly, as every other spec that needs `updated` does.
  */
 describe('RA-523 assignment survives query and re-submission', () => {
-  const orgPrefix = 'RA-523 Query Assignment Ltd'
   let workItemId
+  let organisationName
 
   before(async () => {
     await login.login()
     // RA-299: a bare landing defaults to assigned-to-me, which would hide a
     // freshly created — and therefore unassigned — item.
     await workItems.resetFilters()
-    workItemId = await createReAccreditation(orgPrefix)
+    ;({ id: workItemId, organisationName } = await createReAccreditation(
+      'RA-523 Query Assignment Ltd'
+    ))
     await workItems.openWorkItem(workItemId)
   })
 
@@ -176,7 +178,7 @@ describe('RA-523 assignment survives query and re-submission', () => {
         // fix that only repaired the detail page would still leave the case
         // invisible where it matters, so both are asserted.
         await workItems.resetFilters()
-        await workItems.searchByOrgName(orgPrefix)
+        await workItems.searchByOrgName(organisationName)
         await expect(workItems.tileFor(workItemId)).toBeDisplayed()
         await expect(workItems.tileAssignedTo(workItemId)).toHaveText(
           expect.stringContaining('Stub Caseworker One')
@@ -222,13 +224,15 @@ describe('RA-523 assignment survives query and re-submission', () => {
  * and both are preconditions here that would then be false.
  */
 describe('RA-523 assignment is restored when the case was dropped mid-query', () => {
-  const orgPrefix = 'RA-523 Dropped Mid Query Ltd'
   let workItemId
+  let organisationName
 
   before(async () => {
     await login.login()
     await workItems.resetFilters()
-    workItemId = await createReAccreditation(orgPrefix)
+    ;({ id: workItemId, organisationName } = await createReAccreditation(
+      'RA-523 Dropped Mid Query Ltd'
+    ))
     await workItems.openWorkItem(workItemId)
     await detail.assertUnassigned()
     await raiseQuery(workItemId, {
@@ -276,7 +280,7 @@ describe('RA-523 assignment is restored when the case was dropped mid-query', ()
       // actually be noticed missing. A fix that only repaired the detail page
       // would still leave it invisible where it matters.
       await workItems.resetFilters()
-      await workItems.searchByOrgName(orgPrefix)
+      await workItems.searchByOrgName(organisationName)
       await expect(workItems.tileFor(workItemId)).toBeDisplayed()
       await expect(workItems.tileAssignedTo(workItemId)).toHaveText(
         expect.stringContaining('Stub Caseworker One')
@@ -308,7 +312,9 @@ describeOnComposeStack(
     before(async () => {
       await login.login()
       await workItems.resetFilters()
-      workItemId = await createReAccreditation('RA-523 Handed Over Ltd')
+      ;({ id: workItemId } = await createReAccreditation(
+        'RA-523 Handed Over Ltd'
+      ))
       await workItems.openWorkItem(workItemId)
       await detail.assertUnassigned()
       await raiseQuery(workItemId, {

@@ -137,7 +137,7 @@ describeIfEntraStub('RA-537 Entra ID stub login', () => {
       await login.login()
       await workItems.goto()
       ;({ id: workItemId } = await workItems.createWorkItem({
-        organisationName: 'Entra Stub Hybrid Ltd',
+        organisationNamePrefix: 'Entra Stub Hybrid Ltd',
         siteAddressLine1: '1 Entra Street',
         siteAddressTown: 'London',
         material: 'plastic',

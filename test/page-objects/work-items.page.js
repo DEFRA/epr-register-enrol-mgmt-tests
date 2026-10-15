@@ -1,6 +1,7 @@
 import { browser, $, expect } from '@wdio/globals'
 import { Page } from './page.js'
 import { uniquePostcode } from '../support/unique-postcode.js'
+import { uniqueOrganisationName } from '../support/unique-name.js'
 
 /** Prefix-matched testid of an application card's "open this item" link. */
 const WORK_ITEM_LINK_SELECTOR = '[data-testid^="work-item-link-"]'
@@ -104,7 +105,12 @@ class WorkItemsPage extends Page {
 
   /**
    * Create a work item through the form and return
-   * `{ id, applicationReference, siteAddressPostcode }`.
+   * `{ id, applicationReference, organisationName, siteAddressPostcode }`.
+   *
+   * The organisation name is always `uniqueOrganisationName(
+   * organisationNamePrefix)` (see `support/unique-name.js`), so no run can
+   * find another run's item by name. Callers pass a readable prefix and use
+   * the returned `organisationName` for any later search or assertion.
    *
    * `siteAddressPostcode` defaults to a fresh `uniquePostcode()` (see
    * `support/unique-postcode.js` for why the reference generator needs one)
@@ -113,7 +119,12 @@ class WorkItemsPage extends Page {
    * `nation` with a matching outward code, e.g. `uniquePostcode('EH1')` —
    * never a literal, which would be reused across runs.
    */
-  async createWorkItem({ siteAddressPostcode = uniquePostcode(), ...opts }) {
+  async createWorkItem({
+    organisationNamePrefix,
+    siteAddressPostcode = uniquePostcode(),
+    ...opts
+  }) {
+    const organisationName = uniqueOrganisationName(organisationNamePrefix)
     await this.clickCreateWorkItem()
     // The application reference is no longer entered on the form — the
     // case management backend generates it on submission. Callers read
@@ -124,7 +135,7 @@ class WorkItemsPage extends Page {
     if (opts.operatorEmail !== undefined) {
       await $('#field-operatorEmail').setValue(opts.operatorEmail)
     }
-    await $('#field-organisationName').setValue(opts.organisationName)
+    await $('#field-organisationName').setValue(organisationName)
     // RA-448. Both fields are pre-filled with a demo value (500001 /
     // reg-demo-001) on GET, same convention as operatorEmail above — most
     // callers don't care about the specific value, only that one is set, so
@@ -223,7 +234,7 @@ class WorkItemsPage extends Page {
     const applicationReference = match[0]
     const url = await browser.getUrl()
     const id = url.split('/').pop()
-    return { id, applicationReference, siteAddressPostcode }
+    return { id, applicationReference, organisationName, siteAddressPostcode }
   }
 
   async openWorkItem(id) {

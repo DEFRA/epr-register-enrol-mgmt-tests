@@ -265,7 +265,7 @@ describe('RA-295 case header on the work item detail page', () => {
     before(async () => {
       await workItems.resetFilters()
       ;({ id: workItemId } = await workItems.createWorkItem({
-        organisationName: 'RA-295 Due On Ltd',
+        organisationNamePrefix: 'RA-295 Due On Ltd',
         siteAddressLine1: '1 Deadline Drive',
         siteAddressTown: 'Bristol',
         material: 'plastic',

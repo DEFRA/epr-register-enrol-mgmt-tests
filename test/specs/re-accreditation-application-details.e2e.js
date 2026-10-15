@@ -40,7 +40,7 @@ describe('Application information — sparse, form-created work item', () => {
       applicationReference,
       siteAddressPostcode
     } = await workItems.createWorkItem({
-      organisationName: 'App Details Test Ltd',
+      organisationNamePrefix: 'App Details Test Ltd',
       siteAddressLine1: '1 Details Lane',
       // Clear the form's pre-filled example line 2 so this item exercises
       // the empty-line2 path (the line must be dropped from the address).

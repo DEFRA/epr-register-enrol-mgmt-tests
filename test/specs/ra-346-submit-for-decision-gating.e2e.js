@@ -43,7 +43,9 @@ describe('RA-346/RA-410 The decision route is gated on state, not on tasks', () 
 
   before(async () => {
     await login.login()
-    workItemId = await createReAccreditation('Submit For Decision Gate')
+    ;({ id: workItemId } = await createReAccreditation(
+      'Submit For Decision Gate'
+    ))
   })
 
   after(async () => {

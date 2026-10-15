@@ -124,7 +124,9 @@ describe('RA-523 final — a queried duly-made item lands decision-ready', () =>
     // RA-299: a bare landing defaults to assigned-to-me, which would hide a
     // freshly created — and therefore unassigned — item.
     await workItems.resetFilters()
-    workItemId = await createReAccreditation('RA-523 Decision Ready Route1 Ltd')
+    ;({ id: workItemId } = await createReAccreditation(
+      'RA-523 Decision Ready Route1 Ltd'
+    ))
     // Duly make it while it is still held by NOBODY. This is the precondition
     // that makes the redesign observable: the item is duly made (payment date
     // captured, SLA clock running) BEFORE it is queried, and it is the QUERY
@@ -222,9 +224,9 @@ describeOnComposeStack(
     before(async () => {
       await login.login()
       await workItems.resetFilters()
-      workItemId = await createReAccreditation(
+      ;({ id: workItemId } = await createReAccreditation(
         'RA-523 Decision Ready Route2 Ltd'
-      )
+      ))
       // Queried while still `submitted`; the operator answers and it comes back
       // in `updated` carrying `originStateId: 'submitted'`.
       await raiseQuery(workItemId, {
@@ -288,9 +290,9 @@ describeOnComposeStack(
     before(async () => {
       await login.login()
       await workItems.resetFilters()
-      workItemId = await createReAccreditation(
+      ;({ id: workItemId } = await createReAccreditation(
         'RA-523 Decision Ready Updated Ltd'
-      )
+      ))
       await raiseQuery(workItemId, {
         reason: 'RA-523: please attach the sampling plan.'
       })
@@ -339,7 +341,9 @@ describe('RA-523 final — the assignee of a duly-made item can still start the 
   before(async () => {
     await login.login()
     await workItems.resetFilters()
-    workItemId = await createReAccreditation('RA-523 Decision Ready Drive Ltd')
+    ;({ id: workItemId } = await createReAccreditation(
+      'RA-523 Decision Ready Drive Ltd'
+    ))
     await dulyMake(workItemId)
     await workItems.openWorkItem(workItemId)
     await detail.assignTo('stub-caseworker-1')
@@ -388,9 +392,9 @@ describe('RA-523 final — a duly-made item held by a COLLEAGUE still offers sel
   before(async () => {
     await login.login()
     await workItems.resetFilters()
-    workItemId = await createReAccreditation(
+    ;({ id: workItemId } = await createReAccreditation(
       'RA-523 Decision Ready Colleague Ltd'
-    )
+    ))
     await dulyMake(workItemId)
     await workItems.openWorkItem(workItemId)
     await detail.assignTo('stub-caseworker-2')

@@ -73,7 +73,7 @@ describe('RA-238 officer-assignment notification outcomes', () => {
       // assignment send resolves a recipient and succeeds.
       workItemId = (
         await workItems.createWorkItem({
-          organisationName: 'Officer Assign Notify Ltd',
+          organisationNamePrefix: 'Officer Assign Notify Ltd',
           siteAddressLine1: '238 Assign Way',
           siteAddressTown: 'London',
           material: 'plastic',
@@ -198,7 +198,7 @@ describe('RA-238 officer-assignment notification outcomes', () => {
       // assignment succeeds but the send is skipped.
       workItemId = (
         await workItems.createWorkItem({
-          organisationName: 'Officer Assign Skip Ltd',
+          organisationNamePrefix: 'Officer Assign Skip Ltd',
           siteAddressLine1: '238 Skip Wynd',
           siteAddressTown: 'Edinburgh',
           siteAddressPostcode: uniquePostcode('EH1'),

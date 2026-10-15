@@ -34,7 +34,7 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
-        organisationName: 'Coastal Materials Group',
+        organisationNamePrefix: 'Coastal Materials Group',
         siteAddressLine1: '1 Approval Street',
         siteAddressTown: 'Cardiff',
         material: 'plastic',

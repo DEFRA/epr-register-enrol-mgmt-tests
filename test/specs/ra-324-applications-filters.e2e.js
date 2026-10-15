@@ -1,6 +1,7 @@
 import { $, browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
+import { uniqueOrganisationName } from '../support/unique-name.js'
 import { dulyMake } from '../support/re-accreditation-journey.js'
 
 /**
@@ -19,12 +20,12 @@ import { dulyMake } from '../support/re-accreditation-journey.js'
  * typeId, nation, material, status, assigneeMode, organisation).
  */
 
-const token = `AppFilters${Date.now()}`
+const token = uniqueOrganisationName('AppFilters')
 
-const createItem = (organisationName, material) =>
+const createItem = (organisationNamePrefix, material) =>
   workItems.goto().then(() =>
     workItems.createWorkItem({
-      organisationName,
+      organisationNamePrefix,
       siteAddressLine1: '1 Filter Way',
       siteAddressTown: 'London',
       material,
@@ -202,9 +203,11 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
 
     it('Type: Reprocessor reaccreditation returns applications', async () => {
       await workItems.resetFilters()
+      await workItems.searchByOrg(token)
       await workItems.checkType('re-accreditation')
       await workItems.applyFilters()
-      expect(await workItems.getTileCount()).toBeGreaterThan(0)
+      await expect(workItems.tileFor(dulyMade.id)).toBeDisplayed()
+      await expect(workItems.tileFor(notStarted.id)).toBeDisplayed()
     })
 
     it('Material narrows the list to the chosen material', async () => {

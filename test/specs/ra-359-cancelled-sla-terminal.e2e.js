@@ -39,11 +39,9 @@ import { describeOnComposeStack } from '../support/compose-stack.js'
  * assertion above is a negative — the positive complement is what stops an
  * over-broad suppression from silently hiding live SLAs.
  */
-const uniqueOrg = (label) => `${label} ${Date.now()}`
-
 describe('RA-359 — terminal work items do not advertise a running SLA', () => {
-  const withdrawnOrg = uniqueOrg('SLA Cancelled Withdrawn Ltd')
-  const liveOrg = uniqueOrg('SLA Running Open Ltd')
+  let withdrawnOrg
+  let liveOrg
   let withdrawnId
   let liveId
 
@@ -51,10 +49,10 @@ describe('RA-359 — terminal work items do not advertise a running SLA', () => 
     await login.login()
 
     // A non-terminal item with a genuinely running SLA (the regression guard).
-    liveId = await createDulyMadeWorkItem({
-      organisationName: liveOrg,
+    ;({ id: liveId, organisationName: liveOrg } = await createDulyMadeWorkItem({
+      organisationNamePrefix: 'SLA Running Open Ltd',
       material: 'paper'
-    })
+    }))
   })
 
   after(async () => {
@@ -68,10 +66,11 @@ describe('RA-359 — terminal work items do not advertise a running SLA', () => 
     before(async () => {
       // A withdrawn item that HAD a live SLA (driven to Duly made first).
       const withdrawn = await createWithdrawnWorkItemWithRunningSla({
-        organisationName: withdrawnOrg,
+        organisationNamePrefix: 'SLA Cancelled Withdrawn Ltd',
         material: 'plastic'
       })
       withdrawnId = withdrawn.id
+      withdrawnOrg = withdrawn.organisationName
     })
 
     describe('AC1 — the applications list card of a withdrawn item', () => {

@@ -41,20 +41,16 @@ import query, {
  *     block, written out in full and ready to run once that seed exists.
  */
 
-const uniqueOrg = (label) => `${label} ${Date.now()}`
-
 /** Create a Submitted (reprocessor) application to query. Mirrors RA-291's helper. */
-const createReprocessorWorkItem = async (organisationName) => {
+const createReprocessorWorkItem = async (organisationNamePrefix) => {
   await workItems.goto()
-  return (
-    await workItems.createWorkItem({
-      organisationName,
-      siteAddressLine1: '1 Query Areas Street',
-      siteAddressTown: 'London',
-      material: 'plastic',
-      tonnageBand: '0-500'
-    })
-  ).id
+  return workItems.createWorkItem({
+    organisationNamePrefix,
+    siteAddressLine1: '1 Query Areas Street',
+    siteAddressTown: 'London',
+    material: 'plastic',
+    tonnageBand: '0-500'
+  })
 }
 
 describe('RA-367 Exporter-only query areas', () => {
@@ -63,9 +59,9 @@ describe('RA-367 Exporter-only query areas', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createReprocessorWorkItem(
-        uniqueOrg('Query Reprocessor Ltd')
-      )
+      ;({ id: workItemId } = await createReprocessorWorkItem(
+        'Query Reprocessor Ltd'
+      ))
     })
 
     after(async () => {

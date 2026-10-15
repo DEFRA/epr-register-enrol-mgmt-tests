@@ -35,7 +35,7 @@ describe('RA-249 — application reference survives approval', () => {
     await login.login()
     await workItems.goto()
     ;({ id: createdId, applicationReference } = await workItems.createWorkItem({
-      organisationName: 'Persistent Reference Recyclers',
+      organisationNamePrefix: 'Persistent Reference Recyclers',
       siteAddressLine1: '1 Persistence Road',
       siteAddressTown: 'Cardiff',
       material: 'plastic',

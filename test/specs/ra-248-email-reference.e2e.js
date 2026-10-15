@@ -38,7 +38,7 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
-        organisationName: 'Reference Number Test Ltd',
+        organisationNamePrefix: 'Reference Number Test Ltd',
         siteAddressLine1: '248 Reference Road',
         siteAddressTown: 'London',
         material: 'plastic',

@@ -53,7 +53,7 @@ describe('RA-351 Change the determination deadline from the queried state', () =
 
   before(async () => {
     await login.login()
-    workItemId = await createReAccreditation('RA351 Queried SLA Ltd')
+    ;({ id: workItemId } = await createReAccreditation('RA351 Queried SLA Ltd'))
 
     // Start the SLA clock (dulyMake, from the payment date) then reach
     // assessment, the last state before the query.

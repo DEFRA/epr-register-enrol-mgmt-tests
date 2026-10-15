@@ -125,7 +125,7 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createReAccreditation('RA364 Queried Ltd')
+      ;({ id: workItemId } = await createReAccreditation('RA364 Queried Ltd'))
 
       await query.gotoFor(workItemId)
       await query.selectSection('business-plan')
@@ -252,7 +252,7 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
 
     before(async () => {
       await login.login()
-      workItemId = await createReAccreditation('RA364 Journey Ltd')
+      ;({ id: workItemId } = await createReAccreditation('RA364 Journey Ltd'))
       await workItems.openWorkItem(workItemId)
     })
 
