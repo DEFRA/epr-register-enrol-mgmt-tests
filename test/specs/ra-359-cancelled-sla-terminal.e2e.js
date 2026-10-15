@@ -6,7 +6,6 @@ import {
   createDulyMadeWorkItem,
   createWithdrawnWorkItemWithRunningSla
 } from '../support/terminal-states.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-359 (part 2) — terminal work items must not advertise a running SLA.
@@ -60,9 +59,8 @@ describe('RA-359 — terminal work items do not advertise a running SLA', () => 
   })
 
   // The withdrawal goes through management-be's operator endpoint directly
-  // (support/operator-withdrawal.js), so AC1 and AC3 run only on the compose
-  // stack. AC2's live item needs nothing compose-only and runs everywhere.
-  describeOnComposeStack('a withdrawn item that had a running SLA', () => {
+  // (support/operator-withdrawal.js), as the operator's service would.
+  describe('a withdrawn item that had a running SLA', () => {
     before(async () => {
       // A withdrawn item that HAD a live SLA (driven to Duly made first).
       const withdrawn = await createWithdrawnWorkItemWithRunningSla({

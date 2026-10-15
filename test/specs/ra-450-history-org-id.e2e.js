@@ -2,7 +2,6 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-450 — Case Management service: Application History Org ID field is incorrect for Route to
@@ -74,31 +73,28 @@ describe('RA-450 Application History Org ID shows the operator org id', () => {
  * ReEx's internal id on a genuine submission), so this assertion has teeth
  * rather than the two happening to coincide.
  */
-describeOnComposeStack(
-  'RA-503 Application History Org ID prefers operatorOrgNumber',
-  () => {
-    before(async () => {
-      await login.login()
-      await workItems.resetFilters()
-      await workItems.searchByOrgName('Full Payload Verification Ltd')
-      expect(await workItems.getRowCount()).toBe(1)
-      await workItems.openFirstListedWorkItem()
-      await detail.gotoAudit()
-      await detail.expandAllAuditEntryDetails()
-    })
+describe('RA-503 Application History Org ID prefers operatorOrgNumber', () => {
+  before(async () => {
+    await login.login()
+    await workItems.resetFilters()
+    await workItems.searchByOrgName('Full Payload Verification Ltd')
+    expect(await workItems.getRowCount()).toBe(1)
+    await workItems.openFirstListedWorkItem()
+    await detail.gotoAudit()
+    await detail.expandAllAuditEntryDetails()
+  })
 
-    after(async () => {
-      await login.logout()
-    })
+  after(async () => {
+    await login.logout()
+  })
 
-    it('shows operatorOrgNumber in the Org ID snapshot row', async () => {
-      const orgId = await detail.auditSnapshotRowValue('Org ID')
-      expect(orgId.trim()).toBe('500010')
-    })
+  it('shows operatorOrgNumber in the Org ID snapshot row', async () => {
+    const orgId = await detail.auditSnapshotRowValue('Org ID')
+    expect(orgId.trim()).toBe('500010')
+  })
 
-    it('does NOT show operatorOrganisationId in the Org ID row', async () => {
-      const orgId = await detail.auditSnapshotRowValue('Org ID')
-      expect(orgId.trim()).not.toBe('500009')
-    })
-  }
-)
+  it('does NOT show operatorOrganisationId in the Org ID row', async () => {
+    const orgId = await detail.auditSnapshotRowValue('Org ID')
+    expect(orgId.trim()).not.toBe('500009')
+  })
+})

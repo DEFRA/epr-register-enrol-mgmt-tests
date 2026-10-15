@@ -10,6 +10,7 @@ import {
   dulyMake,
   logDecision
 } from '../support/re-accreditation-journey.js'
+import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js'
 
 /**
  * RA-410 — the three green call-to-action buttons that replace Tasks.
@@ -51,7 +52,7 @@ describe('RA-410 The green CTA lifecycle', () => {
     let workItemId
 
     before(async () => {
-      workItemId = (await createReAccreditation('CTA Happy Path')).id
+      workItemId = (await createOperatorBackedWorkItem()).id
     })
 
     it('starts in submitted, offering only the Duly make CTA', async () => {
@@ -182,7 +183,7 @@ describe('RA-410 The green CTA lifecycle', () => {
     let workItemId
 
     before(async () => {
-      workItemId = (await createReAccreditation('CTA Refused Path')).id
+      workItemId = (await createOperatorBackedWorkItem()).id
       await driveToAssessmentInProgress(workItemId)
     })
 

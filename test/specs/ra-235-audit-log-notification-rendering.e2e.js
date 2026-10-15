@@ -3,7 +3,6 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-235 — E2E: audit-log notification rendering.
@@ -37,87 +36,84 @@ import { describeOnComposeStack } from '../support/compose-stack.js'
  * left pending rather than stubbed.
  */
 describe('RA-235 audit-log notification rendering', () => {
-  describeOnComposeStack(
-    'notification-sent entry renders with its detail rows',
-    () => {
-      let workItemId
+  describe('notification-sent entry renders with its detail rows', () => {
+    let workItemId
 
-      before(async () => {
-        await login.login()
-        await workItems.goto()
-        // operatorEmail left at the seeded default (test@defra.gov.uk) so the
-        // withdraw send succeeds rather than being skipped — that default is
-        // therefore the recipient we assert on below.
-        workItemId = (
-          await workItems.createWorkItem({
-            organisationNamePrefix: 'Audit Notify Render Ltd',
-            siteAddressLine1: '235 Audit Way',
-            siteAddressTown: 'London',
-            material: 'plastic',
-            tonnageBand: '0-500'
-          })
-        ).id
+    before(async () => {
+      await login.login()
+      await workItems.goto()
+      // operatorEmail left at the seeded default (test@defra.gov.uk) so the
+      // withdraw send succeeds rather than being skipped — that default is
+      // therefore the recipient we assert on below.
+      workItemId = (
+        await workItems.createWorkItem({
+          organisationNamePrefix: 'Audit Notify Render Ltd',
+          siteAddressLine1: '235 Audit Way',
+          siteAddressTown: 'London',
+          material: 'plastic',
+          tonnageBand: '0-500'
+        })
+      ).id
 
-        await withdrawAsOperatorOrThrow(
-          workItemId,
-          'Withdrawn to exercise the notification audit entry'
-        )
-        await workItems.openWorkItem(workItemId)
-        await detail.assertState('Withdrawn')
+      await withdrawAsOperatorOrThrow(
+        workItemId,
+        'Withdrawn to exercise the notification audit entry'
+      )
+      await workItems.openWorkItem(workItemId)
+      await detail.assertState('Withdrawn')
 
-        await detail.gotoAudit()
-        await detail.expandAllAuditEntryDetails()
-      })
+      await detail.gotoAudit()
+      await detail.expandAllAuditEntryDetails()
+    })
 
-      after(async () => {
-        await login.logout()
-      })
+    after(async () => {
+      await login.logout()
+    })
 
-      it('records a notification-sent audit entry', async () => {
-        const sentEntries =
-          await detail.auditEntriesForAction('notification-sent')
-        expect(sentEntries.length).toBeGreaterThan(0)
-      })
+    it('records a notification-sent audit entry', async () => {
+      const sentEntries =
+        await detail.auditEntriesForAction('notification-sent')
+      expect(sentEntries.length).toBeGreaterThan(0)
+    })
 
-      it('shows the recipient detail row on the notification-sent entry', async () => {
-        await detail.assertNotificationDetailRow(
-          'notification-sent',
-          'Recipient',
-          'test@defra.gov.uk'
-        )
-      })
+    it('shows the recipient detail row on the notification-sent entry', async () => {
+      await detail.assertNotificationDetailRow(
+        'notification-sent',
+        'Recipient',
+        'test@defra.gov.uk'
+      )
+    })
 
-      it('shows the notification-type detail row on the notification-sent entry', async () => {
-        await detail.assertNotificationDetailRow(
-          'notification-sent',
-          'Notification type',
-          'Withdrawn'
-        )
-      })
+    it('shows the notification-type detail row on the notification-sent entry', async () => {
+      await detail.assertNotificationDetailRow(
+        'notification-sent',
+        'Notification type',
+        'Withdrawn'
+      )
+    })
 
-      it('shows the reference detail row on the notification-sent entry', async () => {
-        // The Notify client reference is the human-facing application reference
-        // (RA-248) — the caption on the detail page — not the work item id. The
-        // work item id used to satisfy this assertion only because it matched
-        // ANY sent entry, and the regulator submission email (which, before
-        // RA-581, carried the work item id) was one; every send now carries the
-        // application reference, so assert on the reference the caption shows,
-        // scoped to the operator Withdrawn template.
-        await workItems.openWorkItem(workItemId)
-        const applicationReference = (await detail.getCaption())
-          .replace(/^Work item\s+/, '')
-          .trim()
-        await detail.gotoAudit()
-        await detail.expandAllAuditEntryDetails()
-        await detail.assertNotificationDetailRowForTemplate(
-          'notification-sent',
-          'Withdrawn',
-          'Reference',
-          applicationReference
-        )
-      })
-    }
-  )
+    it('shows the reference detail row on the notification-sent entry', async () => {
+      // The Notify client reference is the human-facing application reference
+      // (RA-248) — the caption on the detail page — not the work item id. The
+      // work item id used to satisfy this assertion only because it matched
+      // ANY sent entry, and the regulator submission email (which, before
+      // RA-581, carried the work item id) was one; every send now carries the
+      // application reference, so assert on the reference the caption shows,
+      // scoped to the operator Withdrawn template.
+      await workItems.openWorkItem(workItemId)
+      const applicationReference = (await detail.getCaption())
+        .replace(/^Work item\s+/, '')
+        .trim()
+      await detail.gotoAudit()
+      await detail.expandAllAuditEntryDetails()
+      await detail.assertNotificationDetailRowForTemplate(
+        'notification-sent',
+        'Withdrawn',
+        'Reference',
+        applicationReference
+      )
+    })
+  })
 
   describe('notification-failed entry renders with error styling', () => {
     /**

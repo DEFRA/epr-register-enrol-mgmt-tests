@@ -1,4 +1,4 @@
-import { MANAGEMENT_BE_URL } from './query-resubmission.js'
+import { managementBeRequest } from './backend-api.js'
 
 /**
  * RA-317 — reaching the `withdrawn` state the way it actually happens now.
@@ -18,26 +18,12 @@ import { MANAGEMENT_BE_URL } from './query-resubmission.js'
  * pick the transition.
  *
  * This mirrors `query-resubmission.js`: an operator-backend service call, not
- * knowledge about a screen, so it lives in `support/`. It reuses that file's
- * `MANAGEMENT_BE_URL` (the runner reaches the backend over its published host
- * port, NOT via `baseUrl`, which the browser resolves) and the same unsigned
- * CDP trust headers — the test stack configures no shared secret, so
- * `signRequestHeaders` is a no-op and unsigned calls are what the backend
- * expects.
+ * knowledge about a screen, so it lives in `support/`, and is made as the
+ * operator's service through `backend-api.js`. It is for case-management-only
+ * items (`work-item-api.js`); an item the operator journey backend owns is
+ * withdrawn through that backend (`withdrawOperatorApplication` in
+ * `operator-backend-api.js`), so the two stay consistent.
  */
-
-/**
- * The CDP trust headers management-be authenticates on, naming the acting
- * identity as the operator's service so the audit history attributes the
- * withdrawal correctly (a caseworker did not do this). Mirrors
- * `query-resubmission.js`'s `OPERATOR_HEADERS`.
- */
-const OPERATOR_HEADERS = {
-  'content-type': 'application/json',
-  'x-cdp-client-id': 'epr-register-enrol-mgmt-tests',
-  'x-cdp-user-id': 'operator-service',
-  'x-cdp-user-name': 'Operator Service'
-}
 
 /**
  * Withdraw a re-accreditation work item as the operator.
@@ -55,26 +41,12 @@ const OPERATOR_HEADERS = {
  * want a hard failure on anything other than 200 should use
  * `withdrawAsOperatorOrThrow`.
  */
-export async function withdrawAsOperator(workItemId, reason) {
-  const res = await fetch(
-    `${MANAGEMENT_BE_URL}/work-items/re-accreditation/${workItemId}/withdraw`,
-    {
-      method: 'POST',
-      headers: OPERATOR_HEADERS,
-      body: JSON.stringify({ reason }),
-      signal: AbortSignal.timeout(15_000)
-    }
+export function withdrawAsOperator(workItemId, reason) {
+  return managementBeRequest(
+    'POST',
+    `/work-items/re-accreditation/${workItemId}/withdraw`,
+    { body: { reason } }
   )
-  // A work item envelope on success, ProblemDetails on failure, and no body
-  // at all on a 401 from the auth handler — read defensively so a parse
-  // failure never masks the status the caller needs to see.
-  let body = null
-  try {
-    body = await res.json()
-  } catch {
-    body = null
-  }
-  return { status: res.status, body }
 }
 
 /**

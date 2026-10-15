@@ -18,6 +18,25 @@ if (process.env.HTTP_PROXY) {
 
 const oneMinute = 60 * 1000
 
+// The test runner (this Node process, not the browser) creates work items and
+// plays the operator's service by calling the backends directly. On CDP the
+// URLs follow the same convention as baseUrl unless set explicitly, and the
+// MANAGEMENT_BE_SHARED_SECRET / OPERATOR_BACKEND_SHARED_SECRET secrets come
+// from the environment. Set before any spec loads; the worker processes
+// inherit them. See test/support/backend-api.js.
+const cdpServiceUrl = (service, localDefault) =>
+  process.env.ENVIRONMENT
+    ? `https://${service}.${process.env.ENVIRONMENT}.cdp-int.defra.cloud`
+    : localDefault
+process.env.MANAGEMENT_BE_URL ??= cdpServiceUrl(
+  'epr-register-enrol-management-be',
+  'http://localhost:8085'
+)
+process.env.OPERATOR_BACKEND_URL ??= cdpServiceUrl(
+  'epr-register-enrol-backend',
+  'http://localhost:8080'
+)
+
 export const config = {
   //
   // ====================

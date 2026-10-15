@@ -3,10 +3,16 @@ import { seedCookieConsentOnNavigation } from './test/support/cookie-consent.js'
 
 const oneMinute = 60 * 1000
 
-// This config is the docker-compose run (compose.yml), so the specs that can
-// only pass against the compose stack run here. Set before any spec loads;
-// the worker processes inherit it. See test/support/compose-stack.js.
-process.env.COMPOSE_STACK = 'true'
+// The test runner (this Node process, not the browser) creates work items and
+// plays the operator's service through the backends' published ports, signed
+// with the secrets docker/config/*.env give the mgmt-tests caller. Set before
+// any spec loads; the worker processes inherit them. See
+// test/support/backend-api.js.
+process.env.MANAGEMENT_BE_URL ??= 'http://localhost:8085'
+process.env.OPERATOR_BACKEND_URL ??= 'http://localhost:8080'
+process.env.MANAGEMENT_BE_SHARED_SECRET ??= 'E2eComposeMgmtTestsToManagementBe'
+process.env.OPERATOR_BACKEND_SHARED_SECRET ??=
+  'E2eComposeMgmtTestsToOperatorBackend'
 
 export const config = {
   //

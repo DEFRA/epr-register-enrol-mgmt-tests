@@ -30,7 +30,6 @@ import {
   yearStartDeadline
 } from '../support/sla-extend-date.js'
 import { ukCalendarYear } from '../support/uk-time.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-611 — the determination deadline has a FLOOR, and it is not today.
@@ -684,74 +683,71 @@ describe('RA-611 The determination deadline floor: duly made, not today', () => 
    * and the seeded clock does not, so a written-down date would drift from a
    * boundary case into an ordinary one without failing.
    */
-  describeOnComposeStack(
-    '1 January is the later bound on an absolutely-clocked fixture',
-    () => {
-      const currentYear = ukCalendarYear(new Date())
-      const yearStart = yearStartDeadline()
+  describe('1 January is the later bound on an absolutely-clocked fixture', () => {
+    const currentYear = ukCalendarYear(new Date())
+    const yearStart = yearStartDeadline()
 
-      let seededWorkItemId
+    let seededWorkItemId
 
-      before(async () => {
-        await login.login()
-        // Found by organisation name rather than by the seeder's deterministic id:
-        // the name is a published constant that management-be unit-tests for
-        // uniqueness across the seed set, so exactly one row comes back, whereas a
-        // deterministic id would couple this spec to the id derivation.
-        //
-        // Through `findSeededWorkItemIdByOrgName` rather than a bare search, which
-        // is a correction rather than a preference. Searching without resetting the
-        // default filters first leaves the query implicitly scoped to the
-        // logged-in assignee, and this fixture is not assigned to the stub user —
-        // so the row exists and never appears, and the failure reads as "the
-        // fixture is not seeded". See that helper for the full trap.
-        //
-        // The name differs by one word from the journey block's own item
-        // ("...Journey Ltd"), deliberately, so this search cannot pick that up.
-        seededWorkItemId = await workItems.findSeededWorkItemIdByOrgName(
-          'RA-611 Pre Year Start Ltd'
-        )
+    before(async () => {
+      await login.login()
+      // Found by organisation name rather than by the seeder's deterministic id:
+      // the name is a published constant that management-be unit-tests for
+      // uniqueness across the seed set, so exactly one row comes back, whereas a
+      // deterministic id would couple this spec to the id derivation.
+      //
+      // Through `findSeededWorkItemIdByOrgName` rather than a bare search, which
+      // is a correction rather than a preference. Searching without resetting the
+      // default filters first leaves the query implicitly scoped to the
+      // logged-in assignee, and this fixture is not assigned to the stub user —
+      // so the row exists and never appears, and the failure reads as "the
+      // fixture is not seeded". See that helper for the full trap.
+      //
+      // The name differs by one word from the journey block's own item
+      // ("...Journey Ltd"), deliberately, so this search cannot pick that up.
+      seededWorkItemId = await workItems.findSeededWorkItemIdByOrgName(
+        'RA-611 Pre Year Start Ltd'
+      )
+    })
+
+    after(async () => {
+      await login.logout()
+    })
+
+    it('rejects the day before 1 January, naming the CURRENT year (RA-611 AC4)', async () => {
+      // 31 December of the previous year. Above this fixture's November 2025
+      // anchor on any run from 2026 on, and one day below the bound — so it sits
+      // in the gap where the two bounds disagree and only the LATER one can
+      // refuse it. A build taking the earlier bound, or ignoring the year bound,
+      // accepts it.
+      await slaExtend.expectRejectedBeforeYearStart(seededWorkItemId, {
+        reason: 'Backdating into the previous calendar year',
+        date: dayBeforeYearStartDeadline(),
+        year: currentYear
       })
 
-      after(async () => {
-        await login.logout()
+      // The deadline must not have moved. Read from a fresh page load rather
+      // than the re-rendered form, which only echoes what was typed.
+      await workItems.openWorkItem(seededWorkItemId)
+      await detail.assertNoFlashBanner()
+    })
+
+    it('accepts 1 January itself, the floor (RA-611 AC4 boundary)', async () => {
+      // Run last in this block: it is the only case here that CHANGES the seeded
+      // item, and it changes it to a date in the past — the corrected rule in one
+      // assertion, a deadline months behind the run date accepted because it
+      // clears this item's floor exactly.
+      await workItems.openWorkItem(seededWorkItemId)
+      const before = (await detail.caseHeaderFieldText('dueOn')).trim()
+
+      await slaExtend.changeDeadline(seededWorkItemId, {
+        reason: 'Backdating to the start of the current year',
+        date: yearStart
       })
 
-      it('rejects the day before 1 January, naming the CURRENT year (RA-611 AC4)', async () => {
-        // 31 December of the previous year. Above this fixture's November 2025
-        // anchor on any run from 2026 on, and one day below the bound — so it sits
-        // in the gap where the two bounds disagree and only the LATER one can
-        // refuse it. A build taking the earlier bound, or ignoring the year bound,
-        // accepts it.
-        await slaExtend.expectRejectedBeforeYearStart(seededWorkItemId, {
-          reason: 'Backdating into the previous calendar year',
-          date: dayBeforeYearStartDeadline(),
-          year: currentYear
-        })
-
-        // The deadline must not have moved. Read from a fresh page load rather
-        // than the re-rendered form, which only echoes what was typed.
-        await workItems.openWorkItem(seededWorkItemId)
-        await detail.assertNoFlashBanner()
-      })
-
-      it('accepts 1 January itself, the floor (RA-611 AC4 boundary)', async () => {
-        // Run last in this block: it is the only case here that CHANGES the seeded
-        // item, and it changes it to a date in the past — the corrected rule in one
-        // assertion, a deadline months behind the run date accepted because it
-        // clears this item's floor exactly.
-        await workItems.openWorkItem(seededWorkItemId)
-        const before = (await detail.caseHeaderFieldText('dueOn')).trim()
-
-        await slaExtend.changeDeadline(seededWorkItemId, {
-          reason: 'Backdating to the start of the current year',
-          date: yearStart
-        })
-
-        await detail.assertFlashBanner()
-        await detail.waitForDueOnToChangeFrom(before)
-        await detail.assertCaseHeaderDueOn(deadlineDateFromParts(yearStart))
-      })
-    }
-  )
+      await detail.assertFlashBanner()
+      await detail.waitForDueOnToChangeFrom(before)
+      await detail.assertCaseHeaderDueOn(deadlineDateFromParts(yearStart))
+    })
+  })
 })

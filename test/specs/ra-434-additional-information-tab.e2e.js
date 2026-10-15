@@ -5,7 +5,6 @@ import detail, {
   CONTACT_DETAIL_ROWS
 } from '../page-objects/work-item-detail.page.js'
 import { REPROCESSOR, EXPORTER } from '../support/ra-434-seed.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-434 / RA-480 — the "Additional information" tab.
@@ -27,7 +26,7 @@ import { describeOnComposeStack } from '../support/compose-stack.js'
  * `submitterContactDetails` block, while REPROCESSOR has none — giving the
  * four contact rows a populated + blank case.
  */
-describeOnComposeStack('RA-434: Additional information tab', () => {
+describe('RA-434: Additional information tab', () => {
   describe('reprocessor fixture (no wasteProcessingType)', () => {
     before(async () => {
       await login.login()

@@ -7,6 +7,7 @@ import {
   logDecision,
   startAssessment
 } from '../support/re-accreditation-journey.js'
+import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js'
 
 /**
  * RA-249 — the application reference must survive approval.
@@ -33,21 +34,18 @@ describe('RA-249 — application reference survives approval', () => {
 
   it('creates a re-accreditation and drives it to assessment-in-progress', async () => {
     await login.login()
-    await workItems.goto()
-    ;({ id: createdId, applicationReference } = await workItems.createWorkItem({
-      organisationNamePrefix: 'Persistent Reference Recyclers',
-      siteAddressLine1: '1 Persistence Road',
-      siteAddressTown: 'Cardiff',
-      material: 'plastic',
-      tonnageBand: '500-5000'
-    }))
-
-    // Sanity: the server-generated reference is a real AP* ref, not the GUID.
-    expect(applicationReference).toMatch(/^AP[A-Z0-9]+$/)
-    expect(applicationReference).not.toBe(createdId)
+    // Submitted through the operator journey backend, which owns the
+    // application and so accepts the decision push.
+    ;({ id: createdId } = await createOperatorBackedWorkItem())
 
     await workItems.openWorkItem(createdId)
     await detail.assertState('Not started')
+
+    // Sanity: the reference case management generated on submission is a
+    // real AP* ref, not the GUID.
+    applicationReference = await detail.getCaption()
+    expect(applicationReference).toMatch(/^AP[A-Z0-9]+$/)
+    expect(applicationReference).not.toBe(createdId)
 
     // Submitted -> Duly made. RA-316 replaced the submitted tasks and
     // the auto-transition hook with the "Duly make" CTA and a payment

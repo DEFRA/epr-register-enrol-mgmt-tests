@@ -3,7 +3,6 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-204 — Withdrawal email notification.
@@ -30,7 +29,7 @@ import { describeOnComposeStack } from '../support/compose-stack.js'
  * the operator endpoint mandates a non-empty reason, so the former
  * "without a note" path is no longer reachable (see the note where it was).
  */
-describeOnComposeStack('RA-204 Withdrawal notification', () => {
+describe('RA-204 Withdrawal notification', () => {
   describe('withdraw with a note', () => {
     let workItemId
 

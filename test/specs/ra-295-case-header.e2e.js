@@ -14,7 +14,6 @@ import {
   farFutureDeadline,
   farFutureDeadlineDate
 } from '../support/sla-extend-date.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-295 (AC01) — the case header on an individual work item page, plus the
@@ -56,168 +55,161 @@ describe('RA-295 case header on the work item detail page', () => {
     await login.logout()
   })
 
-  describeOnComposeStack(
-    'reached by navigating from the work items list',
-    () => {
-      before(async () => {
-        // A bare landing defaults to "assigned to me" (RA-299), which would hide
-        // this unassigned seeded item — reset to an explicit empty filter first.
-        await workItems.resetFilters()
-        await workItems.searchByOrgName('Full Payload Verification Ltd')
-        await browser.waitUntil(
-          async () => (await browser.getUrl()).includes('filtersApplied=1'),
-          { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
-        )
-        // Hard gate: the search must resolve to exactly the one seeded item.
-        // 0 means it is absent or archived; >1 means the org name is no longer
-        // unique. Failing here beats opening the wrong row and timing out
-        // opaquely further down.
-        expect(await workItems.getRowCount()).toBe(1)
-        await workItems.openFirstListedWorkItem()
-      })
+  describe('reached by navigating from the work items list', () => {
+    before(async () => {
+      // A bare landing defaults to "assigned to me" (RA-299), which would hide
+      // this unassigned seeded item — reset to an explicit empty filter first.
+      await workItems.resetFilters()
+      await workItems.searchByOrgName('Full Payload Verification Ltd')
+      await browser.waitUntil(
+        async () => (await browser.getUrl()).includes('filtersApplied=1'),
+        { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
+      )
+      // Hard gate: the search must resolve to exactly the one seeded item.
+      // 0 means it is absent or archived; >1 means the org name is no longer
+      // unique. Failing here beats opening the wrong row and timing out
+      // opaquely further down.
+      expect(await workItems.getRowCount()).toBe(1)
+      await workItems.openFirstListedWorkItem()
+    })
 
-      it('displays a case header', async () => {
-        await expect(detail.caseHeader()).toBeDisplayed()
-      })
+    it('displays a case header', async () => {
+      await expect(detail.caseHeader()).toBeDisplayed()
+    })
 
-      it('renders every field AC01 requires', async () => {
-        // Driven off CASE_HEADER_FIELDS so adding a required field to the
-        // contract automatically requires it here, rather than relying on
-        // someone remembering to add an assertion.
-        const missing = []
-        for (const name of Object.keys(CASE_HEADER_FIELDS)) {
-          if (!(await detail.hasCaseHeaderField(name))) {
-            missing.push(name)
-          }
+    it('renders every field AC01 requires', async () => {
+      // Driven off CASE_HEADER_FIELDS so adding a required field to the
+      // contract automatically requires it here, rather than relying on
+      // someone remembering to add an assertion.
+      const missing = []
+      for (const name of Object.keys(CASE_HEADER_FIELDS)) {
+        if (!(await detail.hasCaseHeaderField(name))) {
+          missing.push(name)
         }
-        expect(missing).toEqual([])
-      })
+      }
+      expect(missing).toEqual([])
+    })
 
-      it('populates every field with real data rather than a placeholder', async () => {
-        // Presence alone is a weak assertion — a header of nine em dashes would
-        // satisfy it. Every field is therefore also checked for a real value.
-        //
-        // "dueOn" is deliberately exempt: management-be confirmed the SLA clock
-        // is stamped by the submitted → duly-made transition, so a seeded item
-        // in `submitted` (which this fixture is) has slaDueDate: null by design
-        // and correctly renders the em-dash fallback. Requiring a date here
-        // would be asserting a bug. The populated case gets its own block at the
-        // bottom of this file, against a clock pinned to known values.
-        //
-        // RA-493's "paymentDate" / "paymentAmount" are exempt for the same
-        // reason: payment is recorded by duly making, so this `submitted`
-        // fixture correctly reads "Not received" for both. Their populated and
-        // fallback cases are asserted in ra-493-header-payment-info.e2e.js.
-        const notYetPopulated = new Set([
-          'dueOn',
-          'paymentDate',
-          'paymentAmount'
-        ])
-        const placeholders = []
-        for (const name of Object.keys(CASE_HEADER_FIELDS)) {
-          if (notYetPopulated.has(name)) {
-            continue
-          }
-          const text = (await detail.caseHeaderFieldText(name)).trim()
-          if (text === '' || text === '—') {
-            placeholders.push(`${name} ("${text}")`)
-          }
+    it('populates every field with real data rather than a placeholder', async () => {
+      // Presence alone is a weak assertion — a header of nine em dashes would
+      // satisfy it. Every field is therefore also checked for a real value.
+      //
+      // "dueOn" is deliberately exempt: management-be confirmed the SLA clock
+      // is stamped by the submitted → duly-made transition, so a seeded item
+      // in `submitted` (which this fixture is) has slaDueDate: null by design
+      // and correctly renders the em-dash fallback. Requiring a date here
+      // would be asserting a bug. The populated case gets its own block at the
+      // bottom of this file, against a clock pinned to known values.
+      //
+      // RA-493's "paymentDate" / "paymentAmount" are exempt for the same
+      // reason: payment is recorded by duly making, so this `submitted`
+      // fixture correctly reads "Not received" for both. Their populated and
+      // fallback cases are asserted in ra-493-header-payment-info.e2e.js.
+      const notYetPopulated = new Set(['dueOn', 'paymentDate', 'paymentAmount'])
+      const placeholders = []
+      for (const name of Object.keys(CASE_HEADER_FIELDS)) {
+        if (notYetPopulated.has(name)) {
+          continue
         }
-        expect(placeholders).toEqual([])
-      })
+        const text = (await detail.caseHeaderFieldText(name)).trim()
+        if (text === '' || text === '—') {
+          placeholders.push(`${name} ("${text}")`)
+        }
+      }
+      expect(placeholders).toEqual([])
+    })
 
-      it('falls back to a placeholder for "Due date" before the SLA clock starts', async () => {
-        // The complement of the exemption above, asserted rather than assumed:
-        // this fixture is in `submitted`, so it must show the em dash. If the
-        // seeder ever starts stamping a clock on submitted items, this fails and
-        // tells us the exemption above is now hiding something.
-        expect(await detail.hasRealDueOn()).toBe(false)
-      })
+    it('falls back to a placeholder for "Due date" before the SLA clock starts', async () => {
+      // The complement of the exemption above, asserted rather than assumed:
+      // this fixture is in `submitted`, so it must show the em dash. If the
+      // seeder ever starts stamping a clock on submitted items, this fails and
+      // tells us the exemption above is now hiding something.
+      expect(await detail.hasRealDueOn()).toBe(false)
+    })
 
-      it('reads "Not received" for both payment items before duly making', async () => {
-        // The complement of the RA-493 exemption above, for the same reason as
-        // the "Due date" one: if the seeder ever starts stamping a payment date
-        // on submitted items, this fails rather than the exemption hiding it.
-        await expect(detail.caseHeaderField('paymentDate')).toHaveText(
-          PAYMENT_NOT_RECEIVED
-        )
-        await expect(detail.caseHeaderField('paymentAmount')).toHaveText(
-          PAYMENT_NOT_RECEIVED
-        )
-      })
+    it('reads "Not received" for both payment items before duly making', async () => {
+      // The complement of the RA-493 exemption above, for the same reason as
+      // the "Due date" one: if the seeder ever starts stamping a payment date
+      // on submitted items, this fails rather than the exemption hiding it.
+      await expect(detail.caseHeaderField('paymentDate')).toHaveText(
+        PAYMENT_NOT_RECEIVED
+      )
+      await expect(detail.caseHeaderField('paymentAmount')).toHaveText(
+        PAYMENT_NOT_RECEIVED
+      )
+    })
 
-      it('shows the organisation name and the organisation ID', async () => {
-        // AC01 asks for "Org name and ID" — both, distinctly. Asserting only the
-        // name would pass against a header that dropped the ID entirely.
-        await expect(detail.caseHeaderField('orgName')).toHaveText(
-          expect.stringContaining('Full Payload Verification Ltd')
-        )
-        await expect(detail.caseHeaderField('orgId')).toHaveText(
-          // RA-503: operatorOrgNumber ('500010') is now the operator/regulator-safe
-          // value the header prefers over operatorOrganisationId ('500009', ReEx's
-          // internal id in a real submission) — the fixture deliberately carries
-          // both with distinct values so this assertion has teeth. See
-          // ra-450-history-org-id.e2e.js for the matching precedence coverage on
-          // the Application History audit-log page.
-          expect.stringContaining('500010')
-        )
-      })
+    it('shows the organisation name and the organisation ID', async () => {
+      // AC01 asks for "Org name and ID" — both, distinctly. Asserting only the
+      // name would pass against a header that dropped the ID entirely.
+      await expect(detail.caseHeaderField('orgName')).toHaveText(
+        expect.stringContaining('Full Payload Verification Ltd')
+      )
+      await expect(detail.caseHeaderField('orgId')).toHaveText(
+        // RA-503: operatorOrgNumber ('500010') is now the operator/regulator-safe
+        // value the header prefers over operatorOrganisationId ('500009', ReEx's
+        // internal id in a real submission) — the fixture deliberately carries
+        // both with distinct values so this assertion has teeth. See
+        // ra-450-history-org-id.e2e.js for the matching precedence coverage on
+        // the Application History audit-log page.
+        expect.stringContaining('500010')
+      )
+    })
 
-      it('shows the registration number', async () => {
-        await expect(detail.caseHeaderField('registrationNumber')).toHaveText(
-          expect.stringContaining('EPR-100999')
-        )
-      })
+    it('shows the registration number', async () => {
+      await expect(detail.caseHeaderField('registrationNumber')).toHaveText(
+        expect.stringContaining('EPR-100999')
+      )
+    })
 
-      it('shows the material', async () => {
-        await expect(detail.caseHeaderField('material')).toHaveText(
-          expect.stringContaining('Plastic')
-        )
-      })
+    it('shows the material', async () => {
+      await expect(detail.caseHeaderField('material')).toHaveText(
+        expect.stringContaining('Plastic')
+      )
+    })
 
-      it('shows the status', async () => {
-        // The seeded fixture sits in stateId `submitted`, whose DISPLAY name is
-        // "Not started" — the two are deliberately different, and asserting the
-        // state id here would be asserting something the user never sees.
-        //
-        // Scoped to case-header-status, which matters: the status value is a
-        // nested govukTag carrying `work-item-state-tag` (RA-324 AC08's shared
-        // badge-colour contract had to survive), so an unscoped text match could
-        // resolve against the tag or the label independently.
-        await expect(detail.caseHeaderField('status')).toHaveText(
-          expect.stringContaining('Not started')
-        )
-      })
+    it('shows the status', async () => {
+      // The seeded fixture sits in stateId `submitted`, whose DISPLAY name is
+      // "Not started" — the two are deliberately different, and asserting the
+      // state id here would be asserting something the user never sees.
+      //
+      // Scoped to case-header-status, which matters: the status value is a
+      // nested govukTag carrying `work-item-state-tag` (RA-324 AC08's shared
+      // badge-colour contract had to survive), so an unscoped text match could
+      // resolve against the tag or the label independently.
+      await expect(detail.caseHeaderField('status')).toHaveText(
+        expect.stringContaining('Not started')
+      )
+    })
 
-      it('shows the assignee, reading "Unassigned" when nobody holds it', async () => {
-        await expect(detail.caseHeaderField('assignedTo')).toHaveText(
-          expect.stringContaining('Unassigned')
-        )
-      })
+    it('shows the assignee, reading "Unassigned" when nobody holds it', async () => {
+      await expect(detail.caseHeaderField('assignedTo')).toHaveText(
+        expect.stringContaining('Unassigned')
+      )
+    })
 
-      it('shows a non-empty accreditation ref', async () => {
-        // The seeded reference is generated deterministically from the seed key
-        // by the backend, so its literal value is not knowable here — assert it
-        // is present and non-empty. RA-504 removed the Reference footer that used
-        // to carry a second copy of this identifier, so the cross-check against
-        // the footer ref that this test previously made no longer applies (the
-        // footer's absence is asserted below).
-        const headerRef = (
-          await detail.caseHeaderFieldText('accreditationRef')
-        ).trim()
-        expect(headerRef).not.toBe('')
-      })
+    it('shows a non-empty accreditation ref', async () => {
+      // The seeded reference is generated deterministically from the seed key
+      // by the backend, so its literal value is not knowable here — assert it
+      // is present and non-empty. RA-504 removed the Reference footer that used
+      // to carry a second copy of this identifier, so the cross-check against
+      // the footer ref that this test previously made no longer applies (the
+      // footer's absence is asserted below).
+      const headerRef = (
+        await detail.caseHeaderFieldText('accreditationRef')
+      ).trim()
+      expect(headerRef).not.toBe('')
+    })
 
-      it('navigates back to the applications list from the header link', async () => {
-        // The AC is that the link takes you back to the list, so this clicks it
-        // and waits for the navigation rather than inspecting the href.
-        await detail.clickApplicationsLink()
-        await expect(browser).toHaveUrl(expect.stringContaining('/work-items'))
-      })
-    }
-  )
+    it('navigates back to the applications list from the header link', async () => {
+      // The AC is that the link takes you back to the list, so this clicks it
+      // and waits for the navigation rather than inspecting the href.
+      await detail.clickApplicationsLink()
+      await expect(browser).toHaveUrl(expect.stringContaining('/work-items'))
+    })
+  })
 
-  describeOnComposeStack('markup the redesign removes', () => {
+  describe('markup the redesign removes', () => {
     before(async () => {
       await workItems.resetFilters()
       await workItems.searchByOrgName('Full Payload Verification Ltd')

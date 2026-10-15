@@ -1,7 +1,6 @@
 import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
-import { itOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-342 — worklist tolerates legacy template-snapshot fields.
@@ -60,40 +59,36 @@ describe('RA-342 legacy template-snapshot worklist', () => {
     await expect(workItems.worklistErrorBanner()).not.toBeExisting()
   })
 
-  itOnComposeStack(
-    'lists the seeded legacy-snapshot work item and opens its detail page',
-    async function () {
-      // resetFilters() rather than goto(): a bare landing defaults to "Your
-      // applications" (RA-299), and the legacy item is unassigned, so a search
-      // on top of that default never finds it (see findSeededWorkItemIdByOrgName
-      // for the same trap). That helper isn't used because it fails when the
-      // item is absent, and the root compose stack needs the skip below.
-      await workItems.resetFilters()
-      await workItems.searchByOrgName(LEGACY_ORG_NAME)
+  it('lists the seeded legacy-snapshot work item and opens its detail page', async function () {
+    // resetFilters() rather than goto(): a bare landing defaults to "Your
+    // applications" (RA-299), and the legacy item is unassigned, so a search
+    // on top of that default never finds it (see findSeededWorkItemIdByOrgName
+    // for the same trap). That helper isn't used because it fails when the
+    // item is absent, and the root compose stack needs the skip below.
+    await workItems.resetFilters()
+    await workItems.searchByOrgName(LEGACY_ORG_NAME)
 
-      const rowCount = await workItems.getRowCount()
-      if (rowCount === 0) {
-        // The legacy document is introduced by the compose Mongo init script
-        // (docker/scripts/mongodb/20-legacy-snapshot-work-item.js), which only
-        // runs in this repo's docker-compose stack. When these specs run against
-        // a stack started without that seed (e.g. a plain local dev stack), the
-        // stronger "legacy item lists" proof cannot run — skip it rather than
-        // fake a pass. The worklist-loads assertion above still holds
-        // everywhere. (True legacy-data coverage lives in the CI compose run.)
-        // Kept beside the compose-stack gate: the root compose stack sets COMPOSE_STACK but does not load that init script.
-        this.skip()
-        return
-      }
-
-      // The query succeeded even though a legacy row is in the batch, so the
-      // summary is present rather than the error banner.
-      await expect(workItems.worklistSummary()).toBeDisplayed()
-      await expect(workItems.worklistErrorBanner()).not.toBeExisting()
-
-      // The seeded legacy item deserialised and rendered a row; open it and
-      // confirm its detail page renders (GET /work-items/{id} also tolerates
-      // the stray element post-fix).
-      await workItems.openFirstListedWorkItem()
+    const rowCount = await workItems.getRowCount()
+    if (rowCount === 0) {
+      // The legacy document is introduced by the compose Mongo init script
+      // (docker/scripts/mongodb/20-legacy-snapshot-work-item.js), which only
+      // runs in this repo's docker-compose stack. When these specs run against
+      // a stack started without that seed (e.g. a plain local dev stack), the
+      // stronger "legacy item lists" proof cannot run — skip it rather than
+      // fake a pass. The worklist-loads assertion above still holds
+      // everywhere. (True legacy-data coverage lives in the CI compose run.)
+      this.skip()
+      return
     }
-  )
+
+    // The query succeeded even though a legacy row is in the batch, so the
+    // summary is present rather than the error banner.
+    await expect(workItems.worklistSummary()).toBeDisplayed()
+    await expect(workItems.worklistErrorBanner()).not.toBeExisting()
+
+    // The seeded legacy item deserialised and rendered a row; open it and
+    // confirm its detail page renders (GET /work-items/{id} also tolerates
+    // the stray element post-fix).
+    await workItems.openFirstListedWorkItem()
+  })
 })

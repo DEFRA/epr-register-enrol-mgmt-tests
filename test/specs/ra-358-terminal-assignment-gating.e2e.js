@@ -9,7 +9,6 @@ import {
   driveToDecisionReady,
   rejectWorkItem
 } from '../support/terminal-states.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-358 (scope addition) — a closed case cannot be assigned.
@@ -59,7 +58,7 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
    * failure wasted time earlier in this work. See
    * `assertNoUsableAssignmentAffordances` in the detail page object.
    */
-  describeOnComposeStack('a withdrawn work item', () => {
+  describe('a withdrawn work item', () => {
     let workItemId
 
     before(async () => {
@@ -161,10 +160,7 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
     before(async () => {
       await login.login()
       await workItems.goto()
-      ;({ id: workItemId } = await driveToDecisionReady({
-        organisationNamePrefix: 'Terminal Gating Approved Ltd',
-        material: 'paper'
-      }))
+      ;({ id: workItemId } = await driveToDecisionReady())
       await approveWorkItem(workItemId)
     })
 
@@ -185,10 +181,7 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
     before(async () => {
       await login.login()
       await workItems.goto()
-      ;({ id: workItemId } = await driveToDecisionReady({
-        organisationNamePrefix: 'Terminal Gating Rejected Ltd',
-        material: 'aluminium'
-      }))
+      ;({ id: workItemId } = await driveToDecisionReady())
       await rejectWorkItem(workItemId)
     })
 

@@ -5,7 +5,6 @@ import {
   GLOBAL_GLASS_EXPORTS_ORG_NAME,
   GLOBAL_GLASS_EXPORTS_MATERIAL_LABEL
 } from '../support/ra-412-seed.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-412 — Work items list mislabels every Exporter application as
@@ -45,72 +44,69 @@ import { describeOnComposeStack } from '../support/compose-stack.js'
  * Exporter) cannot be reached through the UI. Tracked for whoever adds a
  * matching management-be fixture.
  */
-describeOnComposeStack(
-  'RA-412 — Exporter applications are labelled correctly',
-  () => {
-    // The seeded Exporter fixture, resolved once and shared by both describe
-    // blocks below (searching by org name is not free, and re-running it per
-    // block just risks the two copies drifting out of sync).
-    let exporterItemId
+describe('RA-412 — Exporter applications are labelled correctly', () => {
+  // The seeded Exporter fixture, resolved once and shared by both describe
+  // blocks below (searching by org name is not free, and re-running it per
+  // block just risks the two copies drifting out of sync).
+  let exporterItemId
+
+  before(async () => {
+    await login.login()
+    await workItems.resetFilters()
+    await workItems.searchByOrgName(GLOBAL_GLASS_EXPORTS_ORG_NAME)
+    // Bounding check: prove exactly one row matched before trusting "first"
+    // to mean "the seeded fixture" (mirrors
+    // ra-295-list-registration-number.e2e.js).
+    expect(await workItems.getTileCount()).toBe(1)
+    exporterItemId = await workItems.firstResultWorkItemId()
+  })
+
+  after(async () => {
+    await login.logout()
+  })
+
+  describe('applications list card', () => {
+    it('shows "Exporter" as the applicant type, not the hard-coded "Reprocessor"', async () => {
+      await expect(
+        workItems.tileField(exporterItemId, 'applicant-type')
+      ).toHaveText('Exporter')
+    })
+
+    it('renders the exact card title with the real applicant type', async () => {
+      await expect(workItems.tileTitle(exporterItemId)).toHaveText(
+        `${GLOBAL_GLASS_EXPORTS_MATERIAL_LABEL} reaccreditation (Exporter)`
+      )
+    })
+  })
+
+  describe('Applicant type filter', () => {
+    let reprocessorId
 
     before(async () => {
-      await login.login()
+      // Negative control: a fresh UI-created item. The create form has no
+      // operator-type field, so this carries no wasteProcessingType at all
+      // and falls back to "Reprocessor" — it must be EXCLUDED from an
+      // Exporter-only result set. Proves the filter actually discriminates,
+      // rather than merely proving the seeded item is reachable some other
+      // way (e.g. if Exporter selection silently dropped the type
+      // constraint and returned everything).
+      await workItems.goto()
+      ;({ id: reprocessorId } = await workItems.createWorkItem({
+        organisationNamePrefix: 'RA412 Reprocessor Control',
+        siteAddressLine1: '1 Applicant Type Way',
+        siteAddressTown: 'London',
+        material: 'plastic',
+        tonnageBand: '0-500'
+      }))
+    })
+
+    it('Exporter option returns the genuine Exporter application and excludes a Reprocessor one', async () => {
       await workItems.resetFilters()
-      await workItems.searchByOrgName(GLOBAL_GLASS_EXPORTS_ORG_NAME)
-      // Bounding check: prove exactly one row matched before trusting "first"
-      // to mean "the seeded fixture" (mirrors
-      // ra-295-list-registration-number.e2e.js).
-      expect(await workItems.getTileCount()).toBe(1)
-      exporterItemId = await workItems.firstResultWorkItemId()
+      await workItems.checkType('exporter')
+      await workItems.applyFilters()
+
+      await expect(workItems.tileFor(exporterItemId)).toBeDisplayed()
+      await expect(workItems.tileFor(reprocessorId)).not.toBeExisting()
     })
-
-    after(async () => {
-      await login.logout()
-    })
-
-    describe('applications list card', () => {
-      it('shows "Exporter" as the applicant type, not the hard-coded "Reprocessor"', async () => {
-        await expect(
-          workItems.tileField(exporterItemId, 'applicant-type')
-        ).toHaveText('Exporter')
-      })
-
-      it('renders the exact card title with the real applicant type', async () => {
-        await expect(workItems.tileTitle(exporterItemId)).toHaveText(
-          `${GLOBAL_GLASS_EXPORTS_MATERIAL_LABEL} reaccreditation (Exporter)`
-        )
-      })
-    })
-
-    describe('Applicant type filter', () => {
-      let reprocessorId
-
-      before(async () => {
-        // Negative control: a fresh UI-created item. The create form has no
-        // operator-type field, so this carries no wasteProcessingType at all
-        // and falls back to "Reprocessor" — it must be EXCLUDED from an
-        // Exporter-only result set. Proves the filter actually discriminates,
-        // rather than merely proving the seeded item is reachable some other
-        // way (e.g. if Exporter selection silently dropped the type
-        // constraint and returned everything).
-        await workItems.goto()
-        ;({ id: reprocessorId } = await workItems.createWorkItem({
-          organisationNamePrefix: 'RA412 Reprocessor Control',
-          siteAddressLine1: '1 Applicant Type Way',
-          siteAddressTown: 'London',
-          material: 'plastic',
-          tonnageBand: '0-500'
-        }))
-      })
-
-      it('Exporter option returns the genuine Exporter application and excludes a Reprocessor one', async () => {
-        await workItems.resetFilters()
-        await workItems.checkType('exporter')
-        await workItems.applyFilters()
-
-        await expect(workItems.tileFor(exporterItemId)).toBeDisplayed()
-        await expect(workItems.tileFor(reprocessorId)).not.toBeExisting()
-      })
-    })
-  }
-)
+  })
+})

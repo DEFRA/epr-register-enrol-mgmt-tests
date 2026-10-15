@@ -14,7 +14,21 @@
 # DockerHub (or built from source when a matching branch exists).
 # Each service has a .env config file in docker/config/.
 # Services can reference each other by their container names.
-# e.g. http://case-management-backend:8085/
+# e.g. http://epr-register-enrol-management-be:8085/
+#
+# The stack mirrors CDP test, so a spec behaves the same here as there:
+#   - management-be, the operator journey backend and management-fe run with
+#     their deployed (non-Development) settings: no seeded data, and every
+#     service-to-service call authenticated with its own shared secret
+#     (docker/config/secrets.env);
+#   - ReEx and CDP's outbound proxy are stubbed outside the services
+#     (external-services-stub), so the backends use their real HTTP clients;
+#     GOV.UK Notify is the one exception: with no API key, management-be uses
+#     its no-op client, which writes the same audit entries;
+#   - the settings the RA-000 cdp-app-config change touches are switchable.
+#     The defaults are CDP test after that change; to reproduce CDP test as it
+#     was before it, start the stack with
+#       docker compose --env-file docker/config/cdp-test-baseline.env up
 #
 ################################################################################
 services:
@@ -75,38 +89,53 @@ services:
       retries: 5
 
   ################################################################################
-  # Registration & Accreditation service backend stand-in.
-  #
-  # management-be's decision is atomic and gated by the Registration & Accreditation service: it pushes the status change
-  # to the operator-journey backend and only completes the transition once that
-  # push is acknowledged. That backend (epr-register-enrol-backend) is NOT in
-  # this stack, so without something answering the push every decision strands
-  # the item. This lightweight node stub answers 200 by default and can be
-  # armed — per work-item id, over its published control port — to return 500
-  # for the failure-path spec. See docker/stubs/operator-backend-stub.mjs.
-  operator-backend-stub:
+  # ReEx and outbound-proxy stand-ins (docker/stubs/external-services-stub.mjs).
+  # The backends call ReEx through their real HTTP client and the proxy, as
+  # they do on CDP test, and it answers 404 for every organisation.
+  external-services-stub:
     image: node:22-alpine
-    command: ['node', '/opt/stub/operator-backend-stub.mjs']
+    command: ['node', '/opt/stub/external-services-stub.mjs']
     volumes:
       - ./docker/stubs:/opt/stub:ro
-    environment:
-      - PORT=8080
-    # Published so the TEST RUNNER (a host Node process, as it is for the
-    # management-be leg) can arm/clear a failure for one work item before
-    # submitting its decision. Overridable to coexist with a local 8090.
-    ports:
-      - ${OPERATOR_BACKEND_STUB_PORT:-8090}:8080
     healthcheck:
       test:
         [
           'CMD',
           'node',
           '-e',
-          "fetch('http://localhost:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+          "fetch('http://localhost:8081/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
         ]
       interval: 5s
       start_period: 3s
       retries: 5
+
+  ################################################################################
+  # The operator journey backend. management-be pushes every decision to it and
+  # only completes the decision once it is acknowledged, and it creates the
+  # case-management work item when an operator submits, so decision specs
+  # create their items through it (test/support/operator-backend-api.js).
+  epr-register-enrol-backend:
+    image: defradigital/epr-register-enrol-backend:${OPERATOR_BE:-latest}
+    env_file:
+      - ./docker/config/defaults.env
+      - ./docker/config/operator-backend.env
+    environment:
+      - TestOrganisations__Enabled=${TEST_ORGANISATIONS_ENABLED:-true}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      external-services-stub:
+        condition: service_healthy
+    # Published so the TEST RUNNER (a host Node process, as for management-be)
+    # can create applications through the operator journey's API. Overridable
+    # to coexist with a local 8080.
+    ports:
+      - ${OPERATOR_BACKEND_PORT:-8080}:8080
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8080/health']
+      interval: 5s
+      start_period: 20s
+      retries: 10
 
   ################################################################################
   epr-register-enrol-management-be:
@@ -114,20 +143,32 @@ services:
     env_file:
       - ./docker/config/defaults.env
       - ./docker/config/management-be.env
+    # The values that differ between CDP test as it was (see
+    # docker/config/cdp-test-baseline.env) and CDP test with the RA-000
+    # cdp-app-config change, which is the default. Scotland is always
+    # defined, empty by default, so the stack can never resolve a real
+    # regulator mailbox from management-be's appsettings.json.
+    environment:
+      - TestOrganisations__Enabled=${TEST_ORGANISATIONS_ENABLED:-true}
+      - Notify__TriggersEnabled__OperatorApplicationSubmission=${REGULATOR_TRIGGERS_ENABLED:-true}
+      - Notify__TriggersEnabled__ApplicationWithdrawn=${REGULATOR_TRIGGERS_ENABLED:-true}
+      - Notify__TriggersEnabled__OfficerAssignment=${REGULATOR_TRIGGERS_ENABLED:-true}
+      - Notify__TriggersEnabled__QueryResponse=${REGULATOR_TRIGGERS_ENABLED:-true}
+      - Notify__RegulatorMailboxes__Scotland=${SCOTLAND_REGULATOR_MAILBOX:-}
     depends_on:
       mongodb:
         condition: service_healthy
       floci:
         condition: service_started
-      operator-backend-stub:
+      external-services-stub:
         condition: service_healthy
-    # RA-372. Published so the TEST RUNNER — a host Node process in every
-    # configuration, `npm run test:github` included — can reach the backend
-    # directly. One leg of the query lifecycle has no case-management UI at
-    # all: `queried` → `updated` is triggered by the OPERATOR backend calling
-    # `resume-from-query`, and the operator's service is not part of this
-    # stack. Overridable so this file can coexist with a management-be
-    # already holding 8085 on a developer's machine.
+      epr-register-enrol-backend:
+        condition: service_healthy
+    # Published so the TEST RUNNER, a host Node process in every
+    # configuration (`npm run test:github` included), can create its own work
+    # items and play the operator's service for the operator-side transitions
+    # (test/support/backend-api.js). Overridable so this file can coexist with
+    # a management-be already holding 8085 on a developer's machine.
     ports:
       - ${MANAGEMENT_BE_PORT:-8085}:8085
     healthcheck:
@@ -144,6 +185,8 @@ services:
       - ./docker/config/management-fe.env
     environment:
       - PORT=3000
+      # CDP test's value. RA-603's multiple interim sites need it on.
+      - MULTIPLE_INTERIM_SITES_ENABLED=${MULTIPLE_INTERIM_SITES_ENABLED:-false}
     depends_on:
       epr-register-enrol-management-be:
         condition: service_healthy

@@ -6,6 +6,7 @@ import {
   startAssessment
 } from './re-accreditation-journey.js'
 import { withdrawAsOperatorOrThrow } from './operator-withdrawal.js'
+import { createOperatorBackedWorkItem } from './operator-backend-api.js'
 
 /** Site address line 1 shared by every fixture created below. */
 const FIXTURE_SITE_ADDRESS_LINE_1 = '1 Terminal Way'
@@ -36,6 +37,11 @@ const FIXTURE_SITE_ADDRESS_LINE_1 = '1 Terminal Way'
  * Create a work item and drive it to `assessment-in-progress` — the state
  * from which a decision can be logged.
  *
+ * The item is submitted through the Registration & Accreditation service
+ * backend (`createOperatorBackedWorkItem`), because a decision is pushed to
+ * that backend and only lands for an application it owns. Returns
+ * `{ id, organisationName, operatorOrganisationId, operatorApplicationId }`.
+ *
  * REPLACES `driveToAwaitingDecision`. `awaiting-decision` still exists in
  * management-be's state machine, but RA-410 made it an internal hop applied
  * server-side inside the single decision call: no affordance parks an item
@@ -44,24 +50,15 @@ const FIXTURE_SITE_ADDRESS_LINE_1 = '1 Terminal Way'
  *
  * Assumes the caller is already logged in.
  */
-export async function driveToDecisionReady({
-  organisationNamePrefix,
-  material
-}) {
-  const { id, organisationName } = await workItems.createWorkItem({
-    organisationNamePrefix,
-    siteAddressLine1: FIXTURE_SITE_ADDRESS_LINE_1,
-    siteAddressTown: 'York',
-    material,
-    tonnageBand: '0-500'
-  })
+export async function driveToDecisionReady() {
+  const item = await createOperatorBackedWorkItem()
 
   // Submitted -> Duly made, via the "Duly make" CTA and a payment date.
-  await dulyMake(id)
+  await dulyMake(item.id)
   // Duly made -> Assessment in progress, via "Assign to yourself and start".
-  await startAssessment(id)
+  await startAssessment(item.id)
 
-  return { id, organisationName }
+  return item
 }
 
 /**

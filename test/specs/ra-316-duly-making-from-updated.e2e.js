@@ -6,7 +6,6 @@ import dulyMaking from '../page-objects/duly-making.page.js'
 import { createReAccreditation } from '../support/re-accreditation-journey.js'
 import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
 import { utcDateParts } from '../support/uk-time.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-316 — duly making the SECOND entry point: an application queried
@@ -36,7 +35,7 @@ import { describeOnComposeStack } from '../support/compose-stack.js'
  * the wrong item entirely. management-fe added `data-state-id` carrying the
  * raw id for exactly this; every state assertion below uses it.
  */
-describeOnComposeStack('RA-316 duly making from the updated state', () => {
+describe('RA-316 duly making from the updated state', () => {
   let workItemId
 
   before(async () => {

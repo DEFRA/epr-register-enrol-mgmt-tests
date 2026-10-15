@@ -7,6 +7,7 @@ import {
   logDecision,
   startAssessment
 } from '../support/re-accreditation-journey.js'
+import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js'
 
 /**
  * The decision rationale. Distinctive prose rather than "test note": it is
@@ -39,17 +40,10 @@ describe('RA-203 Approval sends operator decision notification', () => {
 
   it('drives a re-accreditation to assessment-in-progress', async () => {
     await login.login()
-    await workItems.goto()
-    workItemId = (
-      await workItems.createWorkItem({
-        organisationNamePrefix: 'Decision Notify Test Ltd',
-        siteAddressLine1: '4 Decision Road',
-        siteAddressTown: 'London',
-        material: 'plastic',
-        tonnageBand: '0-500',
-        operatorEmail: 'operator@decision-notify-test.example'
-      })
-    ).id
+    // Submitted through the operator journey backend, which owns the
+    // application and so accepts the decision push. Its operator email is
+    // GOV.UK Notify's simulated delivered address.
+    workItemId = (await createOperatorBackedWorkItem()).id
 
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Not started')

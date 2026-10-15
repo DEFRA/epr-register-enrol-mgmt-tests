@@ -1,6 +1,8 @@
 import detail from '../page-objects/work-item-detail.page.js'
 import query from '../page-objects/query.page.js'
 import { startAssessment } from './re-accreditation-journey.js'
+import { CASEWORKER_USER, managementBeRequest } from './backend-api.js'
+import { SIMULATED_DELIVERED_EMAIL } from './operator-backend-api.js'
 
 /**
  * RA-372 — driving the query → resubmission → continue-review lifecycle.
@@ -10,77 +12,16 @@ import { startAssessment } from './re-accreditation-journey.js'
  * triggered by the OPERATOR backend calling
  * `POST /work-items/re-accreditation/{id}/resume-from-query` on
  * management-be. There is no case-management UI affordance for it (by
- * design — a caseworker cannot resubmit on the operator's behalf) and the
- * operator's own service is not part of this compose stack, so the only
- * honest way to reach `updated` from here is to make that call directly.
+ * design — a caseworker cannot resubmit on the operator's behalf), so for a
+ * case-management-only item (`work-item-api.js`) the suite makes that call
+ * itself, as the operator's service, through `backend-api.js`. An item the
+ * operator journey backend owns (`operator-backend-api.js`) must be
+ * resubmitted through that backend instead, so the two stay consistent.
  *
  * These live in `support/` rather than a page object for the reason
  * `terminal-states.js` gives: they are journeys and service calls, not
  * knowledge about a screen.
  */
-
-/**
- * Where management-be is reachable from the TEST RUNNER — which is a Node
- * process, not the browser.
- *
- * This is deliberately not `baseUrl`. `baseUrl` is resolved by the browser
- * inside the selenium container (hence the `epr-register-enrol-management-fe`
- * service name in wdio.github.conf.js); the runner itself is a host process
- * in every configuration, including the compose run, so it reaches the
- * backend over its published port. compose.yml publishes 8085 for exactly
- * this reason.
- */
-export const MANAGEMENT_BE_URL =
-  process.env.MANAGEMENT_BE_URL ?? 'http://localhost:8085'
-
-/**
- * The CDP trust headers management-be authenticates on.
- *
- * `x-cdp-client-id` is what turns a 401 into a real request — the
- * auth handler returns NoResult without it. The user headers carry the
- * acting identity into the audit log, so they are named for what is
- * genuinely acting here: the operator's service, not a caseworker. Naming
- * them after a caseworker would put a false attribution in the history the
- * later assertions read.
- *
- * The BFF additionally HMAC-signs these headers when a shared secret is
- * configured; the test stack configures none (see
- * `docker/config/management-be.env`), and `signRequestHeaders` is a no-op in
- * that case, so unsigned calls are exactly what the backend expects here.
- */
-const OPERATOR_HEADERS = {
-  'content-type': 'application/json',
-  'x-cdp-client-id': 'epr-register-enrol-mgmt-tests',
-  'x-cdp-user-id': 'operator-service',
-  'x-cdp-user-name': 'Operator Service'
-}
-
-/**
- * RA-557: the same CDP trust headers as OPERATOR_HEADERS, but attributed to
- * a case worker rather than the operator's service — used by
- * `raiseQueryViaApi` below, which calls management-be's own `/query`
- * endpoint directly rather than through the case-management frontend's
- * query form.
- *
- * That direct call is necessary, not just a shortcut: management-fe's own
- * query controller (RA-367) rejects `overseas-reprocessing-sites` /
- * `broadly-equivalent-standards` server-side for any work item it does not
- * resolve as an exporter application (`enforceExporterOnly`), and the
- * `wasteProcessingType` field that resolution reads is not settable via the
- * "Create work item" form this suite uses — so no UI-driven work item this
- * suite creates can ever raise an ORS/BES query through the form. management-
- * be's own `ReAccreditationQueryValidator` carries no such restriction (it
- * validates against the full six-section closed set regardless of
- * application type), so calling it directly is a faithful way to raise an
- * ORS query against a UI-created item without fabricating exporter status
- * the item doesn't have.
- */
-const CASEWORKER_HEADERS = {
-  'content-type': 'application/json',
-  'x-cdp-client-id': 'epr-register-enrol-mgmt-tests',
-  'x-cdp-user-id': 'stub-caseworker-one',
-  'x-cdp-user-name': 'Stub Caseworker One'
-}
 
 /**
  * The operator's answer to a query.
@@ -111,32 +52,9 @@ function resubmissionBody(sectionKeys, sections) {
     fileReferences: [],
     responderContactDetails: {
       fullName: 'Olivia Operator',
-      email: 'olivia.operator@example.test',
+      email: SIMULATED_DELIVERED_EMAIL,
       role: 'Compliance Manager'
     }
-  }
-}
-
-async function postToBackend(path, body, headers = OPERATOR_HEADERS) {
-  const res = await fetch(`${MANAGEMENT_BE_URL}${path}`, {
-    method: 'POST',
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(15_000)
-  })
-  // ProblemDetails on failure, a work item envelope on success. Read it
-  // defensively: a 401 from the auth handler has no JSON body at all, and a
-  // parse failure there would mask the status code the caller needs to see.
-  let payload = null
-  try {
-    payload = await res.json()
-  } catch {
-    payload = null
-  }
-  return {
-    status: res.status,
-    idempotentReplay: res.headers.get('x-idempotent-replay') === 'true',
-    body: payload
   }
 }
 
@@ -152,39 +70,14 @@ export async function resumeFromQuery(
   workItemId,
   { sectionKeys = ['business-plan'], sections = {} } = {}
 ) {
-  const result = await postToBackend(
+  const result = await managementBeRequest(
+    'POST',
     `/work-items/re-accreditation/${workItemId}/resume-from-query`,
-    resubmissionBody(sectionKeys, sections)
+    { body: resubmissionBody(sectionKeys, sections) }
   )
   if (result.status !== 200) {
     throw new Error(
       `resume-from-query for ${workItemId} returned ${result.status}: ` +
-        JSON.stringify(result.body)
-    )
-  }
-  return result
-}
-
-/**
- * Raise a query directly against management-be's own `/query` endpoint,
- * bypassing management-fe's query form entirely — see CASEWORKER_HEADERS
- * above for why this is necessary rather than just a shortcut. Moves the
- * application from its current pre-decision state to `queried`.
- *
- * Throws on anything other than 200, same reasoning as resumeFromQuery.
- */
-export async function raiseQueryViaApi(
-  workItemId,
-  { sections = ['business-plan'], reason = '' } = {}
-) {
-  const result = await postToBackend(
-    `/work-items/re-accreditation/${workItemId}/query`,
-    { sections, reason },
-    CASEWORKER_HEADERS
-  )
-  if (result.status !== 200) {
-    throw new Error(
-      `query for ${workItemId} returned ${result.status}: ` +
         JSON.stringify(result.body)
     )
   }
@@ -200,9 +93,10 @@ export async function raiseQueryViaApi(
  * that is what the AC is about.
  */
 export function continueReviewViaApi(workItemId) {
-  return postToBackend(
+  return managementBeRequest(
+    'POST',
     `/work-items/re-accreditation/${workItemId}/continue-review`,
-    undefined
+    { user: CASEWORKER_USER }
   )
 }
 

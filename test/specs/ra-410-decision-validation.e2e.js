@@ -7,6 +7,7 @@ import {
   createReAccreditation,
   driveToAssessmentInProgress
 } from '../support/re-accreditation-journey.js'
+import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js'
 
 /**
  * RA-410 — the Log decision page's own validation behaviour.
@@ -33,7 +34,9 @@ describe('RA-410 The green CTA lifecycle', () => {
     let workItemId
 
     before(async () => {
-      workItemId = (await createReAccreditation('CTA Validation')).id
+      // Submitted through the Registration & Accreditation service backend:
+      // the last test here logs a decision, which that backend must accept.
+      workItemId = (await createOperatorBackedWorkItem()).id
       await driveToAssessmentInProgress(workItemId)
       await detail.clickLogDecision()
       await decision.assertOnPage()

@@ -5,10 +5,6 @@ import detail from '../page-objects/work-item-detail.page.js'
 import queryPage from '../page-objects/query.page.js'
 import { createReAccreditation } from '../support/re-accreditation-journey.js'
 import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
-import {
-  describeOnComposeStack,
-  itOnComposeStack
-} from '../support/compose-stack.js'
 
 // eslint-disable-next-line local-rules/no-undocumented-service-acronyms -- verbatim Jira ticket title, predates this guard
 /**
@@ -145,47 +141,44 @@ describe('RA-523 assignment survives query and re-submission', () => {
     })
   })
 
-  describeOnComposeStack(
-    'AC03/AC04 — the operator answers and the application comes back',
-    () => {
-      before(async () => {
-        await resumeFromQuery(workItemId)
-        await workItems.openWorkItem(workItemId)
-      })
+  describe('AC03/AC04 — the operator answers and the application comes back', () => {
+    before(async () => {
+      await resumeFromQuery(workItemId)
+      await workItems.openWorkItem(workItemId)
+    })
 
-      it('AC03: moves the application to updated', async () => {
-        // Asserted on the raw state id, not the label: `updated` and
-        // `assessment-in-progress` deliberately share the display name
-        // "Updated" (RA-324 AC06), so the label alone cannot tell them apart
-        // and a spec built on it could pass against the wrong state entirely.
-        // The label is asserted too, because it is what a regulator sees.
-        await detail.assertStateId('updated')
-        await detail.assertState('Updated')
-      })
+    it('AC03: moves the application to updated', async () => {
+      // Asserted on the raw state id, not the label: `updated` and
+      // `assessment-in-progress` deliberately share the display name
+      // "Updated" (RA-324 AC06), so the label alone cannot tell them apart
+      // and a spec built on it could pass against the wrong state entirely.
+      // The label is asserted too, because it is what a regulator sees.
+      await detail.assertStateId('updated')
+      await detail.assertState('Updated')
+    })
 
-      it('AC04: still held by the caseworker who raised the query', async () => {
-        // THE REGRESSION. Before the fix this read "Unassigned": the
-        // resubmission rebuilt the work item without carrying the assignee
-        // across, so the caseworker who asked the question lost the case that
-        // answered it.
-        await detail.assertAssignedTo('Stub Caseworker One')
-      })
+    it('AC04: still held by the caseworker who raised the query', async () => {
+      // THE REGRESSION. Before the fix this read "Unassigned": the
+      // resubmission rebuilt the work item without carrying the assignee
+      // across, so the caseworker who asked the question lost the case that
+      // answered it.
+      await detail.assertAssignedTo('Stub Caseworker One')
+    })
 
-      it('AC04: shows the same assignee on the work-items list', async () => {
-        // The detail page and the list are separate read models, and the list
-        // is where a caseworker would actually notice the case had gone
-        // missing — "assigned to me" is a list filter, not a detail view. A
-        // fix that only repaired the detail page would still leave the case
-        // invisible where it matters, so both are asserted.
-        await workItems.resetFilters()
-        await workItems.searchByOrgName(organisationName)
-        await expect(workItems.tileFor(workItemId)).toBeDisplayed()
-        await expect(workItems.tileAssignedTo(workItemId)).toHaveText(
-          expect.stringContaining('Stub Caseworker One')
-        )
-      })
-    }
-  )
+    it('AC04: shows the same assignee on the work-items list', async () => {
+      // The detail page and the list are separate read models, and the list
+      // is where a caseworker would actually notice the case had gone
+      // missing — "assigned to me" is a list filter, not a detail view. A
+      // fix that only repaired the detail page would still leave the case
+      // invisible where it matters, so both are asserted.
+      await workItems.resetFilters()
+      await workItems.searchByOrgName(organisationName)
+      await expect(workItems.tileFor(workItemId)).toBeDisplayed()
+      await expect(workItems.tileAssignedTo(workItemId)).toHaveText(
+        expect.stringContaining('Stub Caseworker One')
+      )
+    })
+  })
 })
 
 /**
@@ -258,35 +251,29 @@ describe('RA-523 assignment is restored when the case was dropped mid-query', ()
     await detail.assertUnassigned()
   })
 
-  itOnComposeStack(
-    'restores the querying caseworker when the operator resubmits',
-    async () => {
-      // THE ASSERTION THIS FILE EXISTS FOR. Against an unfixed management-be
-      // this reads "Unassigned": the caseworker who asked the question does
-      // not get back the case that answers it, and — because "assigned to me"
-      // is the list filter caseworkers actually work from — nobody sees it.
-      await resumeFromQuery(workItemId)
-      await workItems.openWorkItem(workItemId)
-      await detail.assertStateId('updated')
-      await detail.assertAssignedTo('Stub Caseworker One')
-    }
-  )
+  it('restores the querying caseworker when the operator resubmits', async () => {
+    // THE ASSERTION THIS FILE EXISTS FOR. Against an unfixed management-be
+    // this reads "Unassigned": the caseworker who asked the question does
+    // not get back the case that answers it, and — because "assigned to me"
+    // is the list filter caseworkers actually work from — nobody sees it.
+    await resumeFromQuery(workItemId)
+    await workItems.openWorkItem(workItemId)
+    await detail.assertStateId('updated')
+    await detail.assertAssignedTo('Stub Caseworker One')
+  })
 
-  itOnComposeStack(
-    'shows the restored assignee on the work-items list too',
-    async () => {
-      // Detail and list are separate read models (`WorkItemResponse` vs
-      // `WorkItemListItemResponse`), and the list is where the case would
-      // actually be noticed missing. A fix that only repaired the detail page
-      // would still leave it invisible where it matters.
-      await workItems.resetFilters()
-      await workItems.searchByOrgName(organisationName)
-      await expect(workItems.tileFor(workItemId)).toBeDisplayed()
-      await expect(workItems.tileAssignedTo(workItemId)).toHaveText(
-        expect.stringContaining('Stub Caseworker One')
-      )
-    }
-  )
+  it('shows the restored assignee on the work-items list too', async () => {
+    // Detail and list are separate read models (`WorkItemResponse` vs
+    // `WorkItemListItemResponse`), and the list is where the case would
+    // actually be noticed missing. A fix that only repaired the detail page
+    // would still leave it invisible where it matters.
+    await workItems.resetFilters()
+    await workItems.searchByOrgName(organisationName)
+    await expect(workItems.tileFor(workItemId)).toBeDisplayed()
+    await expect(workItems.tileAssignedTo(workItemId)).toHaveText(
+      expect.stringContaining('Stub Caseworker One')
+    )
+  })
 })
 
 /**
@@ -304,42 +291,39 @@ describe('RA-523 assignment is restored when the case was dropped mid-query', ()
  * answer arriving must not silently undo it. Without this block that
  * regression is unobservable.
  */
-describeOnComposeStack(
-  'RA-523 a deliberate hand-over during the query window is kept',
-  () => {
-    let workItemId
+describe('RA-523 a deliberate hand-over during the query window is kept', () => {
+  let workItemId
 
-    before(async () => {
-      await login.login()
-      await workItems.resetFilters()
-      ;({ id: workItemId } = await createReAccreditation(
-        'RA-523 Handed Over Ltd'
-      ))
-      await workItems.openWorkItem(workItemId)
-      await detail.assertUnassigned()
-      await raiseQuery(workItemId, {
-        sections: ['business-plan'],
-        reason: 'Please resend the business plan.'
-      })
-      await workItems.openWorkItem(workItemId)
-      // The query took ownership; a supervisor now hands the case on while
-      // the operator is still answering.
-      await detail.assertAssignedTo('Stub Caseworker One')
-      await detail.assignTo('stub-caseworker-2')
-      await detail.assertAssignedTo('Stub Caseworker Two')
+  before(async () => {
+    await login.login()
+    await workItems.resetFilters()
+    ;({ id: workItemId } = await createReAccreditation(
+      'RA-523 Handed Over Ltd'
+    ))
+    await workItems.openWorkItem(workItemId)
+    await detail.assertUnassigned()
+    await raiseQuery(workItemId, {
+      sections: ['business-plan'],
+      reason: 'Please resend the business plan.'
     })
+    await workItems.openWorkItem(workItemId)
+    // The query took ownership; a supervisor now hands the case on while
+    // the operator is still answering.
+    await detail.assertAssignedTo('Stub Caseworker One')
+    await detail.assignTo('stub-caseworker-2')
+    await detail.assertAssignedTo('Stub Caseworker Two')
+  })
 
-    after(async () => {
-      await login.logout()
-    })
+  after(async () => {
+    await login.logout()
+  })
 
-    it('leaves the new owner in place rather than reverting to the querier', async () => {
-      await resumeFromQuery(workItemId)
-      await workItems.openWorkItem(workItemId)
-      await detail.assertStateId('updated')
-      // NOT "Stub Caseworker One". The restore fires only on an unassigned
-      // application; here somebody already holds it, and their claim wins.
-      await detail.assertAssignedTo('Stub Caseworker Two')
-    })
-  }
-)
+  it('leaves the new owner in place rather than reverting to the querier', async () => {
+    await resumeFromQuery(workItemId)
+    await workItems.openWorkItem(workItemId)
+    await detail.assertStateId('updated')
+    // NOT "Stub Caseworker One". The restore fires only on an unassigned
+    // application; here somebody already holds it, and their claim wins.
+    await detail.assertAssignedTo('Stub Caseworker Two')
+  })
+})
