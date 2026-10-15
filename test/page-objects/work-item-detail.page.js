@@ -1186,6 +1186,35 @@ class WorkItemDetailPage extends Page {
    * which had it inline, when RA-601 gave it a second and third caller.
    */
   async assertCaseHeaderDueOn(date) {
+    const { acceptable, rendered, matches } = await this.#caseHeaderDueOn(date)
+
+    // Thrown rather than asserted through `expect(bool).toBe(true)`: the
+    // boolean form reports only "false is not true", which for a date that
+    // came back a year wrong tells whoever is reading the CI log nothing.
+    // expect-webdriverio takes no custom-message argument, so naming both
+    // sides means raising the error here.
+    if (!matches) {
+      throw new Error(
+        `Expected the case header "Due date" to show one of ` +
+          `${acceptable.join(' / ')}, but it showed "${rendered}"`
+      )
+    }
+  }
+
+  /**
+   * RA-611. Whether the case header's "Due date" already shows `date`, within
+   * the same one-day tolerance as `assertCaseHeaderDueOn`.
+   *
+   * For fixtures that outlive a run (management-be's `e2e-` seeded items are
+   * only reset when management-be restarts): management-be refuses a change of
+   * zero days, so a spec re-pinning such an item must first know whether the
+   * deadline is already where it wants it.
+   */
+  async caseHeaderShowsDueOn(date) {
+    return (await this.#caseHeaderDueOn(date)).matches
+  }
+
+  async #caseHeaderDueOn(date) {
     const dayBefore = new Date(date.getTime())
     dayBefore.setDate(dayBefore.getDate() - 1)
     const dayAfter = new Date(date.getTime())
@@ -1193,18 +1222,8 @@ class WorkItemDetailPage extends Page {
 
     const acceptable = [dayBefore, date, dayAfter].map(formatUkHeaderDate)
     const rendered = (await this.caseHeaderFieldText('dueOn')).trim()
-
-    // Thrown rather than asserted through `expect(bool).toBe(true)`: the
-    // boolean form reports only "false is not true", which for a date that
-    // came back a year wrong tells whoever is reading the CI log nothing.
-    // expect-webdriverio takes no custom-message argument, so naming both
-    // sides means raising the error here.
-    if (!acceptable.some((candidate) => rendered.includes(candidate))) {
-      throw new Error(
-        `Expected the case header "Due date" to show one of ` +
-          `${acceptable.join(' / ')}, but it showed "${rendered}"`
-      )
-    }
+    const matches = acceptable.some((candidate) => rendered.includes(candidate))
+    return { acceptable, rendered, matches }
   }
 
   /**

@@ -3,15 +3,12 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import query from '../page-objects/query.page.js'
+import { dulyMake } from '../support/re-accreditation-journey.js'
+import { createWorkItemViaApi } from '../support/work-item-api.js'
 import {
-  createReAccreditation,
-  dulyMake
-} from '../support/re-accreditation-journey.js'
-import {
-  armDecisionFailure,
-  clearDecisionFailure
-} from '../support/operator-backend-stub.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
+  createOperatorBackedWorkItem,
+  waitForOperatorApplicationStatus
+} from '../support/operator-backend-api.js'
 
 /**
  * RA-606 — a query must reach the operator backend however the request goes.
@@ -26,9 +23,17 @@ import { describeOnComposeStack } from '../support/compose-stack.js'
  * caller. The audit log records the outcome of the push as `query-push-sent`
  * or `query-push-failed`, and in both cases the query itself stands.
  *
- * The operator backend is the compose stack's stand-in
- * (docker/stubs/operator-backend-stub.mjs): it answers 200 by default, and a
- * work item id armed through the control plane gets a 500 on its next push.
+ * Both outcomes come from the real Registration & Accreditation (operator)
+ * backend, with no stand-in:
+ *
+ *   - ACCEPTED: the item is created through that backend (Path B,
+ *     `createOperatorBackedWorkItem`), so it knows the work item id and takes
+ *     the query. Its own copy of the application then reads `Queried`.
+ *   - REFUSED: the item is created in case management only (Path A,
+ *     `createWorkItemViaApi`). The operator backend has never seen that work
+ *     item id and answers 404. management-be treats any non-2xx as a failed
+ *     push, retrying only a 5xx, so it records `query-push-failed` and keeps
+ *     the query.
  */
 
 const raiseQueryThroughTheUi = async (workItemId) => {
@@ -45,11 +50,7 @@ const openAudit = async (workItemId) => {
   await detail.gotoAudit()
 }
 
-// The push retries a failing operator backend before giving up, so the failed
-// outcome is recorded some seconds after the query itself.
-const PUSH_RETRY_BUDGET_MS = 60_000
-
-describeOnComposeStack('RA-606 query push to the operator backend', () => {
+describe('RA-606 query push to the operator backend', () => {
   before(async () => {
     await login.login()
   })
@@ -59,22 +60,39 @@ describeOnComposeStack('RA-606 query push to the operator backend', () => {
   })
 
   describe('when the operator backend accepts the push', () => {
-    let workItemId
+    let application
+    let dulyMadeAt
 
     before(async () => {
-      workItemId = await createReAccreditation('Query Push Sent')
-      await dulyMake(workItemId)
+      application = await createOperatorBackedWorkItem()
+      await dulyMake(application.id)
+      // The duly-made status push runs on a background queue. Wait for it to
+      // land before querying, so it cannot arrive after the query and so the
+      // query's own watermark has a value to move on from.
+      dulyMadeAt = (
+        await waitForOperatorApplicationStatus(application, 'DulyMade')
+      ).caseManagementStatusUpdatedAt
     })
 
     it('queries the application and records that the query was pushed', async () => {
-      await raiseQueryThroughTheUi(workItemId)
+      await raiseQueryThroughTheUi(application.id)
 
-      await openAudit(workItemId)
+      await openAudit(application.id)
       const sent = await detail.waitForAuditEntryCount('query-push-sent', 1)
       expect(sent.length).toBe(1)
       expect(
         (await detail.auditEntriesForAction('query-push-failed')).length
       ).toBe(0)
+    })
+
+    it("moves the operator backend's application to Queried", async () => {
+      const queried = await waitForOperatorApplicationStatus(
+        application,
+        'Queried'
+      )
+      expect(Date.parse(queried.caseManagementStatusUpdatedAt)).toBeGreaterThan(
+        Date.parse(dulyMadeAt)
+      )
     })
   })
 
@@ -82,26 +100,19 @@ describeOnComposeStack('RA-606 query push to the operator backend', () => {
     let workItemId
 
     before(async () => {
-      workItemId = await createReAccreditation('Query Push Failed')
+      workItemId = (
+        await createWorkItemViaApi({
+          organisationNamePrefix: 'RA-606 Query Push Refused'
+        })
+      ).id
       await dulyMake(workItemId)
-      await armDecisionFailure(workItemId)
-    })
-
-    after(async () => {
-      await clearDecisionFailure(workItemId)
     })
 
     it('still queries the application, and records that the push failed', async () => {
       await raiseQueryThroughTheUi(workItemId)
 
       await openAudit(workItemId)
-      const failed = await detail.waitForAuditEntryCount(
-        'query-push-failed',
-        1,
-        {
-          timeout: PUSH_RETRY_BUDGET_MS
-        }
-      )
+      const failed = await detail.waitForAuditEntryCount('query-push-failed', 1)
       expect(failed.length).toBe(1)
       expect(
         (await detail.auditEntriesForAction('query-push-sent')).length

@@ -30,6 +30,7 @@ import {
   yearStartDeadline
 } from '../support/sla-extend-date.js'
 import { ukCalendarYear } from '../support/uk-time.js'
+import { PRE_YEAR_START_WORK_ITEM } from '../support/seeded-fixtures.js'
 
 /**
  * RA-611 — the determination deadline has a FLOOR, and it is not today.
@@ -122,12 +123,13 @@ import { ukCalendarYear } from '../support/uk-time.js'
  * so 1 January is. Each asserts the message of ITS OWN bound, which is what
  * distinguishes a correct `max()` from a backwards one.
  *
- * THE SEEDED FIXTURE IS STILL HERE, in the last block, but for its CLOCK rather
- * than its accreditation year. Its anchor is an absolute instant in November
- * 2025, so the year bound binds on it permanently with no arithmetic and no
- * re-pointing, which is the one thing the journey block cannot claim — the
- * journey block's anchor is derived from the run date and so can slide. Between
- * them: the production-shaped path, and a path that cannot drift.
+ * A SEEDED ITEM IS STILL USED, in the last block, but for its CLOCK rather than
+ * any accreditation year. management-be's `e2e-` fixture seeder starts its
+ * clock on 14 November of the year before management-be started, so the year
+ * bound binds on it with no run-date arithmetic, which is the one thing the
+ * journey block cannot claim — the journey block's anchor is derived from the
+ * run date and so can slide. Between them: the production-shaped path, and a
+ * path that cannot drift.
  */
 
 describe('RA-611 The determination deadline floor: duly made, not today', () => {
@@ -650,64 +652,67 @@ describe('RA-611 The determination deadline floor: duly made, not today', () => 
   })
 
   /**
-   * RA-611 (AC4) — THE SAME BOUND, ON AN ABSOLUTE CLOCK.
+   * RA-611 (AC4) — THE SAME BOUND, ON A CLOCK THAT CANNOT SLIDE.
    *
-   * The block above proves the bound through the journey production uses, which
-   * is what the previous revision could not do. This one proves it without
-   * depending on any date arithmetic at all, and the two failure modes they
-   * guard are different enough that dropping either would be a real loss:
+   * The block above proves the bound through the journey production uses. This
+   * one proves it without depending on the run-date arithmetic, and the two
+   * failure modes they guard are different enough that dropping either would
+   * be a real loss:
    *
    *   - The journey block's anchor is DERIVED from the run date. If
    *     `preYearStartAnchorDaysAgo` is ever wrong — or management-fe's
    *     twelve-month payment-date cap tightens, moving the window it works
    *     inside — the anchor slides into the current year, the duly-made bound
-   *     becomes the later one, and the block fails on the error wording. A
-   *     fixture whose clock is an absolute instant cannot slide.
-   *   - This block's anchor is `2025-11-14T00:00:00Z`, seeded by management-be
-   *     and before 1 January of every year from 2026 on, so the year bound binds
-   *     here permanently with nothing to re-point. But it is seeded, assigned to
-   *     someone other than the stub user, and reached by search — none of which
-   *     resembles how a caseworker's own case arrives. Only the journey block
-   *     says the bound applies to an item built through the UI.
+   *     becomes the later one, and the block fails on the error wording.
+   *   - This block's item is seeded by management-be (`PRE_YEAR_START_WORK_ITEM`)
+   *     with its SLA clock on 14 November of the year before management-be
+   *     started, so the year bound binds on it whatever the run date. But it is
+   *     seeded and opened by id, which does not resemble how a caseworker's own
+   *     case arrives. Only the journey block says the bound applies to an item
+   *     built through the UI.
    *
-   * ITS `accreditationYear: 2026` IS NO LONGER LOAD-BEARING and nothing here
-   * asserts anything about it. That field was the whole reason this fixture
-   * existed and the whole reason the previous revision's coverage was worthless;
-   * the floor does not read the payload any more. The fixture is kept for its
-   * CLOCK, which is the only part of it this block depends on. (management-be
-   * confirmed on 5-Oct-2026 that the seed stays, with its invariant tests
-   * re-pointed at the clock rather than the year.)
+   * IT MUST PASS ANY NUMBER OF TIMES BETWEEN management-be RESTARTS. The seeder
+   * resets the item only at startup, and CDP runs this suite on every
+   * management-fe deploy against a database that is never reset. The 1-January
+   * case leaves the deadline ON 1 January, and management-be refuses a change of
+   * zero days ("'additionalDuration' must be a non-zero ISO-8601 duration"), so
+   * a second run that submitted 1 January again was re-rendered as a 400 and
+   * never got back to the detail page. `before()` therefore re-pins the deadline
+   * to a far-future date the item is NOT already showing, which gives every run
+   * the same starting point and makes the 1-January submission a real change.
    *
-   * Dates are still expressed relative to 1 January of the run's own year, for
-   * the same reason as everywhere else in this file: the bound moves at new year
+   * Dates are expressed relative to 1 January of the run's own year, for the
+   * same reason as everywhere else in this file: the bound moves at new year
    * and the seeded clock does not, so a written-down date would drift from a
    * boundary case into an ordinary one without failing.
    */
-  describe('1 January is the later bound on an absolutely-clocked fixture', () => {
+  describe('1 January is the later bound on a seeded pre-year-start item', () => {
     const currentYear = ukCalendarYear(new Date())
     const yearStart = yearStartDeadline()
+    const seededWorkItemId = PRE_YEAR_START_WORK_ITEM.id
 
-    let seededWorkItemId
+    let pinnedDeadline
 
     before(async () => {
       await login.login()
-      // Found by organisation name rather than by the seeder's deterministic id:
-      // the name is a published constant that management-be unit-tests for
-      // uniqueness across the seed set, so exactly one row comes back, whereas a
-      // deterministic id would couple this spec to the id derivation.
-      //
-      // Through `findSeededWorkItemIdByOrgName` rather than a bare search, which
-      // is a correction rather than a preference. Searching without resetting the
-      // default filters first leaves the query implicitly scoped to the
-      // logged-in assignee, and this fixture is not assigned to the stub user —
-      // so the row exists and never appears, and the failure reads as "the
-      // fixture is not seeded". See that helper for the full trap.
-      //
-      // The name differs by one word from the journey block's own item
-      // ("...Journey Ltd"), deliberately, so this search cannot pick that up.
-      seededWorkItemId = await workItems.findSeededWorkItemIdByOrgName(
-        'RA-611 Pre Year Start Ltd'
-      )
+
+      // Two or three years out, whichever the item is not already showing. A
+      // previous run (or one that died half way) may have left it on either
+      // two years out or 1 January; only the first collides with the default
+      // pin, and three years out clears both.
+      await workItems.openWorkItem(seededWorkItemId)
+      const yearsAhead = (await detail.caseHeaderShowsDueOn(
+        farFutureDeadlineDate(2)
+      ))
+        ? 3
+        : 2
+      pinnedDeadline = farFutureDeadlineDate(yearsAhead)
+
+      await slaExtend.changeDeadline(seededWorkItemId, {
+        reason: 'Pin the starting determination deadline for RA-611 AC4',
+        date: farFutureDeadline(yearsAhead)
+      })
+      await detail.assertCaseHeaderDueOn(pinnedDeadline)
     })
 
     after(async () => {
@@ -715,11 +720,10 @@ describe('RA-611 The determination deadline floor: duly made, not today', () => 
     })
 
     it('rejects the day before 1 January, naming the CURRENT year (RA-611 AC4)', async () => {
-      // 31 December of the previous year. Above this fixture's November 2025
-      // anchor on any run from 2026 on, and one day below the bound — so it sits
-      // in the gap where the two bounds disagree and only the LATER one can
-      // refuse it. A build taking the earlier bound, or ignoring the year bound,
-      // accepts it.
+      // 31 December of the previous year. Above this item's 14 November anchor
+      // and one day below the bound — so it sits in the gap where the two
+      // bounds disagree and only the LATER one can refuse it. A build taking
+      // the earlier bound, or ignoring the year bound, accepts it.
       await slaExtend.expectRejectedBeforeYearStart(seededWorkItemId, {
         reason: 'Backdating into the previous calendar year',
         date: dayBeforeYearStartDeadline(),
@@ -730,13 +734,14 @@ describe('RA-611 The determination deadline floor: duly made, not today', () => 
       // than the re-rendered form, which only echoes what was typed.
       await workItems.openWorkItem(seededWorkItemId)
       await detail.assertNoFlashBanner()
+      await detail.assertCaseHeaderDueOn(pinnedDeadline)
     })
 
     it('accepts 1 January itself, the floor (RA-611 AC4 boundary)', async () => {
-      // Run last in this block: it is the only case here that CHANGES the seeded
-      // item, and it changes it to a date in the past — the corrected rule in one
-      // assertion, a deadline months behind the run date accepted because it
-      // clears this item's floor exactly.
+      // Run last in this block: it is the only case here that moves the
+      // deadline off the pin, and it moves it to a date in the past — the
+      // corrected rule in one assertion, a deadline months behind the run date
+      // accepted because it clears this item's floor exactly.
       await workItems.openWorkItem(seededWorkItemId)
       const before = (await detail.caseHeaderFieldText('dueOn')).trim()
 

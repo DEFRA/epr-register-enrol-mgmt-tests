@@ -79,12 +79,9 @@ describe('Work items list — filters and pagination', () => {
       expect(url).toContain('filtersApplied=1')
     })
 
-    it('applying a Type filter adds the typeId to the URL', async function () {
+    it('applying a Type filter adds the typeId to the URL', async () => {
       const boxes = await $$('input[name="typeId"]')
-      if (boxes.length === 0) {
-        this.skip()
-        return
-      }
+      expect(boxes.length).toBeGreaterThan(0)
       const value = await boxes[0].getAttribute('value')
       await workItems.checkType(value)
       await workItems.applyFilters()
@@ -93,12 +90,9 @@ describe('Work items list — filters and pagination', () => {
       expect(url).toContain('filtersApplied=1')
     })
 
-    it('applying a Status filter adds the status to the URL', async function () {
+    it('applying a Status filter adds the status to the URL', async () => {
       const boxes = await $$('input[name="status"]')
-      if (boxes.length === 0) {
-        this.skip()
-        return
-      }
+      expect(boxes.length).toBeGreaterThan(0)
       const value = await boxes[0].getAttribute('value')
       await workItems.checkStatus(value)
       await workItems.applyFilters()
@@ -137,12 +131,9 @@ describe('Work items list — filters and pagination', () => {
       expect(await browser.getUrl()).toContain('assigneeMode=unassigned')
     })
 
-    it('"Specific user" sets assigneeMode=user and the assigneeUserId', async function () {
+    it('"Specific user" sets assigneeMode=user and the assigneeUserId', async () => {
       const userId = await workItems.firstAssignableUserId()
-      if (!userId) {
-        this.skip()
-        return
-      }
+      expect(userId).toBeTruthy()
       await workItems.selectSpecificUser(userId)
       await workItems.applyFilters()
       const url = await browser.getUrl()

@@ -95,7 +95,7 @@ rendered, and on dev it goes to real Entra ID, so the spec is skipped there.
 
 CDP test's Mongo is never reset, so no spec relies on data it did not create,
 on list positions, or on fixed organisation names. Each spec creates uniquely
-named items in one of three ways:
+named items in one of three ways (the two seeded fixtures below aside):
 
 - **The "Create work item" form** (`WorkItemsPage.createWorkItem`), for specs
   that need only the fields the form captures.
@@ -113,6 +113,14 @@ named items in one of three ways:
   creates the case-management item itself. Every spec that approves or
   refuses, or checks the status pushed to that backend, uses this path,
   because the backend only accepts a decision for an application it owns.
+
+Two cases need a document no API can create: RA-342's work item with legacy
+template-snapshot fields, and RA-611's item whose SLA clock started before
+1 January. management-be seeds both with fixed ids
+(`test/support/seeded-fixtures.js`) when `TestOrganisations__Enabled=true`, and
+replaces them with the pristine copy every time it starts. Specs open them by
+id, and leave them usable by the next run, because between restarts they keep
+whatever the last run did.
 
 Every operator email is GOV.UK Notify's simulated delivered address.
 
@@ -161,10 +169,15 @@ If you want to use the repository exclusively for running docker composed based 
 
 `compose.yml` runs management-be, management-fe and the Registration &
 Accreditation service backend with their deployed settings rather than
-Development ones: no seeded data, a shared secret on every
-service-to-service call, and ReEx, GOV.UK Notify and CDP's outbound proxy
-stood in for by `docker/stubs/external-services-stub.mjs`, so the backends use
-their real HTTP clients. It also runs cdp-uploader and the Entra ID stub.
+Development ones: no demo seed data, a shared secret on every
+service-to-service call, and ReEx and CDP's outbound proxy stood in for by
+`docker/stubs/external-services-stub.mjs`, so the backends use their real HTTP
+clients. With no Notify API key, management-be uses its no-op GOV.UK Notify
+client, which writes the same audit entries. It also runs cdp-uploader and the
+Entra ID stub. With `TestOrganisations__Enabled=true`, management-be seeds the
+two `e2e-` fixtures no API can create (RA-342's legacy snapshot and RA-611's
+pre-year-start clock, ids in `test/support/seeded-fixtures.js`) and resets them
+at every start, exactly as on CDP test.
 Specs that follow a download link upload their own PDFs through cdp-uploader
 (`test/support/cdp-uploader.js`, `CDP_UPLOADER_URL`, `FILE_UPLOAD_S3_BUCKET`)
 on every run, so nothing is pre-loaded into S3. The settings the RA-000 cdp-app-config change touched

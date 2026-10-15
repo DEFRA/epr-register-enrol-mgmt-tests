@@ -18,7 +18,9 @@
 #
 # The stack mirrors CDP test, so a spec behaves the same here as there:
 #   - management-be, the operator journey backend and management-fe run with
-#     their deployed (non-Development) settings: no seeded data, and every
+#     their deployed (non-Development) settings: no demo seed data (only
+#     management-be's two `e2e-` fixtures, test/support/seeded-fixtures.js,
+#     reset at every start because TestOrganisations__Enabled is on), and every
 #     service-to-service call authenticated with its own shared secret
 #     (docker/config/secrets.env);
 #   - ReEx and CDP's outbound proxy are stubbed outside the services
