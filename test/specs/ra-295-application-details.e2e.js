@@ -1,12 +1,13 @@
-import { browser, expect } from '@wdio/globals'
+import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail, {
   APPLICATION_DETAIL_ROWS,
   EXPORTER_ONLY_ROWS
 } from '../page-objects/work-item-detail.page.js'
-import { EXPORTER } from '../support/ra-434-seed.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
+import { EXPORTER, createExporterWorkItem } from '../support/ra-434-fixture.js'
+import { createFullPayloadWorkItem } from '../support/full-payload-fixture.js'
+import { createWorkItemViaApi } from '../support/work-item-api.js'
 
 /**
  * RA-295 (AC02) — all application data on a single page, in a consistent
@@ -18,32 +19,26 @@ import { describeOnComposeStack } from '../support/compose-stack.js'
  * item page itself, in the order the AC prescribes, and the "View full
  * application details" link is removed.
  *
- * Run against the seeded "Full Payload Verification Ltd" re-accreditation
- * item, which is the only fixture carrying the whole payload — PRN tonnage and
- * authorisers, a sampling & inspection plan, a business plan, and overseas
- * site / BES evidence.
+ * Run against its own full-payload re-accreditation item
+ * (support/full-payload-fixture.js), which carries the whole payload — PRN
+ * tonnage and authorisers, a sampling & inspection plan, a business plan, and
+ * overseas site / BES evidence.
  *
  * AC02 items 9 and 10 (BES / Overseas Reprocessing Site, "only show if
  * application type = Exporter") gate on `payload.wasteProcessingType`
  * (RA-434-processortype's `isExporterApplication`) — the real Exporter
- * discriminator, not a proxy. This fixture's `wasteProcessingType` is seeded
- * as `"exporter"` alongside its `overseasSites` data specifically so this is
- * a genuine Exporter/Reprocessor test rather than a proxy for one: see
- * ReAccreditationSeeder's `full-payload-verification` item and its
- * RA-434-processortype comment. The negative test below (a reprocessor with
- * no overseas data) is the other half of the AC.
+ * discriminator, not a proxy. This fixture's `wasteProcessingType` is
+ * `"exporter"` alongside its `overseasSites` data specifically so this is a
+ * genuine Exporter/Reprocessor test rather than a proxy for one. The negative
+ * test below (a reprocessor with no overseas data) is the other half of the
+ * AC.
  */
-describeOnComposeStack('RA-295 application details on a single page', () => {
+describe('RA-295 application details on a single page', () => {
   before(async () => {
     await login.login()
-    await workItems.resetFilters()
-    await workItems.searchByOrgName('Full Payload Verification Ltd')
-    await browser.waitUntil(
-      async () => (await browser.getUrl()).includes('filtersApplied=1'),
-      { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
-    )
-    expect(await workItems.getRowCount()).toBe(1)
-    await workItems.openFirstListedWorkItem()
+    const item = await createFullPayloadWorkItem()
+    await workItems.openWorkItem(item.id)
+    await workItems.waitForDetailPage()
   })
 
   after(async () => {
@@ -89,7 +84,7 @@ describeOnComposeStack('RA-295 application details on a single page', () => {
   it('carries submitted data in each field, not just the labels', async () => {
     // A section that renders its heading and an em dash would satisfy a
     // presence-only check while showing the caseworker nothing. Spot-check the
-    // fields whose values come straight from the seeded payload.
+    // fields whose values come straight from the submitted payload.
     //
     // RA-447 (CM2): this fixture is wasteProcessingType 'exporter', so its
     // site-address row now always falls back to the registered address
@@ -138,7 +133,7 @@ describeOnComposeStack('RA-295 application details on a single page', () => {
 
     // Status and content-type are identical for both documents, so the checks
     // above cannot tell a correct link from one serving document one twice.
-    // The two seeded objects have deliberately different bodies — that is the
+    // The two stored objects have deliberately different bodies — that is the
     // only signal that discriminates, so assert on it.
     const hrefs = responses.map((r) => r.href)
     expect(new Set(hrefs).size).toBe(hrefs.length)
@@ -171,17 +166,16 @@ describeOnComposeStack('RA-295 application details on a single page', () => {
     })
 
     describe('an application with no overseas site data', () => {
-      // "Belfast Fibres Co" is a seeded re-accreditation item with neither
-      // `wasteProcessingType` nor `overseasSites` in its payload — a genuine
-      // Reprocessor, and the other half of the real Exporter/Reprocessor test
-      // this describe block runs (see the file header) — and its org name is
-      // unique to the seed data (no spec creates it), so the search resolves
-      // to exactly one row.
+      // A plain submission with neither `wasteProcessingType` nor
+      // `overseasSites` in its payload — a genuine Reprocessor, and the other
+      // half of the real Exporter/Reprocessor test this describe block runs
+      // (see the file header).
       before(async () => {
-        await workItems.resetFilters()
-        await workItems.searchByOrgName('Belfast Fibres Co')
-        expect(await workItems.getRowCount()).toBe(1)
-        await workItems.openFirstListedWorkItem()
+        const item = await createWorkItemViaApi({
+          organisationNamePrefix: 'RA295 No Overseas Sites Ltd'
+        })
+        await workItems.openWorkItem(item.id)
+        await workItems.waitForDetailPage()
       })
 
       it('hides Broadly Equivalent Standards and the Overseas Reprocessing Site', async () => {
@@ -212,9 +206,8 @@ describeOnComposeStack('RA-295 application details on a single page', () => {
     // already got this right (RA-434's deriveSiteAddress). The fix
     // consolidates both tabs onto the same fallback.
     //
-    // Reuses RA-434's EXPORTER fixture ("Continental Exports Verification
-    // Ltd", wasteProcessingType: exporter, no siteAddress at all) rather than
-    // seeding a new item — it is exactly the CM2 bug scenario, and the
+    // Uses RA-434's EXPORTER fixture (wasteProcessingType: exporter, no
+    // siteAddress at all) — it is exactly the CM2 bug scenario, and the
     // Additional information tab's own coverage of it lives in
     // ra-434-additional-information-tab.e2e.js.
     //
@@ -223,14 +216,9 @@ describeOnComposeStack('RA-295 application details on a single page', () => {
     // file (see the sibling "an application with no overseas site data"
     // describe above, which follows the same pattern).
     before(async () => {
-      await workItems.resetFilters()
-      await workItems.searchByOrgName(EXPORTER.ORG_NAME)
-      await browser.waitUntil(
-        async () => (await browser.getUrl()).includes('filtersApplied=1'),
-        { timeoutMsg: 'org-name filter did not apply (no filtersApplied=1)' }
-      )
-      expect(await workItems.getRowCount()).toBe(1)
-      await workItems.openFirstListedWorkItem()
+      const item = await createExporterWorkItem()
+      await workItems.openWorkItem(item.id)
+      await workItems.waitForDetailPage()
     })
 
     it('shows the Site address row rather than an em dash', async () => {

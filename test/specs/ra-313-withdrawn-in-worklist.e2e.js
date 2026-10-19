@@ -2,13 +2,16 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
 import {
   dulyMake,
   logDecision,
   startAssessment
 } from '../support/re-accreditation-journey.js'
-import { itOnComposeStack } from '../support/compose-stack.js'
+import {
+  createOperatorBackedWorkItem,
+  uniqueOrganisationIdGroup,
+  withdrawOperatorApplication
+} from '../support/operator-backend-api.js'
 
 /**
  * RA-313 AC01 — a withdrawn application is identifiable in the worklist.
@@ -25,26 +28,25 @@ import { itOnComposeStack } from '../support/compose-stack.js'
  * still the cheapest way to prove the revert covers every terminal state, not
  * just the withdrawn one RA-313 names.
  *
- * A shared, unique org-name token scopes every assertion to the three items
- * this spec creates, so the presence checks stay pagination-safe even when
- * the list holds unrelated items from other specs.
+ * All three items are submitted through the Registration & Accreditation
+ * service backend, which owns them: it accepts the decision pushes, and the
+ * withdrawal goes through it as a real operator's would. They share one
+ * organisation-id group, which their organisation names embed, so searching
+ * by it scopes every assertion to the three items this spec creates and the
+ * presence checks stay pagination-safe even when the list holds unrelated
+ * items from other specs.
  */
-const token = `RA313Worklist${Date.now()}`
+const token = uniqueOrganisationIdGroup()
 
 /**
  * Create a re-accreditation work item under the shared token and drive it
  * through the CTA journey to assessment-in-progress, ready for a
- * decision-maker to approve or reject. Returns the work item id.
+ * decision-maker to approve or reject. Returns `{ id }`.
  */
-async function driveToDecisionReady(suffix, material) {
+async function driveToDecisionReady() {
   await login.login()
-  await workItems.goto()
-  const { id } = await workItems.createWorkItem({
-    organisationName: `${token} ${suffix}`,
-    siteAddressLine1: '1 Archive Street',
-    siteAddressTown: 'York',
-    material,
-    tonnageBand: '0-500'
+  const { id } = await createOperatorBackedWorkItem({
+    organisationIdGroup: token
   })
 
   await workItems.openWorkItem(id)
@@ -65,7 +67,7 @@ async function driveToDecisionReady(suffix, material) {
   await detail.assertStateId('assessment-in-progress')
 
   await login.logout()
-  return id
+  return { id }
 }
 
 describe('RA-313 terminal-state applications stay on the worklist', () => {
@@ -73,39 +75,21 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
   let rejectedId
   let withdrawnId
 
-  itOnComposeStack(
-    'drives a work item to the Withdrawn terminal state',
-    async () => {
-      await login.login()
-      await workItems.goto()
-      withdrawnId = (
-        await workItems.createWorkItem({
-          organisationName: `${token} Withdrawn`,
-          siteAddressLine1: '1 Archive Street',
-          siteAddressTown: 'York',
-          material: 'glass',
-          tonnageBand: '0-500'
-        })
-      ).id
+  it('drives a work item to the Withdrawn terminal state', async () => {
+    await login.login()
+    const withdrawn = await createOperatorBackedWorkItem({
+      organisationIdGroup: token
+    })
+    withdrawnId = withdrawn.id
+    await withdrawOperatorApplication(withdrawn)
+    await workItems.openWorkItem(withdrawnId)
+    await detail.assertState('Withdrawn')
 
-      // RA-313 is about OPERATOR-initiated withdrawal, and RA-317 retired the
-      // Case Management service withdraw journey this used to drive — so the item is now withdrawn
-      // exactly the way the AC describes, through the operator backend. Both
-      // routes land it in the same `withdrawn` state, which is all AC01 turns
-      // on; the assertions below are unchanged.
-      await withdrawAsOperatorOrThrow(
-        withdrawnId,
-        'Withdrawn by the operator (test fixture)'
-      )
-      await workItems.openWorkItem(withdrawnId)
-      await detail.assertState('Withdrawn')
-
-      await login.logout()
-    }
-  )
+    await login.logout()
+  })
 
   it('drives a work item to the Rejected terminal state', async () => {
-    rejectedId = await driveToDecisionReady('Rejected', 'paper')
+    rejectedId = (await driveToDecisionReady()).id
 
     await login.login()
     await logDecision(rejectedId, 'refused')
@@ -115,7 +99,7 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
   })
 
   it('drives a work item to the Approved terminal state', async () => {
-    approvedId = await driveToDecisionReady('Approved', 'plastic')
+    approvedId = (await driveToDecisionReady()).id
 
     await login.login()
     await logDecision(approvedId, 'approved')
@@ -124,30 +108,27 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
     await login.logout()
   })
 
-  itOnComposeStack(
-    'shows the withdrawn application on the default worklist as "Withdrawn"',
-    async () => {
-      // AC01 proper. No archived filter and no status filter — the two things
-      // that used to be the ONLY way to see a withdrawn application. Bounded by
-      // the org search so the assertion is not at the mercy of pagination.
-      //
-      // resetFilters() rather than goto(): a bare landing defaults to "Your
-      // applications" (RA-299 AC08) and to the user's own nation, and the items
-      // created above are unassigned — so a bare landing would hide them for a
-      // reason that has nothing to do with the withdrawal. Same guard, and the
-      // same reasoning, as ra-223-registration-id.e2e.js.
-      await login.login()
-      await workItems.resetFilters()
-      await workItems.searchByOrgName(token)
+  it('shows the withdrawn application on the default worklist as "Withdrawn"', async () => {
+    // AC01 proper. No archived filter and no status filter — the two things
+    // that used to be the ONLY way to see a withdrawn application. Bounded by
+    // the org search so the assertion is not at the mercy of pagination.
+    //
+    // resetFilters() rather than goto(): a bare landing defaults to "Your
+    // applications" (RA-299 AC08) and to the user's own nation, and the items
+    // created above are unassigned — so a bare landing would hide them for a
+    // reason that has nothing to do with the withdrawal. Same guard, and the
+    // same reasoning, as ra-223-registration-id.e2e.js.
+    await login.login()
+    await workItems.resetFilters()
+    await workItems.searchByOrgName(token)
 
-      await expect(workItems.workItemLink(withdrawnId)).toExist()
-      await expect(workItems.workItemStateTag(withdrawnId)).toHaveText(
-        expect.stringContaining('Withdrawn')
-      )
+    await expect(workItems.workItemLink(withdrawnId)).toExist()
+    await expect(workItems.workItemStateTag(withdrawnId)).toHaveText(
+      expect.stringContaining('Withdrawn')
+    )
 
-      await login.logout()
-    }
-  )
+    await login.logout()
+  })
 
   it('shows the decided applications on the default worklist too', async () => {
     // The RA-224 revert is not withdrawn-only: a regulator looking for a
@@ -170,23 +151,20 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
     await login.logout()
   })
 
-  itOnComposeStack(
-    'still lists them when "Show archived" is enabled',
-    async () => {
-      // `includeArchived` is now inert: nothing is hidden, so nothing is left
-      // for it to reveal. Kept as a regression guard because the checkbox is
-      // still on the Applications page (the UI was signed off against a
-      // prototype and is deliberately untouched by RA-313 — see epr-kenf) and
-      // ticking it must not start SUBTRACTING results.
-      await login.login()
-      await workItems.goto()
-      await workItems.searchArchivedByOrgName(token)
+  it('still lists them when "Show archived" is enabled', async () => {
+    // `includeArchived` is now inert: nothing is hidden, so nothing is left
+    // for it to reveal. Kept as a regression guard because the checkbox is
+    // still on the Applications page (the UI was signed off against a
+    // prototype and is deliberately untouched by RA-313 — see epr-kenf) and
+    // ticking it must not start SUBTRACTING results.
+    await login.login()
+    await workItems.goto()
+    await workItems.searchArchivedByOrgName(token)
 
-      await expect(workItems.workItemLink(withdrawnId)).toExist()
-      await expect(workItems.workItemLink(rejectedId)).toExist()
-      await expect(workItems.workItemLink(approvedId)).toExist()
+    await expect(workItems.workItemLink(withdrawnId)).toExist()
+    await expect(workItems.workItemLink(rejectedId)).toExist()
+    await expect(workItems.workItemLink(approvedId)).toExist()
 
-      await login.logout()
-    }
-  )
+    await login.logout()
+  })
 })

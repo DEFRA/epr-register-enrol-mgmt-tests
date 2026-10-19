@@ -8,6 +8,7 @@ import {
 } from '../support/re-accreditation-journey.js'
 
 let assignedWorkItemId
+let assignedOrganisationName
 let progressedWorkItemId
 
 describe('Assign user journey', () => {
@@ -22,18 +23,19 @@ describe('Assign user journey', () => {
 
     // ── Create work item 1 (will be assigned to another caseworker) ────────────
     await workItems.goto()
-    ;({ id: assignedWorkItemId } = await workItems.createWorkItem({
-      organisationName: 'Alpha Recycling Ltd',
-      siteAddressLine1: '10 Assign Street',
-      siteAddressTown: 'Manchester',
-      material: 'glass',
-      tonnageBand: '0-500'
-    }))
+    ;({ id: assignedWorkItemId, organisationName: assignedOrganisationName } =
+      await workItems.createWorkItem({
+        organisationNamePrefix: 'Alpha Recycling Ltd',
+        siteAddressLine1: '10 Assign Street',
+        siteAddressTown: 'Manchester',
+        material: 'glass',
+        tonnageBand: '0-500'
+      }))
 
     // ── Create work item 2 (will be progressed through stages) ────────────────
     await workItems.goto()
     ;({ id: progressedWorkItemId } = await workItems.createWorkItem({
-      organisationName: 'Beta Packaging Co',
+      organisationNamePrefix: 'Beta Packaging Co',
       siteAddressLine1: '22 Progress Lane',
       siteAddressTown: 'Bristol',
       material: 'plastic',
@@ -85,9 +87,15 @@ describe('Standard user journey', () => {
     // RA-324 phase-2: the Assignment radios now live inside a collapsed
     // <details> section, so a raw click on the radio is not interactable — the
     // page object helper expands the section first.
+    //
+    // The search by this item's unique name is applied together with the
+    // assignment filter (searchByOrgName submits the whole form). Without it
+    // the item has to make page 1 of everything assigned to this user, which
+    // fails once earlier runs on the same database have assigned enough
+    // newer items to them.
     await workItems.goto()
     await workItems.setAssignmentMode('mine')
-    await workItems.applyFilters()
+    await workItems.searchByOrgName(assignedOrganisationName)
 
     await expect(workItems.workItemLink(assignedWorkItemId)).toBeDisplayed()
     await expect(workItems.workItemStateTag(assignedWorkItemId)).toHaveText(

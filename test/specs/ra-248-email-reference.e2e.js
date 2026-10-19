@@ -38,12 +38,11 @@ describe('RA-248 lifecycle email reference is the application reference', () => 
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
-        organisationName: 'Reference Number Test Ltd',
+        organisationNamePrefix: 'Reference Number Test Ltd',
         siteAddressLine1: '248 Reference Road',
         siteAddressTown: 'London',
         material: 'plastic',
         tonnageBand: '0-500',
-        operatorEmail: 'test@defra.gov.uk',
         // England is the nation this stack configures a regulator mailbox
         // for, so the assignment send is recorded rather than skipped.
         nation: 'England'

@@ -6,7 +6,6 @@ import dulyMaking from '../page-objects/duly-making.page.js'
 import { createReAccreditation } from '../support/re-accreditation-journey.js'
 import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
 import { utcDateParts } from '../support/uk-time.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-316 — duly making the SECOND entry point: an application queried
@@ -36,18 +35,18 @@ import { describeOnComposeStack } from '../support/compose-stack.js'
  * the wrong item entirely. management-fe added `data-state-id` carrying the
  * raw id for exactly this; every state assertion below uses it.
  */
-describeOnComposeStack('RA-316 duly making from the updated state', () => {
+describe('RA-316 duly making from the updated state', () => {
   let workItemId
 
   before(async () => {
     await login.login()
-    workItemId = await createReAccreditation(
+    ;({ id: workItemId } = await createReAccreditation(
       'Duly Making From Updated Ltd',
       // £3,604.00. NOT a typo for £3,965 and NOT a bare band — it is a
       // COMPOSED fee, £3,276 plus one overseas reprocessing site at £328,
       // which is a legitimate real-world total. Leave it alone.
       { chargeAmountPence: 360400 }
-    )
+    ))
     // Query while the item is still pre-duly-made, so the query's origin —
     // and therefore the tasks it carries back — is `submitted`.
     await raiseQuery(workItemId, {

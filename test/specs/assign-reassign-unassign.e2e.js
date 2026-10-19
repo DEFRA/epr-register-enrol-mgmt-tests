@@ -33,7 +33,7 @@ describe('Assign / re-assign / unassign via the assign-to-anyone picker', () => 
   it('creates an unassigned work item', async () => {
     await workItems.goto()
     ;({ id: workItemId } = await workItems.createWorkItem({
-      organisationName: 'Assign Picker Test Ltd',
+      organisationNamePrefix: 'Assign Picker Test Ltd',
       siteAddressLine1: '1 Assign Street',
       siteAddressTown: 'London',
       material: 'plastic',

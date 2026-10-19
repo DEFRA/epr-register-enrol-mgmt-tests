@@ -13,7 +13,7 @@ import detail from 'page-objects/work-item-detail.page.js'
  */
 describe('RA-186 — payload lives in the submitted audit entry', () => {
   let workItemId
-  const organisationName = 'Payload In Audit Log Ltd'
+  let organisationName
 
   before(async () => {
     await login.login()
@@ -25,8 +25,8 @@ describe('RA-186 — payload lives in the submitted audit entry', () => {
 
   it('creates a work item, hides payload + template version on detail, exposes payload on the submitted audit entry', async () => {
     await workItems.goto()
-    ;({ id: workItemId } = await workItems.createWorkItem({
-      organisationName,
+    ;({ id: workItemId, organisationName } = await workItems.createWorkItem({
+      organisationNamePrefix: 'Payload In Audit Log Ltd',
       siteAddressLine1: '186 Audit Lane',
       siteAddressTown: 'Bristol',
       material: 'plastic',

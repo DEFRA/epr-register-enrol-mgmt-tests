@@ -53,7 +53,7 @@ describe('Auth flows', () => {
 
       await workItems.goto()
       const { id } = await workItems.createWorkItem({
-        organisationName: 'Standard England Ltd',
+        organisationNamePrefix: 'Standard England Ltd',
         siteAddressLine1: '1 Standard Street',
         siteAddressTown: 'London',
         material: 'plastic',
@@ -77,7 +77,7 @@ describe('Auth flows', () => {
 
       await workItems.goto()
       const { id } = await workItems.createWorkItem({
-        organisationName: 'Assign Wales Ltd',
+        organisationNamePrefix: 'Assign Wales Ltd',
         siteAddressLine1: '2 Assign Street',
         siteAddressTown: 'Cardiff',
         material: 'plastic',

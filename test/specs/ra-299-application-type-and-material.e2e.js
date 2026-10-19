@@ -1,6 +1,7 @@
 import { $, browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
+import { uniqueOrganisationName } from '../support/unique-name.js'
 
 /**
  * RA-299 — Application-type filter + Glass material split.
@@ -27,12 +28,12 @@ import workItems from '../page-objects/work-items.page.js'
  * d49af57/e869058/d520c64) on branch ra-324-applications-page.
  */
 
-const token = `AppType${Date.now()}`
+const token = uniqueOrganisationName('AppType')
 
-const createItem = (organisationName, material) =>
+const createItem = (organisationNamePrefix, material) =>
   workItems.goto().then(() =>
     workItems.createWorkItem({
-      organisationName,
+      organisationNamePrefix,
       siteAddressLine1: '1 Application Type Way',
       siteAddressTown: 'London',
       material,
@@ -81,19 +82,23 @@ describe('RA-299 — Application type filter and Glass material split', () => {
       // Re-accreditation via the ORIGINAL "Applicant type" section (param
       // typeId) still returns real results — must not have regressed.
       await workItems.goto()
+      await workItems.searchByOrg(token)
       await workItems.checkType('re-accreditation')
       await workItems.applyFilters()
-      expect(await workItems.getTileCount()).toBeGreaterThan(0)
+      await expect(workItems.tileFor(glassItem.id)).toBeDisplayed()
+      await expect(workItems.tileFor(plasticItem.id)).toBeDisplayed()
     })
 
     it('Re-accreditation returns real results', async () => {
       await workItems.goto()
+      await workItems.searchByOrg(token)
       await workItems.checkApplicationType('re-accreditation')
       await workItems.applyFilters()
       expect(await browser.getUrl()).toContain(
         'applicationType=re-accreditation'
       )
-      expect(await workItems.getTileCount()).toBeGreaterThan(0)
+      await expect(workItems.tileFor(glassItem.id)).toBeDisplayed()
+      await expect(workItems.tileFor(plasticItem.id)).toBeDisplayed()
     })
     ;[
       'accreditation',

@@ -3,6 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems, { TILE_FIELD_ORDER } from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import query from '../page-objects/query.page.js'
+import { uniqueOrganisationName } from '../support/unique-name.js'
 import {
   dulyMake,
   startAssessment
@@ -44,25 +45,23 @@ import {
  * unproven.
  */
 
-const uniqueOrg = (label) => `${label} ${Date.now()}`
-
 /**
  * Create a fresh (Submitted / "Not started") re-accreditation work item and
- * return its id. Navigates to the Applications list first because the
+ * return `{ id, organisationName }`. Navigates to the Applications list first because the
  * "Create work item" link only renders there — createWorkItem leaves the
  * browser on the new item's detail page, so a caller creating a second item
  * without this goto would have no create link to click.
  */
-async function createFreshItem(organisationName) {
+async function createFreshItem(organisationNamePrefix) {
   await workItems.goto()
-  const { id } = await workItems.createWorkItem({
-    organisationName,
+  const { id, organisationName } = await workItems.createWorkItem({
+    organisationNamePrefix,
     siteAddressLine1: '1 Applications Way',
     siteAddressTown: 'London',
     material: 'plastic',
     tonnageBand: '0-500'
   })
-  return id
+  return { id, organisationName }
 }
 
 /**
@@ -91,7 +90,7 @@ describe('RA-324 Applications page', () => {
 
     before(async () => {
       await login.login()
-      itemId = await createFreshItem(uniqueOrg('Nav Applications Ltd'))
+      ;({ id: itemId } = await createFreshItem('Nav Applications Ltd'))
       await workItems.goto()
     })
 
@@ -132,7 +131,7 @@ describe('RA-324 Applications page', () => {
   // ── AC04/AC05/AC06 — tiles, field order, and the Not started badge ───────── //
 
   describe('AC04/AC05/AC06 — tiles, fields and the Not started badge', () => {
-    const token = uniqueOrg('AC04Tiles')
+    const token = uniqueOrganisationName('AC04Tiles')
     let itemId
     let otherId
 
@@ -140,8 +139,8 @@ describe('RA-324 Applications page', () => {
       await login.login()
       // Two fresh items under a shared token so the token search yields more
       // than one tile (AC04) while staying pagination-safe.
-      itemId = await createFreshItem(`${token} One`)
-      otherId = await createFreshItem(`${token} Two`)
+      ;({ id: itemId } = await createFreshItem(`${token} One`))
+      ;({ id: otherId } = await createFreshItem(`${token} Two`))
       await workItems.resetFilters() // RA-299: bare landing now defaults to assigned-to-me, excluding these unassigned items
       await workItems.searchByOrgName(token)
     })
@@ -215,12 +214,14 @@ describe('RA-324 Applications page', () => {
   // ── AC05/AC07/AC08 — SLA-started tile and lifecycle badges ───────────────── //
 
   describe('AC05/AC07/AC08 — SLA-started tile fields and lifecycle badges', () => {
-    const org = uniqueOrg('Lifecycle Applications Ltd')
+    let org
     let itemId
 
     before(async () => {
       await login.login()
-      itemId = await createFreshItem(org)
+      ;({ id: itemId, organisationName: org } = await createFreshItem(
+        'Lifecycle Applications Ltd'
+      ))
       await driveToDulyMade(itemId)
     })
 
@@ -263,12 +264,14 @@ describe('RA-324 Applications page', () => {
   // ── AC06 — Queried badge ─────────────────────────────────────────────────── //
 
   describe('AC06 — Queried badge', () => {
-    const org = uniqueOrg('Queried Applications Ltd')
+    let org
     let itemId
 
     before(async () => {
       await login.login()
-      itemId = await createFreshItem(org)
+      ;({ id: itemId, organisationName: org } = await createFreshItem(
+        'Queried Applications Ltd'
+      ))
       await query.gotoFor(itemId)
       await query.selectSection('business-plan')
       await query.fillReason(
@@ -299,7 +302,7 @@ describe('RA-324 Applications page', () => {
 
     before(async () => {
       await login.login()
-      itemId = await createFreshItem(uniqueOrg('Audit Applications Ltd'))
+      ;({ id: itemId } = await createFreshItem('Audit Applications Ltd'))
     })
 
     after(async () => {
@@ -330,21 +333,29 @@ describe('RA-324 Applications page', () => {
   // ── AC10 — page is usable and does not scroll horizontally ───────────────── //
 
   describe('AC10 — readable at a normal viewport with no horizontal scroll', () => {
+    let itemId
+
     before(async () => {
       await login.login()
-      // Ensure the list is non-empty so there is a tile to measure against.
-      await createFreshItem(uniqueOrg('Viewport Applications Ltd'))
+      // A tile of this spec's own to measure against, found by its unique
+      // name. The explicit empty filter first, because a bare landing
+      // defaults to assigned-to-me and this item is unassigned (RA-299).
+      const { id, organisationName } = await createFreshItem(
+        'Viewport Applications Ltd'
+      )
+      itemId = id
       await browser.setWindowSize(1280, 900)
-      await workItems.goto()
+      await workItems.resetFilters()
+      await workItems.searchByOrgName(organisationName)
     })
 
     after(async () => {
       await login.logout()
     })
 
-    it('renders the heading and at least one tile', async () => {
+    it("renders the heading and the created item's tile", async () => {
       await expect($('[data-testid="app-heading-title"]')).toBeDisplayed()
-      expect(await workItems.getTileCount()).toBeGreaterThan(0)
+      await expect(workItems.tileFor(itemId)).toBeDisplayed()
     })
 
     it('does not overflow the viewport horizontally', async () => {

@@ -38,7 +38,7 @@ describe('RA-581 Notify email reshape', () => {
     await workItems.goto()
     workItemId = (
       await workItems.createWorkItem({
-        organisationName: 'RA-581 Notify Emails Ltd',
+        organisationNamePrefix: 'RA-581 Notify Emails Ltd',
         siteAddressLine1: '581 Email Road',
         siteAddressTown: 'London',
         material: 'plastic',

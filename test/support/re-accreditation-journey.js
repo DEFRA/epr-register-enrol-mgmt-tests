@@ -42,7 +42,9 @@ import { utcDateParts } from './uk-time.js'
  */
 
 /**
- * Create a re-accreditation work item and return its id.
+ * Create a re-accreditation work item and return
+ * `{ id, organisationName }` — the name is `namePrefix` plus the suffix
+ * `createWorkItem` appends (see `unique-name.js`).
  *
  * `material` is fixed to `plastic` below. The site postcode is left to
  * `createWorkItem`'s collision-safe default (see `unique-postcode.js`).
@@ -67,15 +69,15 @@ export async function createReAccreditation(
   { chargeAmountPence } = {}
 ) {
   await workItems.goto()
-  const { id } = await workItems.createWorkItem({
-    organisationName: `${namePrefix} ${Date.now()}`,
+  const { id, organisationName } = await workItems.createWorkItem({
+    organisationNamePrefix: namePrefix,
     siteAddressLine1: '1 Decision Street',
     siteAddressTown: 'London',
     material: 'plastic',
     tonnageBand: '0-500',
     chargeAmountPence
   })
-  return id
+  return { id, organisationName }
 }
 
 /**

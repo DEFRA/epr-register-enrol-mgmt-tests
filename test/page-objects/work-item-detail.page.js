@@ -754,10 +754,18 @@ class WorkItemDetailPage extends Page {
    * its parent ORS's disclosure. Expand the ORS disclosures FIRST - a nested
    * <details> inside a collapsed parent is not interactable - then expand
    * every interim one so the assertions below can read its detail rows.
+   *
+   * The fold-down only exists while management-fe's
+   * MULTIPLE_INTERIM_SITES_ENABLED flag is on. With it off an interim site
+   * renders as a plain, always-visible block, so there is nothing to expand
+   * and the block is left alone.
    */
   async expandAllInterimSiteDetails() {
     const disclosures = await $$('[data-testid="interim-site"]')
     for (const disclosure of disclosures) {
+      if ((await disclosure.getTagName()) !== 'details') {
+        continue
+      }
       const isOpen = await disclosure.getAttribute('open')
       if (isOpen === null) {
         await disclosure.$('.govuk-details__summary').click()
@@ -1178,6 +1186,35 @@ class WorkItemDetailPage extends Page {
    * which had it inline, when RA-601 gave it a second and third caller.
    */
   async assertCaseHeaderDueOn(date) {
+    const { acceptable, rendered, matches } = await this.#caseHeaderDueOn(date)
+
+    // Thrown rather than asserted through `expect(bool).toBe(true)`: the
+    // boolean form reports only "false is not true", which for a date that
+    // came back a year wrong tells whoever is reading the CI log nothing.
+    // expect-webdriverio takes no custom-message argument, so naming both
+    // sides means raising the error here.
+    if (!matches) {
+      throw new Error(
+        `Expected the case header "Due date" to show one of ` +
+          `${acceptable.join(' / ')}, but it showed "${rendered}"`
+      )
+    }
+  }
+
+  /**
+   * RA-611. Whether the case header's "Due date" already shows `date`, within
+   * the same one-day tolerance as `assertCaseHeaderDueOn`.
+   *
+   * For fixtures that outlive a run (management-be's `e2e-` seeded items are
+   * only reset when management-be restarts): management-be refuses a change of
+   * zero days, so a spec re-pinning such an item must first know whether the
+   * deadline is already where it wants it.
+   */
+  async caseHeaderShowsDueOn(date) {
+    return (await this.#caseHeaderDueOn(date)).matches
+  }
+
+  async #caseHeaderDueOn(date) {
     const dayBefore = new Date(date.getTime())
     dayBefore.setDate(dayBefore.getDate() - 1)
     const dayAfter = new Date(date.getTime())
@@ -1185,18 +1222,8 @@ class WorkItemDetailPage extends Page {
 
     const acceptable = [dayBefore, date, dayAfter].map(formatUkHeaderDate)
     const rendered = (await this.caseHeaderFieldText('dueOn')).trim()
-
-    // Thrown rather than asserted through `expect(bool).toBe(true)`: the
-    // boolean form reports only "false is not true", which for a date that
-    // came back a year wrong tells whoever is reading the CI log nothing.
-    // expect-webdriverio takes no custom-message argument, so naming both
-    // sides means raising the error here.
-    if (!acceptable.some((candidate) => rendered.includes(candidate))) {
-      throw new Error(
-        `Expected the case header "Due date" to show one of ` +
-          `${acceptable.join(' / ')}, but it showed "${rendered}"`
-      )
-    }
+    const matches = acceptable.some((candidate) => rendered.includes(candidate))
+    return { acceptable, rendered, matches }
   }
 
   /**
@@ -1391,10 +1418,10 @@ class WorkItemDetailPage extends Page {
           status: res.status,
           contentType: res.headers.get('content-type'),
           // The response BODY is the only thing that distinguishes the two
-          // seeded objects. Status and content-type are identical for both,
+          // stored objects. Status and content-type are identical for both,
           // so an href bug serving document one for both entries would look
-          // like two healthy 200s — which is exactly the failure the backend
-          // seeder warns about when it says to keep the two s3Keys distinct.
+          // like two healthy 200s — which is why the fixture keeps the two
+          // s3Keys distinct.
           body: await res.text()
         })
       }
@@ -3049,7 +3076,7 @@ class WorkItemDetailPage extends Page {
 
   /**
    * AC3: the search box only renders once the application has more than one
-   * page's worth of sites (>20) — absent here since this fixture seeds four.
+   * page's worth of sites (>20) — absent here since this fixture has four.
    */
   recyclingOperationsSearchForm() {
     return $('[data-testid="recycling-operations-search-form"]')

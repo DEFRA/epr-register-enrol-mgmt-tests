@@ -1,6 +1,10 @@
 import { $, $$, browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
+import { uniqueOrganisationName } from '../support/unique-name.js'
+
+/** List page size (management-fe DEFAULT_PAGE_SIZE). */
+const PAGE_SIZE = 20
 
 /**
  * Work items list — checkbox/radio filters + pagination mechanics.
@@ -17,21 +21,32 @@ import workItems from '../page-objects/work-items.page.js'
  * The filter form is GET to /work-items, so applying any filter always adds
  * filtersApplied=1 to the query string and surfaces selected values as query
  * params (e.g. nation=England). Unchecked options are simply absent.
+ *
+ * The spec creates one more item than fits on a page, all named under one
+ * unique token, and the pagination tests search by that token. That makes
+ * the second page a certainty rather than a property of whatever an earlier
+ * run left in the database, and keeps every count independent of it.
  */
 describe('Work items list — filters and pagination', () => {
-  let createdId
-  const orgName = `Filter Pagination Org ${Date.now()}`
+  const token = uniqueOrganisationName('Filter Pagination')
+  const created = []
 
-  before(async () => {
+  before(async function () {
+    // PAGE_SIZE + 1 UI creations outlast the default 60s hook timeout.
+    this.timeout(5 * 60 * 1000)
     await login.login()
-    await workItems.goto()
-    ;({ id: createdId } = await workItems.createWorkItem({
-      organisationName: orgName,
-      siteAddressLine1: '1 Filter Street',
-      siteAddressTown: 'Leeds',
-      material: 'glass',
-      tonnageBand: '0-500'
-    }))
+    for (let i = 0; i < PAGE_SIZE + 1; i++) {
+      await workItems.goto()
+      created.push(
+        await workItems.createWorkItem({
+          organisationNamePrefix: `${token} Org`,
+          siteAddressLine1: '1 Filter Street',
+          siteAddressTown: 'Leeds',
+          material: 'glass',
+          tonnageBand: '0-500'
+        })
+      )
+    }
     await workItems.resetFilters()
   })
 
@@ -50,8 +65,10 @@ describe('Work items list — filters and pagination', () => {
       await workItems.resetFilters()
     })
 
-    it('lists the seeded work item on the unfiltered list', async () => {
-      await expect(workItems.workItemLink(createdId)).toExist()
+    it('lists a created work item when searched by its organisation name', async () => {
+      const [{ id, organisationName }] = created
+      await workItems.searchByOrg(organisationName)
+      await expect(workItems.workItemLink(id)).toExist()
     })
 
     it('applying a regulator filter adds nation and filtersApplied to the URL', async () => {
@@ -62,12 +79,9 @@ describe('Work items list — filters and pagination', () => {
       expect(url).toContain('filtersApplied=1')
     })
 
-    it('applying a Type filter adds the typeId to the URL', async function () {
+    it('applying a Type filter adds the typeId to the URL', async () => {
       const boxes = await $$('input[name="typeId"]')
-      if (boxes.length === 0) {
-        this.skip()
-        return
-      }
+      expect(boxes.length).toBeGreaterThan(0)
       const value = await boxes[0].getAttribute('value')
       await workItems.checkType(value)
       await workItems.applyFilters()
@@ -76,12 +90,9 @@ describe('Work items list — filters and pagination', () => {
       expect(url).toContain('filtersApplied=1')
     })
 
-    it('applying a Status filter adds the status to the URL', async function () {
+    it('applying a Status filter adds the status to the URL', async () => {
       const boxes = await $$('input[name="status"]')
-      if (boxes.length === 0) {
-        this.skip()
-        return
-      }
+      expect(boxes.length).toBeGreaterThan(0)
       const value = await boxes[0].getAttribute('value')
       await workItems.checkStatus(value)
       await workItems.applyFilters()
@@ -120,12 +131,9 @@ describe('Work items list — filters and pagination', () => {
       expect(await browser.getUrl()).toContain('assigneeMode=unassigned')
     })
 
-    it('"Specific user" sets assigneeMode=user and the assigneeUserId', async function () {
+    it('"Specific user" sets assigneeMode=user and the assigneeUserId', async () => {
       const userId = await workItems.firstAssignableUserId()
-      if (!userId) {
-        this.skip()
-        return
-      }
+      expect(userId).toBeTruthy()
       await workItems.selectSpecificUser(userId)
       await workItems.applyFilters()
       const url = await browser.getUrl()
@@ -154,38 +162,34 @@ describe('Work items list — filters and pagination', () => {
   describe('pagination (page size 20, filter-preserving hrefs)', () => {
     beforeEach(async () => {
       await workItems.resetFilters()
+      await workItems.searchByOrg(token)
     })
 
-    it('renders at most 20 rows per page', async () => {
-      const rows = await workItems.getRowCount()
-      expect(rows).toBeLessThanOrEqual(20)
+    it('renders 20 rows on the first page of a 21-item result', async () => {
+      expect(await workItems.getWorkItemCount()).toBe(PAGE_SIZE + 1)
+      expect(await workItems.getRowCount()).toBe(PAGE_SIZE)
     })
 
-    it('shows a pagination control once there is more than one page', async function () {
-      const total = await workItems.getWorkItemCount()
-      if (total <= 20) {
-        this.skip()
-        return
-      }
+    it('shows a pagination control once there is more than one page', async () => {
       expect(await workItems.hasPagination()).toBe(true)
       const hrefs = await workItems.paginationHrefs()
       expect(hrefs.some((h) => h && h.includes('page=2'))).toBe(true)
     })
 
-    it('preserves the active filter in pagination hrefs', async function () {
+    it('preserves the active filters in pagination hrefs', async () => {
+      // Every item above is created with the form's default nation, England.
       await workItems.checkRegulator('England')
       await workItems.applyFilters()
-      if (!(await workItems.hasPagination())) {
-        this.skip()
-        return
-      }
       const hrefs = await workItems.paginationHrefs()
       const pageLinks = hrefs.filter((h) => h && h.includes('page='))
-      if (pageLinks.length === 0) {
-        this.skip()
-        return
-      }
+      expect(pageLinks.length).toBeGreaterThan(0)
       expect(pageLinks.every((h) => h.includes('nation=England'))).toBe(true)
+      expect(
+        pageLinks.every(
+          (h) =>
+            new URL(h, 'http://x').searchParams.get('organisation') === token
+        )
+      ).toBe(true)
     })
   })
 

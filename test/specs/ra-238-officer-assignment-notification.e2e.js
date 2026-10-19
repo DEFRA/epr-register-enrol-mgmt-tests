@@ -3,6 +3,8 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import { uniquePostcode } from '../support/unique-postcode.js'
+import { SIMULATED_DELIVERED_EMAIL } from '../support/operator-backend-api.js'
+import { createWorkItemViaApi } from '../support/work-item-api.js'
 
 /**
  * RA-238 — E2E: officer-assignment notification outcomes.
@@ -26,9 +28,11 @@ import { uniquePostcode } from '../support/unique-postcode.js'
  *                "missing-regulator-mailbox" for a nation with no configured
  *                mailbox.
  *
- * England is the only nation this stack configures a mailbox for (see
- * docker/config/management-be.env), so an England work item exercises the SENT
- * path and a Scotland work item (unconfigured) exercises the SKIPPED path.
+ * England has a regulator mailbox (GOV.UK Notify's simulated delivered
+ * address, on CDP test and in docker/config/management-be.env) and Scotland
+ * deliberately has none, so an England work item exercises the SENT path and
+ * a Scotland work item exercises the SKIPPED path. Both are submitted through
+ * the API (`createWorkItemViaApi`) with their nation stated.
  * RA-526: Nation is now an explicit field on the create-work-item form,
  * submitted directly rather than derived from the site postcode by the
  * backend's NationResolver (which was removed from this real-submission path
@@ -54,12 +58,11 @@ import { uniquePostcode } from '../support/unique-postcode.js'
  * is named `feature/RA-227`.
  */
 
-// Must match Notify__RegulatorMailboxes__England in
-// docker/config/management-be.env. Deliberately NOT the live Environment
-// Agency address: appsettings.Development.json blanks every nation so no
-// environment defaults to a real regulator inbox, and the stack opts back in
-// with this unroutable one.
-const ENGLAND_REGULATOR_MAILBOX = 'regulator-england@example.test'
+// England's regulator mailbox on CDP test and in
+// docker/config/management-be.env: GOV.UK Notify's simulated delivered
+// address, so the send is real but nothing is delivered. Never a live
+// regulator inbox.
+const ENGLAND_REGULATOR_MAILBOX = SIMULATED_DELIVERED_EMAIL
 const OFFICER_ASSIGNMENT_TEMPLATE = 'OfficerAssignment'
 
 describe('RA-238 officer-assignment notification outcomes', () => {
@@ -68,19 +71,12 @@ describe('RA-238 officer-assignment notification outcomes', () => {
 
     before(async () => {
       await login.login()
-      await workItems.goto()
-      // England is the only configured RegulatorMailboxes nation, so the
-      // assignment send resolves a recipient and succeeds.
-      workItemId = (
-        await workItems.createWorkItem({
-          organisationName: 'Officer Assign Notify Ltd',
-          siteAddressLine1: '238 Assign Way',
-          siteAddressTown: 'London',
-          material: 'plastic',
-          tonnageBand: '0-500',
-          nation: 'England'
-        })
-      ).id
+      // England has a regulator mailbox, so the assignment send resolves a
+      // recipient and succeeds.
+      ;({ id: workItemId } = await createWorkItemViaApi({
+        organisationNamePrefix: 'Officer Assign Notify Ltd',
+        fields: { nation: 'England' }
+      }))
       await workItems.openWorkItem(workItemId)
       await detail.assertUnassigned()
     })
@@ -193,20 +189,15 @@ describe('RA-238 officer-assignment notification outcomes', () => {
 
     before(async () => {
       await login.login()
-      await workItems.goto()
-      // Scotland has no configured RegulatorMailboxes address, so the
-      // assignment succeeds but the send is skipped.
-      workItemId = (
-        await workItems.createWorkItem({
-          organisationName: 'Officer Assign Skip Ltd',
-          siteAddressLine1: '238 Skip Wynd',
-          siteAddressTown: 'Edinburgh',
-          siteAddressPostcode: uniquePostcode('EH1'),
-          material: 'plastic',
-          tonnageBand: '0-500',
-          nation: 'Scotland'
-        })
-      ).id
+      // Scotland has no regulator mailbox, so the assignment succeeds but the
+      // send is skipped.
+      ;({ id: workItemId } = await createWorkItemViaApi({
+        organisationNamePrefix: 'Officer Assign Skip Ltd',
+        fields: {
+          nation: 'Scotland',
+          siteAddressPostcode: uniquePostcode('EH1')
+        }
+      }))
       await workItems.openWorkItem(workItemId)
       await detail.assertUnassigned()
     })

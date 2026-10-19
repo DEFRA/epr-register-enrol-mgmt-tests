@@ -26,13 +26,14 @@ import detail from '../page-objects/work-item-detail.page.js'
  */
 describe('RA-335 Support user read-only view', () => {
   let workItemId
+  let organisationName
 
   before(async () => {
     // Seed a work item as a caseworker — support users cannot create one.
     await login.login()
     await workItems.goto()
-    ;({ id: workItemId } = await workItems.createWorkItem({
-      organisationName: 'Support Readonly Ltd',
+    ;({ id: workItemId, organisationName } = await workItems.createWorkItem({
+      organisationNamePrefix: 'Support Readonly Ltd',
       siteAddressLine1: '1 Support Street',
       siteAddressTown: 'London',
       material: 'plastic',
@@ -58,7 +59,7 @@ describe('RA-335 Support user read-only view', () => {
       await workItems.openWorkItem(workItemId)
 
       expect(await detail.caseHeaderFieldText('orgName')).toEqual(
-        expect.stringContaining('Support Readonly Ltd')
+        expect.stringContaining(organisationName)
       )
     })
   })

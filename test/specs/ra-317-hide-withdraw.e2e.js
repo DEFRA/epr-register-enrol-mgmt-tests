@@ -5,7 +5,6 @@ import detail from '../page-objects/work-item-detail.page.js'
 import decision from '../page-objects/decision.page.js'
 import { driveToDecisionReady } from '../support/terminal-states.js'
 import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-317 — Case Management service: Hide withdraw functionality from Case Management.
@@ -62,7 +61,7 @@ describe('RA-317 — withdraw hidden from case management', () => {
 
     before(async () => {
       const created = await workItems.createWorkItem({
-        organisationName: 'RA-317 Hide Withdraw Ltd',
+        organisationNamePrefix: 'RA-317 Hide Withdraw Ltd',
         siteAddressLine1: '1 Withdraw Free Way',
         siteAddressTown: 'London',
         material: 'plastic',
@@ -99,10 +98,7 @@ describe('RA-317 — withdraw hidden from case management', () => {
       // which only renders on the work-items list page, and the previous
       // describe left the browser on a detail page.
       await workItems.goto()
-      workItemId = await driveToDecisionReady({
-        organisationName: 'RA-317 Decision No Withdraw Ltd',
-        material: 'paper'
-      })
+      ;({ id: workItemId } = await driveToDecisionReady())
       await workItems.openWorkItem(workItemId)
     })
 
@@ -133,40 +129,37 @@ describe('RA-317 — withdraw hidden from case management', () => {
     })
   })
 
-  describeOnComposeStack(
-    'AC03 — an operator withdrawal still shows in case management',
-    () => {
-      let workItemId
+  describe('AC03 — an operator withdrawal still shows in case management', () => {
+    let workItemId
 
-      before(async () => {
-        // Start from the list: the create link only renders there, and the
-        // previous describe left the browser on a detail / decision page.
-        await workItems.goto()
-        const created = await workItems.createWorkItem({
-          organisationName: 'RA-317 Operator Withdrawn Ltd',
-          siteAddressLine1: '1 Operator Way',
-          siteAddressTown: 'London',
-          material: 'plastic',
-          tonnageBand: '0-500'
-        })
-        workItemId = created.id
-        // The operator withdraws it through the backend — the only route now.
-        await withdrawAsOperatorOrThrow(
-          workItemId,
-          'Withdrawn by the operator (RA-317 AC03)'
-        )
+    before(async () => {
+      // Start from the list: the create link only renders there, and the
+      // previous describe left the browser on a detail / decision page.
+      await workItems.goto()
+      const created = await workItems.createWorkItem({
+        organisationNamePrefix: 'RA-317 Operator Withdrawn Ltd',
+        siteAddressLine1: '1 Operator Way',
+        siteAddressTown: 'London',
+        material: 'plastic',
+        tonnageBand: '0-500'
       })
+      workItemId = created.id
+      // The operator withdraws it through the backend — the only route now.
+      await withdrawAsOperatorOrThrow(
+        workItemId,
+        'Withdrawn by the operator (RA-317 AC03)'
+      )
+    })
 
-      it('shows the Withdrawn status on the case-details page', async () => {
-        await workItems.openWorkItem(workItemId)
-        await detail.assertState('Withdrawn')
-      })
+    it('shows the Withdrawn status on the case-details page', async () => {
+      await workItems.openWorkItem(workItemId)
+      await detail.assertState('Withdrawn')
+    })
 
-      it('shows the withdrawn notice, so the regulator can see it was withdrawn', async () => {
-        await workItems.openWorkItem(workItemId)
-        await workItems.waitForDetailPage()
-        await detail.assertWithdrawnNotice()
-      })
-    }
-  )
+    it('shows the withdrawn notice, so the regulator can see it was withdrawn', async () => {
+      await workItems.openWorkItem(workItemId)
+      await workItems.waitForDetailPage()
+      await detail.assertWithdrawnNotice()
+    })
+  })
 })

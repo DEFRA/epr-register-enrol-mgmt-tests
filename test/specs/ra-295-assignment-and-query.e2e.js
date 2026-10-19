@@ -8,7 +8,6 @@ import {
   dulyMake,
   startAssessment
 } from '../support/re-accreditation-journey.js'
-import { describeOnComposeStack } from '../support/compose-stack.js'
 
 /**
  * RA-295 (AC03 + AC04) — assignment stays reachable through the redesign, and
@@ -37,7 +36,7 @@ describe('RA-295 assignment panel and query assignment notice', () => {
     await login.login()
     await workItems.resetFilters()
     ;({ id: workItemId } = await workItems.createWorkItem({
-      organisationName: 'RA-295 Assignment Panel Ltd',
+      organisationNamePrefix: 'RA-295 Assignment Panel Ltd',
       siteAddressLine1: '1 Panel Place',
       siteAddressTown: 'Leeds',
       material: 'plastic',
@@ -167,7 +166,7 @@ describe('RA-295 assignment panel and query assignment notice', () => {
     })
   })
 
-  describeOnComposeStack('the due-date links on a closed case', () => {
+  describe('the due-date links on a closed case', () => {
     // AC03's "available throughout" is about ASSIGNMENT, and reassign/unassign
     // are unconditional. The SLA due-date links are NOT, and that distinction
     // matters more than it looks: `SlaService.ExtendAsync` in management-be has
@@ -184,7 +183,7 @@ describe('RA-295 assignment panel and query assignment notice', () => {
     before(async () => {
       await workItems.resetFilters()
       ;({ id: closedItemId } = await workItems.createWorkItem({
-        organisationName: 'RA-295 Closed Case Ltd',
+        organisationNamePrefix: 'RA-295 Closed Case Ltd',
         siteAddressLine1: '1 Closure Court',
         siteAddressTown: 'Hull',
         material: 'paper',

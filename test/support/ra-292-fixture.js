@@ -1,47 +1,36 @@
 /**
- * RA-292 seed fixture map.
+ * RA-292 fixture: the ORS / interim-site / authority-to-issue application.
  *
- * These values are OWNED BY management-be, not by this suite. They are seeded
- * by `ReAccreditationSeeder` (seed key `ors-interim-authority`) and reproduced
- * here so the two RA-292 spec files assert against one copy rather than two
- * drifting ones — the same reasoning behind CASE_HEADER_FIELDS living in the
- * page object.
+ * The item is deliberately built to exercise every observable state of the
+ * three RA-292 flags at once (true / false / key-absent), so nearly every
+ * assertion in the feature is a comparison between two sites on the SAME
+ * page. Naming those sites in one place is what keeps "the new one" and "the
+ * established one" from being hand-copied string literals scattered across
+ * the specs that use it.
  *
- * Why a whole fixture module for one seed item: the item is deliberately
- * built to exercise every observable state of the three RA-292 flags at once
- * (true / false / key-absent), so nearly every assertion in the feature is a
- * comparison between two sites on the SAME page. Naming those sites in one
- * place is what keeps "the new one" and "the established one" from being
- * hand-copied string literals scattered across two files.
+ *   overseasSites.sites[0]  isNewSite = true   + interimSite isNewSite = true
+ *   overseasSites.sites[1]  isNewSite = false  + interimSite isNewSite = false
+ *   overseasSites.sites[2]  isNewSite absent   + no interimSite at all
+ *   overseasSites.sites[3]  isNewSite = false  + no interimSite; isEu/isOecd false
+ *   prns.authorisers[0]     isNew = true
+ *   prns.authorisers[1]     isNew = false
+ *   prns.authorisers[2]     isNew absent
  *
- * The seeder inserts via CreateIfAbsentAsync keyed on a deterministic id, so
- * this item appears on the next backend boot even against a mongo volume that
- * has already been seeded — no `docker compose down -v` is needed to pick it
- * up. If any value below stops matching, the seeder changed: fix it here, not
- * in the specs.
+ * `createOrsInterimAuthorityWorkItem` submits a new, uniquely named item
+ * through the API (`work-item-api.js`) with the values management-be's
+ * former Development seeder gave its `ors-interim-authority` item. The
+ * constants below are the values the specs assert, and the payload is built
+ * from them.
  *
- * RA-486 adds two fields management-be does not seed YET (no backend work for
- * RA-486 has landed in this fixture's seeder as of this commit — see the
- * mgmt-tests RA-486 PR description): each ORS's `operationCodes` (the
- * structured array the Recycling operations tab reads, RA-469) and each
- * interim site's `operationCode` (display-only on the Application summary
- * tab). Both are written here ahead of the backend change, same as every
- * other field in this module — but until `ReAccreditationSeeder` actually
- * seeds them, the specs asserting on them will fail against a live
- * environment. That is expected, not a bug in this file.
+ * Field TYPES follow a captured operator-backend payload, and two of them are
+ * counter-intuitive: `repatriatedLoads` is a STRING and `conditionsOfExport`
+ * a nullable boolean.
  */
 
-/** The organisation name that resolves the work-items search to this one item. */
-export const ORG_NAME = 'Overseas Reprocessing Verification Ltd'
-
-export const REGISTRATION_NUMBER = 'EPR-100292'
-
-/**
- * The pre-RA-292 work item used for the backwards-compatibility case: it
- * carries no `overseasSites` and no `prns` at all, so it is what a case
- * created before this story looks like when rendered by the new template.
- */
-export const LEGACY_ORG_NAME = 'Belfast Fibres Co'
+import { uploadPdf } from './cdp-uploader.js'
+import { SIMULATED_DELIVERED_EMAIL } from './operator-backend-api.js'
+import { uniquePostcode } from './unique-postcode.js'
+import { createWorkItemViaApi } from './work-item-api.js'
 
 /**
  * The three ORS sites, covering `isNewSite` true / false / absent.
@@ -55,7 +44,7 @@ export const LEGACY_ORG_NAME = 'Belfast Fibres Co'
 export const ORS = {
   NEW: {
     name: 'Rotterdam New Reprocessing Site',
-    // RA-486: siteId, as seeded by ReAccreditationSeeder — used to build the
+    // RA-486: siteId, as submitted in the payload — used to build the
     // `recycling-operations-site-{siteId}` testid on the Recycling
     // operations tab (RA-469). Not used anywhere on the Application summary
     // tab, which locates blocks by name instead.
@@ -79,7 +68,7 @@ export const ORS = {
     wasteCodes: ['B3011', 'GH013', 'Y48'],
     repatriatedLoads: '3',
     // `conditionsOfExport` is a nullable BOOLEAN, not the free text an earlier
-    // draft of the seed map described — confirmed against legacy-be's model
+    // draft of this fixture map described — confirmed against legacy-be's model
     // (`public bool? ConditionsOfExport`) rather than taken on report. It is
     // the one nullable field among the flags: Rotterdam true, Hamburg false,
     // absent on Port Klang and Bilbao, so "absent from an otherwise-complete
@@ -188,7 +177,7 @@ export const ORS = {
     address: '7 Muelle Tomas Olabarri',
     town: 'Bilbao',
     country: 'Spain',
-    // The only seeded site with NO structured address lines — it carries the
+    // The only site with NO structured address lines — it carries the
     // legacy flat `siteAddress` ("7 Muelle Tomas Olabarri, Bilbao") which
     // already embeds its own town. Joining that against `townOrCity` and
     // `country` naively would render "…, Bilbao, Bilbao, Spain", so this
@@ -219,7 +208,7 @@ export const INTERIM = {
     // RA-486. The interim site's own recycling operation code(s) — display
     // only on the Application summary tab (`interim-site-operation-code`,
     // same reader shape as the ORS side's `overseas-site-operation-code`; no
-    // edit capability exists for this field on the regulator side). Seeded
+    // edit capability exists for this field on the regulator side). Submitted
     // as an ARRAY (mandatory R12 plus an optional R3) rather than a bare
     // string so this fixture also proves toDisplayLines()'s array branch —
     // ORS.NEW's own operationCode has only ever exercised the string one.
@@ -231,7 +220,7 @@ export const INTERIM = {
     address: '8 Speicherstrasse',
     town: 'Bremen',
     // Bremen is a German CITY-STATE: `townOrCity` and `stateOrRegion` are both
-    // "Bremen" in the seed, and that is correct data rather than a duplicate to
+    // "Bremen" in the payload, and that is correct data rather than a duplicate to
     // be cleaned. This is the one address whose expected value is a real
     // question rather than a derivation — management-fe de-duplicates adjacent
     // segments to stop the legacy flat `siteAddress` re-stating a part, and
@@ -274,4 +263,183 @@ export const AUTHORISERS = {
     name: 'Priya Nair',
     email: 'priya.nair@example.com'
   }
+}
+
+/**
+ * The RA-292 payload fields, for this fixture and for fixtures derived from
+ * it (RA-604's duplicate ORS names).
+ */
+export async function orsInterimAuthorityFields() {
+  // Uploaded through cdp-uploader, so the file this item lists is a real
+  // object rather than a dangling key.
+  const besEvidenceFile = {
+    ...(await uploadPdf(
+      'bes-evidence.pdf',
+      '%PDF-1.4 RA-292 BES evidence fixture content'
+    )),
+    uploadedAt: '2026-06-01T10:00:00.000Z',
+    besEvidenceValidFromDate: '2026-01-01T00:00:00Z',
+    besEvidenceExpiryDate: '2027-01-01T00:00:00Z'
+  }
+  return {
+    registrationNumber: 'EPR-100292',
+    wasteProcessingType: 'exporter',
+    // An exporter's regulator (and the application reference's postcode
+    // segment) comes from its registered office, so this is unique per item.
+    companyRegisterAddressPostcode: uniquePostcode('SA1'),
+    material: 'plastic',
+    companiesHouseNumber: '12131415',
+    siteAddress: '1 Verification Way, London',
+    chargeAmountPence: 218400,
+    submittedBy: {
+      fullName: AUTHORISERS.NEW.name,
+      jobTitle: 'Head of Compliance',
+      email: SIMULATED_DELIVERED_EMAIL
+    },
+    prns: {
+      plannedTonnageBand: 'UpTo5000',
+      authorisers: [
+        {
+          fullName: AUTHORISERS.NEW.name,
+          email: AUTHORISERS.NEW.email,
+          isNew: true
+        },
+        {
+          fullName: AUTHORISERS.ESTABLISHED.name,
+          email: AUTHORISERS.ESTABLISHED.email,
+          isNew: false
+        },
+        { fullName: AUTHORISERS.LEGACY.name, email: AUTHORISERS.LEGACY.email }
+      ]
+    },
+    overseasSites: {
+      sites: [
+        {
+          siteId: ORS.NEW.siteId,
+          orsId: ORS.NEW.orsId,
+          siteName: ORS.NEW.name,
+          siteAddress: `${ORS.NEW.address}, ${ORS.NEW.town}`,
+          addressLine1: ORS.NEW.address,
+          addressLine2: ORS.NEW.addressLine2,
+          townOrCity: ORS.NEW.town,
+          country: ORS.NEW.country,
+          coordinates: ORS.NEW.coordinates,
+          contactName: ORS.NEW.contactName,
+          contactEmail: ORS.NEW.contactEmail,
+          contactPhone: ORS.NEW.contactPhone,
+          operationCode: ORS.NEW.operationCode,
+          operationCodes: ORS.NEW.operationCodes,
+          code1: ORS.NEW.wasteCodes[0],
+          code2: ORS.NEW.wasteCodes[1],
+          code3: ORS.NEW.wasteCodes[2],
+          repatriatedLoads: ORS.NEW.repatriatedLoads,
+          conditionsOfExport: true,
+          isEu: true,
+          isOecd: true,
+          isNewSite: true,
+          registeredNowAccredited: false,
+          besEvidence: { files: [besEvidenceFile] },
+          interimSite: {
+            siteId: 11,
+            siteNumber: INTERIM.NEW.siteNumber,
+            isNewSite: true,
+            country: INTERIM.NEW.country,
+            siteName: INTERIM.NEW.name,
+            addressLine1: INTERIM.NEW.address,
+            addressLine2: INTERIM.NEW.addressLine2,
+            townOrCity: INTERIM.NEW.town,
+            stateOrRegion: 'Flanders',
+            postcode: '2030',
+            contactName: INTERIM.NEW.contactName,
+            contactEmail: INTERIM.NEW.contactEmail,
+            contactPhone: INTERIM.NEW.contactPhone,
+            operationCodes: INTERIM.NEW.operationCode
+          }
+        },
+        {
+          siteId: ORS.ESTABLISHED.siteId,
+          orsId: ORS.ESTABLISHED.orsId,
+          siteName: ORS.ESTABLISHED.name,
+          siteAddress: `${ORS.ESTABLISHED.address}, ${ORS.ESTABLISHED.town}`,
+          addressLine1: ORS.ESTABLISHED.address,
+          addressLine2: ORS.ESTABLISHED.addressLine2,
+          townOrCity: ORS.ESTABLISHED.town,
+          country: ORS.ESTABLISHED.country,
+          coordinates: ORS.ESTABLISHED.coordinates,
+          contactName: ORS.ESTABLISHED.contactName,
+          contactEmail: ORS.ESTABLISHED.contactEmail,
+          contactPhone: ORS.ESTABLISHED.contactPhone,
+          operationCode: ORS.ESTABLISHED.operationCode,
+          operationCodes: ORS.ESTABLISHED.operationCodes,
+          code1: ORS.ESTABLISHED.wasteCodes[0],
+          code2: ORS.ESTABLISHED.wasteCodes[1],
+          code3: ORS.ESTABLISHED.wasteCodes[2],
+          repatriatedLoads: ORS.ESTABLISHED.repatriatedLoads,
+          conditionsOfExport: false,
+          isEu: true,
+          isOecd: true,
+          isNewSite: false,
+          registeredNowAccredited: true,
+          besEvidence: { files: [] },
+          interimSite: {
+            siteId: 21,
+            siteNumber: INTERIM.ESTABLISHED.siteNumber,
+            isNewSite: false,
+            country: INTERIM.ESTABLISHED.country,
+            siteName: INTERIM.ESTABLISHED.name,
+            addressLine1: INTERIM.ESTABLISHED.address,
+            townOrCity: INTERIM.ESTABLISHED.town,
+            stateOrRegion: 'Bremen',
+            postcode: '28217',
+            contactName: INTERIM.ESTABLISHED.contactName,
+            contactEmail: INTERIM.ESTABLISHED.contactEmail,
+            contactPhone: INTERIM.ESTABLISHED.contactPhone,
+            // A bare string rather than an array, as a real payload can carry.
+            operationCodes: INTERIM.ESTABLISHED.operationCode
+          }
+        },
+        {
+          siteId: ORS.LEGACY.siteId,
+          orsId: ORS.LEGACY.orsId,
+          siteName: ORS.LEGACY.name,
+          siteAddress: `${ORS.LEGACY.address}, ${ORS.LEGACY.town}`,
+          townOrCity: ORS.LEGACY.town,
+          country: ORS.LEGACY.country
+        },
+        {
+          siteId: ORS.NON_EU.siteId,
+          orsId: ORS.NON_EU.orsId,
+          siteName: ORS.NON_EU.name,
+          siteAddress: `${ORS.NON_EU.address}, ${ORS.NON_EU.town}`,
+          addressLine1: ORS.NON_EU.address,
+          addressLine2: ORS.NON_EU.addressLine2,
+          townOrCity: ORS.NON_EU.town,
+          country: ORS.NON_EU.country,
+          coordinates: ORS.NON_EU.coordinates,
+          contactName: ORS.NON_EU.contactName,
+          contactEmail: ORS.NON_EU.contactEmail,
+          contactPhone: ORS.NON_EU.contactPhone,
+          operationCode: ORS.NON_EU.operationCode,
+          operationCodes: ORS.NON_EU.operationCodes,
+          code1: ORS.NON_EU.wasteCodes[0],
+          code2: ORS.NON_EU.wasteCodes[1],
+          code3: ORS.NON_EU.wasteCodes[2],
+          repatriatedLoads: ORS.NON_EU.repatriatedLoads,
+          isEu: false,
+          isOecd: false,
+          isNewSite: false,
+          registeredNowAccredited: false,
+          besEvidence: { files: [] }
+        }
+      ]
+    }
+  }
+}
+
+/** Submit a new RA-292 item; returns what `createWorkItemViaApi` returns. */
+export async function createOrsInterimAuthorityWorkItem() {
+  return createWorkItemViaApi({
+    organisationNamePrefix: 'Overseas Reprocessing Verification Ltd',
+    fields: await orsInterimAuthorityFields()
+  })
 }

@@ -1,6 +1,8 @@
 import { browser, $, expect } from '@wdio/globals'
 import { Page } from './page.js'
 import { uniquePostcode } from '../support/unique-postcode.js'
+import { uniqueOrganisationName } from '../support/unique-name.js'
+import { SIMULATED_DELIVERED_EMAIL } from '../support/operator-backend-api.js'
 
 /** Prefix-matched testid of an application card's "open this item" link. */
 const WORK_ITEM_LINK_SELECTOR = '[data-testid^="work-item-link-"]'
@@ -104,7 +106,12 @@ class WorkItemsPage extends Page {
 
   /**
    * Create a work item through the form and return
-   * `{ id, applicationReference, siteAddressPostcode }`.
+   * `{ id, applicationReference, organisationName, siteAddressPostcode }`.
+   *
+   * The organisation name is always `uniqueOrganisationName(
+   * organisationNamePrefix)` (see `support/unique-name.js`), so no run can
+   * find another run's item by name. Callers pass a readable prefix and use
+   * the returned `organisationName` for any later search or assertion.
    *
    * `siteAddressPostcode` defaults to a fresh `uniquePostcode()` (see
    * `support/unique-postcode.js` for why the reference generator needs one)
@@ -113,18 +120,26 @@ class WorkItemsPage extends Page {
    * `nation` with a matching outward code, e.g. `uniquePostcode('EH1')` —
    * never a literal, which would be reused across runs.
    */
-  async createWorkItem({ siteAddressPostcode = uniquePostcode(), ...opts }) {
+  async createWorkItem({
+    organisationNamePrefix,
+    siteAddressPostcode = uniquePostcode(),
+    ...opts
+  }) {
+    const organisationName = uniqueOrganisationName(organisationNamePrefix)
     await this.clickCreateWorkItem()
     // The application reference is no longer entered on the form — the
     // case management backend generates it on submission. Callers read
     // it back from the success banner after the work item is created.
-    // Email field is pre-filled with test@defra.gov.uk. Callers
-    // may override via opts.operatorEmail; otherwise we leave the default value
-    // in place.
-    if (opts.operatorEmail !== undefined) {
-      await $('#field-operatorEmail').setValue(opts.operatorEmail)
-    }
-    await $('#field-organisationName').setValue(opts.organisationName)
+    // The email field is pre-filled with a demo address that is a real
+    // mailbox, and the operator's own Notify emails go to it, so it is always
+    // replaced: by the caller's address, or by GOV.UK Notify's simulated
+    // delivered address, which Notify accepts without sending anything.
+    const operatorEmail = await $('#field-operatorEmail')
+    await operatorEmail.clearValue()
+    await operatorEmail.setValue(
+      opts.operatorEmail ?? SIMULATED_DELIVERED_EMAIL
+    )
+    await $('#field-organisationName').setValue(organisationName)
     // RA-448. Both fields are pre-filled with a demo value (500001 /
     // reg-demo-001) on GET, same convention as operatorEmail above — most
     // callers don't care about the specific value, only that one is set, so
@@ -223,7 +238,7 @@ class WorkItemsPage extends Page {
     const applicationReference = match[0]
     const url = await browser.getUrl()
     const id = url.split('/').pop()
-    return { id, applicationReference, siteAddressPostcode }
+    return { id, applicationReference, organisationName, siteAddressPostcode }
   }
 
   async openWorkItem(id) {
@@ -232,9 +247,8 @@ class WorkItemsPage extends Page {
 
   /**
    * Open the first work item currently listed by clicking its row link.
-   * Used to reach a backend-seeded item whose id is not known to the test —
-   * pair it with a bounding search (e.g. searchByOrgName) so exactly one row
-   * is present and the "first" row is unambiguous.
+   * Pair it with a bounding search (e.g. searchByOrgName on a unique name)
+   * so exactly one row is present and the "first" row is unambiguous.
    */
   async openFirstListedWorkItem() {
     const link = await $(WORK_ITEM_LINK_SELECTOR)
@@ -348,62 +362,13 @@ class WorkItemsPage extends Page {
 
   /**
    * Reads the work item id out of the first result row's link testid.
-   * Used for seeded items whose id is not known up front (unlike items
+   * Used for items whose id is not known up front (unlike items
    * created via createWorkItem, which return their id directly).
    */
   async firstResultWorkItemId() {
     const link = await $(WORK_ITEM_LINK_SELECTOR)
     const testId = await link.getAttribute('data-testid')
     return testId.replace('work-item-link-', '')
-  }
-
-  /**
-   * Find a SEEDED work item by its organisation name and return its id.
-   *
-   * The whole run-up in one place, because doing it by hand has a trap in it and
-   * the trap fails in a thoroughly misleading way. Getting it wrong yields
-   *
-   *   Can't call getAttribute on element with selector
-   *   "[data-testid^=\"work-item-link-\"]" because element wasn't found
-   *
-   * which reads as "the fixture is not seeded" and sends you off to check the
-   * seeder, the backend's `SeedOnStartup` and the compose stack — when in fact
-   * the item is present and simply filtered out of the list.
-   *
-   * Three steps, each load-bearing:
-   *
-   *   1. `resetFilters()` FIRST. The default worklist carries filters of its own,
-   *      including an assignee scope, so a search run on top of them is
-   *      implicitly "...and assigned to me". Seeded items are assigned to
-   *      whoever the seeder says, which is generally not the logged-in stub
-   *      user, so the row exists and never appears.
-   *   2. The search itself, which `applyFiltersAndWait` submits.
-   *   3. A wait for `filtersApplied=1` in the URL before reading a row. Without
-   *      it the read can land on the PREVIOUS, unfiltered render — usually
-   *      returning the wrong item rather than failing, which is worse.
-   *
-   * Introduced for RA-611's pre-year-start fixture, but the pattern is lifted
-   * from application-details-full-payload.e2e.js, which had worked it out and
-   * written it inline. Callers that want the list left filtered can carry on
-   * driving the steps themselves; this is for the common case of "hand me that
-   * seeded item".
-   */
-  async findSeededWorkItemIdByOrgName(organisationName) {
-    await this.goto()
-    await this.resetFilters()
-    await this.searchByOrgName(organisationName)
-    await browser.waitUntil(
-      async () => (await browser.getUrl()).includes('filtersApplied=1'),
-      {
-        timeoutMsg: `org-name filter did not apply for "${organisationName}" (no filtersApplied=1)`
-      }
-    )
-    // Wait for the row itself rather than assuming the filtered render has
-    // arrived: the URL changes before the table does.
-    await $(WORK_ITEM_LINK_SELECTOR).waitForDisplayed({
-      timeoutMsg: `No work item found for organisation "${organisationName}" — is the fixture seeded?`
-    })
-    return this.firstResultWorkItemId()
   }
 
   async clearSearch() {
