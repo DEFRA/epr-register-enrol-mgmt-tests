@@ -14,4 +14,4 @@ jobs:
     steps:
       # Pinned to the commit that `main` resolved to on 2026-08-23. A branch ref
       # can be force-moved, so it is not a trustworthy supply-chain anchor.
-      - uses: DEFRA/cdp-node-journey-test-suite-template/run-journey-tests@9a64cc929475ffd21b34b2caac72f8f627c70657 # main
+      - uses: DEFRA/cdp-node-journey-test-suite-template/run-journey-tests@747162a3f36735e1e822166cc501149a2b55617e # main
