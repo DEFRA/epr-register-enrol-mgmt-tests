@@ -4,6 +4,7 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import dulyMaking from '../page-objects/duly-making.page.js'
 import decision from '../page-objects/decision.page.js'
+import slaExtend from '../page-objects/sla-extend.page.js'
 import {
   createReAccreditation,
   driveToAssessmentInProgress,
@@ -34,6 +35,11 @@ import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js
  * backend keeps `rejected`. Both are asserted below, on purpose, because a
  * change that "tidied" one to match the other would break a contract in one
  * direction or a regulator's screen in the other.
+ *
+ * RA-595: Duly made also offers Make Determination, Query and Change
+ * determination deadline directly, and no "Payment received" button. Step 2
+ * is one of three routes into assessment; submitting a determination or a
+ * deadline change from Duly made starts it too (see the ra-595-* specs).
  *
  * The Log decision page's own validation behaviour (missing radio, over-long
  * note) lives in ra-410-decision-validation.e2e.js, split out purely so wdio
@@ -80,6 +86,16 @@ describe('RA-410 The green CTA lifecycle', () => {
       await detail.assertStateId('duly-made')
       await detail.assertState('Duly made')
       expect(await detail.hasDulyMakeCta()).toBe(false)
+    })
+
+    it('Duly made offers the assessment actions and no Payment received button (RA-595)', async () => {
+      // Positive hooks first, so the absence below cannot pass on a page that
+      // failed to render.
+      expect(await detail.hasLogDecisionCta()).toBe(true)
+      expect(await detail.hasAction('query')).toBe(true)
+      await slaExtend.assertActionLinkFor(workItemId)
+      expect(await detail.hasAssignmentControl('selfAssign')).toBe(true)
+      await detail.assertNoStartControl()
     })
 
     it('step 2: Assign to yourself and start takes it to assessment', async () => {

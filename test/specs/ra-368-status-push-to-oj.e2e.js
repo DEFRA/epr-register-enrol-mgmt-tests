@@ -27,8 +27,7 @@ import {
  *     `assessment-in-progress` used to be reached by completing per-state task
  *     checklists; they are now the "Duly make" + payment CTA and the "Assign
  *     to yourself and start" CTA. The TRANSITIONS themselves — `duly-make` and
- *     the start step (RA-595: `start-assessment`, formerly
- *     `payment-received`) — still fire the hook.
+ *     the start step (RA-595: `start-assessment`) — still fire the hook.
  *     Only the affordance moved, so this drives the CTAs (via the shared
  *     journey helpers) instead of `gotoTasks`/`setTaskStatus`.
  *

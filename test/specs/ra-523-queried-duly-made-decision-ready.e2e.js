@@ -2,11 +2,16 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
+import slaExtend from '../page-objects/sla-extend.page.js'
 import {
   createReAccreditation,
   dulyMake
 } from '../support/re-accreditation-journey.js'
 import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
+import {
+  farFutureDeadline,
+  farFutureDeadlineDate
+} from '../support/sla-extend-date.js'
 
 /**
  * RA-523 (final redesign) — a query answered on an ALREADY-DULY-MADE
@@ -36,14 +41,14 @@ import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
  *     (`RestoreQuerierAssignmentAsync`, unchanged) — but for this journey the
  *     caseworker never lost the item: querying self-assigned them.
  *
- * WHY THE RA-410 START ACTION IS A DIFFERENT THING and survives:
- * that is the `duly-made -> assessment-in-progress` start control a caller who
- * already HOLDS a duly-made item clicks (assignment-panel `start-work-submit`;
- * RA-595 switched it from `payment-received` / "Payment received" to
- * `start-assessment` / "Assessment started"). RA-523's original half — offering that start
- * control instead of "Assign to yourself and start" — is untouched by this
- * redesign, so the recovery / colleague-ownership blocks below still exercise
- * it. Only the FORWARD hop out of the query round trip is gone.
+ * RA-595 REMOVED THE START CONTROL RA-523 ADDED. RA-523's original half
+ * offered a caller who already HOLDS a duly-made item a separate start
+ * control (`start-work-submit`, "Payment received" and later "Assessment
+ * started") instead of "Assign to yourself and start". That control is gone:
+ * a duly-made item now offers Make Determination, Query and Change
+ * determination deadline directly, whoever holds it, and submitting a
+ * determination or a deadline change starts the assessment. The blocks below
+ * assert the holder gets those actions, and no start button of any kind.
  *
  * WHY EVERY STATE ASSERTION READS `data-state-id`, NEVER THE STATUS TAG:
  * RA-324 AC06 gives `assessment-in-progress` and `updated` the SAME display
@@ -73,48 +78,40 @@ const CALLER = 'Stub Caseworker One'
  * The forward hop leaves no dedicated testid to target any more (transition,
  * endpoint and CTA are all deleted), so its absence is asserted on the LABELS
  * a caseworker would read — "Start assessment" and "Payment received" — plus
- * the two other forward affordances that would be wrong here: the "Duly make"
- * CTA and the assignment-panel start control.
+ * the "Duly make" CTA, which would also be wrong here.
  */
 async function assertDecisionReadyNoForwardCta() {
   await expect(detail.actionsPanel()).toBeDisplayed()
   // Decision-ready: the regulator can determine, and can still re-query.
   expect(await detail.hasLogDecisionCta()).toBe(true)
   expect(await detail.hasAction('query')).toBe(true)
-  // No forward hop, in any of its shapes. The old CTA read "Start assessment";
-  // the RA-410 start control read "Payment received" and (RA-595) now reads
-  // "Assessment started" — none belongs on a decision-ready item, and all are
-  // absent from the actions panel.
-  expect(await detail.countActionsLabelled('Start assessment')).toBe(0)
-  expect(await detail.countActionsLabelled('Payment received')).toBe(0)
-  expect(await detail.countActionsLabelled('Assessment started')).toBe(0)
+  // No forward hop, in any of its shapes, anywhere on the page. The old CTA
+  // read "Start assessment"; the removed RA-410 start control read "Payment
+  // received" and briefly "Assessment started".
+  expect(await detail.pageControlLabels()).not.toContain('Start assessment')
+  await detail.assertNoStartControl()
   // Already duly made — the Duly make CTA must not reappear.
   expect(await detail.hasDulyMakeCta()).toBe(false)
-  // `assessment-in-progress` is not a `startsOnSelfAssign` state, so the
-  // assignment-panel start control must be absent too.
-  expect(await detail.hasAssignmentControl('startWork')).toBe(false)
 }
 
 /**
- * The RA-523-original start-control fix, asserted against a `duly-made` item
- * the caller holds. UNCHANGED by the final redesign and re-used by the
- * recovery / regression blocks below.
+ * RA-595. A duly-made item the caller holds offers the Duly made actions
+ * directly — Make Determination, Query and Change determination deadline —
+ * and no start button of any kind, nor "Assign to yourself and start" (the
+ * RA-523 defect: offering to assign the caller something they already hold).
  *
- * The absence of the self-assign button is paired with positive hooks (panel
- * present, start control present, its label correct) for the RA-358 reason —
- * an absence-only assertion would also pass if the panel never rendered.
+ * The absences are paired with those positive hooks for the RA-358 reason: an
+ * absence-only assertion would also pass if the page never rendered.
  */
-async function assertOffersStartNotSelfAssign() {
+async function assertHeldDulyMadeOffersActionsNoStart(workItemId) {
   await expect(detail.assignmentPanel()).toBeDisplayed()
-  expect(await detail.hasAssignmentControl('startWork')).toBe(true)
-  // The label is the fix, not an incidental detail: a regression that kept the
-  // testid but restored "Assign to yourself and start" would reintroduce
-  // exactly the confusion QA reported.
-  // RA-595: the control applies `start-assessment`, so it carries that
-  // transition's display name.
-  expect(await detail.startWorkText()).toContain('Assessment started')
-  expect(await detail.startWorkText()).not.toContain('Payment received')
+  expect(await detail.hasLogDecisionCta()).toBe(true)
+  expect(await detail.hasAction('query')).toBe(true)
+  await slaExtend.assertActionLinkFor(workItemId)
+  expect(await detail.hasAssignmentControl('reassign')).toBe(true)
+  expect(await detail.hasAssignmentControl('unassign')).toBe(true)
   expect(await detail.hasAssignmentControl('selfAssign')).toBe(false)
+  await detail.assertNoStartControl()
 }
 
 describe('RA-523 final — a queried duly-made item lands decision-ready', () => {
@@ -256,20 +253,18 @@ describe('RA-523 final — Flow B untouched: a submitted-origin query still need
     await detail.assertAssignedTo(CALLER)
   })
 
-  it('offers the start control and NOT "Assign to yourself and start"', async () => {
-    // RA-523's original half, untouched by the redesign: a duly-made item the
-    // caller already holds offers the start control ("Assessment started"), not
-    // a button proposing to assign them something they are already holding.
-    await assertOffersStartNotSelfAssign()
+  it('offers the Duly made actions, no start button and NOT "Assign to yourself and start"', async () => {
+    // RA-595: the caller already holds it, so there is nothing to assign, and
+    // the actions Duly made offers start the assessment when submitted.
+    await assertHeldDulyMadeOffersActionsNoStart(workItemId)
   })
 })
 
-describe('RA-523 final — an updated item held by the caseworker offers no assignment start control', () => {
+describe('RA-523 final — an updated item held by the caseworker offers no self-assign or start button', () => {
   // THIS BLOCK PASSED BEFORE THE REDESIGN TOO, and that is why it is here.
   //
-  // `updated` is not a `startsOnSelfAssign` state, so neither control belongs
-  // there: the caller already holds the item (no self-assign) and there is no
-  // start transition leaving `updated` (no start control). Locking that down
+  // The caller already holds the item, so there is no self-assign, and no
+  // start button renders in any state (RA-595). Locking that down
   // means a future regression in this state cannot be waved away as fallout
   // from the redesign — the redesign did not touch it.
   let workItemId
@@ -304,24 +299,19 @@ describe('RA-523 final — an updated item held by the caseworker offers no assi
     await expect(detail.assignmentPanel()).toBeDisplayed()
     expect(await detail.hasAssignmentControl('reassign')).toBe(true)
     expect(await detail.hasAssignmentControl('selfAssign')).toBe(false)
-    expect(await detail.hasAssignmentControl('startWork')).toBe(false)
+    await detail.assertNoStartControl()
   })
 })
 
-describe('RA-523 final — the assignee of a duly-made item can still start the work', () => {
-  // THE RA-410 RECOVERY CASE, which the redesign left intact.
-  //
-  // "Assign to yourself and start" is two operations. If the assign half lands
-  // and the transition half does not, `callerIsAssignee` flips true and the
-  // start action is filtered out of the actions panel — so the only thing that
-  // can still start the work is the dedicated start control. RA-523's original
-  // half provides it, and this drives it for real: asserting the button exists
-  // is not enough.
+describe('RA-595 — the assignee of a duly-made item works it from Duly made', () => {
+  // The case RA-523's start control existed for: the caller holds a duly-made
+  // item (here because a colleague assigned it to them; equally because a
+  // self-assign landed its assign half and not its start). RA-595 removed that
+  // control. The caller is not stranded: Duly made offers the assessment
+  // actions directly, and changing the deadline starts the assessment.
   //
   // Reached by assigning the duly-made item through the reassign interstitial:
-  // it is the shortest honest way to "held by the caller, in `duly-made`", and
-  // it doubles as the case management-fe calls out — an item a COLLEAGUE
-  // assigned to you.
+  // it is the shortest honest way to "held by the caller, in `duly-made`".
   let workItemId
 
   before(async () => {
@@ -339,28 +329,29 @@ describe('RA-523 final — the assignee of a duly-made item can still start the 
     await login.logout()
   })
 
-  it('offers the start control once the item is held by the caller', async () => {
+  it('offers the Duly made actions and no start button once held by the caller', async () => {
     await detail.assertStateId('duly-made')
     await detail.assertAssignedTo(CALLER)
-    await assertOffersStartNotSelfAssign()
+    await assertHeldDulyMadeOffersActionsNoStart(workItemId)
   })
 
-  it('actually starts the assessment when clicked', async () => {
-    await detail.startWork()
+  it('changing the deadline starts the assessment and keeps the caller assigned', async () => {
+    await slaExtend.changeDeadline(workItemId, {
+      reason: 'RA-595: deadline changed by the assignee from Duly made',
+      date: farFutureDeadline()
+    })
     await detail.assertStateId('assessment-in-progress')
-    // The transition must not cost the caller the case — it is one operation,
-    // and assignment is not one of the things it operates on.
+    // Already held, so nothing was assigned: the caller keeps the case.
     await detail.assertAssignedTo(CALLER)
+    await detail.assertCaseHeaderDueOn(farFutureDeadlineDate())
   })
 
-  it('drops the start control once the item has left duly-made', async () => {
-    // `assessment-in-progress` is not a `startsOnSelfAssign` state, so the
-    // control that got the item here must not linger and offer to do it again.
-    // The self-assign button stays absent for the same reason it was before:
-    // the caller still holds the item.
-    await expect(detail.assignmentPanel()).toBeDisplayed()
-    expect(await detail.hasAssignmentControl('startWork')).toBe(false)
-    expect(await detail.hasAssignmentControl('selfAssign')).toBe(false)
+  it('keeps every Duly made control once assessment has started', async () => {
+    // The same controls the first `it` saw in Duly made — Make
+    // Determination, Query, Change determination deadline, reassign and
+    // unassign — and still no self-assign (the caller holds it) or start
+    // button. The detail page has no notes control in either state.
+    await assertHeldDulyMadeOffersActionsNoStart(workItemId)
   })
 })
 
@@ -371,8 +362,7 @@ describe('RA-523 final — a duly-made item held by a COLLEAGUE still offers sel
   // further — to "unassigned only", say — would break taking over a
   // colleague's case, which RA-323 makes legitimate. Here the caller is NOT
   // the assignee, so "Assign to yourself and start" is honest and must still
-  // be offered, and the start control must NOT be: the caller has nothing to
-  // start until they take the item.
+  // be offered, alongside the Duly made actions.
   let workItemId
 
   before(async () => {
@@ -395,10 +385,13 @@ describe('RA-523 final — a duly-made item held by a COLLEAGUE still offers sel
     await detail.assertAssignedTo('Stub Caseworker Two')
   })
 
-  it('still offers "Assign to yourself and start", and no start control', async () => {
+  it('still offers "Assign to yourself and start" and the Duly made actions, and no Payment received', async () => {
     await expect(detail.assignmentPanel()).toBeDisplayed()
     expect(await detail.hasAssignmentControl('selfAssign')).toBe(true)
-    expect(await detail.hasAssignmentControl('startWork')).toBe(false)
+    expect(await detail.hasLogDecisionCta()).toBe(true)
+    expect(await detail.hasAction('query')).toBe(true)
+    await slaExtend.assertActionLinkFor(workItemId)
+    await detail.assertNoStartControl()
   })
 
   it('taking it over assigns AND starts, exactly as before', async () => {

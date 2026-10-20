@@ -287,12 +287,19 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       // button beside the CTA and give two doors to one hop.
       //
       // RA-595: management-be v15 projects BOTH `payment-received` and its
-      // replacement `start-assessment` here; neither may become a button.
+      // replacement `start-assessment` here; neither may become a button,
+      // in this panel or anywhere else on the page.
       expect(await detail.countActionsWithId('payment-received')).toBe(0)
       expect(await detail.countActionsLabelled('Payment received')).toBe(0)
       expect(await detail.countActionsWithId('start-assessment')).toBe(0)
       expect(await detail.countActionsLabelled('Assessment started')).toBe(0)
       expect(await detail.countActionsWithId('query')).toBe(1)
+      await detail.assertNoStartControl()
+      // RA-595: Make Determination renders in Duly made as its own CTA, and
+      // Change determination deadline in the assignment panel; neither leaks
+      // into the actions panel.
+      expect(await detail.hasLogDecisionCta()).toBe(true)
+      expect(await detail.countActionsWithId('sla-extend')).toBe(0)
       // RA-317: withdraw is gone from `duly-made` too.
       expect(await detail.countActionsWithId('withdraw-during-duly-made')).toBe(
         0
@@ -301,8 +308,7 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
 
     it('renders the assessment actions once each', async () => {
       // Step 2 of the CTA lifecycle: self-assign applies `start-assessment`
-      // (RA-595; formerly `payment-received`).
-      // The old `triggerAction('payment-received')` button no longer exists.
+      // (RA-595).
       await detail.selfAssignAndStart()
 
       // `assessment-in-progress` displays as "Updated" — see the trap note at

@@ -1560,24 +1560,7 @@ class WorkItemDetailPage extends Page {
     const testIds = {
       selfAssign: 'self-assign-submit',
       reassign: 'reassign-link',
-      unassign: 'unassign-link',
-      // RA-523. The START half of "Assign to yourself and start", split out
-      // into a control of its own for a caller who ALREADY holds the item.
-      //
-      // MUTUALLY EXCLUSIVE WITH `selfAssign` BY CONSTRUCTION, which is the
-      // whole point of the ticket: management-fe renders `self-assign-submit`
-      // only when the caller is NOT the assignee, and `start-work-submit`
-      // only when they ARE and the item sits in a state its module marks
-      // `startsOnSelfAssign` (for re-accreditation, `duly-made`). Before the
-      // fix, a `duly-made` item the caller already held still offered "Assign
-      // to yourself and start" — a button proposing to assign them something
-      // they were already holding.
-      //
-      // Listed HERE rather than reached through a hand-written selector so it
-      // is panel-scoped like every other assignment affordance: a control
-      // rendered elsewhere on the page must not satisfy an assertion about
-      // what the assignment panel offers.
-      startWork: 'start-work-submit'
+      unassign: 'unassign-link'
     }
     const testId = testIds[name]
     if (!testId) {
@@ -2372,10 +2355,11 @@ class WorkItemDetailPage extends Page {
    *
    * RA-523 NARROWED WHEN THIS IS AVAILABLE AT ALL. `self-assign-submit` no
    * longer renders in every non-closed state — it renders only for a caller
-   * who is NOT the assignee. A caller who already holds the item gets
-   * `start-work-submit` instead, so from `duly-made` this method requires an
-   * item held by nobody (or by someone else, in which case it takes it over).
-   * When the item is already yours, use `startWork()` below.
+   * who is NOT the assignee. So from `duly-made` this method requires an item
+   * held by nobody (or by someone else, in which case it takes it over).
+   * RA-595: a caller who already holds a `duly-made` item has no separate
+   * start control; Make Determination and Change determination deadline start
+   * the assessment when submitted.
    */
   async selfAssignAndStart() {
     await this.assignmentControl('selfAssign').click()
@@ -2410,52 +2394,34 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * RA-523. The label on the start control.
+   * RA-595. The label of every button and link on the detail page, trimmed.
    *
-   * Read as TEXT rather than merely asserted present, because the label is
-   * the fix. management-fe takes it from the module's own transition
-   * `displayName` (`start-assessment` -> "Assessment started"), so this control
-   * names the single operation it performs instead of the two-operation
-   * "Assign to yourself and start" whose first half was already done. A
-   * regression that restored the old label while keeping the new testid would
-   * reintroduce exactly the confusion QA reported, and an existence-only
-   * check would not see it.
+   * Page-wide on purpose. The "Payment received" button RA-595 removed lived
+   * in the assignment panel (`start-work-submit`) and, before that, in the
+   * actions panel, so a check scoped to either panel could miss its return in
+   * the other. Links are included because `appActionLink` renders some
+   * controls as `<a>` (or an inert `<span>` for read-only users, which
+   * carries an `action-*` testid).
    */
-  async startWorkText() {
-    return this.assignmentControl('startWork').getText()
+  async pageControlLabels() {
+    const controls = await $('button, a, [data-testid^="action-"]')
+    const labels = []
+    for (const control of controls) {
+      labels.push((await control.getText()).trim())
+    }
+    return labels
   }
 
   /**
-   * RA-523 / RA-410 recovery. Drive `duly-made` -> `assessment-in-progress`
-   * as the caller who ALREADY holds the item.
-   *
-   * The counterpart to `selfAssignAndStart()` for the other side of the
-   * `callerIsAssignee` split. This posts to the generic action route and
-   * performs ONE operation, so unlike that method there is no assignment to
-   * wait for — only the transition.
-   *
-   * This path is the reason RA-523 could not simply delete the button: if the
-   * assign half of "Assign to yourself and start" lands and the transition
-   * half does not, the caller becomes the assignee of a `duly-made` item and
-   * `start-assessment` is filtered out of the actions panel, so without this
-   * control there is nothing left on the page that starts the work. A fix
-   * that strands the caller there is not a fix, which is why a spec drives
-   * this for real rather than only asserting the button exists.
+   * RA-595. Assert no start control renders anywhere on the page: neither
+   * "Payment received" nor the "Assessment started" label the start step
+   * carries. Pair it with a positive hook (for example the Make Determination
+   * CTA), or it passes on a page that failed to render.
    */
-  async startWork() {
-    await this.assignmentControl('startWork').click()
-    await browser.waitUntil(
-      async () => (await this.stateId()) === 'assessment-in-progress',
-      {
-        timeout: 10000,
-        timeoutMsg:
-          'Expected the work item to move to assessment-in-progress after ' +
-          'clicking the start control ("Assessment started"). management-fe ' +
-          'awaits the action before redirecting, so a detail page still ' +
-          'showing `duly-made` with an error banner means the transition was ' +
-          'REFUSED rather than that it is lagging.'
-      }
-    )
+  async assertNoStartControl() {
+    const labels = await this.pageControlLabels()
+    expect(labels).not.toContain('Payment received')
+    expect(labels).not.toContain('Assessment started')
   }
 
   /**
