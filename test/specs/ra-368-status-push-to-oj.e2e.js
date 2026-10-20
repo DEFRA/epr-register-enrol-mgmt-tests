@@ -27,7 +27,8 @@ import {
  *     `assessment-in-progress` used to be reached by completing per-state task
  *     checklists; they are now the "Duly make" + payment CTA and the "Assign
  *     to yourself and start" CTA. The TRANSITIONS themselves — `duly-make` and
- *     `payment-received` — are unchanged, so the hook still fires on both.
+ *     the start step (RA-595: `start-assessment`, formerly
+ *     `payment-received`) — still fire the hook.
  *     Only the affordance moved, so this drives the CTAs (via the shared
  *     journey helpers) instead of `gotoTasks`/`setTaskStatus`.
  *
@@ -44,7 +45,7 @@ import {
  *
  * The two call sites RA-368 cares about both still fire their own push:
  *   - `duly-make` (submitted -> duly-made), and
- *   - `payment-received` (duly-made -> assessment-in-progress).
+ *   - `start-assessment` (duly-made -> assessment-in-progress; RA-595).
  *
  * The decision actions (submit-for-decision/approve/reject) are deliberately
  * NOT here: their Registration & Accreditation service push is owned by ReAccreditationLogDecisionService as a
@@ -97,9 +98,9 @@ describe('RA-368 CM status push to OJ', () => {
     expect(pushed.caseManagementStatusUpdatedAt).toBeTruthy()
   })
 
-  it('records a second status-push-sent entry for the payment-received action', async () => {
+  it('records a second status-push-sent entry for the start-assessment action', async () => {
     // "Assign to yourself and start" drives the duly-made ->
-    // assessment-in-progress transition, whose action id is `payment-received`
+    // assessment-in-progress transition, whose action id is `start-assessment`
     // (self-assignment fires no push; only the transition does), so this adds
     // exactly one more `status-push-sent` entry.
     await startAssessment(workItemId)

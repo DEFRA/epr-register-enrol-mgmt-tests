@@ -113,10 +113,14 @@ export async function dulyMake(workItemId, { dayOffset = 0 } = {}) {
  * Step 2. Duly made -> Assessment in progress, via "Assign to yourself and
  * start".
  *
- * REQUIRES THE ITEM TO BE UNASSIGNED — management-fe only renders the
- * self-assign button when nobody holds the case. A caller that has already
- * assigned the item to someone must unassign first, or drive the transition
- * with `startAssessmentViaAction` below.
+ * REQUIRES THE ITEM TO BE HELD BY SOMEONE ELSE OR NOBODY — management-fe only
+ * renders the self-assign button when the caller does not hold the case.
+ *
+ * RA-595 ("switch" step). The transition the button applies is now
+ * `start-assessment` ("Assessment started"), not `payment-received`. The
+ * old `startAssessmentViaAction` helper, which clicked a
+ * `payment-received` action button, is gone: management-fe no longer
+ * renders that button, and the self-assign flow is the one shared way in.
  *
  * Asserts the RAW state id rather than the display name, because RA-324
  * gives `assessment-in-progress` and `updated` the same display name
@@ -127,21 +131,6 @@ export async function startAssessment(workItemId) {
   await workItems.openWorkItem(workItemId)
   expect(await detail.hasAssignmentControl('selfAssign')).toBe(true)
   await detail.selfAssignAndStart()
-  await detail.assertStateId('assessment-in-progress')
-}
-
-/**
- * Step 2, without taking the case.
- *
- * `payment-received` survives RA-410 as an ordinary caller-invocable action,
- * so this drives the same transition while leaving assignment alone. Use it
- * where the spec is about something else and self-assigning would change the
- * assignee out from under an assertion — the RA-335 read-only user, say, or
- * a spec that has deliberately assigned the case to another officer.
- */
-export async function startAssessmentViaAction(workItemId) {
-  await workItems.openWorkItem(workItemId)
-  await detail.triggerAction('payment-received')
   await detail.assertStateId('assessment-in-progress')
 }
 

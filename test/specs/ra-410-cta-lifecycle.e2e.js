@@ -96,6 +96,23 @@ describe('RA-410 The green CTA lifecycle', () => {
       await detail.assertAssignedTo('Stub Caseworker One')
     })
 
+    it('step 2 records "Assessment started" in the application history (RA-595)', async () => {
+      // RA-595 ("switch" step): the start half of the button now applies
+      // `start-assessment`, so the history entry names it. Positive check
+      // first, so the "Payment received" absence cannot pass vacuously.
+      await detail.gotoAudit()
+      const headings = await detail.auditEntryHeadings('action-applied')
+      expect(headings).toContain('Assessment started')
+      expect(headings).not.toContain('Payment received')
+      expect(await detail.appliedTransitions()).toContain(
+        'duly-made → assessment-in-progress'
+      )
+
+      // Back to the detail page for step 3.
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('assessment-in-progress')
+    })
+
     it('step 3: Log decision offers both outcomes', async () => {
       expect(await detail.hasLogDecisionCta()).toBe(true)
       // RA-447 (CM7): both the detail-page CTA and the decision page's own
@@ -210,7 +227,7 @@ describe('RA-410 The green CTA lifecycle', () => {
   describe('self-assign from a non-duly-made state does not transition', () => {
     // management-fe renders the assignment panel in EVERY non-closed state,
     // so "Assign to yourself and start" is on screen far more often than the
-    // transition is legal. The handler applies `payment-received` ONLY from
+    // transition is legal. The handler applies `start-assessment` ONLY from
     // `duly-made`; everywhere else it must take the case and nothing more.
     //
     // This is the trickiest guard in the story: the natural implementation —

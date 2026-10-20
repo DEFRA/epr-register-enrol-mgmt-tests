@@ -36,10 +36,11 @@ import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
  *     (`RestoreQuerierAssignmentAsync`, unchanged) — but for this journey the
  *     caseworker never lost the item: querying self-assigned them.
  *
- * WHY THE RA-410 `payment-received` ACTION IS A DIFFERENT THING and survives:
+ * WHY THE RA-410 START ACTION IS A DIFFERENT THING and survives:
  * that is the `duly-made -> assessment-in-progress` start control a caller who
- * already HOLDS a duly-made item clicks (assignment-panel `start-work-submit`,
- * label "Payment received"). RA-523's original half — offering that start
+ * already HOLDS a duly-made item clicks (assignment-panel `start-work-submit`;
+ * RA-595 switched it from `payment-received` / "Payment received" to
+ * `start-assessment` / "Assessment started"). RA-523's original half — offering that start
  * control instead of "Assign to yourself and start" — is untouched by this
  * redesign, so the recovery / colleague-ownership blocks below still exercise
  * it. Only the FORWARD hop out of the query round trip is gone.
@@ -81,10 +82,12 @@ async function assertDecisionReadyNoForwardCta() {
   expect(await detail.hasLogDecisionCta()).toBe(true)
   expect(await detail.hasAction('query')).toBe(true)
   // No forward hop, in any of its shapes. The old CTA read "Start assessment";
-  // the RA-410 start control reads "Payment received" — neither belongs on a
-  // decision-ready item, and both are absent from the actions panel.
+  // the RA-410 start control read "Payment received" and (RA-595) now reads
+  // "Assessment started" — none belongs on a decision-ready item, and all are
+  // absent from the actions panel.
   expect(await detail.countActionsLabelled('Start assessment')).toBe(0)
   expect(await detail.countActionsLabelled('Payment received')).toBe(0)
+  expect(await detail.countActionsLabelled('Assessment started')).toBe(0)
   // Already duly made — the Duly make CTA must not reappear.
   expect(await detail.hasDulyMakeCta()).toBe(false)
   // `assessment-in-progress` is not a `startsOnSelfAssign` state, so the
@@ -107,7 +110,10 @@ async function assertOffersStartNotSelfAssign() {
   // The label is the fix, not an incidental detail: a regression that kept the
   // testid but restored "Assign to yourself and start" would reintroduce
   // exactly the confusion QA reported.
-  expect(await detail.startWorkText()).toContain('Payment received')
+  // RA-595: the control applies `start-assessment`, so it carries that
+  // transition's display name.
+  expect(await detail.startWorkText()).toContain('Assessment started')
+  expect(await detail.startWorkText()).not.toContain('Payment received')
   expect(await detail.hasAssignmentControl('selfAssign')).toBe(false)
 }
 
@@ -252,7 +258,7 @@ describe('RA-523 final — Flow B untouched: a submitted-origin query still need
 
   it('offers the start control and NOT "Assign to yourself and start"', async () => {
     // RA-523's original half, untouched by the redesign: a duly-made item the
-    // caller already holds offers the start control ("Payment received"), not
+    // caller already holds offers the start control ("Assessment started"), not
     // a button proposing to assign them something they are already holding.
     await assertOffersStartNotSelfAssign()
   })

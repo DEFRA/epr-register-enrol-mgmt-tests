@@ -43,7 +43,7 @@ describe('Error pages', () => {
     }))
 
     // The fixture sits in `duly-made` because that is where a real
-    // caller-invocable action (`payment-received`) is available to carry the
+    // caller-invocable action (`start-assessment`, RA-595) is available to carry the
     // returnTo guard case below. This file is about the redirect guards, not
     // about which action carries them.
     await dulyMake(workItemId)
@@ -87,13 +87,13 @@ describe('Error pages', () => {
     // outright, which is what an attacker actually does.
     await workItems.openWorkItem(workItemId)
 
-    // The fixture sits in `duly-made`, where `payment-received` is a real
-    // caller-invocable action — RA-410 ungated it. Using a genuine action
+    // The fixture sits in `duly-made`, where `start-assessment` is a real
+    // caller-invocable action (RA-595; it replaced `payment-received`). Using a genuine action
     // matters: the guard runs on the SUCCESS path, so an action that failed
     // would never reach it and the test could not fail.
     const forged = await browser.execute(async (id) => {
       const crumb = document.querySelector('input[name="crumb"]')?.value ?? ''
-      const res = await fetch(`/work-items/${id}/actions/payment-received`, {
+      const res = await fetch(`/work-items/${id}/actions/start-assessment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body:

@@ -364,7 +364,8 @@ class WorkItemDetailPage extends Page {
   /**
    * Trigger any work item action by its actionId (RA-133). The action
    * buttons are rendered with `data-testid="action-<actionId>"` so this
-   * works for `payment-received`, `submit-for-decision`, `approve`, etc.
+   * works for `query` and the other caller-invocable actions the panel
+   * renders.
    */
   async triggerAction(actionId) {
     await $(`[data-testid="action-${actionId}"]`).click()
@@ -2358,7 +2359,7 @@ class WorkItemDetailPage extends Page {
    *
    * THE SAME BUTTON AS `selfAssign()`, deliberately. management-fe reuses
    * `self-assign-submit`; what RA-410 adds is server-side, and only from
-   * `duly-made`: the handler applies `payment-received` as well as taking the
+   * `duly-made`: the handler applies `start-assessment` (RA-595) as well as taking the
    * item.
    *
    * So this is not a different control, it is the same control with a
@@ -2413,7 +2414,7 @@ class WorkItemDetailPage extends Page {
    *
    * Read as TEXT rather than merely asserted present, because the label is
    * the fix. management-fe takes it from the module's own transition
-   * `displayName` (`payment-received` -> "Payment received"), so this control
+   * `displayName` (`start-assessment` -> "Assessment started"), so this control
    * names the single operation it performs instead of the two-operation
    * "Assign to yourself and start" whose first half was already done. A
    * regression that restored the old label while keeping the new testid would
@@ -2436,7 +2437,7 @@ class WorkItemDetailPage extends Page {
    * This path is the reason RA-523 could not simply delete the button: if the
    * assign half of "Assign to yourself and start" lands and the transition
    * half does not, the caller becomes the assignee of a `duly-made` item and
-   * `payment-received` is filtered out of the actions panel, so without this
+   * `start-assessment` is filtered out of the actions panel, so without this
    * control there is nothing left on the page that starts the work. A fix
    * that strands the caller there is not a fix, which is why a spec drives
    * this for real rather than only asserting the button exists.
@@ -2449,7 +2450,7 @@ class WorkItemDetailPage extends Page {
         timeout: 10000,
         timeoutMsg:
           'Expected the work item to move to assessment-in-progress after ' +
-          'clicking the start control ("Payment received"). management-fe ' +
+          'clicking the start control ("Assessment started"). management-fe ' +
           'awaits the action before redirecting, so a detail page still ' +
           'showing `duly-made` with an error banner means the transition was ' +
           'REFUSED rather than that it is lagging.'

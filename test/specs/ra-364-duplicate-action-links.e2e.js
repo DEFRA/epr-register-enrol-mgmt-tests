@@ -285,8 +285,13 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       // renders EXACTLY ONCE, which the `query` count below still protects.
       // Asserting 0 here also guards the regression that would reintroduce the
       // button beside the CTA and give two doors to one hop.
+      //
+      // RA-595: management-be v15 projects BOTH `payment-received` and its
+      // replacement `start-assessment` here; neither may become a button.
       expect(await detail.countActionsWithId('payment-received')).toBe(0)
       expect(await detail.countActionsLabelled('Payment received')).toBe(0)
+      expect(await detail.countActionsWithId('start-assessment')).toBe(0)
+      expect(await detail.countActionsLabelled('Assessment started')).toBe(0)
       expect(await detail.countActionsWithId('query')).toBe(1)
       // RA-317: withdraw is gone from `duly-made` too.
       expect(await detail.countActionsWithId('withdraw-during-duly-made')).toBe(
@@ -295,7 +300,8 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
     })
 
     it('renders the assessment actions once each', async () => {
-      // Step 2 of the CTA lifecycle: self-assign applies `payment-received`.
+      // Step 2 of the CTA lifecycle: self-assign applies `start-assessment`
+      // (RA-595; formerly `payment-received`).
       // The old `triggerAction('payment-received')` button no longer exists.
       await detail.selfAssignAndStart()
 
