@@ -69,9 +69,9 @@ describe('RA-595 Make Determination from an unassigned Duly made case', () => {
 
   it('records "Assessment started" in the history, and no Payment received', async () => {
     await detail.gotoAudit()
-    const headings = await detail.auditEntryHeadings('action-applied')
-    expect(headings).toContain('Assessment started')
-    expect(headings).not.toContain('Payment received')
+    const actions = await detail.appliedActionNames()
+    expect(actions).toContain('Assessment started')
+    expect(actions).not.toContain('Payment received')
     expect(await detail.appliedTransitions()).toContain(
       'duly-made → assessment-in-progress'
     )
@@ -109,7 +109,7 @@ describe('RA-595 Make Determination from a Duly made case held by a colleague', 
 
   it('records "Assessment started" in the history', async () => {
     await detail.gotoAudit()
-    const headings = await detail.auditEntryHeadings('action-applied')
-    expect(headings).toContain('Assessment started')
+    const actions = await detail.appliedActionNames()
+    expect(actions).toContain('Assessment started')
   })
 })

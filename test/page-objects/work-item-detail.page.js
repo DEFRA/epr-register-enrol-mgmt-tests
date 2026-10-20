@@ -583,6 +583,29 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * RA-595. The action name of every applied action in the Application
+   * history, in page order (for example "Assessment started").
+   *
+   * Every applied action has the same heading, "Action applied", so the name
+   * is read from the summary after it: `Action applied — Assessment started
+   * (duly-made → assessment-in-progress)`.
+   */
+  async appliedActionNames() {
+    const entries = await $$(
+      '[data-testid="work-item-audit-log"] li[data-action="action-applied"]'
+    )
+    const names = []
+    for (const entry of entries) {
+      const text = (await entry.getText()).replace(/\s+/g, ' ')
+      const match = text.match(/—\s*([^(—]+?)\s*\(/)
+      if (match) {
+        names.push(match[1])
+      }
+    }
+    return names
+  }
+
+  /**
    * RA-372. Whether an error summary is on the page.
    *
    * Deliberately reads the GOV.UK class, not the message. The copy belongs to
@@ -2404,7 +2427,7 @@ class WorkItemDetailPage extends Page {
    * carries an `action-*` testid).
    */
   async pageControlLabels() {
-    const controls = await $('button, a, [data-testid^="action-"]')
+    const controls = await $$('button, a, [data-testid^="action-"]')
     const labels = []
     for (const control of controls) {
       labels.push((await control.getText()).trim())
