@@ -69,6 +69,9 @@ describe('RA-595 Change determination deadline from an unassigned Duly made case
     })
 
     await detail.assertFlashBanner()
+    expect(await detail.flashBannerText()).toContain(
+      'Determination deadline changed'
+    )
     await detail.assertStateId('assessment-in-progress')
     await detail.assertAssignedTo(CALLER)
     await detail.assertCaseHeaderDueOn(farFutureDeadlineDate())
