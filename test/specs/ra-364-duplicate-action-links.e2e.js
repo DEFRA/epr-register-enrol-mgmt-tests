@@ -286,9 +286,9 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       // Asserting 0 here also guards the regression that would reintroduce the
       // button beside the CTA and give two doors to one hop.
       //
-      // RA-595: management-be v15 projects BOTH `payment-received` and its
-      // replacement `start-assessment` here; neither may become a button,
-      // in this panel or anywhere else on the page.
+      // RA-595: management-be v16 projects `start-assessment` here (and no
+      // longer `payment-received`); neither may become a button, in this
+      // panel or anywhere else on the page.
       expect(await detail.countActionsWithId('payment-received')).toBe(0)
       expect(await detail.countActionsLabelled('Payment received')).toBe(0)
       expect(await detail.countActionsWithId('start-assessment')).toBe(0)
@@ -304,6 +304,24 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       expect(await detail.countActionsWithId('withdraw-during-duly-made')).toBe(
         0
       )
+    })
+
+    it('refuses a direct POST to the removed payment-received action', async () => {
+      // RA-595 ("remove" step). management-be v16 no longer declares
+      // `payment-received`, and its rules migration strips it from existing
+      // cases, so a stale page or hand-crafted request cannot bring the step
+      // back. The status is not pinned beyond "refused" (management-be
+      // answers an unknown action with 400); what matters is that it did not
+      // succeed and the case did not move.
+      const { status } = await detail.postFromPage(
+        `/work-items/${workItemId}/actions/payment-received`
+      )
+
+      expect(status).toBeGreaterThanOrEqual(400)
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('duly-made')
+      // Positive control: the case still offers its Duly made actions.
+      expect(await detail.countActionsWithId('query')).toBe(1)
     })
 
     it('renders the assessment actions once each', async () => {
