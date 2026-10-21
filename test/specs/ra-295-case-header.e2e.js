@@ -38,8 +38,8 @@ import {
  *     (registration number, operator org id, material) that a UI-created item
  *     has no way to supply, but it sits in `submitted` with no SLA clock
  *     running, so its "Due date" has nothing to show.
- *   - A UI-created item can be driven through payment-received to start the
- *     SLA clock and then given a DETERMINISTIC due date via the
+ *   - A UI-created item can be duly made to start the SLA clock, driven into
+ *     assessment, and then given a DETERMINISTIC due date via the
  *     change-determination-deadline flow, which is the only way to assert a
  *     real, exact "Due date" date rather than merely "something is rendered".
  *     That used to go through the Override form's target-days + start-date
@@ -271,14 +271,8 @@ describe('RA-295 case header on the work item detail page', () => {
         tonnageBand: '0-500'
       }))
 
-      // Submitted -> Duly made -> Assessment in progress; payment-received is
-      // the transition that stamps the SLA clock (see RA-131).
-      //
-      // RA-316 replaced the submitted tasks and the auto-transition hook with
-      // the "Duly make" CTA and a payment date. The fee task is now set in a
-      // SEPARATE visit to the tasks page: it only appears once the item is in
-      // duly-made, so it can no longer be ticked in the same pass as the
-      // submitted ones.
+      // Submitted -> Duly made -> Assessment in progress. Duly making
+      // (RA-316) starts the SLA clock from the payment date entered.
       await dulyMake(workItemId)
       await startAssessment(workItemId)
 

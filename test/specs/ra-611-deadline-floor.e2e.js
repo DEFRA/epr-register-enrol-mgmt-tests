@@ -95,8 +95,8 @@ import { PRE_YEAR_START_WORK_ITEM } from '../support/seeded-fixtures.js'
  * can tell a correct floor from an over-strict one.
  *
  * WHY THIS FIXTURE IS DULY MADE IN THE PAST, and why that took discovering. The
- * floor is derived from the SLA clock, and the clock is stamped by the
- * payment-received transition from the PAYMENT DATE THE CASEWORKER ENTERS —
+ * floor is derived from the SLA clock, and the clock is started by duly
+ * making from the PAYMENT DATE THE CASEWORKER ENTERS —
  * `paymentDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)` in
  * management-be's duly-making service — not from the moment of the transition.
  * `dulyMake`'s existing `dayOffset` therefore back-dates the anchor as well as

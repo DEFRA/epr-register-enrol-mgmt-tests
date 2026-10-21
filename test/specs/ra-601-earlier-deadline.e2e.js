@@ -101,9 +101,8 @@ describe('RA-601 Change the determination deadline to an earlier date', () => {
       })
     ).id
 
-    // Submitted -> Duly made -> Assessment in progress. Payment-received is
-    // the transition that stamps the SLA clock, and assessment-in-progress is
-    // the state where the change-deadline action is offered.
+    // Submitted -> Duly made -> Assessment in progress. Duly making starts
+    // the SLA clock, and the deadline is changed from assessment.
     await dulyMake(workItemId)
     await startAssessment(workItemId)
 

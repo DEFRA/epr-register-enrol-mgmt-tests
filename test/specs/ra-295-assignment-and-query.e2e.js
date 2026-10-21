@@ -189,8 +189,8 @@ describe('RA-295 assignment panel and query assignment notice', () => {
         material: 'paper',
         tonnageBand: '0-500'
       }))
-      // Drive the item to Assessment in progress FIRST. `sla-extend` is only
-      // projected from that state, so withdrawing straight from `submitted`
+      // Drive the item to Assessment in progress FIRST. The deadline link
+      // never renders in `submitted`, so withdrawing straight from there
       // would assert absence on links that had never rendered at any point —
       // the negative could not fail, and a regression where a terminal state
       // still projects `sla-extend` would sail through green.

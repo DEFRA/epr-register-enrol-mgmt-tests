@@ -4,6 +4,7 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import dulyMaking from '../page-objects/duly-making.page.js'
 import decision from '../page-objects/decision.page.js'
+import slaExtend from '../page-objects/sla-extend.page.js'
 import {
   createReAccreditation,
   driveToAssessmentInProgress,
@@ -34,6 +35,11 @@ import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js
  * backend keeps `rejected`. Both are asserted below, on purpose, because a
  * change that "tidied" one to match the other would break a contract in one
  * direction or a regulator's screen in the other.
+ *
+ * RA-595: Duly made also offers Make Determination, Query and Change
+ * determination deadline directly, and no "Payment received" button. Step 2
+ * is one of three routes into assessment; submitting a determination or a
+ * deadline change from Duly made starts it too (see the ra-595-* specs).
  *
  * The Log decision page's own validation behaviour (missing radio, over-long
  * note) lives in ra-410-decision-validation.e2e.js, split out purely so wdio
@@ -82,6 +88,16 @@ describe('RA-410 The green CTA lifecycle', () => {
       expect(await detail.hasDulyMakeCta()).toBe(false)
     })
 
+    it('Duly made offers the assessment actions and no Payment received button (RA-595)', async () => {
+      // Positive hooks first, so the absence below cannot pass on a page that
+      // failed to render.
+      expect(await detail.hasLogDecisionCta()).toBe(true)
+      expect(await detail.hasAction('query')).toBe(true)
+      await slaExtend.assertActionLinkFor(workItemId)
+      expect(await detail.hasAssignmentControl('selfAssign')).toBe(true)
+      await detail.assertNoStartControl()
+    })
+
     it('step 2: Assign to yourself and start takes it to assessment', async () => {
       expect(await detail.hasAssignmentControl('selfAssign')).toBe(true)
       await detail.selfAssignAndStart()
@@ -94,6 +110,23 @@ describe('RA-410 The green CTA lifecycle', () => {
       // The button both assigns AND transitions; a version that only
       // transitioned would pass the state assertions and still be wrong.
       await detail.assertAssignedTo('Stub Caseworker One')
+    })
+
+    it('step 2 records "Assessment started" in the application history (RA-595)', async () => {
+      // RA-595 ("switch" step): the start half of the button now applies
+      // `start-assessment`, so the history entry names it. Positive check
+      // first, so the "Payment received" absence cannot pass vacuously.
+      await detail.gotoAudit()
+      const actions = await detail.appliedActionNames()
+      expect(actions).toContain('Assessment started')
+      expect(actions).not.toContain('Payment received')
+      expect(await detail.appliedTransitions()).toContain(
+        'duly-made → assessment-in-progress'
+      )
+
+      // Back to the detail page for step 3.
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('assessment-in-progress')
     })
 
     it('step 3: Log decision offers both outcomes', async () => {
@@ -210,7 +243,7 @@ describe('RA-410 The green CTA lifecycle', () => {
   describe('self-assign from a non-duly-made state does not transition', () => {
     // management-fe renders the assignment panel in EVERY non-closed state,
     // so "Assign to yourself and start" is on screen far more often than the
-    // transition is legal. The handler applies `payment-received` ONLY from
+    // transition is legal. The handler applies `start-assessment` ONLY from
     // `duly-made`; everywhere else it must take the case and nothing more.
     //
     // This is the trickiest guard in the story: the natural implementation —

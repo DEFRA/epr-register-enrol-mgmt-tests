@@ -17,11 +17,10 @@ import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js
  *   1. An operator submits a re-accreditation through the operator journey
  *      backend, which creates the work item (state = Submitted). The
  *      decision is pushed to that backend, so it must own the application.
- *   2. Tasks for each state are completed and the work item is
- *      progressed (auto-duly-made -> payment-received -> submit-for-
- *      "Assign to yourself and start") up to assessment-in-progress.
- *   3. A caseworker completes the awaiting-decision task and approves
- *      the work item (RA-323 — every caseworker holds the same role).
+ *   2. The work item is duly made, then "Assign to yourself and start"
+ *      takes it to assessment-in-progress.
+ *   3. A caseworker approves the work item (RA-323 — every caseworker
+ *      holds the same role).
  *   4. The backend generates a fixed 17-char accreditation id
  *      and stamps a start date + year onto the payload. The frontend
  *      renders a govukPanel confirmation and a summary list with all

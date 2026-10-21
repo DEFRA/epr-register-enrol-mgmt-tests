@@ -102,7 +102,7 @@ async function createFreshItem(organisationNamePrefix) {
 const driveToDulyMade = (id) => dulyMake(id)
 
 /**
- * Drive duly-made -> assessment-in-progress via payment-received. This moves
+ * Drive duly-made -> assessment-in-progress via start-assessment. This moves
  * the item OUT of PRE_ASSESSMENT_STATE_IDS while the clock keeps running, so
  * the card must drop Submitted on and keep Due date.
  *

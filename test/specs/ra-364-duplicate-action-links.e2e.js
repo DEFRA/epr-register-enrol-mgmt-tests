@@ -285,18 +285,48 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       // renders EXACTLY ONCE, which the `query` count below still protects.
       // Asserting 0 here also guards the regression that would reintroduce the
       // button beside the CTA and give two doors to one hop.
+      //
+      // RA-595: management-be v16 projects `start-assessment` here (and no
+      // longer `payment-received`); neither may become a button, in this
+      // panel or anywhere else on the page.
       expect(await detail.countActionsWithId('payment-received')).toBe(0)
       expect(await detail.countActionsLabelled('Payment received')).toBe(0)
+      expect(await detail.countActionsWithId('start-assessment')).toBe(0)
+      expect(await detail.countActionsLabelled('Assessment started')).toBe(0)
       expect(await detail.countActionsWithId('query')).toBe(1)
+      await detail.assertNoStartControl()
+      // RA-595: Make Determination renders in Duly made as its own CTA, and
+      // Change determination deadline in the assignment panel; neither leaks
+      // into the actions panel.
+      expect(await detail.hasLogDecisionCta()).toBe(true)
+      expect(await detail.countActionsWithId('sla-extend')).toBe(0)
       // RA-317: withdraw is gone from `duly-made` too.
       expect(await detail.countActionsWithId('withdraw-during-duly-made')).toBe(
         0
       )
     })
 
+    it('refuses a direct POST to the removed payment-received action', async () => {
+      // RA-595 ("remove" step). management-be v16 no longer declares
+      // `payment-received`, and its rules migration strips it from existing
+      // cases, so a stale page or hand-crafted request cannot bring the step
+      // back. The status is not pinned beyond "refused" (management-be
+      // answers an unknown action with 400); what matters is that it did not
+      // succeed and the case did not move.
+      const { status } = await detail.postFromPage(
+        `/work-items/${workItemId}/actions/payment-received`
+      )
+
+      expect(status).toBeGreaterThanOrEqual(400)
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('duly-made')
+      // Positive control: the case still offers its Duly made actions.
+      expect(await detail.countActionsWithId('query')).toBe(1)
+    })
+
     it('renders the assessment actions once each', async () => {
-      // Step 2 of the CTA lifecycle: self-assign applies `payment-received`.
-      // The old `triggerAction('payment-received')` button no longer exists.
+      // Step 2 of the CTA lifecycle: self-assign applies `start-assessment`
+      // (RA-595).
       await detail.selfAssignAndStart()
 
       // `assessment-in-progress` displays as "Updated" — see the trap note at

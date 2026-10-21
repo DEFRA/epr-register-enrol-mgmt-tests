@@ -140,9 +140,8 @@ describe('RA-599: reason for change in the application history', () => {
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Not started')
 
-    // Submitted -> Duly made -> Assessment in progress. The change-deadline
-    // action is only available in the latter, and payment-received is what
-    // stamps the SLA clock without which the change is rejected outright.
+    // Submitted -> Duly made -> Assessment in progress. Duly making starts
+    // the SLA clock, without which the change is rejected outright.
     await dulyMake(workItemId)
     await startAssessment(workItemId)
     await detail.assertState('Updated')

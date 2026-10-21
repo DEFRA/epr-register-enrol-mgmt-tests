@@ -75,7 +75,7 @@ async function createFreshItem(organisationNamePrefix) {
  */
 const driveToDulyMade = (id) => dulyMake(id)
 
-/** Duly made → Updated (assessment-in-progress) via payment-received. */
+/** Duly made → Updated (assessment-in-progress) via start-assessment. */
 async function driveToUpdated(id) {
   await workItems.openWorkItem(id)
   await startAssessment(id)
