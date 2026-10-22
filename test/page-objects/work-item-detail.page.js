@@ -552,6 +552,13 @@ class WorkItemDetailPage extends Page {
       .trim()
   }
 
+  /** False for a refusal, whose banner carries no accreditation number. */
+  async hasPendingContactAccreditationId() {
+    return $(
+      '[data-testid="re-accreditation-pending-contact-accreditation-id"]'
+    ).isExisting()
+  }
+
   /** The accreditation number minted at step 1, as the banner shows it. */
   async pendingContactAccreditationId() {
     return (
