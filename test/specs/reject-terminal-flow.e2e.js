@@ -85,6 +85,15 @@ describe('RA-132 Reject action terminal flow', () => {
       $('[data-testid="re-accreditation-approval-panel"]')
     ).not.toBeExisting()
 
+    // RA-527 task 007: step 2 of a refusal does what the old single-step
+    // refuse did. It records "Applicant contacted" but, unlike an approval,
+    // does NOT stop the SLA clock: no "SLA clock stopped" entry.
+    await detail.gotoAudit()
+    await detail.assertAuditEntry('Applicant contacted')
+    expect(
+      (await detail.auditEntriesForAction('sla-clock-stopped')).length
+    ).toBe(0)
+
     await login.logout()
   })
 

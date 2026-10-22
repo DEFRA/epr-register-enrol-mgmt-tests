@@ -60,6 +60,16 @@ describe('RA-527: approving is step 1 — pending applicant contact', () => {
     )
   })
 
+  // RA-527 task 007: step 1 stamps only the accreditation ID. The start date
+  // and year are stamped at step 2, so their rows wait for Granted.
+  it('shows the Accreditation ID row but no start date or year rows', async () => {
+    const bannerId = await detail.pendingContactAccreditationId()
+    expect(await detail.decisionMetadataRowKeys()).toEqual(['Accreditation ID'])
+    expect(await detail.getAccreditationIdRow()).toBe(bannerId)
+    // Nothing is issued yet, so no "Accreditation issued" panel either.
+    await detail.assertNoApprovalPanel()
+  })
+
   it('keeps the banner on every visit', async () => {
     await browser.refresh()
     await detail.assertStateId('approved-pending-contact')

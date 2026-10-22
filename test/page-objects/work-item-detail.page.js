@@ -421,6 +421,30 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * The Accreditation ID ROW of the decision-metadata summary list, as
+   * opposed to `getAccreditationId()`, which reads the "Accreditation issued"
+   * panel that only renders once Granted. RA-527: the row also shows while an
+   * approval is pending applicant contact.
+   */
+  async getAccreditationIdRow() {
+    return $('[data-testid="re-accreditation-accreditation-id"]').getText()
+  }
+
+  /**
+   * The keys of the decision-metadata summary list, in DOM order. RA-527
+   * task 007: pending contact shows only "Accreditation ID"; the start date
+   * and year rows follow once Granted (both are stamped at step 2).
+   */
+  async decisionMetadataRowKeys() {
+    const keys = await $$(
+      '[data-testid="re-accreditation-decision-metadata"] .govuk-summary-list__key'
+    )
+    return Promise.all(
+      [...keys].map(async (key) => (await key.getText()).trim())
+    )
+  }
+
+  /**
    * Assert that the re-accreditation "Accreditation issued" success panel
    * (RA-177) renders ABOVE the generic envelope attributes summary in DOM
    * order, with the accreditation metadata between them. Uses an XPath
