@@ -6,6 +6,7 @@ import dulyMaking from '../page-objects/duly-making.page.js'
 import decision from '../page-objects/decision.page.js'
 import slaExtend from '../page-objects/sla-extend.page.js'
 import {
+  confirmApplicantContact,
   createReAccreditation,
   driveToAssessmentInProgress,
   dulyMake,
@@ -23,6 +24,10 @@ import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js
  *   2. "Assign to yourself and start"  duly-made -> assessment-in-progress
  *   3. "Log decision" + Approved/Refused
  *                          assessment-in-progress -> approved / rejected
+ *
+ * RA-527 adds a fourth for approvals: step 3 lands in
+ * `approved-pending-contact` ("Approved") and "Confirm applicant contact"
+ * takes it on to `approved` ("Granted").
  *
  * `awaiting-decision` still exists in management-be's state machine but is an
  * INTERNAL HOP applied server-side inside the single decision call. One click
@@ -162,10 +167,19 @@ describe('RA-410 The green CTA lifecycle', () => {
       expect(await decision.isOutcomeSelected('refused')).toBe(false)
     })
 
-    it('step 3: Approved reaches the Granted terminal state', async () => {
+    it('step 3: Approved records the determination, pending applicant contact', async () => {
       await decision.selectOutcome('approved')
       await decision.submit()
       await decision.waitForDetailUrl(workItemId)
+
+      // RA-527: the determination is step 1 of two. Nothing is applied yet.
+      await detail.assertStateId('approved-pending-contact')
+      await detail.assertState('Approved')
+      expect(await detail.hasConfirmApplicantContactCta()).toBe(true)
+    })
+
+    it('step 4: "Confirm applicant contact" reaches the Granted terminal state', async () => {
+      await confirmApplicantContact(workItemId)
 
       await detail.assertStateId('approved')
       await detail.assertState('Granted')
@@ -197,6 +211,8 @@ describe('RA-410 The green CTA lifecycle', () => {
       // is management-be's call, and the AC is that the item does not REST
       // there, not that the edge is invisible.
       expect(transitions.join(' | ')).toContain('→ approved')
+      // RA-527: and it got there through step 2, from the pending state.
+      expect(transitions).toContain('approved-pending-contact → approved')
 
       // ...and the item is emphatically not sitting in awaiting-decision now:
       // it is in the terminal state, with no affordance to rest at the waypoint.

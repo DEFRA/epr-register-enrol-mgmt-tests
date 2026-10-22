@@ -3,6 +3,7 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import dulyMaking from '../page-objects/duly-making.page.js'
 import decision from '../page-objects/decision.page.js'
+import confirmContact from '../page-objects/confirm-contact.page.js'
 import { utcDateParts } from './uk-time.js'
 
 /**
@@ -26,7 +27,7 @@ import { utcDateParts } from './uk-time.js'
  *
  *   assessment-in-progress --[ "Make determination" + Approved ]-->
  *     approved-pending-contact ("Approved")
- *       --[ "Confirm applicant contact" (task 004) ]--> approved ("Granted")
+ *       --[ "Confirm applicant contact" ]--> approved ("Granted")
  *
  * WHAT WENT, AND WHY THE CONSTANTS ARE DELETED RATHER THAN EMPTIED:
  * `DULY_MADE_TASKS`, `ASSESSMENT_TASKS` and `DECISION_TASK` are gone, as is
@@ -152,8 +153,8 @@ export async function startAssessment(workItemId) {
  * RA-527: an approval is now STEP 1 OF TWO. It lands in
  * `approved-pending-contact` (tagged "Approved"), with the number minted but
  * nothing applied — the operator still sees their old status. Granted needs
- * step 2, "Confirm applicant contact" (task 004). A refusal is still applied
- * in one step until task 005.
+ * step 2, `confirmApplicantContact` below. A refusal is still applied in one
+ * step until task 005.
  *
  * One click covers both internal hops. management-be applies
  * `assessment-in-progress -> awaiting-decision -> <outcome state>` inside
@@ -217,18 +218,38 @@ export async function driveToApprovedPendingContact(workItemId) {
 }
 
 /**
- * The whole journey through to `approved` ("Granted" on screen).
+ * RA-527. Step 2: Approved (pending contact) -> Granted, via "Confirm
+ * applicant contact", ticking "I have contacted the applicant about the
+ * decision" and "Confirm and continue".
  *
- * ⚠ RA-527: FAILS UNTIL TASK 004. Granted now needs step 2, "Confirm
- * applicant contact", which task 004 builds (and re-composes this as
- * `driveToApprovedPendingContact` + `confirmApplicantContact`). Until then
- * this stops at step 1 and the assertion below fails LOUDLY, naming the state
- * it actually reached, rather than letting a spec continue against an item
- * that is not Granted. Do not paper over it by relaxing the assertion.
+ * THIS is the moment the outcome is applied: the operator journey is told
+ * (its status becomes Approved, shown to the operator as GRANTED), the SLA
+ * clock stops, publishing is queued and the Decision email is sent. The
+ * detail page then shows the one-time "Applicant contacted" flash.
+ *
+ * The redirect wait is long because management-be pushes to the operator
+ * journey BEFORE it writes, retrying for up to ~28s when that is slow.
+ *
+ * Leaves the browser on the detail page.
+ */
+export async function confirmApplicantContact(workItemId) {
+  await workItems.openWorkItem(workItemId)
+  expect(await detail.hasConfirmApplicantContactCta()).toBe(true)
+  await detail.clickConfirmApplicantContact()
+  await confirmContact.assertOnPage()
+  await confirmContact.tickContacted()
+  await confirmContact.submit()
+  await confirmContact.waitForDetailUrl(workItemId)
+  await detail.assertStateId('approved')
+}
+
+/**
+ * The whole journey through to `approved` ("Granted" on screen): step 1
+ * (`driveToApprovedPendingContact`) then step 2 (`confirmApplicantContact`).
  */
 export async function driveToApproved(workItemId) {
   await driveToApprovedPendingContact(workItemId)
-  await detail.assertStateId('approved')
+  await confirmApplicantContact(workItemId)
 }
 
 /** The whole journey through to `rejected` ("Refused" on screen). */

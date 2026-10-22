@@ -173,6 +173,17 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
       await detail.assertState('Granted')
       await detail.assertNoUsableAssignmentAffordances()
     })
+
+    it('says the application is closed, with the final Outcome', async () => {
+      // RA-527 (Figma Design 3) wording.
+      expect(await detail.assignmentClosedText()).toBe(
+        'This application is closed and can no longer be assigned or reassigned.'
+      )
+      expect(await detail.readOnlyOutcomeText()).toBe(
+        'This work item is in a final state. No further decision actions are available.'
+      )
+      await detail.assertReadOnlyOutcomePanel('Granted')
+    })
   })
 
   describe('a rejected work item', () => {
@@ -193,6 +204,17 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
       await workItems.openWorkItem(workItemId)
       await detail.assertState('Refused')
       await detail.assertNoUsableAssignmentAffordances()
+    })
+
+    it('says the application is closed, with the final Outcome', async () => {
+      // RA-527 (Figma Design 3) wording.
+      expect(await detail.assignmentClosedText()).toBe(
+        'This application is closed and can no longer be assigned or reassigned.'
+      )
+      expect(await detail.readOnlyOutcomeText()).toBe(
+        'This work item is in a final state. No further decision actions are available.'
+      )
+      await detail.assertReadOnlyOutcomePanel('Refused')
     })
   })
 

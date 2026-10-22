@@ -458,6 +458,15 @@ class WorkItemDetailPage extends Page {
    * paragraph explains no further decision actions are available and a
    * govuk tag shows the terminal state. See re-accreditation/detail-v1.njk.
    */
+  /** RA-527 (Figma Design 3). The Outcome box's sentence, whitespace-collapsed. */
+  async readOnlyOutcomeText() {
+    return (
+      await $('[data-testid="re-accreditation-readonly-actions"]').getText()
+    )
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
   async assertReadOnlyOutcomePanel(expectedStateText) {
     await expect(
       $('[data-testid="re-accreditation-readonly-actions"]')
@@ -1698,6 +1707,13 @@ class WorkItemDetailPage extends Page {
    */
   assignmentClosedNotice() {
     return $('[data-testid="assignment-closed"]')
+  }
+
+  /** RA-527 (Figma Design 3). The closed panel's wording, whitespace-collapsed. */
+  async assignmentClosedText() {
+    return (await this.assignmentClosedNotice().getText())
+      .replace(/\s+/g, ' ')
+      .trim()
   }
 
   /**

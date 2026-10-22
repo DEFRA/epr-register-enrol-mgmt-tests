@@ -15,7 +15,7 @@ import {
  * accreditation number, but does NOT apply the outcome: the work item lands
  * in `approved-pending-contact` (tagged "Approved", light blue), the operator
  * journey is not told, and the only way forward is "Confirm applicant
- * contact" (step 2, task 004).
+ * contact" (step 2).
  *
  * Operator-backed (Path B) so the operator journey's own copy of the status
  * can be read back: it must still say what it said before the determination.
