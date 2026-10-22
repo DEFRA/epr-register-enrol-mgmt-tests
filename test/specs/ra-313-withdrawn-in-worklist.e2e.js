@@ -94,6 +94,8 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
 
     await login.login()
     await logDecision(rejectedId, 'refused')
+    // RA-527: the determination is step 1; Refused needs step 2.
+    await confirmApplicantContact(rejectedId)
     await detail.assertState('Refused')
 
     await login.logout()

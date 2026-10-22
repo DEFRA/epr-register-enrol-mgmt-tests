@@ -241,6 +241,9 @@ describe('RA-410 The green CTA lifecycle', () => {
 
     it('records the refusal', async () => {
       await logDecision(workItemId, 'refused')
+      // RA-527: the determination is step 1 ("Refusing"); step 2 applies it.
+      await detail.assertState('Refusing')
+      await confirmApplicantContact(workItemId)
       // The state id is the backend contract and is unchanged by RA-410...
       await detail.assertStateId('rejected')
       // ...while what the regulator reads is the new label. Asserting both is

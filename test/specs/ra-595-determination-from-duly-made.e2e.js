@@ -109,6 +109,9 @@ describe('RA-595 Make Determination from a Duly made case held by a colleague', 
 
   it('submitting Refused starts assessment and refuses, leaving the colleague assigned', async () => {
     await logDecision(workItemId, 'refused')
+    // RA-527: step 1 of a refusal. Refused needs step 2.
+    await detail.assertState('Refusing')
+    await confirmApplicantContact(workItemId)
     await detail.assertState('Refused')
     // Submitting a determination must not silently take over their case.
     await detail.assertAssignedTo('Stub Caseworker Two')

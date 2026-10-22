@@ -496,8 +496,9 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * RA-527. The persistent green "Application approved" banner shown on every
-   * visit while an approval awaits applicant contact. Not a flash: it is not
+   * RA-527. The persistent green "Application approved" / "Application
+   * refused" banner shown on every
+   * visit while a determination awaits applicant contact. Not a flash: it is not
    * `work-item-flash-banner` and survives a reload.
    */
   pendingContactBanner() {
@@ -538,7 +539,7 @@ class WorkItemDetailPage extends Page {
 
   /**
    * RA-527. The primary "Confirm applicant contact" button (step 2) in its
-   * own box while an approval awaits applicant contact. A link to the
+   * own box while a determination awaits applicant contact. A link to the
    * confirm-contact page; a disabled, hrefless span for a read-only user.
    */
   confirmApplicantContactCta() {

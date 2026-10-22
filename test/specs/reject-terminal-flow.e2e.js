@@ -3,6 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import {
+  confirmApplicantContact,
   dulyMake,
   logDecision,
   startAssessment
@@ -63,9 +64,14 @@ describe('RA-132 Reject action terminal flow', () => {
     // action — management-be does not list it in `availableActions` at all —
     // so the old `triggerAction('reject')` route cannot reach this state.
     //
-    // "Refused" is the LABEL only: the state id underneath is still
-    // `rejected`, which is what `logDecision` asserts on the way through.
+    // RA-527: the determination is step 1 — it lands in
+    // `rejected-pending-contact` ("Refusing"), which `logDecision` asserts.
+    // "Confirm applicant contact" (step 2) then applies it. "Refused" is the
+    // LABEL only: the state id underneath is still `rejected`, which
+    // `confirmApplicantContact` asserts on the way through.
     await logDecision(workItemId, 'refused')
+    await detail.assertState('Refusing')
+    await confirmApplicantContact(workItemId)
     await detail.assertState('Refused')
 
     // RA-132: the terminal state replaces the generic action panel with a
