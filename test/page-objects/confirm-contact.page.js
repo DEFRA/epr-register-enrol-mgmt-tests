@@ -31,11 +31,11 @@ class ConfirmContactPage extends Page {
   }
 
   async assertOnPage() {
-    await expect($('[data-testid="confirm-contact-submit"]')).toBeDisplayed()
+    await expect(this.submitButton()).toBeDisplayed()
   }
 
   async isOnPage() {
-    return $('[data-testid="confirm-contact-submit"]').isExisting()
+    return this.submitButton().isExisting()
   }
 
   /** The page H1 (the base Page's `pageHeading`). */

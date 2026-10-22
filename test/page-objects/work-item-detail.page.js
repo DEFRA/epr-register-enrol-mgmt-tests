@@ -452,12 +452,6 @@ class WorkItemDetailPage extends Page {
     ).toExist()
   }
 
-  /**
-   * Assert the read-only "Outcome" panel that replaces the generic action
-   * panel once a re-accreditation reaches a terminal state (RA-132). The
-   * paragraph explains no further decision actions are available and a
-   * govuk tag shows the terminal state. See re-accreditation/detail-v1.njk.
-   */
   /** RA-527 (Figma Design 3). The Outcome box's sentence, whitespace-collapsed. */
   async readOnlyOutcomeText() {
     return (
@@ -467,6 +461,12 @@ class WorkItemDetailPage extends Page {
       .trim()
   }
 
+  /**
+   * Assert the read-only "Outcome" panel that replaces the generic action
+   * panel once a re-accreditation reaches a terminal state (RA-132). The
+   * paragraph explains no further decision actions are available and a
+   * govuk tag shows the terminal state. See re-accreditation/detail-v1.njk.
+   */
   async assertReadOnlyOutcomePanel(expectedStateText) {
     await expect(
       $('[data-testid="re-accreditation-readonly-actions"]')
