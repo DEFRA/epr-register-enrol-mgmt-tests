@@ -477,6 +477,91 @@ class WorkItemDetailPage extends Page {
     await expect($('[data-testid="action-reject"]')).not.toBeExisting()
   }
 
+  /**
+   * RA-527. The case header's status badge text, e.g. "Approved" for an
+   * approval awaiting applicant contact (`approved-pending-contact`) versus
+   * "Granted" once step 2 has applied it.
+   */
+  async stateTagText() {
+    return (await $('[data-testid="work-item-state-tag"]').getText()).trim()
+  }
+
+  /**
+   * RA-527. The persistent green "Application approved" banner shown on every
+   * visit while an approval awaits applicant contact. Not a flash: it is not
+   * `work-item-flash-banner` and survives a reload.
+   */
+  pendingContactBanner() {
+    return $('[data-testid="re-accreditation-pending-contact-banner"]')
+  }
+
+  async hasPendingContactBanner() {
+    return this.pendingContactBanner().isExisting()
+  }
+
+  async pendingContactBannerTitle() {
+    return (
+      await this.pendingContactBanner()
+        .$('.govuk-notification-banner__title')
+        .getText()
+    ).trim()
+  }
+
+  /** The banner body, whitespace-collapsed: the sentence plus "Accreditation ID: …". */
+  async pendingContactBannerText() {
+    return (
+      await this.pendingContactBanner()
+        .$('.govuk-notification-banner__content')
+        .getText()
+    )
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
+  /** The accreditation number minted at step 1, as the banner shows it. */
+  async pendingContactAccreditationId() {
+    return (
+      await $(
+        '[data-testid="re-accreditation-pending-contact-accreditation-id"]'
+      ).getText()
+    ).trim()
+  }
+
+  /**
+   * RA-527. The primary "Confirm applicant contact" button (step 2) in its
+   * own box while an approval awaits applicant contact. A link to the
+   * confirm-contact page; a disabled, hrefless span for a read-only user.
+   */
+  confirmApplicantContactCta() {
+    return $('[data-testid="confirm-applicant-contact-cta"]')
+  }
+
+  async hasConfirmApplicantContactCta() {
+    return this.confirmApplicantContactCta().isExisting()
+  }
+
+  async confirmApplicantContactCtaText() {
+    return (await this.confirmApplicantContactCta().getText()).trim()
+  }
+
+  async confirmApplicantContactHref() {
+    return this.confirmApplicantContactCta().getAttribute('href')
+  }
+
+  /** True when the button renders as the read-only disabled span. */
+  async isConfirmApplicantContactCtaDisabled() {
+    const cta = this.confirmApplicantContactCta()
+    const classes = (await cta.getAttribute('class')) ?? ''
+    return (
+      (await cta.getTagName()) !== 'a' ||
+      classes.split(/\s+/).includes('app-action-link--disabled')
+    )
+  }
+
+  async clickConfirmApplicantContact() {
+    await this.confirmApplicantContactCta().click()
+  }
+
   async addNote(text) {
     await $('[data-testid="note-text"]').setValue(text)
     await $('[data-testid="add-note-submit"]').click()

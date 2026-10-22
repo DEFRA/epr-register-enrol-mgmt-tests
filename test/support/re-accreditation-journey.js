@@ -22,6 +22,12 @@ import { utcDateParts } from './uk-time.js'
  *   assessment-in-progress --[ "Log decision" + Approved/Refused ]--> approved
  *                                                                  / rejected
  *
+ * RA-527 splits the approval into two steps:
+ *
+ *   assessment-in-progress --[ "Make determination" + Approved ]-->
+ *     approved-pending-contact ("Approved")
+ *       --[ "Confirm applicant contact" (task 004) ]--> approved ("Granted")
+ *
  * WHAT WENT, AND WHY THE CONSTANTS ARE DELETED RATHER THAN EMPTIED:
  * `DULY_MADE_TASKS`, `ASSESSMENT_TASKS` and `DECISION_TASK` are gone, as is
  * `completeTasks`. Emptying them would let `completeTasks(ASSESSMENT_TASKS)`
@@ -135,21 +141,31 @@ export async function startAssessment(workItemId) {
 }
 
 /**
- * Step 3. Assessment in progress -> Approved / Refused, via "Log decision".
+ * Step 3. Assessment in progress -> Approved (step 1) / Refused, via "Make
+ * determination".
  *
  * `outcome` is `'approved'` or `'refused'` — the words on the RADIOS, which
  * is what a spec author is reading off the screen. "REFUSED" IS A LABEL
  * CHANGE ONLY: the state underneath is still `rejected`, which is why the
  * state-id assertion below maps the two. Do not "fix" that mapping to match.
  *
- * One click covers both hops. management-be applies
- * `assessment-in-progress -> awaiting-decision -> approved/rejected` inside
+ * RA-527: an approval is now STEP 1 OF TWO. It lands in
+ * `approved-pending-contact` (tagged "Approved"), with the number minted but
+ * nothing applied — the operator still sees their old status. Granted needs
+ * step 2, "Confirm applicant contact" (task 004). A refusal is still applied
+ * in one step until task 005.
+ *
+ * One click covers both internal hops. management-be applies
+ * `assessment-in-progress -> awaiting-decision -> <outcome state>` inside
  * the single call, so there is no intermediate page and nothing to assert
  * between them.
  */
 export async function logDecision(workItemId, outcome, { note } = {}) {
-  const terminalStateId = { approved: 'approved', refused: 'rejected' }[outcome]
-  if (!terminalStateId) {
+  const outcomeStateId = {
+    approved: 'approved-pending-contact',
+    refused: 'rejected'
+  }[outcome]
+  if (!outcomeStateId) {
     throw new Error(
       `Unknown decision outcome "${outcome}" (expected "approved" or "refused")`
     )
@@ -160,7 +176,7 @@ export async function logDecision(workItemId, outcome, { note } = {}) {
   await decision.assertOnPage()
   await decision.selectOutcome(outcome)
   // The note is OPTIONAL and most callers omit it — they only want the item
-  // parked in a terminal state. RA-203 is the spec that cares, and it passes
+  // parked in a decided state. RA-203 is the spec that cares, and it passes
   // one so the Decision email's `decision_notes` personalisation has something
   // to carry. See the ordering note on `decision.page.js`: management-fe posts
   // the note before the decision precisely so the notification hook reads it.
@@ -169,7 +185,7 @@ export async function logDecision(workItemId, outcome, { note } = {}) {
   }
   await decision.submit()
   await decision.waitForDetailUrl(workItemId)
-  await detail.assertStateId(terminalStateId)
+  await detail.assertStateId(outcomeStateId)
 }
 
 /**
@@ -183,10 +199,36 @@ export async function driveToAssessmentInProgress(workItemId) {
   await startAssessment(workItemId)
 }
 
-/** The whole journey through to `approved` ("Granted" on screen). */
-export async function driveToApproved(workItemId) {
+/**
+ * RA-527. The whole journey through step 1 of an approval:
+ * `approved-pending-contact` ("Approved" on screen). The accreditation
+ * number is minted and shown to the regulator, the persistent "Application
+ * approved" banner and the "Confirm applicant contact" button are on the
+ * page, and the operator's status is unchanged.
+ *
+ * Leaves the browser on the detail page.
+ */
+export async function driveToApprovedPendingContact(workItemId) {
   await driveToAssessmentInProgress(workItemId)
   await logDecision(workItemId, 'approved')
+  await detail.assertState('Approved')
+  expect(await detail.hasPendingContactBanner()).toBe(true)
+  expect(await detail.hasConfirmApplicantContactCta()).toBe(true)
+}
+
+/**
+ * The whole journey through to `approved` ("Granted" on screen).
+ *
+ * ⚠ RA-527: FAILS UNTIL TASK 004. Granted now needs step 2, "Confirm
+ * applicant contact", which task 004 builds (and re-composes this as
+ * `driveToApprovedPendingContact` + `confirmApplicantContact`). Until then
+ * this stops at step 1 and the assertion below fails LOUDLY, naming the state
+ * it actually reached, rather than letting a spec continue against an item
+ * that is not Granted. Do not paper over it by relaxing the assertion.
+ */
+export async function driveToApproved(workItemId) {
+  await driveToApprovedPendingContact(workItemId)
+  await detail.assertStateId('approved')
 }
 
 /** The whole journey through to `rejected` ("Refused" on screen). */

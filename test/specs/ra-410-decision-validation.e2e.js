@@ -106,7 +106,9 @@ describe('RA-410 The green CTA lifecycle', () => {
       await decision.submit()
       await decision.waitForDetailUrl(workItemId)
 
-      await detail.assertStateId('approved')
+      // RA-527: an approval is step 1 of two and lands pending applicant
+      // contact, not Granted.
+      await detail.assertStateId('approved-pending-contact')
     })
   })
 
