@@ -2431,9 +2431,9 @@ class WorkItemDetailPage extends Page {
    *
    * Returns `{ status, redirected, url }` rather than a bare status because
    * the two guarded routes refuse in two different shapes: the generic
-   * apply-action route re-renders in place with a 409, while the
-   * re-accreditation approve route follows this app's PRG convention and
-   * 302s back to the detail page. `redirect: 'manual'` is deliberately NOT
+   * apply-action route re-renders in place with a 409, while a
+   * module-owned route following this app's PRG convention 302s back to
+   * the detail page. `redirect: 'manual'` is deliberately NOT
    * used — it yields an opaque response with status 0 and no readable
    * headers, so the redirect is followed and asserted via `redirected` +
    * the final `url` instead.
