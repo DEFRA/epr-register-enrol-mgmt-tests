@@ -6,7 +6,7 @@ import confirmContact from '../page-objects/confirm-contact.page.js'
 import {
   confirmApplicantContact,
   driveToApprovedPendingContact,
-  driveToRefusingPendingContact
+  driveToRefusedPendingContact
 } from '../support/re-accreditation-journey.js'
 import {
   createOperatorBackedWorkItem,
@@ -23,8 +23,10 @@ import { getWorkItem, postDecision } from '../support/decision-api.js'
  *   Step 1, "Make determination": records the determination and (for an
  *   approval) mints the accreditation number, but applies nothing. The item
  *   waits in `approved-pending-contact` ("Approved") or
- *   `rejected-pending-contact` ("Refusing"), and the operator still sees the
- *   status they saw before.
+ *   `rejected-pending-contact` ("Refused"), and the operator still sees the
+ *   status they saw before. Each step 1 tag has its final state's colour
+ *   (task 010): "Approved" green like Granted, and "Refused" red like the
+ *   final Refused, which it also reads the same as.
  *
  *   Step 2, "Confirm applicant contact": applies the outcome. The operator
  *   sees GRANTED / REFUSED, the item becomes Granted / Refused, and for an
@@ -115,11 +117,11 @@ describe('RA-527: two-step determination', () => {
       stepOneAccreditationId = await detail.pendingContactAccreditationId()
     })
 
-    it('tags the work item "Approved" in light blue', async () => {
+    it('tags the work item "Approved" in green, as Granted is', async () => {
       await workItems.openWorkItem(approval.id)
       await detail.assertStateId('approved-pending-contact')
       expect(await detail.stateTagText()).toBe('Approved')
-      await detail.assertStateTagClass('govuk-tag--light-blue')
+      await detail.assertStateTagClass('govuk-tag--green')
     })
 
     it('shows the "Application approved" banner with the minted accreditation ID', async () => {
@@ -169,14 +171,14 @@ describe('RA-527: two-step determination', () => {
 
   describe('refusal, step 1: Make determination with Refused', () => {
     before(async () => {
-      await driveToRefusingPendingContact(refusal.id)
+      await driveToRefusedPendingContact(refusal.id)
     })
 
-    it('tags the work item "Refusing" in orange', async () => {
+    it('tags the work item "Refused" in red, as the final Refused is', async () => {
       await workItems.openWorkItem(refusal.id)
       await detail.assertStateId('rejected-pending-contact')
-      expect(await detail.stateTagText()).toBe('Refusing')
-      await detail.assertStateTagClass('govuk-tag--orange')
+      expect(await detail.stateTagText()).toBe('Refused')
+      await detail.assertStateTagClass('govuk-tag--red')
     })
 
     it('shows the "Application refused" banner, with no accreditation ID', async () => {
@@ -210,8 +212,10 @@ describe('RA-527: two-step determination', () => {
     })
   })
 
-  // Task 006: both pending states are on the worklist and have a Status
-  // filter of their own.
+  // Task 006: both pending states are on the worklist. Task 010: the step 1
+  // approval has a Status option of its own ("Approved", separate from
+  // "Granted"); the step 1 refusal is found under the one "Refused" option,
+  // which covers both refusal states.
   describe('the worklist while both are pending', () => {
     beforeEach(async () => {
       await workItems.resetFilters()
@@ -232,12 +236,32 @@ describe('RA-527: two-step determination', () => {
       expect(await workItems.getWorkItemCount()).toBe(1)
     })
 
-    it('the "Refusing" Status filter returns only the refusal', async () => {
-      await workItems.checkStatus('rejected-pending-contact')
+    it('the "Refused" Status filter returns the pending refusal', async () => {
+      await workItems.checkStatus('rejected')
       await workItems.applyFiltersAndWait()
       await expect(workItems.workItemLink(refusal.id)).toExist()
       await expect(workItems.workItemLink(approval.id)).not.toExist()
       expect(await workItems.getWorkItemCount()).toBe(1)
+    })
+
+    it('the "Granted" Status filter returns neither', async () => {
+      await workItems.checkStatus('approved')
+      await workItems.applyFiltersAndWait()
+      expect(await workItems.getWorkItemCount()).toBe(0)
+    })
+
+    it('offers one Refused option, with Approved and Granted separate', async () => {
+      expect(await workItems.statusOptionValues()).toEqual([
+        'submitted',
+        'duly-made',
+        'updated',
+        'awaiting-decision',
+        'queried',
+        'approved-pending-contact',
+        'approved',
+        'rejected',
+        'withdrawn'
+      ])
     })
   })
 
@@ -386,6 +410,36 @@ describe('RA-527: two-step determination', () => {
       expect(sentNotifications(await getWorkItem(refusal.id)).length).toBe(
         notificationsBeforeStepTwo
       )
+    })
+  })
+
+  // Task 010: the same "Refused" option finds the refusal once it is final,
+  // and the approval moves from "Approved" to "Granted".
+  describe('the worklist once both are final', () => {
+    beforeEach(async () => {
+      await workItems.resetFilters()
+      await workItems.searchByOrg(organisationIdGroup)
+    })
+
+    it('the "Refused" Status filter returns the final refusal', async () => {
+      await workItems.checkStatus('rejected')
+      await workItems.applyFiltersAndWait()
+      await expect(workItems.workItemLink(refusal.id)).toExist()
+      await expect(workItems.workItemLink(approval.id)).not.toExist()
+      expect(await workItems.getWorkItemCount()).toBe(1)
+    })
+
+    it('the "Granted" Status filter returns the approval', async () => {
+      await workItems.checkStatus('approved')
+      await workItems.applyFiltersAndWait()
+      await expect(workItems.workItemLink(approval.id)).toExist()
+      expect(await workItems.getWorkItemCount()).toBe(1)
+    })
+
+    it('the "Approved" Status filter returns neither', async () => {
+      await workItems.checkStatus('approved-pending-contact')
+      await workItems.applyFiltersAndWait()
+      expect(await workItems.getWorkItemCount()).toBe(0)
     })
   })
 

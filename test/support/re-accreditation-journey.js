@@ -30,7 +30,7 @@ import { utcDateParts } from './uk-time.js'
  *       --[ "Confirm applicant contact" ]--> approved ("Granted")
  *
  *   assessment-in-progress --[ "Make determination" + Refused ]-->
- *     rejected-pending-contact ("Refusing")
+ *     rejected-pending-contact ("Refused", as the final state reads)
  *       --[ "Confirm applicant contact" ]--> rejected ("Refused")
  *
  * WHAT WENT, AND WHY THE CONSTANTS ARE DELETED RATHER THAN EMPTIED:
@@ -158,7 +158,8 @@ export async function startAssessment(workItemId) {
  * `approved-pending-contact` (tagged "Approved"), with the number minted but
  * nothing applied — the operator still sees their old status. Granted needs
  * step 2, `confirmApplicantContact` below. A refusal is the same: it lands
- * in `rejected-pending-contact` (tagged "Refusing"), and Refused needs step 2.
+ * in `rejected-pending-contact` (also tagged "Refused"), and the final
+ * Refused needs step 2.
  *
  * One click covers both internal hops. management-be applies
  * `assessment-in-progress -> awaiting-decision -> <outcome state>` inside
@@ -223,16 +224,18 @@ export async function driveToApprovedPendingContact(workItemId) {
 
 /**
  * RA-527. The whole journey through step 1 of a refusal:
- * `rejected-pending-contact` ("Refusing" on screen). No number is minted,
- * the persistent "Application refused" banner and the "Confirm applicant
- * contact" button are on the page, and the operator's status is unchanged.
+ * `rejected-pending-contact` ("Refused" on screen, the same label as the
+ * final `rejected`, so the state id, which `logDecision` asserts, is what
+ * tells them apart). No number is minted, the persistent "Application
+ * refused" banner and the "Confirm applicant contact" button are on the
+ * page, and the operator's status is unchanged.
  *
  * Leaves the browser on the detail page.
  */
-export async function driveToRefusingPendingContact(workItemId) {
+export async function driveToRefusedPendingContact(workItemId) {
   await driveToAssessmentInProgress(workItemId)
   await logDecision(workItemId, 'refused')
-  await detail.assertState('Refusing')
+  await detail.assertState('Refused')
   expect(await detail.hasPendingContactBanner()).toBe(true)
   expect(await detail.hasConfirmApplicantContactCta()).toBe(true)
 }
@@ -245,8 +248,9 @@ const CONFIRMED_STATE_IDS = {
 
 /**
  * RA-527. Step 2, for either outcome: Approved (pending contact) -> Granted,
- * or Refusing -> Refused, via "Confirm applicant contact", ticking "I have
- * contacted the applicant about the decision" and "Confirm and continue".
+ * or Refused (pending contact) -> Refused, via "Confirm applicant contact",
+ * ticking "I have contacted the applicant about the decision" and "Confirm
+ * and continue".
  *
  * THIS is the moment the outcome is applied: the operator journey is told
  * (its status becomes Approved / Rejected, shown to the operator as GRANTED
@@ -288,9 +292,9 @@ export async function driveToApproved(workItemId) {
 
 /**
  * The whole journey through to `rejected` ("Refused" on screen): step 1
- * (`driveToRefusingPendingContact`) then step 2 (`confirmApplicantContact`).
+ * (`driveToRefusedPendingContact`) then step 2 (`confirmApplicantContact`).
  */
 export async function driveToRefused(workItemId) {
-  await driveToRefusingPendingContact(workItemId)
+  await driveToRefusedPendingContact(workItemId)
   await confirmApplicantContact(workItemId)
 }

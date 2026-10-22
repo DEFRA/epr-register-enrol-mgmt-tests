@@ -65,12 +65,13 @@ describe('RA-132 Reject action terminal flow', () => {
     // so the old `triggerAction('reject')` route cannot reach this state.
     //
     // RA-527: the determination is step 1 — it lands in
-    // `rejected-pending-contact` ("Refusing"), which `logDecision` asserts.
+    // `rejected-pending-contact` (also tagged "Refused"), which `logDecision`
+    // asserts.
     // "Confirm applicant contact" (step 2) then applies it. "Refused" is the
     // LABEL only: the state id underneath is still `rejected`, which
     // `confirmApplicantContact` asserts on the way through.
     await logDecision(workItemId, 'refused')
-    await detail.assertState('Refusing')
+    await detail.assertState('Refused')
     await confirmApplicantContact(workItemId)
     await detail.assertState('Refused')
 
