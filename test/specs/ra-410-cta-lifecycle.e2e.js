@@ -146,8 +146,12 @@ describe('RA-410 The green CTA lifecycle', () => {
       expect(await decision.warningTextText()).toBe(
         'This determination is final and it cannot be changed.'
       )
+      // RA-527 (Figma Design 3): shorter H1, "Notes (optional)" label, and the
+      // "contact the applicant" instruction folded into the hint.
+      expect(await decision.headingText()).toBe('Make determination')
+      expect(await decision.noteLabelText()).toBe('Notes (optional)')
       expect(await decision.noteHintText()).toBe(
-        'The determination will be recorded in the audit log (application history). Contact the applicant when the determination has been made.'
+        'The determination will be recorded in the application history (audit log). You need to contact the applicant when the determination has been made.'
       )
 
       expect(await decision.hasOutcomeRadio('approved')).toBe(true)
