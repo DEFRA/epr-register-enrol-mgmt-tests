@@ -130,8 +130,7 @@ class RecyclingOperationsPage extends Page {
    *
    * The status is the whole point: hiding a removed site's Change link is not
    * a control, because the URL is guessable from any other site's link. The
-   * route itself has to refuse. Same reasoning as
-   * `openApprovePathDirectly()` on the detail page object.
+   * route itself has to refuse.
    */
   async fetchSiteStatus(workItemId, siteId) {
     return browser.execute(

@@ -372,33 +372,6 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * Type into the optional decision-note textarea on the approval
-   * interstitial (RA-132 / RA-203).
-   */
-  async setDecisionNote(text) {
-    await $('[data-testid="approval-decision-note"]').setValue(text)
-  }
-
-  /**
-   * Submit the approval interstitial form (RA-133).  After
-   * triggerAction('approve') the browser is on the GET confirmation
-   * page at /work-items/re-accreditation/{id}/approve.  This method
-   * clicks the "Approve determination" submit button and waits for the
-   * POST-redirect-GET back to the detail page.
-   */
-  async submitApproval() {
-    await $('[data-testid="approval-submit"]').click()
-    await browser.waitUntil(
-      async () => !/\/approve$/.test(await browser.getUrl()),
-      {
-        timeout: 10000,
-        timeoutMsg:
-          'Expected redirect away from approval interstitial after submitting approval'
-      }
-    )
-  }
-
-  /**
    * Assert that the re-accreditation approval confirmation panel
    * (RA-133) is displayed and exposes the generated accreditation id.
    * Returns the accreditation id text so callers can assert on its
@@ -2445,23 +2418,6 @@ class WorkItemDetailPage extends Page {
     const labels = await this.pageControlLabels()
     expect(labels).not.toContain('Payment received')
     expect(labels).not.toContain('Assessment started')
-  }
-
-  /**
-   * RA-132. The approve interstitial lives on a type-specific route, not
-   * under the generic `/work-items/{id}/actions/...` namespace.
-   */
-  approvePath(workItemId) {
-    return `/work-items/re-accreditation/${workItemId}/approve`
-  }
-
-  /**
-   * RA-346. Navigate straight to the approve interstitial, bypassing the
-   * CTA. Hiding the CTA alone is not a control — the route itself has to
-   * refuse when the decision tasks are incomplete.
-   */
-  async openApprovePathDirectly(workItemId) {
-    await this.open(this.approvePath(workItemId))
   }
 
   /**
