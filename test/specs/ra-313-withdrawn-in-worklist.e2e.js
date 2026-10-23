@@ -3,6 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import {
+  confirmApplicantContact,
   dulyMake,
   logDecision,
   startAssessment
@@ -93,6 +94,8 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
 
     await login.login()
     await logDecision(rejectedId, 'refused')
+    // RA-527: the determination is step 1; Refused needs step 2.
+    await confirmApplicantContact(rejectedId)
     await detail.assertState('Refused')
 
     await login.logout()
@@ -103,6 +106,8 @@ describe('RA-313 terminal-state applications stay on the worklist', () => {
 
     await login.login()
     await logDecision(approvedId, 'approved')
+    // RA-527: the determination is step 1; Granted needs step 2.
+    await confirmApplicantContact(approvedId)
     await detail.assertState('Granted')
 
     await login.logout()

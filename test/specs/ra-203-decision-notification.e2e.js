@@ -3,6 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import {
+  confirmApplicantContact,
   dulyMake,
   logDecision,
   startAssessment
@@ -19,7 +20,9 @@ const DECISION_NOTE =
 
 /**
  * RA-203 — Approving a re-accreditation sends the operator the decision
- * email.
+ * email. RA-527: approval is two steps, and the email is sent at step 2
+ * ("Confirm applicant contact"), when the outcome is applied — never at the
+ * step 1 determination.
  *
  * Regression cover for the bug where decision emails never sent: the
  * Decision GOV.UK Notify template requires a ((decision_notes))
@@ -65,15 +68,34 @@ describe('RA-203 Approval sends operator decision notification', () => {
     await login.logout()
   })
 
-  it('records a "Decision recorded: approved email sent" audit entry after approval with a note', async () => {
+  it('sends no Decision email at the determination (step 1)', async () => {
     await login.login()
     await workItems.openWorkItem(workItemId)
     await detail.assertStateId('assessment-in-progress')
 
     // RA-410 moved the decision note from the approve interstitial onto the
-    // Log decision page. The field is what feeds `decision_notes`, so a
-    // decision WITHOUT one is not the case this spec is about.
+    // Log decision page, so the determination carries its rationale.
+    // RA-527: approving is now step 1 of two. The determination is recorded
+    // but nothing is applied, so the operator is not emailed yet.
     await logDecision(workItemId, 'approved', { note: DECISION_NOTE })
+    await detail.assertState('Approved')
+
+    await detail.gotoAudit()
+    await detail.expandAllAuditEntryDetails()
+    await detail.assertAuditEntry('Determination made: Approved')
+    expect(
+      await detail.auditEntryIndex('Decision recorded: approved email sent')
+    ).toBe(-1)
+
+    await login.logout()
+  })
+
+  it('records a "Decision recorded: approved email sent" audit entry once applicant contact is confirmed', async () => {
+    await login.login()
+
+    // RA-527 step 2 applies the determination, and the Decision email goes
+    // with it, alongside the operator's GRANTED status.
+    await confirmApplicantContact(workItemId)
     await detail.assertState('Granted')
 
     // The notification hook fired and the send succeeded, so the audit
@@ -82,15 +104,10 @@ describe('RA-203 Approval sends operator decision notification', () => {
     await detail.gotoAudit()
     await detail.expandAllAuditEntryDetails()
     await detail.assertAuditEntry('Decision recorded: approved email sent')
+    await detail.assertAuditEntry('Applicant contacted')
 
-    // The note reached the work item as a note in its own right. This is the
-    // link in the chain the e2e can actually see: management-be builds
-    // `decision_notes` from the work item's LATEST note, so "the note was
-    // recorded before the decision" is the observable precondition for the
-    // email carrying it. The personalisation value itself is not surfaced in
-    // the audit log, so that last hop stays management-be's unit-level
-    // concern (NotifyTemplateContractTests) — asserted here as far as the UI
-    // honestly reaches, and no further.
+    // The note reached the work item as a note in its own right, as the
+    // determination's rationale in the application history.
     await detail.assertAuditEntry('Note added')
     await detail.assertAuditEntry(DECISION_NOTE)
 

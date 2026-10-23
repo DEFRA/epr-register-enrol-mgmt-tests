@@ -4,6 +4,7 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import decision from '../page-objects/decision.page.js'
 import {
+  confirmApplicantContact,
   driveToAssessmentInProgress,
   logDecision
 } from '../support/re-accreditation-journey.js'
@@ -81,6 +82,8 @@ describe('RA-346/RA-410 A determination can be logged only once', () => {
   describe('once the determination is approved', () => {
     before(async () => {
       await logDecision(workItemId, 'approved')
+      // RA-527: the determination is step 1; Granted needs step 2.
+      await confirmApplicantContact(workItemId)
     })
 
     it('issues the accreditation', async () => {

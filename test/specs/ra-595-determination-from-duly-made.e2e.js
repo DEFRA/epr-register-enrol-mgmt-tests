@@ -3,7 +3,11 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import decision from '../page-objects/decision.page.js'
-import { dulyMake, logDecision } from '../support/re-accreditation-journey.js'
+import {
+  confirmApplicantContact,
+  dulyMake,
+  logDecision
+} from '../support/re-accreditation-journey.js'
 import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js'
 
 /**
@@ -61,8 +65,11 @@ describe('RA-595 Make Determination from an unassigned Duly made case', () => {
   })
 
   it('submitting Approved assigns the caller, starts assessment and grants', async () => {
-    // `logDecision` asserts the terminal state id itself.
+    // `logDecision` and `confirmApplicantContact` each assert the state id
+    // they land on.
     await logDecision(workItemId, 'approved')
+    // RA-527: the determination is step 1; Granted needs step 2.
+    await confirmApplicantContact(workItemId)
     await detail.assertState('Granted')
     await detail.assertAssignedTo(CALLER)
   })
@@ -102,6 +109,10 @@ describe('RA-595 Make Determination from a Duly made case held by a colleague', 
 
   it('submitting Refused starts assessment and refuses, leaving the colleague assigned', async () => {
     await logDecision(workItemId, 'refused')
+    // RA-527: step 1 of a refusal (`logDecision` asserts the state id), also
+    // tagged "Refused". The final Refused needs step 2.
+    await detail.assertState('Refused')
+    await confirmApplicantContact(workItemId)
     await detail.assertState('Refused')
     // Submitting a determination must not silently take over their case.
     await detail.assertAssignedTo('Stub Caseworker Two')

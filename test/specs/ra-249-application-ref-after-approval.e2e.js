@@ -3,6 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import {
+  confirmApplicantContact,
   dulyMake,
   logDecision,
   startAssessment
@@ -70,6 +71,10 @@ describe('RA-249 — application reference survives approval', () => {
     await detail.assertStateId('assessment-in-progress')
 
     await logDecision(createdId, 'approved')
+
+    // RA-527: the determination is step 1; Granted needs step 2.
+
+    await confirmApplicantContact(createdId)
 
     await detail.assertState('Granted')
     await detail.assertApprovalPanelVisible()
