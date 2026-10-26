@@ -152,8 +152,11 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
 
     const year = await detail.getAccreditationYear()
     expect(year).toMatch(/^\d{4}$/)
-    // The accreditation id and the year must agree (the id embeds only YY).
-    expect(accreditationId.startsWith(`A${year.slice(-2)}`)).toBe(true)
+    // RA-690: the id's YY is the year the operator applied for (the
+    // application's own year, checked in step 1 above), not this year, which
+    // management-be stamps from its configured accreditation year. The two
+    // can differ, e.g. on a late approval after the configured year rolls
+    // over, and on the compose stack, where the helper seeds the calendar year.
 
     const startDate = await detail.getAccreditationStartDate()
     expect(startDate.length).toBeGreaterThan(0)
