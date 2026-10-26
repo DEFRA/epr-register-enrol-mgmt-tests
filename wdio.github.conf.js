@@ -14,6 +14,12 @@ process.env.CDP_UPLOADER_URL ??= 'http://localhost:7337'
 process.env.MANAGEMENT_BE_SHARED_SECRET ??= 'E2eComposeMgmtTestsToManagementBe'
 process.env.OPERATOR_BACKEND_SHARED_SECRET ??=
   'E2eComposeMgmtTestsToOperatorBackend'
+// RA-527: on this stack the suite may play management-be towards the operator
+// backend, signed with the AUTH_SHARED_SECRET__MANAGEMENT_BE in
+// docker/config/operator-backend.env. Never set on CDP.
+process.env.CASE_MANAGEMENT_PUSH_ENABLED ??= 'true'
+process.env.CASE_MANAGEMENT_PUSH_SECRET ??=
+  'E2eComposeManagementBeToOperatorBackend'
 // The compose stack runs the Entra ID stub, as CDP test does (RA-537).
 process.env.ENTRA_STUB_LOGIN ??= 'true'
 

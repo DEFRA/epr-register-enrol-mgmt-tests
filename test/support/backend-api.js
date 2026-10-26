@@ -26,6 +26,22 @@
  *
  * With neither set, requests go unsigned, which only a stack with no
  * secrets configured accepts.
+ *
+ * RA-527. One spec also plays management-be itself, sending a status push to
+ * the operator backend as management-be does (`caseManagementPushRequest`).
+ * That only works where the suite may hold management-be's own secret for
+ * that backend, so it is opt-in:
+ *
+ *   CASE_MANAGEMENT_PUSH_ENABLED    "true" where the spec may run: the
+ *                                   compose stack (wdio.github.conf.js) and a
+ *                                   local stack (wdio.local.conf.js). Unset
+ *                                   on CDP, where the secret is management-be's
+ *                                   alone, so the spec is skipped there.
+ *   CASE_MANAGEMENT_PUSH_SECRET     the operator backend's
+ *                                   AUTH_SHARED_SECRET__MANAGEMENT_BE. Unset
+ *                                   on a local stack, whose operator backend
+ *                                   runs as Development with no secret and
+ *                                   accepts the push unsigned.
  */
 
 import { createHmac, randomBytes } from 'node:crypto'
@@ -154,6 +170,76 @@ export function operatorBackendRequest(method, path, { body } = {}) {
   const secret = process.env.OPERATOR_BACKEND_SHARED_SECRET
   if (secret) {
     headers.authorization = `Bearer ${secret}`
+  }
+  return send(`${requireEnv('OPERATOR_BACKEND_URL')}${path}`, {
+    method,
+    headers,
+    body
+  })
+}
+
+/** The client id management-be signs its operator-backend pushes with. */
+export const MANAGEMENT_BE_CLIENT_ID = 'epr-register-enrol-management-be'
+
+/** RA-527. Whether this run may play management-be (see the module doc). */
+export const isCaseManagementPushEnabled = () =>
+  process.env.CASE_MANAGEMENT_PUSH_ENABLED === 'true'
+
+/**
+ * The v3 HMAC the operator backend's CaseManagement auth handler checks:
+ * `v3`, client id, user id, user name, timestamp and nonce, each on its own
+ * line. Unlike management-be's own scheme there is no role or nation line,
+ * and management-be sends no user, so both user lines are empty. Mirrors
+ * management-be's `HttpOperatorBackendPushAdapter.BuildRequest`, including
+ * its second-precision timestamp.
+ *
+ * Returns no headers when `sharedSecret` is unset.
+ */
+export function signCaseManagementPushHeaders({
+  sharedSecret = process.env.CASE_MANAGEMENT_PUSH_SECRET,
+  timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+  nonce = randomBytes(16).toString('base64')
+} = {}) {
+  if (!sharedSecret) {
+    return {}
+  }
+  const canonical = [
+    'v3',
+    MANAGEMENT_BE_CLIENT_ID,
+    '',
+    '',
+    timestamp,
+    nonce
+  ].join('\n')
+  const signature = createHmac('sha256', sharedSecret)
+    .update(canonical, 'utf8')
+    .digest('base64')
+  return {
+    'x-cdp-auth-signature': signature,
+    'x-cdp-auth-timestamp': timestamp,
+    'x-cdp-auth-nonce': nonce
+  }
+}
+
+/**
+ * RA-527. Call the operator backend AS management-be, signed as its pushes
+ * are. Only for runs where `isCaseManagementPushEnabled()`; it throws
+ * otherwise, so a spec that forgot the gate fails loudly rather than with a
+ * puzzling 401.
+ */
+export function caseManagementPushRequest(method, path, { body } = {}) {
+  if (!isCaseManagementPushEnabled()) {
+    throw new Error(
+      'CASE_MANAGEMENT_PUSH_ENABLED is not "true": this run may not play management-be.'
+    )
+  }
+  const headers = {
+    accept: 'application/json',
+    'x-cdp-client-id': MANAGEMENT_BE_CLIENT_ID,
+    ...signCaseManagementPushHeaders()
+  }
+  if (body !== undefined) {
+    headers['content-type'] = 'application/json'
   }
   return send(`${requireEnv('OPERATOR_BACKEND_URL')}${path}`, {
     method,
