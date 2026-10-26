@@ -3,11 +3,14 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import {
+  confirmApplicantContact,
   dulyMake,
+  logDecision,
   startAssessment
 } from '../support/re-accreditation-journey.js'
 import {
   createOperatorBackedWorkItem,
+  getOperatorApplication,
   waitForOperatorApplicationStatus
 } from '../support/operator-backend-api.js'
 
@@ -46,9 +49,12 @@ import {
  *   - `duly-make` (submitted -> duly-made), and
  *   - `start-assessment` (duly-made -> assessment-in-progress; RA-595).
  *
- * The decision actions (submit-for-decision/approve/reject) are deliberately
- * NOT here: their Registration & Accreditation service push is owned by ReAccreditationLogDecisionService as a
- * single pre-commit gate and excluded from this hook. The failure path for
+ * The decision actions are NOT pushed by this hook: their Registration &
+ * Accreditation service push is a single pre-commit gate owned by the service
+ * that applies the outcome. RA-527 moved it for both outcomes: the determination
+ * (step 1) pushes nothing at all, and the push happens when applicant contact
+ * is confirmed (step 2) — the approval cases below, and the refusal describe
+ * at the end. The failure path for
  * that push is covered by management-be's integration tests
  * (ReAccreditationEndpointTests), against a failing fake of that service.
  */
@@ -117,5 +123,86 @@ describe('RA-368 CM status push to OJ', () => {
     // assessment-in-progress has no status of its own on that side; it
     // reads as Updated.
     await waitForOperatorApplicationStatus(application, 'Updated')
+  })
+
+  it('pushes nothing for an approved determination (RA-527 step 1)', async () => {
+    await logDecision(workItemId, 'approved')
+
+    await detail.gotoAudit()
+    // Still just the duly-make and start-assessment pushes.
+    const sentEntries = await detail.waitForAuditEntryCount(
+      'status-push-sent',
+      2
+    )
+    expect(sentEntries.length).toBe(2)
+    const operatorApplication = await getOperatorApplication(
+      application.operatorOrganisationId,
+      application.operatorApplicationId
+    )
+    expect(operatorApplication.applicationStatus).toBe('Updated')
+  })
+
+  it('pushes the outcome when applicant contact is confirmed (RA-527 step 2)', async () => {
+    await confirmApplicantContact(workItemId)
+
+    await detail.gotoAudit()
+    const sentEntries = await detail.waitForAuditEntryCount(
+      'status-push-sent',
+      3
+    )
+    expect(sentEntries.length).toBe(3)
+    // Approved on that side, which the operator sees as GRANTED.
+    await waitForOperatorApplicationStatus(application, 'Approved')
+  })
+})
+
+// RA-527 (task 005). A refusal follows the same two steps: the determination
+// pushes nothing, and the operator only sees REFUSED once applicant contact
+// is confirmed.
+describe('RA-368 status push to the Registration & Accreditation service: a refusal', () => {
+  let workItemId
+  let application
+
+  before(async () => {
+    await login.login()
+    application = await createOperatorBackedWorkItem()
+    workItemId = application.id
+    await dulyMake(workItemId)
+    await startAssessment(workItemId)
+    await waitForOperatorApplicationStatus(application, 'Updated')
+  })
+
+  after(async () => {
+    await login.logout()
+  })
+
+  it('pushes nothing for a refused determination (RA-527 step 1)', async () => {
+    await logDecision(workItemId, 'refused')
+
+    await detail.gotoAudit()
+    // Still just the duly-make and start-assessment pushes.
+    const sentEntries = await detail.waitForAuditEntryCount(
+      'status-push-sent',
+      2
+    )
+    expect(sentEntries.length).toBe(2)
+    const operatorApplication = await getOperatorApplication(
+      application.operatorOrganisationId,
+      application.operatorApplicationId
+    )
+    expect(operatorApplication.applicationStatus).toBe('Updated')
+  })
+
+  it('pushes the refusal when applicant contact is confirmed (RA-527 step 2)', async () => {
+    await confirmApplicantContact(workItemId)
+
+    await detail.gotoAudit()
+    const sentEntries = await detail.waitForAuditEntryCount(
+      'status-push-sent',
+      3
+    )
+    expect(sentEntries.length).toBe(3)
+    // Rejected on that side, which the operator sees as REFUSED.
+    await waitForOperatorApplicationStatus(application, 'Rejected')
   })
 })

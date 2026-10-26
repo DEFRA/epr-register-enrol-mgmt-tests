@@ -3,6 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import {
+  confirmApplicantContact,
   dulyMake,
   logDecision,
   startAssessment
@@ -61,8 +62,20 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
 
     await logDecision(workItemId, 'approved')
 
+    // RA-527: the determination is step 1; Granted needs step 2. Task 007:
+    // step 1 stamps only the number, so only its row shows until then.
+    expect(await detail.decisionMetadataRowKeys()).toEqual(['Accreditation ID'])
+
+    await confirmApplicantContact(workItemId)
+
     await detail.assertState('Granted')
     await detail.assertApprovalPanelVisible()
+    // Step 2 stamps the start date and year: all three rows now show.
+    expect(await detail.decisionMetadataRowKeys()).toEqual([
+      'Accreditation ID',
+      'Accreditation start date',
+      'Accreditation year'
+    ])
 
     // RA-177. The "Accreditation issued" success panel and its metadata
     // must render above the generic envelope attributes summary.

@@ -372,33 +372,6 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * Type into the optional decision-note textarea on the approval
-   * interstitial (RA-132 / RA-203).
-   */
-  async setDecisionNote(text) {
-    await $('[data-testid="approval-decision-note"]').setValue(text)
-  }
-
-  /**
-   * Submit the approval interstitial form (RA-133).  After
-   * triggerAction('approve') the browser is on the GET confirmation
-   * page at /work-items/re-accreditation/{id}/approve.  This method
-   * clicks the "Approve determination" submit button and waits for the
-   * POST-redirect-GET back to the detail page.
-   */
-  async submitApproval() {
-    await $('[data-testid="approval-submit"]').click()
-    await browser.waitUntil(
-      async () => !/\/approve$/.test(await browser.getUrl()),
-      {
-        timeout: 10000,
-        timeoutMsg:
-          'Expected redirect away from approval interstitial after submitting approval'
-      }
-    )
-  }
-
-  /**
    * Assert that the re-accreditation approval confirmation panel
    * (RA-133) is displayed and exposes the generated accreditation id.
    * Returns the accreditation id text so callers can assert on its
@@ -448,6 +421,30 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * The Accreditation ID ROW of the decision-metadata summary list, as
+   * opposed to `getAccreditationId()`, which reads the "Accreditation issued"
+   * panel that only renders once Granted. RA-527: the row also shows while an
+   * approval is pending applicant contact.
+   */
+  async getAccreditationIdRow() {
+    return $('[data-testid="re-accreditation-accreditation-id"]').getText()
+  }
+
+  /**
+   * The keys of the decision-metadata summary list, in DOM order. RA-527
+   * task 007: pending contact shows only "Accreditation ID"; the start date
+   * and year rows follow once Granted (both are stamped at step 2).
+   */
+  async decisionMetadataRowKeys() {
+    const keys = await $$(
+      '[data-testid="re-accreditation-decision-metadata"] .govuk-summary-list__key'
+    )
+    return Promise.all(
+      [...keys].map(async (key) => (await key.getText()).trim())
+    )
+  }
+
+  /**
    * Assert that the re-accreditation "Accreditation issued" success panel
    * (RA-177) renders ABOVE the generic envelope attributes summary in DOM
    * order, with the accreditation metadata between them. Uses an XPath
@@ -479,6 +476,15 @@ class WorkItemDetailPage extends Page {
     ).toExist()
   }
 
+  /** RA-527 (Figma Design 3). The Outcome box's sentence, whitespace-collapsed. */
+  async readOnlyOutcomeText() {
+    return (
+      await $('[data-testid="re-accreditation-readonly-actions"]').getText()
+    )
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
   /**
    * Assert the read-only "Outcome" panel that replaces the generic action
    * panel once a re-accreditation reaches a terminal state (RA-132). The
@@ -502,6 +508,99 @@ class WorkItemDetailPage extends Page {
   async assertNoDecisionActions() {
     await expect($('[data-testid="action-approve"]')).not.toBeExisting()
     await expect($('[data-testid="action-reject"]')).not.toBeExisting()
+  }
+
+  /**
+   * RA-527. The case header's status badge text, e.g. "Approved" for an
+   * approval awaiting applicant contact (`approved-pending-contact`) versus
+   * "Granted" once step 2 has applied it.
+   */
+  async stateTagText() {
+    return (await $('[data-testid="work-item-state-tag"]').getText()).trim()
+  }
+
+  /**
+   * RA-527. The persistent green "Application approved" / "Application
+   * refused" banner shown on every
+   * visit while a determination awaits applicant contact. Not a flash: it is not
+   * `work-item-flash-banner` and survives a reload.
+   */
+  pendingContactBanner() {
+    return $('[data-testid="re-accreditation-pending-contact-banner"]')
+  }
+
+  async hasPendingContactBanner() {
+    return this.pendingContactBanner().isExisting()
+  }
+
+  async pendingContactBannerTitle() {
+    return (
+      await this.pendingContactBanner()
+        .$('.govuk-notification-banner__title')
+        .getText()
+    ).trim()
+  }
+
+  /** The banner body, whitespace-collapsed: the sentence plus "Accreditation ID: …". */
+  async pendingContactBannerText() {
+    return (
+      await this.pendingContactBanner()
+        .$('.govuk-notification-banner__content')
+        .getText()
+    )
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
+  /** False for a refusal, whose banner carries no accreditation number. */
+  async hasPendingContactAccreditationId() {
+    return $(
+      '[data-testid="re-accreditation-pending-contact-accreditation-id"]'
+    ).isExisting()
+  }
+
+  /** The accreditation number minted at step 1, as the banner shows it. */
+  async pendingContactAccreditationId() {
+    return (
+      await $(
+        '[data-testid="re-accreditation-pending-contact-accreditation-id"]'
+      ).getText()
+    ).trim()
+  }
+
+  /**
+   * RA-527. The primary "Confirm applicant contact" button (step 2) in its
+   * own box while a determination awaits applicant contact. A link to the
+   * confirm-contact page; a disabled, hrefless span for a read-only user.
+   */
+  confirmApplicantContactCta() {
+    return $('[data-testid="confirm-applicant-contact-cta"]')
+  }
+
+  async hasConfirmApplicantContactCta() {
+    return this.confirmApplicantContactCta().isExisting()
+  }
+
+  async confirmApplicantContactCtaText() {
+    return (await this.confirmApplicantContactCta().getText()).trim()
+  }
+
+  async confirmApplicantContactHref() {
+    return this.confirmApplicantContactCta().getAttribute('href')
+  }
+
+  /** True when the button renders as the read-only disabled span. */
+  async isConfirmApplicantContactCtaDisabled() {
+    const cta = this.confirmApplicantContactCta()
+    const classes = (await cta.getAttribute('class')) ?? ''
+    return (
+      (await cta.getTagName()) !== 'a' ||
+      classes.split(/\s+/).includes('app-action-link--disabled')
+    )
+  }
+
+  async clickConfirmApplicantContact() {
+    await this.confirmApplicantContactCta().click()
   }
 
   async addNote(text) {
@@ -1642,6 +1741,13 @@ class WorkItemDetailPage extends Page {
     return $('[data-testid="assignment-closed"]')
   }
 
+  /** RA-527 (Figma Design 3). The closed panel's wording, whitespace-collapsed. */
+  async assignmentClosedText() {
+    return (await this.assignmentClosedNotice().getText())
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
   /**
    * RA-358. Assert a terminal-state case offers no usable assignment
    * affordance at all.
@@ -2448,23 +2554,6 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * RA-132. The approve interstitial lives on a type-specific route, not
-   * under the generic `/work-items/{id}/actions/...` namespace.
-   */
-  approvePath(workItemId) {
-    return `/work-items/re-accreditation/${workItemId}/approve`
-  }
-
-  /**
-   * RA-346. Navigate straight to the approve interstitial, bypassing the
-   * CTA. Hiding the CTA alone is not a control — the route itself has to
-   * refuse when the decision tasks are incomplete.
-   */
-  async openApprovePathDirectly(workItemId) {
-    await this.open(this.approvePath(workItemId))
-  }
-
-  /**
    * RA-346 (and RA-335, which established the pattern). POST to a route
    * from inside the page so the browser attaches the session cookie.
    *
@@ -2475,9 +2564,9 @@ class WorkItemDetailPage extends Page {
    *
    * Returns `{ status, redirected, url }` rather than a bare status because
    * the two guarded routes refuse in two different shapes: the generic
-   * apply-action route re-renders in place with a 409, while the
-   * re-accreditation approve route follows this app's PRG convention and
-   * 302s back to the detail page. `redirect: 'manual'` is deliberately NOT
+   * apply-action route re-renders in place with a 409, while a
+   * module-owned route following this app's PRG convention 302s back to
+   * the detail page. `redirect: 'manual'` is deliberately NOT
    * used — it yields an opaque response with status 0 and no readable
    * headers, so the redirect is followed and asserted via `redirected` +
    * the final `url` instead.

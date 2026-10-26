@@ -1,6 +1,7 @@
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import {
+  confirmApplicantContact,
   dulyMake,
   logDecision,
   startAssessment
@@ -167,25 +168,29 @@ export async function createWithdrawnWorkItemWithRunningSla(fixture) {
 }
 
 /**
- * Drive an `assessment-in-progress` item to `Granted`, via "Log decision" ->
- * Approved.
+ * Drive an `assessment-in-progress` item to `Granted`, via "Make
+ * determination" -> Approved (RA-527 step 1) and then "Confirm applicant
+ * contact" (step 2).
  */
 export async function approveWorkItem(id) {
   await logDecision(id, 'approved')
+  await confirmApplicantContact(id)
   await detail.assertState('Granted')
   return id
 }
 
 /**
- * Drive an `assessment-in-progress` item to `Refused`, via "Log decision" ->
- * Refused.
+ * Drive an `assessment-in-progress` item to `Refused`, via "Make
+ * determination" -> Refused (RA-527 step 1) and then "Confirm applicant
+ * contact" (step 2).
  *
  * The visible status reads "Refused" and the underlying state id is still
- * `rejected` — RA-410 renamed the label only. `logDecision` asserts the id;
- * this asserts what the regulator actually sees.
+ * `rejected` — RA-410 renamed the label only. `confirmApplicantContact`
+ * asserts the id; this asserts what the regulator actually sees.
  */
 export async function rejectWorkItem(id) {
   await logDecision(id, 'refused')
+  await confirmApplicantContact(id)
   await detail.assertState('Refused')
   return id
 }

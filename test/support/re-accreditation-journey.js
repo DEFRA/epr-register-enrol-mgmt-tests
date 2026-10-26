@@ -3,6 +3,7 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import dulyMaking from '../page-objects/duly-making.page.js'
 import decision from '../page-objects/decision.page.js'
+import confirmContact from '../page-objects/confirm-contact.page.js'
 import { utcDateParts } from './uk-time.js'
 
 /**
@@ -21,6 +22,16 @@ import { utcDateParts } from './uk-time.js'
  *   duly-made  --[ "Assign to yourself and start" ]--> assessment-in-progress
  *   assessment-in-progress --[ "Log decision" + Approved/Refused ]--> approved
  *                                                                  / rejected
+ *
+ * RA-527 splits each outcome into two steps:
+ *
+ *   assessment-in-progress --[ "Make determination" + Approved ]-->
+ *     approved-pending-contact ("Approved")
+ *       --[ "Confirm applicant contact" ]--> approved ("Granted")
+ *
+ *   assessment-in-progress --[ "Make determination" + Refused ]-->
+ *     rejected-pending-contact ("Refused", as the final state reads)
+ *       --[ "Confirm applicant contact" ]--> rejected ("Refused")
  *
  * WHAT WENT, AND WHY THE CONSTANTS ARE DELETED RATHER THAN EMPTIED:
  * `DULY_MADE_TASKS`, `ASSESSMENT_TASKS` and `DECISION_TASK` are gone, as is
@@ -135,21 +146,32 @@ export async function startAssessment(workItemId) {
 }
 
 /**
- * Step 3. Assessment in progress -> Approved / Refused, via "Log decision".
+ * Step 3. Assessment in progress -> Approved (step 1) / Refused, via "Make
+ * determination".
  *
  * `outcome` is `'approved'` or `'refused'` — the words on the RADIOS, which
  * is what a spec author is reading off the screen. "REFUSED" IS A LABEL
  * CHANGE ONLY: the state underneath is still `rejected`, which is why the
  * state-id assertion below maps the two. Do not "fix" that mapping to match.
  *
- * One click covers both hops. management-be applies
- * `assessment-in-progress -> awaiting-decision -> approved/rejected` inside
+ * RA-527: an approval is now STEP 1 OF TWO. It lands in
+ * `approved-pending-contact` (tagged "Approved"), with the number minted but
+ * nothing applied — the operator still sees their old status. Granted needs
+ * step 2, `confirmApplicantContact` below. A refusal is the same: it lands
+ * in `rejected-pending-contact` (also tagged "Refused"), and the final
+ * Refused needs step 2.
+ *
+ * One click covers both internal hops. management-be applies
+ * `assessment-in-progress -> awaiting-decision -> <outcome state>` inside
  * the single call, so there is no intermediate page and nothing to assert
  * between them.
  */
 export async function logDecision(workItemId, outcome, { note } = {}) {
-  const terminalStateId = { approved: 'approved', refused: 'rejected' }[outcome]
-  if (!terminalStateId) {
+  const outcomeStateId = {
+    approved: 'approved-pending-contact',
+    refused: 'rejected-pending-contact'
+  }[outcome]
+  if (!outcomeStateId) {
     throw new Error(
       `Unknown decision outcome "${outcome}" (expected "approved" or "refused")`
     )
@@ -160,7 +182,7 @@ export async function logDecision(workItemId, outcome, { note } = {}) {
   await decision.assertOnPage()
   await decision.selectOutcome(outcome)
   // The note is OPTIONAL and most callers omit it — they only want the item
-  // parked in a terminal state. RA-203 is the spec that cares, and it passes
+  // parked in a decided state. RA-203 is the spec that cares, and it passes
   // one so the Decision email's `decision_notes` personalisation has something
   // to carry. See the ordering note on `decision.page.js`: management-fe posts
   // the note before the decision precisely so the notification hook reads it.
@@ -169,7 +191,7 @@ export async function logDecision(workItemId, outcome, { note } = {}) {
   }
   await decision.submit()
   await decision.waitForDetailUrl(workItemId)
-  await detail.assertStateId(terminalStateId)
+  await detail.assertStateId(outcomeStateId)
 }
 
 /**
@@ -183,14 +205,96 @@ export async function driveToAssessmentInProgress(workItemId) {
   await startAssessment(workItemId)
 }
 
-/** The whole journey through to `approved` ("Granted" on screen). */
-export async function driveToApproved(workItemId) {
+/**
+ * RA-527. The whole journey through step 1 of an approval:
+ * `approved-pending-contact` ("Approved" on screen). The accreditation
+ * number is minted and shown to the regulator, the persistent "Application
+ * approved" banner and the "Confirm applicant contact" button are on the
+ * page, and the operator's status is unchanged.
+ *
+ * Leaves the browser on the detail page.
+ */
+export async function driveToApprovedPendingContact(workItemId) {
   await driveToAssessmentInProgress(workItemId)
   await logDecision(workItemId, 'approved')
+  await detail.assertState('Approved')
+  expect(await detail.hasPendingContactBanner()).toBe(true)
+  expect(await detail.hasConfirmApplicantContactCta()).toBe(true)
 }
 
-/** The whole journey through to `rejected` ("Refused" on screen). */
-export async function driveToRefused(workItemId) {
+/**
+ * RA-527. The whole journey through step 1 of a refusal:
+ * `rejected-pending-contact` ("Refused" on screen, the same label as the
+ * final `rejected`, so the state id, which `logDecision` asserts, is what
+ * tells them apart). No number is minted, the persistent "Application
+ * refused" banner and the "Confirm applicant contact" button are on the
+ * page, and the operator's status is unchanged.
+ *
+ * Leaves the browser on the detail page.
+ */
+export async function driveToRefusedPendingContact(workItemId) {
   await driveToAssessmentInProgress(workItemId)
   await logDecision(workItemId, 'refused')
+  await detail.assertState('Refused')
+  expect(await detail.hasPendingContactBanner()).toBe(true)
+  expect(await detail.hasConfirmApplicantContactCta()).toBe(true)
+}
+
+// RA-527. Where step 2 lands from each step 1 state.
+const CONFIRMED_STATE_IDS = {
+  'approved-pending-contact': 'approved',
+  'rejected-pending-contact': 'rejected'
+}
+
+/**
+ * RA-527. Step 2, for either outcome: Approved (pending contact) -> Granted,
+ * or Refused (pending contact) -> Refused, via "Confirm applicant contact",
+ * ticking "I have contacted the applicant about the decision" and "Confirm
+ * and continue".
+ *
+ * THIS is the moment the outcome is applied: the operator journey is told
+ * (its status becomes Approved / Rejected, shown to the operator as GRANTED
+ * / REFUSED) and the SLA clock stops. For an approval publishing is queued
+ * and the Decision email is sent; a refusal sends no email. The detail page
+ * then shows the one-time "Applicant contacted" flash.
+ *
+ * The redirect wait is long because management-be pushes to the operator
+ * journey BEFORE it writes, retrying for up to ~28s when that is slow.
+ *
+ * Leaves the browser on the detail page.
+ */
+export async function confirmApplicantContact(workItemId) {
+  await workItems.openWorkItem(workItemId)
+  const pendingStateId = await detail.stateId()
+  const confirmedStateId = CONFIRMED_STATE_IDS[pendingStateId]
+  if (!confirmedStateId) {
+    throw new Error(
+      `Work item ${workItemId} is not pending applicant contact (state "${pendingStateId}")`
+    )
+  }
+  expect(await detail.hasConfirmApplicantContactCta()).toBe(true)
+  await detail.clickConfirmApplicantContact()
+  await confirmContact.assertOnPage()
+  await confirmContact.tickContacted()
+  await confirmContact.submit()
+  await confirmContact.waitForDetailUrl(workItemId)
+  await detail.assertStateId(confirmedStateId)
+}
+
+/**
+ * The whole journey through to `approved` ("Granted" on screen): step 1
+ * (`driveToApprovedPendingContact`) then step 2 (`confirmApplicantContact`).
+ */
+export async function driveToApproved(workItemId) {
+  await driveToApprovedPendingContact(workItemId)
+  await confirmApplicantContact(workItemId)
+}
+
+/**
+ * The whole journey through to `rejected` ("Refused" on screen): step 1
+ * (`driveToRefusedPendingContact`) then step 2 (`confirmApplicantContact`).
+ */
+export async function driveToRefused(workItemId) {
+  await driveToRefusedPendingContact(workItemId)
+  await confirmApplicantContact(workItemId)
 }

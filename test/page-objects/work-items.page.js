@@ -529,6 +529,17 @@ class WorkItemsPage extends Page {
     await $(`input[name="status"][value="${value}"]`).click()
   }
 
+  /**
+   * The `value` of every Status checkbox, in page order. RA-527 (task 010)
+   * uses it to show the step 1 refusal has no option of its own: the one
+   * "Refused" option (`rejected`) covers both refusal states.
+   */
+  async statusOptionValues() {
+    await this.expandSection('status')
+    const inputs = await $$('input[name="status"]')
+    return Promise.all([...inputs].map((input) => input.getAttribute('value')))
+  }
+
   async checkMaterial(value) {
     await this.expandSection('material')
     await $(`input[name="material"][value="${value}"]`).click()

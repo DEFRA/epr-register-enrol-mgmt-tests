@@ -186,6 +186,19 @@ class DecisionPage extends Page {
   }
 
   /**
+   * RA-527. The note field's `<label>`, which govuk-frontend ties to the
+   * textarea by `for`, so it is selected the same way.
+   */
+  async noteLabelText() {
+    return $('label[for="field-decisionNote"]').getText()
+  }
+
+  /** RA-527. The page H1 (the base Page's `pageHeading`). */
+  async headingText() {
+    return this.pageHeading.getText()
+  }
+
+  /**
    * RA-447 (CM8). The GOV.UK warning text above the outcome radios ("This
    * determination is final..."). Selected by the component's own class,
    * not a testid — none exists for it.
