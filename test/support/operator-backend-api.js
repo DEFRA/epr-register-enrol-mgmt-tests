@@ -245,6 +245,28 @@ export async function withdrawOperatorApplication(
 }
 
 /**
+ * RA-690. Ask the operator backend for the application's accreditation
+ * number AS management-be, exactly as approval's step 1 does, so a spec can
+ * replay that call (e.g. a retry after a lost reply). Sends no body: the
+ * backend derives the reference from the application itself. Only where
+ * `isCaseManagementPushEnabled()` (see backend-api.js). Returns the raw
+ * `{ status, headers, body }`.
+ */
+export function requestAccreditationNumberAsCaseManagement({
+  operatorOrganisationId,
+  operatorApplicationId
+}) {
+  return caseManagementPushRequest(
+    'POST',
+    applicationPath(
+      operatorOrganisationId,
+      operatorApplicationId,
+      '/accreditation-number'
+    )
+  )
+}
+
+/**
  * RA-527. Step 2's status push for each outcome, as management-be sends it
  * on "Confirm applicant contact": from the pending state to the final one.
  */

@@ -8,7 +8,12 @@ import {
   logDecision,
   startAssessment
 } from '../support/re-accreditation-journey.js'
-import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js'
+import {
+  createOperatorBackedWorkItem,
+  getOperatorApplication,
+  requestAccreditationNumberAsCaseManagement
+} from '../support/operator-backend-api.js'
+import { isCaseManagementPushEnabled } from '../support/backend-api.js'
 
 /**
  * RA-133 — Approving a re-accreditation surfaces a generated
@@ -22,29 +27,44 @@ import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js
  *      takes it to assessment-in-progress.
  *   3. A caseworker approves the work item (RA-323 — every caseworker
  *      holds the same role).
- *   4. The backend generates a fixed 17-char accreditation id
- *      and stamps a start date + year onto the payload. The frontend
- *      renders a govukPanel confirmation and a summary list with all
- *      three values, which is what we assert here.
+ *   4. The backend issues a fixed 17-char accreditation id and stamps a
+ *      start date + year onto the payload. The frontend renders a
+ *      govukPanel confirmation and a summary list with all three values,
+ *      which is what we assert here.
+ *
+ * RA-690: the accreditation id is DERIVED from the application's
+ * registration reference (leading R becomes A, YY becomes the application's
+ * own year, every other character unchanged), never drawn from a counter.
  */
+
+/** RA-690: `A` + the application year's YY + registration ref chars 4–17. */
+function expectedAccreditationReference({ registrationReference, year }) {
+  return `A${String(year % 100).padStart(2, '0')}${registrationReference.slice(3)}`
+}
+
+// The retry replays management-be's own call, signed as management-be, so it
+// only runs where the suite may do that (see support/backend-api.js).
+const itIfCaseManagementPush = isCaseManagementPushEnabled() ? it : it.skip
+
 describe('RA-133 approval generates accreditation id, start date and year', () => {
-  let workItemId
+  let workItem
+  let issuedAccreditationReference
   let approvedAccreditationId
 
   it('creates a re-accreditation and drives it to assessment-in-progress', async () => {
     await login.login()
-    workItemId = (await createOperatorBackedWorkItem()).id
+    workItem = await createOperatorBackedWorkItem()
 
-    await workItems.openWorkItem(workItemId)
+    await workItems.openWorkItem(workItem.id)
     await detail.assertState('Not started')
 
     // Submitted -> Duly made. RA-316 replaced the submitted tasks and
     // the auto-transition hook with the "Duly make" CTA and a payment
     // date; the shared helper owns that journey.
-    await dulyMake(workItemId)
+    await dulyMake(workItem.id)
 
     // Duly made -> Assessment in progress
-    await startAssessment(workItemId)
+    await startAssessment(workItem.id)
     // `assessment-in-progress` displays as "Updated" (RA-324), so the
     // raw id is what pins the state. RA-410 removed the
     // `submit-for-decision` step that used to follow: `awaiting-decision`
@@ -55,18 +75,60 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await login.logout()
   })
 
-  it('approves the work item as the decision maker and renders the accreditation id, start date and year', async () => {
+  it('logs the approval and the backend issues the accreditation id derived from the registration reference', async () => {
     await login.login()
-    await workItems.openWorkItem(workItemId)
+    await workItems.openWorkItem(workItem.id)
     await detail.assertStateId('assessment-in-progress')
 
-    await logDecision(workItemId, 'approved')
+    await logDecision(workItem.id, 'approved')
 
     // RA-527: the determination is step 1; Granted needs step 2. Task 007:
     // step 1 stamps only the number, so only its row shows until then.
     expect(await detail.decisionMetadataRowKeys()).toEqual(['Accreditation ID'])
 
-    await confirmApplicantContact(workItemId)
+    // RA-690: step 1 asked the operator backend for the number. It must be
+    // the registration reference with R -> A and the application's own YY.
+    const application = await getOperatorApplication(
+      workItem.operatorOrganisationId,
+      workItem.operatorApplicationId
+    )
+    expect(application.registrationReference).toMatch(
+      /^R\d{2}[ESNW][RX]\d{6}\d{4}PL$/
+    )
+    expect(application.accreditationReference).toBe(
+      expectedAccreditationReference(application)
+    )
+    issuedAccreditationReference = application.accreditationReference
+
+    await login.logout()
+  })
+
+  // RA-690: a retried accreditation-number request (e.g. after a lost reply)
+  // returns the reference already issued, never a new one. Replayed between
+  // the two approval steps, as management-be would: once Granted, the
+  // operator backend treats the application as final and refuses any change.
+  itIfCaseManagementPush(
+    'a repeated accreditation-number request returns the same reference',
+    async () => {
+      const retry = await requestAccreditationNumberAsCaseManagement(workItem)
+
+      expect(retry.status).toBe(200)
+      expect(retry.body.accreditationReference).toBe(
+        issuedAccreditationReference
+      )
+      const application = await getOperatorApplication(
+        workItem.operatorOrganisationId,
+        workItem.operatorApplicationId
+      )
+      expect(application.accreditationReference).toBe(
+        issuedAccreditationReference
+      )
+    }
+  )
+
+  it('confirms applicant contact and renders the accreditation id, start date and year', async () => {
+    await login.login()
+    await confirmApplicantContact(workItem.id)
 
     await detail.assertState('Granted')
     await detail.assertApprovalPanelVisible()
@@ -82,14 +144,10 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await detail.assertApprovalPanelAboveSummary()
 
     const accreditationId = await detail.getAccreditationId()
-    // Real backend ID shape: A{YY}{Agency:1}{OperatorType:1}{OrgId:6}
-    // {Sequence:4}{Material:2}, generated by the Registration & Accreditation
-    // service backend (RA-448 phase 2) for this plastic (PL) application. The
-    // sequence depends on how many accreditations that backend has already
-    // issued, so it is matched by shape only.
-    expect(accreditationId).toMatch(/^A\d{2}[ESNW][RX]\d{6}\d{4}PL$/)
+    // The id the caseworker sees is the one the operator backend issued.
+    expect(accreditationId).toBe(issuedAccreditationReference)
     // Captured for the idempotency test below, which asserts the exact
-    // value rather than just the shape.
+    // value again after a re-visit.
     approvedAccreditationId = accreditationId
 
     const year = await detail.getAccreditationYear()
@@ -113,16 +171,15 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
 
   it('re-approving an already-approved work item is idempotent (panel still shows the same id)', async () => {
     await login.login()
-    await workItems.openWorkItem(workItemId)
+    await workItems.openWorkItem(workItem.id)
     await detail.assertState('Granted')
     await detail.assertApprovalPanelVisible()
     const accreditationIdOnReturn = await detail.getAccreditationId()
     // RA-448 phase 2 review: this is the assertion that actually makes the
-    // test title true. The shape-only check above would stay green even if
-    // re-approving called the number adapter again — the sequence
-    // increments on every call, so a non-idempotent re-approval returns a
-    // DIFFERENT but still validly-shaped id. Comparing against the id
-    // captured from the first approval is what catches that regression.
+    // test title true. A shape-only check would stay green even if
+    // re-approving called the number adapter again and got a DIFFERENT but
+    // still validly-shaped id. Comparing against the id captured from the
+    // first approval is what catches that regression.
     expect(accreditationIdOnReturn).toBe(approvedAccreditationId)
     await login.logout()
   })
