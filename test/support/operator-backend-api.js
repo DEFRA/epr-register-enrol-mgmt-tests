@@ -24,7 +24,11 @@
 import { randomBytes } from 'node:crypto'
 import { browser } from '@wdio/globals'
 
-import { expectStatus, operatorBackendRequest } from './backend-api.js'
+import {
+  caseManagementPushRequest,
+  expectStatus,
+  operatorBackendRequest
+} from './backend-api.js'
 
 export const SIMULATED_DELIVERED_EMAIL =
   'simulate-delivered@notifications.service.gov.uk'
@@ -238,4 +242,59 @@ export async function withdrawOperatorApplication(
     200,
     `withdraw R&A application ${operatorApplicationId}`
   ).body
+}
+
+/**
+ * RA-527. Step 2's status push for each outcome, as management-be sends it
+ * on "Confirm applicant contact": from the pending state to the final one.
+ */
+const CONFIRM_CONTACT_PUSH = {
+  approved: {
+    fromStateId: 'approved-pending-contact',
+    toStateId: 'approved',
+    toStateDisplayName: 'Granted',
+    actionId: 'confirm-contact-approved'
+  },
+  rejected: {
+    fromStateId: 'rejected-pending-contact',
+    toStateId: 'rejected',
+    toStateDisplayName: 'Refused',
+    actionId: 'confirm-contact-rejected'
+  }
+}
+
+/**
+ * RA-527. Send the operator backend step 2's final-status push for
+ * `outcome` (`'approved'` or `'rejected'`) AS management-be, for the Path B
+ * item whose case-management work item is `workItemId`. Only where
+ * `isCaseManagementPushEnabled()` (see backend-api.js).
+ *
+ * This is what management-be has done when step 2's push was delivered but
+ * its own write then failed or the reply was lost: the operator side holds
+ * the final status while the work item is still pending. Returns the raw
+ * `{ status, headers, body }`, because a 409 is an answer the caller may
+ * assert on.
+ */
+export function pushConfirmContactStatusAsCaseManagement(
+  workItemId,
+  outcome,
+  { occurredAt = new Date() } = {}
+) {
+  const push = CONFIRM_CONTACT_PUSH[outcome]
+  if (!push) {
+    throw new Error(
+      `Unknown outcome "${outcome}" (expected "approved" or "rejected")`
+    )
+  }
+  return caseManagementPushRequest(
+    'POST',
+    `${APPLICATIONS}/case-management/${encodeURIComponent(workItemId)}/status`,
+    {
+      body: {
+        ...push,
+        actionDisplayName: 'Confirm applicant contact',
+        occurredAt: occurredAt.toISOString()
+      }
+    }
+  )
 }

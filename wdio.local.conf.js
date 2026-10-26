@@ -19,6 +19,10 @@ if (debug) {
 process.env.MANAGEMENT_BE_URL ??= 'http://localhost:8085'
 process.env.OPERATOR_BACKEND_URL ??= 'http://localhost:8080'
 process.env.CDP_UPLOADER_URL ??= 'http://localhost:7337'
+// RA-527: the local stack's operator backend runs as Development with no
+// management-be secret, so it accepts the suite's unsigned pushes as
+// management-be's. Set CASE_MANAGEMENT_PUSH_SECRET too if yours has one.
+process.env.CASE_MANAGEMENT_PUSH_ENABLED ??= 'true'
 
 export const config = {
   //

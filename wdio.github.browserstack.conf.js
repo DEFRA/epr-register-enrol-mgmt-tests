@@ -14,6 +14,10 @@ process.env.CDP_UPLOADER_URL ??= 'http://localhost:7337'
 process.env.MANAGEMENT_BE_SHARED_SECRET ??= 'E2eComposeMgmtTestsToManagementBe'
 process.env.OPERATOR_BACKEND_SHARED_SECRET ??=
   'E2eComposeMgmtTestsToOperatorBackend'
+// RA-527: as wdio.github.conf.js, the suite may play management-be here.
+process.env.CASE_MANAGEMENT_PUSH_ENABLED ??= 'true'
+process.env.CASE_MANAGEMENT_PUSH_SECRET ??=
+  'E2eComposeManagementBeToOperatorBackend'
 
 export const config = {
   //

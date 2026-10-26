@@ -38,11 +38,9 @@ import { getWorkItem, postDecision } from '../support/decision-api.js'
  * the status can be read back, and share one organisation-id group so the
  * worklist can be searched for exactly these two.
  *
- * NOT COVERED HERE: the step 2 retry where the operator side already shows
- * the final status while this item is still pending (task 008). The stack
- * cannot reach that state without fault injection: the status push is signed
- * as management-be, whose secret this suite does not hold. The operator
- * backend's endpoint tests cover the repeated final-status push instead.
+ * The step 2 retry where the operator side already shows the final status
+ * while this item is still pending (task 008) is in
+ * ra-527-confirm-contact-retry.e2e.js.
  */
 
 const PENDING_BANNER_SENTENCE = (outcome) =>
