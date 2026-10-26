@@ -17,11 +17,13 @@ import { ACCREDITATION_CORRECTED_WORK_ITEM } from '../support/seeded-fixtures.js
  * AC under test: each corrected work item's Application history shows an
  * "Accreditation number corrected" entry with the old and new reference.
  *
- * The migration is keyed to two production work-item ids and is off by
- * default, so it cannot run against anything this suite creates and is not
- * enabled on the shared stack. management-be instead seeds
- * `ACCREDITATION_CORRECTED_WORK_ITEM` in its post-migration state, building the
- * audit entry with the migration's own factory, and resets it on every start.
+ * The migration is keyed to two production accreditation numbers, finding
+ * each item by its number's anchored identity pattern (for example
+ * `^A27ER500527\d{4}PL$`), and is off by default. It cannot match anything
+ * this suite creates and is not enabled on the shared stack. management-be
+ * instead seeds `ACCREDITATION_CORRECTED_WORK_ITEM` in its post-migration
+ * state, building the audit entry with the migration's own factory, and resets
+ * it on every start.
  * See test/support/seeded-fixtures.js. Nothing here changes the item, so the
  * spec passes on any number of runs between management-be restarts.
  *
