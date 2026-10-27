@@ -5,9 +5,9 @@ import detail from '../page-objects/work-item-detail.page.js'
 import changePaymentDate from '../page-objects/change-payment-date.page.js'
 import {
   createReAccreditation,
-  driveToApproved,
   dulyMake
 } from '../support/re-accreditation-journey.js'
+import { withdrawAsOperatorOrThrow } from '../support/operator-withdrawal.js'
 import { formatUkHeaderDate, utcDateParts } from '../support/uk-time.js'
 
 /**
@@ -282,9 +282,11 @@ describe('RA-576 change payment date', () => {
       ;({ id: closedId } = await createReAccreditation('Closed Payment Ltd', {
         chargeAmountPence: 163800
       }))
-      // `driveToApproved` duly makes the item itself (today's date), so it
-      // must start from `submitted`.
-      await driveToApproved(closedId)
+      await dulyMake(closedId, { dayOffset: ORIGINAL_OFFSET })
+      // Closed by withdrawal rather than a determination: it is terminal
+      // all the same, and avoids a second determination (which pushes to the
+      // operator journey) running alongside the other specs.
+      await withdrawAsOperatorOrThrow(closedId, 'Withdrawn by the operator')
     })
 
     after(async () => {
@@ -293,14 +295,14 @@ describe('RA-576 change payment date', () => {
 
     it('offers no "Change payment date" link', async () => {
       await workItems.openWorkItem(closedId)
-      await detail.assertState('Granted')
+      await detail.assertState('Withdrawn')
       expect(await detail.hasChangePaymentDateLink()).toBe(false)
     })
 
     it('redirects the URL back to the application', async () => {
       await changePaymentDate.gotoFor(closedId)
       await changePaymentDate.waitForDetailUrl(closedId)
-      await detail.assertState('Granted')
+      await detail.assertState('Withdrawn')
     })
   })
 
