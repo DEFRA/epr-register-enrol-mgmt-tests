@@ -282,7 +282,8 @@ describe('RA-576 change payment date', () => {
       ;({ id: closedId } = await createReAccreditation('Closed Payment Ltd', {
         chargeAmountPence: 163800
       }))
-      await dulyMake(closedId, { dayOffset: ORIGINAL_OFFSET })
+      // `driveToApproved` duly makes the item itself (today's date), so it
+      // must start from `submitted`.
       await driveToApproved(closedId)
     })
 
