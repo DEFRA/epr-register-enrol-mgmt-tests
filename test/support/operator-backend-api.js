@@ -72,26 +72,47 @@ export async function getOperatorApplication(organisationId, applicationId) {
  * service backend, and return
  * the case-management work item it created for it:
  *
- *   { id, organisationName, operatorOrganisationId, operatorApplicationId }
+ *   { id, organisationName, operatorOrganisationId, operatorApplicationId,
+ *     registrationId }
  *
  * `id` is the case-management work item id. `organisationName` is what the
  * work item displays and is unique to this item, because the organisation id
  * it is derived from is. Pass `organisationIdGroup` (from
  * `uniqueOrganisationIdGroup`) to create a set of items a spec can search for
  * together.
+ *
+ * RA-690: pass `operatorOrganisationId` and `registrationId` from an earlier
+ * item, with a different `year`, to apply again for the same registration
+ * (a renewal) instead of minting a new organisation and registration.
  */
 export async function createOperatorBackedWorkItem({
   organisationIdGroup = 'e2e-',
-  year = new Date().getUTCFullYear()
+  year = new Date().getUTCFullYear(),
+  operatorOrganisationId: existingOrganisationId,
+  registrationId: existingRegistrationId
 } = {}) {
   if (!organisationIdGroup.startsWith('e2e-')) {
     throw new Error(
       `organisationIdGroup must start "e2e-" (a test organisation), got "${organisationIdGroup}"`
     )
   }
+  if (
+    (existingOrganisationId === undefined) !==
+    (existingRegistrationId === undefined)
+  ) {
+    throw new Error(
+      'Pass operatorOrganisationId and registrationId together (a renewal of an existing registration), or neither'
+    )
+  }
+  if (existingOrganisationId && !existingOrganisationId.startsWith('e2e-')) {
+    throw new Error(
+      `operatorOrganisationId must start "e2e-" (a test organisation), got "${existingOrganisationId}"`
+    )
+  }
   const token = hex()
-  const operatorOrganisationId = `${organisationIdGroup}${token}`
-  const registrationId = `e2e-reg-${token}`
+  const operatorOrganisationId =
+    existingOrganisationId ?? `${organisationIdGroup}${token}`
+  const registrationId = existingRegistrationId ?? `e2e-reg-${token}`
 
   const seeded = expectStatus(
     await operatorBackendRequest(
@@ -183,7 +204,8 @@ export async function createOperatorBackedWorkItem({
     id: submitted.caseManagementWorkItemId,
     organisationName: submitted.organisationName,
     operatorOrganisationId,
-    operatorApplicationId
+    operatorApplicationId,
+    registrationId
   }
 }
 
@@ -264,6 +286,35 @@ export function requestAccreditationNumberAsCaseManagement({
       '/accreditation-number'
     )
   )
+}
+
+/**
+ * RA-690. Regenerate the application's registration number AS management-be,
+ * so it comes from the backend's sequence counter instead of the stub's
+ * derived reference. A spec uses this to give one year's application a
+ * different sequence from the next year's, so a reference inherited from the
+ * previous accreditation can be told apart from one derived from the
+ * registration. The stub organisations are in England. Only where
+ * `isCaseManagementPushEnabled()` (see backend-api.js). Returns the updated
+ * application.
+ */
+export async function regenerateRegistrationNumberAsCaseManagement(
+  { operatorOrganisationId, operatorApplicationId },
+  { year }
+) {
+  return expectStatus(
+    await caseManagementPushRequest(
+      'POST',
+      applicationPath(
+        operatorOrganisationId,
+        operatorApplicationId,
+        '/registration-number'
+      ),
+      { body: { nation: 'England', year, regenerate: true } }
+    ),
+    200,
+    `regenerate the registration number of R&A application ${operatorApplicationId}`
+  ).body
 }
 
 /**
