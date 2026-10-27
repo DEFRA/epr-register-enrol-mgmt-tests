@@ -244,30 +244,27 @@ describe('RA-576 change payment date', () => {
       await detail.gotoAudit()
       await detail.expandAllAuditEntryDetails()
 
-      expect(await detail.appliedActionNames()).toEqual(
-        expect.arrayContaining(['Change payment date'])
-      )
       // The summary must not read as a state change.
       expect(await detail.appliedTransitions()).not.toContain(
         'Duly made → Duly made'
       )
       await detail.assertAuditDetailRow(
-        'action-applied',
+        'payment-date-changed',
         'Previous payment date',
         pageDate(FIRST_CHANGE_OFFSET)
       )
       await detail.assertAuditDetailRow(
-        'action-applied',
+        'payment-date-changed',
         'New payment date',
         pageDate(SECOND_CHANGE_OFFSET)
       )
       await detail.assertAuditDetailRow(
-        'action-applied',
+        'payment-date-changed',
         'Reason',
         'Corrected again after checking the bank.'
       )
       await detail.assertAuditDetailRow(
-        'action-applied',
+        'payment-date-changed',
         'Reason',
         'Operator keyed the wrong date.'
       )
