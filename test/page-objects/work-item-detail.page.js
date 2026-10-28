@@ -987,6 +987,28 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * The visible summary line of each Application history entry for a
+   * backend `action`, in DOM order, whitespace-collapsed: the bold heading
+   * followed by management-fe's `summariseAuditEntry` text after an em dash
+   * (RA-691: `Accreditation number corrected — <from> → <to>`).
+   *
+   * Reads the heading's own `<p>` only, so the "Show details" rows and the
+   * timestamp/actor hint line beneath it cannot satisfy the caller.
+   */
+  async auditEntrySummaryLines(action) {
+    const lines = await $$(
+      `//*[@data-testid="work-item-audit-log"]//li[@data-action=${toXPathString(
+        action
+      )}]/p[strong]`
+    )
+    const texts = []
+    for (const line of lines) {
+      texts.push((await line.getText()).replace(/\s+/g, ' ').trim())
+    }
+    return texts
+  }
+
+  /**
    * RA-572 (AC02), backend slice. Every Application history heading for
    * `action` describes a CHANGE, with no surviving "extend"/"extended" prose.
    *
@@ -1139,6 +1161,29 @@ class WorkItemDetailPage extends Page {
             `//dt[normalize-space(.)=${dt}]`
         )
       ).toBeDisplayed()
+    }
+  }
+
+  /**
+   * The converse of `assertAuditDetailRowKeys`: no entry for `action` carries
+   * a detail row keyed by any of `keys`.
+   *
+   * For the actions management-fe deliberately renders WITHOUT the work-item
+   * context block (its `NO_SNAPSHOT_CONTEXT_ACTIONS`, e.g. RA-691's
+   * `accreditation-number-corrected`), where a live "State" or "Assigned to"
+   * beside a system correction would misdescribe it. Callers must
+   * `expandAllAuditEntryDetails()` first, or an absent row proves nothing.
+   */
+  async assertNoAuditDetailRowKeys(action, keys) {
+    const entry = toXPathString(action)
+    for (const key of keys) {
+      const dt = toXPathString(key)
+      await expect(
+        $(
+          `//*[@data-testid="work-item-audit-log"]//li[@data-action=${entry}]` +
+            `//dt[normalize-space(.)=${dt}]`
+        )
+      ).not.toBeExisting()
     }
   }
 

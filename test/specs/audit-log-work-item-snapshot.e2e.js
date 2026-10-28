@@ -24,11 +24,14 @@ import detail from '../page-objects/work-item-detail.page.js'
  * "State" context row resolved from the entry's own stateId, and older
  * entries with no recorded state omit it entirely.
  *
- * RA-526: `routed-to-nation` (and `nation-corrected`) are the one exception
+ * RA-526: `routed-to-nation` (and `nation-corrected`) are an exception
  * to ALL of the above — they show NONE of this context block, not even
  * Assigned to. They are a system-derived side effect of submission, not a
  * caseworker action against the item's own workflow, so none of this
  * context has anything to do with why a nation was chosen or corrected.
+ * RA-691's `accreditation-number-corrected` (a one-off data correction) is
+ * excluded for the same reason; ra-691-accreditation-number-corrected.e2e.js
+ * covers it, since no item this spec creates can carry one.
  * `assigned` is used below as the auxiliary-action example instead, since
  * routed-to-nation no longer carries a State row to assert against — which
  * also means every entry's "Assigned to" now reads "Stub Caseworker One"
@@ -198,10 +201,11 @@ describe('Audit log — work item snapshot fields', () => {
       ).toHaveText('Stub Caseworker One')
     })
 
-    // RA-526: routed-to-nation/nation-corrected are excluded here — they are
-    // the one pair of actions that gets no context-block rows at all (see
-    // the file header), so this loop only covers entries where the
-    // "consistent set of rows" claim actually applies.
+    // RA-526: routed-to-nation/nation-corrected are excluded here — they get
+    // no context-block rows at all (see the file header), so this loop only
+    // covers entries where the "consistent set of rows" claim actually
+    // applies. RA-691's accreditation-number-corrected is the other such
+    // action, but no item created here can carry one.
     it('snapshot rows appear on every other disclosure in the timeline', async () => {
       const otherDisclosures = await $$(
         '//li[not(@data-action="routed-to-nation") and not(@data-action="nation-corrected")]//*[@data-testid="work-item-audit-entry-details"]'

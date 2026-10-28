@@ -32,3 +32,17 @@ export const LEGACY_SNAPSHOT_WORK_ITEM = {
 export const PRE_YEAR_START_WORK_ITEM = {
   id: '00000611-0000-4000-8000-000000000611'
 }
+
+/**
+ * RA-691: an `approved` item whose accreditation reference has already been
+ * corrected — `payload.accreditationId` holds `correctedAccreditationId`, and
+ * its audit log holds one `accreditation-number-corrected` entry from
+ * `incorrectAccreditationId` to it. management-be builds that entry with the
+ * migration's own audit-entry factory, so its shape is what the migration
+ * writes. The references are fixture values, not the two production ones.
+ */
+export const ACCREDITATION_CORRECTED_WORK_ITEM = {
+  id: '00000691-0000-4000-8000-000000000691',
+  incorrectAccreditationId: 'A27ER9006910322PL',
+  correctedAccreditationId: 'A27ER9006910246PL'
+}
