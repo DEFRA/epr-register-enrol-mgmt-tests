@@ -2277,6 +2277,27 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * RA-576. The "Change payment date" link in the side panel's link list.
+   *
+   * A plain link to `/work-items/re-accreditation/{id}/change-payment-date`,
+   * so — like `dulyMakeCta` — it is a bespoke accessor rather than a
+   * `triggerAction` call. management-fe removes it from the DOM (rather than
+   * hiding it) on terminal items and on items with no payment date, so
+   * presence is the meaningful assertion.
+   */
+  changePaymentDateLink() {
+    return $('[data-testid="change-payment-date-link"]')
+  }
+
+  async hasChangePaymentDateLink() {
+    return this.changePaymentDateLink().isExisting()
+  }
+
+  async clickChangePaymentDate() {
+    await this.changePaymentDateLink().click()
+  }
+
+  /**
    * RA-454. Is the "Continue review" control offered on the detail page?
    *
    * "Continue review" is NOT a bespoke CTA like `duly-make` or `log-decision`:
