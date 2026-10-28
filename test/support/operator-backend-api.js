@@ -238,31 +238,39 @@ export async function waitForOperatorApplicationStatus(
 }
 
 /**
+ * RA-690. Ask that backend to withdraw a Path B item as its operator, and
+ * return the raw `{ status, headers, body }`, because a 409 is an answer the
+ * caller asserts on, not a fixture failure.
+ */
+export function requestOperatorWithdrawal(
+  { operatorOrganisationId, operatorApplicationId },
+  reason = 'Withdrawn by the operator (test fixture)'
+) {
+  return operatorBackendRequest(
+    'POST',
+    applicationPath(operatorOrganisationId, operatorApplicationId, '/withdraw'),
+    {
+      body: {
+        reason,
+        fullName: 'E2E Submitter',
+        email: SIMULATED_DELIVERED_EMAIL
+      }
+    }
+  )
+}
+
+/**
  * Withdraw a Path B item as its operator, through that backend, which withdraws the
  * case-management item first and then records the withdrawal itself.
  */
 export async function withdrawOperatorApplication(
-  { operatorOrganisationId, operatorApplicationId },
+  item,
   reason = 'Withdrawn by the operator (test fixture)'
 ) {
   return expectStatus(
-    await operatorBackendRequest(
-      'POST',
-      applicationPath(
-        operatorOrganisationId,
-        operatorApplicationId,
-        '/withdraw'
-      ),
-      {
-        body: {
-          reason,
-          fullName: 'E2E Submitter',
-          email: SIMULATED_DELIVERED_EMAIL
-        }
-      }
-    ),
+    await requestOperatorWithdrawal(item, reason),
     200,
-    `withdraw R&A application ${operatorApplicationId}`
+    `withdraw R&A application ${item.operatorApplicationId}`
   ).body
 }
 
