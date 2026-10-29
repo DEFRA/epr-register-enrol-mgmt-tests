@@ -6,8 +6,8 @@ import slaExtend from '../page-objects/sla-extend.page.js'
 import { formatUkDateGds } from '../support/uk-time.js'
 import { uniqueOrganisationName } from '../support/unique-name.js'
 import {
-  dulyMake,
-  startAssessment
+  driveToAssessmentStarted,
+  dulyMake
 } from '../support/re-accreditation-journey.js'
 import { farFutureDeadline } from '../support/sla-extend-date.js'
 
@@ -111,17 +111,6 @@ async function createFreshItem(organisationNamePrefix) {
 const driveToDulyMade = (id) => dulyMake(id)
 
 /**
- * Drive submitted -> duly-made -> assessment-started via "Assign to yourself
- * and start". RA-527's follow-up: the started state is still in
- * PRE_ASSESSMENT_STATE_IDS and reads "Duly made", so the card keeps Submitted
- * on and Due date — identical to a Duly made card.
- */
-async function driveToStarted(id) {
-  await driveToDulyMade(id)
-  await startAssessment(id)
-}
-
-/**
  * Drive on to assessment-in-progress: start, then change the determination
  * deadline, which moves a started case to `assessment-in-progress`. That takes
  * the item OUT of PRE_ASSESSMENT_STATE_IDS while the clock keeps running, so
@@ -132,7 +121,7 @@ async function driveToStarted(id) {
  * state that RA-370 deliberately leaves uncovered.
  */
 async function driveToAssessmentInProgress(id) {
-  await driveToStarted(id)
+  await driveToAssessmentStarted(id)
   await slaExtend.changeDeadline(id, {
     reason: 'RA-370: moving the started case to assessment-in-progress',
     date: farFutureDeadline()
@@ -469,7 +458,7 @@ describe('RA-370 — application card field order and Submitted on', () => {
       await login.login()
       ;({ id: itemId, organisationName: org } =
         await createFreshItem('RA370 Started Ltd'))
-      await driveToStarted(itemId)
+      await driveToAssessmentStarted(itemId)
     })
 
     after(async () => {

@@ -2506,8 +2506,9 @@ class WorkItemDetailPage extends Page {
    * RA-410. The "Log decision" CTA, rendered in the actions panel while the
    * item is in a state that can reach a determination (`duly-made`,
    * `assessment-started`, `assessment-in-progress`; RA-595 and RA-527's
-   * follow-up) and ABSENT FROM THE DOM in every other state (management-fe removes it rather than hiding it, so presence — not
-   * visibility — is the assertion that means anything here).
+   * follow-up) and ABSENT FROM THE DOM in every other state (management-fe
+   * removes it rather than hiding it, so presence — not visibility — is the
+   * assertion that means anything here).
    *
    * Shaped like `dulyMakeCta` above and for the same reason: the decision is
    * driven by a bespoke module route, not by a generic
