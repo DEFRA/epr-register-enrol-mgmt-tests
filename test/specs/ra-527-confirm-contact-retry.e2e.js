@@ -118,7 +118,7 @@ describeIfCaseManagementPush(
           await c.driveToPending(c.item().id)
 
           // OccurredAt just after the backend's watermark (the last push it
-          // took, start assessment's), so the first push is applied and the
+          // took, duly make's: starting the case and step 1 push nothing), so the first push is applied and the
           // retry, stamped later by management-be's own clock, is newer still.
           // Taken from the runner's clock instead, any skew against the
           // containers could make the backend drop the retry as out of order,
@@ -188,8 +188,9 @@ describeIfCaseManagementPush(
         it('records the push as sent and no push failure', async () => {
           await detail.gotoAudit()
           await detail.assertAuditEntry('Applicant contacted')
-          // Duly make and start assessment, then the retry's push.
-          await detail.waitForAuditEntryCount('status-push-sent', 3)
+          // Duly make's push, then the retry's. Starting the case pushes
+          // nothing, and the suite's own first push is not management-be's.
+          await detail.waitForAuditEntryCount('status-push-sent', 2)
           expect(
             (await detail.auditEntriesForAction('status-push-failed')).length
           ).toBe(0)

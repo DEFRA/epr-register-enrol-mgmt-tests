@@ -41,7 +41,7 @@ const token = uniqueOrganisationIdGroup()
 
 /**
  * Create a re-accreditation work item under the shared token and drive it
- * through the CTA journey to assessment-in-progress, ready for a
+ * through the CTA journey to assessment-started, ready for a
  * decision-maker to approve or reject. Returns `{ id }`.
  */
 async function driveToDecisionReady() {
@@ -58,14 +58,14 @@ async function driveToDecisionReady() {
   // date; the shared helper owns that journey.
   await dulyMake(id)
 
-  // Duly made -> Assessment in progress.
+  // Duly made -> started (`assessment-started`).
   await startAssessment(id)
-  // `assessment-in-progress` displays as "Updated" (RA-324), so the
-  // raw id is what pins the state. RA-410 removed the
+  // `assessment-started` displays as "Duly made" (RA-527 follow-up), so
+  // the raw id is what pins the state. RA-410 removed the
   // `submit-for-decision` step that used to follow: `awaiting-decision`
   // is now an internal hop inside the Log decision call, so this is
   // where the item waits.
-  await detail.assertStateId('assessment-in-progress')
+  await detail.assertStateId('assessment-started')
 
   await login.logout()
   return { id }

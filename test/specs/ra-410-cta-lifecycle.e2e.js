@@ -8,7 +8,7 @@ import slaExtend from '../page-objects/sla-extend.page.js'
 import {
   confirmApplicantContact,
   createReAccreditation,
-  driveToAssessmentInProgress,
+  driveToAssessmentStarted,
   dulyMake,
   logDecision
 } from '../support/re-accreditation-journey.js'
@@ -21,9 +21,14 @@ import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js
  * three explicit CTAs on the work item detail page:
  *
  *   1. "Duly make"                  submitted              -> duly-made
- *   2. "Assign to yourself and start"  duly-made -> assessment-in-progress
+ *   2. "Assign to yourself and start"  duly-made -> assessment-started
  *   3. "Log decision" + Approved/Refused
- *                          assessment-in-progress -> approved / rejected
+ *                          assessment-started -> approved / rejected
+ *
+ * RA-527's follow-up: step 2 lands on `assessment-started`, which still reads
+ * "Duly made" with the purple badge (it used to land on
+ * `assessment-in-progress`, "Updated"). Only a deadline change or a query
+ * response moves a started case to Updated.
  *
  * RA-527 adds a fourth for approvals: step 3 lands in
  * `approved-pending-contact` ("Approved") and "Confirm applicant contact"
@@ -103,15 +108,17 @@ describe('RA-410 The green CTA lifecycle', () => {
       await detail.assertNoStartControl()
     })
 
-    it('step 2: Assign to yourself and start takes it to assessment', async () => {
+    it('step 2: Assign to yourself and start assigns it and keeps it Duly made', async () => {
       expect(await detail.hasAssignmentControl('selfAssign')).toBe(true)
       await detail.selfAssignAndStart()
 
-      await detail.assertStateId('assessment-in-progress')
-      // `assessment-in-progress` and `updated` deliberately share the display
-      // name "Updated" (RA-324), so the label alone cannot tell them apart —
-      // hence the state-id assertion above carrying the real weight.
-      await detail.assertState('Updated')
+      await detail.assertStateId('assessment-started')
+      // `assessment-started` and `duly-made` deliberately share the display
+      // name "Duly made" and the purple badge (RA-527 follow-up), so the label
+      // alone cannot tell them apart — hence the state-id assertion above
+      // carrying the real weight.
+      await detail.assertState('Duly made')
+      await detail.assertStateTagClass('govuk-tag--purple')
       // The button both assigns AND transitions; a version that only
       // transitioned would pass the state assertions and still be wrong.
       await detail.assertAssignedTo('Stub Caseworker One')
@@ -126,12 +133,12 @@ describe('RA-410 The green CTA lifecycle', () => {
       expect(actions).toContain('Assessment started')
       expect(actions).not.toContain('Payment received')
       expect(await detail.appliedTransitions()).toContain(
-        'duly-made → assessment-in-progress'
+        'duly-made → assessment-started'
       )
 
       // Back to the detail page for step 3.
       await workItems.openWorkItem(workItemId)
-      await detail.assertStateId('assessment-in-progress')
+      await detail.assertStateId('assessment-started')
     })
 
     it('step 3: Log decision offers both outcomes', async () => {
@@ -204,7 +211,7 @@ describe('RA-410 The green CTA lifecycle', () => {
       // appliedTransitions() renders the raw state-id edge, not the display
       // label ("Granted") — see the same convention in ra-316-duly-making.e2e.js
       // ('submitted → duly-made'). Whatever shape management-be gives the
-      // internal hop in the history — a collapsed `assessment-in-progress →
+      // internal hop in the history — a collapsed `assessment-started →
       // approved` edge or a declared `… → approved` one — the terminal edge
       // lands on `approved`. Deliberately NOT asserting the intermediate
       // `→ awaiting-decision` edge: whether the audit surfaces the internal hop
@@ -236,7 +243,7 @@ describe('RA-410 The green CTA lifecycle', () => {
 
     before(async () => {
       workItemId = (await createOperatorBackedWorkItem()).id
-      await driveToAssessmentInProgress(workItemId)
+      await driveToAssessmentStarted(workItemId)
     })
 
     it('records the refusal', async () => {
@@ -296,25 +303,28 @@ describe('RA-410 The green CTA lifecycle', () => {
       expect(await detail.hasDulyMakeCta()).toBe(true)
     })
 
-    it('assigns from assessment-in-progress without changing state', async () => {
+    it('assigns from assessment-started without changing state', async () => {
       // The other side of the guard: an item PAST `duly-made` must not be
       // pushed on again by a reassignment.
       await detail.unassign()
       await dulyMake(submittedId)
       await workItems.openWorkItem(submittedId)
       await detail.selfAssignAndStart()
-      await detail.assertStateId('assessment-in-progress')
+      await detail.assertStateId('assessment-started')
 
       await detail.unassign()
       await detail.assertUnassigned()
-      // Still in assessment after being released...
-      await detail.assertStateId('assessment-in-progress')
+      // Still started after being released...
+      await detail.assertStateId('assessment-started')
 
+      // `selfAssign()`, not `selfAssignAndStart()`: from `assessment-started`
+      // the button is a plain assignment (`start-assessment` applies only
+      // from `duly-made`).
       await detail.selfAssign()
-      // ...and still in assessment after being taken again, rather than
-      // having been advanced to a determination.
+      // ...and still started after being taken again, rather than having been
+      // advanced to a determination.
       await detail.assertAssignedTo('Stub Caseworker One')
-      await detail.assertStateId('assessment-in-progress')
+      await detail.assertStateId('assessment-started')
       expect(await detail.hasLogDecisionCta()).toBe(true)
     })
 

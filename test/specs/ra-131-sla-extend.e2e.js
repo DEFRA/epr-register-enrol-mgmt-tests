@@ -56,10 +56,11 @@ import {
  * an item duly made sixty days back, the floor boundary, and the proof that a
  * rejected submission changes nothing.
  *
- * These e2e tests drive a re-accreditation work item to the
- * "Assessment in progress" state (the only state where the change-deadline
- * action is available per re-accreditation/module.js) and then exercise
- * validation, cancel, and the happy path.
+ * These e2e tests drive a re-accreditation work item through "Assign to
+ * yourself and start" (RA-527 follow-up: the started case, `assessment-started`,
+ * still reads "Duly made") and then exercise validation, cancel, and the happy
+ * path. The first deadline change moves the started case to
+ * `assessment-in-progress` ("Updated"), which is asserted where it happens.
  */
 describe('RA-131 Change determination deadline', () => {
   let workItemId
@@ -85,9 +86,11 @@ describe('RA-131 Change determination deadline', () => {
     // date; the shared helper owns that journey.
     await dulyMake(workItemId)
 
-    // Duly made -> Assessment in progress (sla-extend becomes available)
+    // Duly made -> started (`assessment-started`). RA-527 follow-up: a start
+    // is not a change to the application, so the case still reads "Duly made".
     await startAssessment(workItemId)
-    await detail.assertState('Updated')
+    await detail.assertStateId('assessment-started')
+    await detail.assertState('Duly made')
 
     await login.logout()
   })
@@ -186,6 +189,10 @@ describe('RA-131 Change determination deadline', () => {
         reason: 'Pinning the determination deadline before reducing it',
         date: farFutureDeadline()
       })
+      // The first deadline change on the started case is a real move:
+      // `assessment-started -> assessment-in-progress`, displayed "Updated".
+      await detail.assertStateId('assessment-in-progress')
+      await detail.assertState('Updated')
 
       await slaExtend.gotoFor(workItemId)
       await slaExtend.fillForm({

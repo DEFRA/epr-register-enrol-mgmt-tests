@@ -42,8 +42,8 @@ import { farFutureDeadline } from '../support/sla-extend-date.js'
  *     here would couple two independent PRs and go red on merge order alone.
  *
  * Three changes are made against ONE work item so the expensive journey setup
- * (submitted -> duly made -> assessment in progress, which is what stamps the
- * SLA clock the change flow requires) is paid once. Each change needs a date
+ * (submitted -> duly made -> started; duly making is what stamps the SLA
+ * clock the change flow requires) is paid once. Each change needs a date
  * DISTINCT from the one the previous change set — RA-601 removed the
  * extension-only rule, so a later date is no longer required, only a different
  * one — hence the increasing, and merely convenient, `farFutureDeadline`
@@ -140,11 +140,14 @@ describe('RA-599: reason for change in the application history', () => {
     await workItems.openWorkItem(workItemId)
     await detail.assertState('Not started')
 
-    // Submitted -> Duly made -> Assessment in progress. Duly making starts
-    // the SLA clock, without which the change is rejected outright.
+    // Submitted -> Duly made -> started. Duly making starts the SLA clock,
+    // without which the change is rejected outright. RA-527's follow-up: the
+    // started case (`assessment-started`) still reads "Duly made"; the first
+    // deadline change below moves it to Updated.
     await dulyMake(workItemId)
     await startAssessment(workItemId)
-    await detail.assertState('Updated')
+    await detail.assertStateId('assessment-started')
+    await detail.assertState('Duly made')
 
     await changeDeadline(SINGLE_LINE_REASON, 2)
     await changeDeadline(MULTILINE_REASON, 3)

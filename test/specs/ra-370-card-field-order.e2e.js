@@ -2,12 +2,14 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems, { TILE_FIELD_ORDER } from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
+import slaExtend from '../page-objects/sla-extend.page.js'
 import { formatUkDateGds } from '../support/uk-time.js'
 import { uniqueOrganisationName } from '../support/unique-name.js'
 import {
-  dulyMake,
-  startAssessment
+  driveToAssessmentStarted,
+  dulyMake
 } from '../support/re-accreditation-journey.js'
+import { farFutureDeadline } from '../support/sla-extend-date.js'
 
 /**
  * RA-370 — "WorkItem widget not having submitted on".
@@ -24,13 +26,15 @@ import {
  *     It holds submitted-on, assigned-to and due-on, and that internal order
  *     holds even when all three render.
  *   - showSubmittedOn is keyed off the STATE, not the SLA clock:
- *     PRE_ASSESSMENT_STATE_IDS = {'submitted', 'duly-made'}.
+ *     PRE_ASSESSMENT_STATE_IDS = {'submitted', 'duly-made',
+ *     'assessment-started'} (RA-527's follow-up added the started state, so a
+ *     started card looks exactly like a Duly made one).
  *   - showDueDate is keyed off the SLA clock: Boolean(item.slaState).
  *   - The two are therefore NOT inverses and NOT mutually exclusive. A card may
  *     legitimately show two dates, one, or none, so this spec asserts no
  *     "exactly one date" invariant. The only safe rule is the one being tested
- *     here: Submitted on is present exactly when the state is submitted or
- *     duly-made.
+ *     here: Submitted on is present exactly when the state is submitted,
+ *     duly-made or assessment-started.
  *   - assigned-to is no longer gated on the clock: it renders on every card.
  *   - Every field testid node holds the VALUE ONLY; the visible label sits in a
  *     sibling span outside the hook, so exact-text assertions are safe.
@@ -45,7 +49,12 @@ import {
  *   -----------------------|--------------|-------
  *   submitted              | yes          | no
  *   duly-made              | yes          | YES     <- both
+ *   assessment-started     | yes          | YES     <- both (RA-527 follow-up)
  *   assessment-in-progress | no           | yes
+ *
+ * "Assign to yourself and start" reaches `assessment-started` ("Duly made");
+ * `assessment-in-progress` ("Updated") is reached here by a deadline change on
+ * the started case.
  *
  * NB the both-dates row is reached by the ORDINARY journey, not only by the
  * ReAccreditationDulyMadeSnapshotMigration back-fill that prompted the fix:
@@ -102,17 +111,22 @@ async function createFreshItem(organisationNamePrefix) {
 const driveToDulyMade = (id) => dulyMake(id)
 
 /**
- * Drive duly-made -> assessment-in-progress via start-assessment. This moves
+ * Drive on to assessment-in-progress: start, then change the determination
+ * deadline, which moves a started case to `assessment-in-progress`. That takes
  * the item OUT of PRE_ASSESSMENT_STATE_IDS while the clock keeps running, so
  * the card must drop Submitted on and keep Due date.
  *
  * The state's display name is "Updated" but its stateId is
- * `assessment-in-progress` (verified against the running stack) — so this is
- * NOT the `updated` state that RA-370 deliberately leaves uncovered.
+ * `assessment-in-progress` (asserted below) — so this is NOT the `updated`
+ * state that RA-370 deliberately leaves uncovered.
  */
-async function driveToAssessment(id) {
-  await driveToDulyMade(id)
-  await startAssessment(id)
+async function driveToAssessmentInProgress(id) {
+  await driveToAssessmentStarted(id)
+  await slaExtend.changeDeadline(id, {
+    reason: 'RA-370: moving the started case to assessment-in-progress',
+    date: farFutureDeadline()
+  })
+  await detail.assertStateId('assessment-in-progress')
 }
 
 /** Bound the list to one organisation token so the assertions are pagination-safe. */
@@ -434,6 +448,38 @@ describe('RA-370 — application card field order and Submitted on', () => {
     })
   })
 
+  // ── started: still pre-assessment (RA-527 follow-up), clock running ────── //
+
+  describe('started (assessment-started)', () => {
+    let org
+    let itemId
+
+    before(async () => {
+      await login.login()
+      ;({ id: itemId, organisationName: org } =
+        await createFreshItem('RA370 Started Ltd'))
+      await driveToAssessmentStarted(itemId)
+    })
+
+    after(async () => {
+      await login.logout()
+    })
+
+    it('shows Submitted on and Due date, exactly like a Duly made card', async () => {
+      await listCardsFor(org)
+      await expect(workItems.tileFor(itemId)).toBeDisplayed()
+      expect(await workItems.tileHasSubmittedOn(itemId)).toBe(true)
+      expect(await workItems.tileHasDueOn(itemId)).toBe(true)
+      expect(await workItems.tileDueOn(itemId).getText()).toMatch(GDS_DATE)
+    })
+
+    it('AC1: keeps the canonical field order with both dates', async () => {
+      await listCardsFor(org)
+      const order = await workItems.tileFieldOrder(itemId)
+      assertCardOrder(order, ['submitted-on', 'due-on'])
+    })
+  })
+
   // ── AC2/AC5 — assessment in progress: past pre-assessment, clock running ─── //
 
   describe('assessment in progress', () => {
@@ -445,7 +491,7 @@ describe('RA-370 — application card field order and Submitted on', () => {
       ;({ id: itemId, organisationName: org } = await createFreshItem(
         'RA370 InProgress Ltd'
       ))
-      await driveToAssessment(itemId)
+      await driveToAssessmentInProgress(itemId)
     })
 
     after(async () => {
@@ -467,8 +513,9 @@ describe('RA-370 — application card field order and Submitted on', () => {
 
     it('AC4: still shows Assigned to', async () => {
       // RA-410: reaching assessment-in-progress now goes through "Assign to
-      // yourself and start" (`startAssessment` -> `selfAssignAndStart`), which
-      // assigns the item as it transitions — the old standalone `payment-received`
+      // yourself and start" (`startAssessment` -> `selfAssignAndStart`, then
+      // a deadline change since RA-527's follow-up), which assigns the item
+      // as it transitions — the old standalone `payment-received`
       // path that could reach assessment while unassigned is gone. So an
       // assessment-in-progress card is always held by the caseworker who started
       // it. AC4's subject is unchanged (the Assigned to field is present in this

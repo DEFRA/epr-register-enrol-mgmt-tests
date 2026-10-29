@@ -56,17 +56,18 @@ describe('Assign user journey', () => {
     // through Not started -> In progress -> Completed; its subject was the
     // task status machinery, which no longer exists. It re-bases onto the
     // thing that REPLACED that machinery — the two green CTAs that carry an
-    // item from `submitted` to `assessment-in-progress` — so the block still
+    // item from `submitted` to `assessment-started` — so the block still
     // earns its place as the broad "a caseworker can move a case along"
     // regression rather than being deleted with the feature.
     await dulyMake(progressedWorkItemId)
     await detail.assertState('Duly made')
 
     await startAssessment(progressedWorkItemId)
-    // `assessment-in-progress` and `updated` share the display name "Updated"
-    // (RA-324), so the raw id is the only assertion that can tell them apart.
-    await detail.assertStateId('assessment-in-progress')
-    await detail.assertState('Updated')
+    // RA-527 follow-up: starting keeps the case "Duly made". `duly-made` and
+    // `assessment-started` share that display name and the purple badge, so
+    // the raw id is the only assertion that can tell them apart.
+    await detail.assertStateId('assessment-started')
+    await detail.assertState('Duly made')
 
     // AC02: no task panel, link or progress line survives on the detail page
     // in the state that used to carry the most tasks of any.
@@ -124,7 +125,8 @@ describe('Standard user journey', () => {
     await detail.assertUnassigned()
 
     await startAssessment(assignedWorkItemId)
-    await detail.assertStateId('assessment-in-progress')
+    await detail.assertStateId('assessment-started')
+    await detail.assertState('Duly made')
 
     await login.logout()
   })

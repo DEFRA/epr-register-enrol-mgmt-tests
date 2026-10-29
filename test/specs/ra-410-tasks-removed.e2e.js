@@ -96,12 +96,16 @@ describe('RA-410 Tasks are removed from Case Management', () => {
       await assertNoTaskSurfaces('duly-made')
     })
 
-    it('in assessment-in-progress', async () => {
-      // The state that carried the most tasks of any — three.
+    it('in assessment-started', async () => {
+      // The started case — the state that carried the most tasks of any
+      // (three) was `assessment-in-progress`, which the start reached until
+      // RA-527's follow-up. It now lands on `assessment-started`, which still
+      // reads "Duly made".
       await workItems.openWorkItem(workItemId)
       await detail.selfAssignAndStart()
-      await detail.assertStateId('assessment-in-progress')
-      await assertNoTaskSurfaces('assessment-in-progress')
+      await detail.assertStateId('assessment-started')
+      await detail.assertState('Duly made')
+      await assertNoTaskSurfaces('assessment-started')
     })
   })
 
@@ -182,8 +186,8 @@ describe('RA-410 Tasks are removed from Case Management', () => {
 
   describe('AC03 — no task actions survive as work item actions', () => {
     it('offers no task-shaped action in any state', async () => {
-      // The shared workItemId was already driven to assessment-in-progress and
-      // self-assigned by the 'in assessment-in-progress' test above. Re-driving
+      // The shared workItemId was already driven to assessment-started and
+      // self-assigned by the 'in assessment-started' test above. Re-driving
       // it would call selfAssignAndStart on an item that is already assigned,
       // where the self-assign control is (correctly) absent. Just re-open it —
       // it is already in the state this assertion needs.
@@ -195,9 +199,10 @@ describe('RA-410 Tasks are removed from Case Management', () => {
 
       // Positive control: the page rendered its affordances, so the empty
       // task-shaped filter above means something rather than passing vacuously.
-      // RA-317 removed the withdraw action that used to serve as this anchor
-      // (assessment-in-progress now projects no panel action), so the Log
-      // decision CTA is the control the state genuinely still has.
+      // RA-317 removed the withdraw action that used to serve as this anchor,
+      // so the Log decision CTA is the control the state genuinely still has
+      // (a started case's only panel action is Query, since RA-527's
+      // follow-up).
       expect(await detail.hasLogDecisionCta()).toBe(true)
       // RA-317: withdraw is no longer a case-management action.
       expect(actionIds).not.toContain('withdraw-during-assessment')

@@ -271,7 +271,7 @@ describe('RA-295 case header on the work item detail page', () => {
         tonnageBand: '0-500'
       }))
 
-      // Submitted -> Duly made -> Assessment in progress. Duly making
+      // Submitted -> Duly made -> started (`assessment-started`). Duly making
       // (RA-316) starts the SLA clock from the payment date entered.
       await dulyMake(workItemId)
       await startAssessment(workItemId)

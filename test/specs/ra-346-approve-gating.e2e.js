@@ -5,7 +5,7 @@ import detail from '../page-objects/work-item-detail.page.js'
 import decision from '../page-objects/decision.page.js'
 import {
   confirmApplicantContact,
-  driveToAssessmentInProgress,
+  driveToAssessmentStarted,
   logDecision
 } from '../support/re-accreditation-journey.js'
 import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js'
@@ -45,7 +45,7 @@ describe('RA-346/RA-410 A determination can be logged only once', () => {
     // Submitted through the Registration & Accreditation service backend,
     // which owns the application and so accepts the decision push.
     ;({ id: workItemId } = await createOperatorBackedWorkItem())
-    await driveToAssessmentInProgress(workItemId)
+    await driveToAssessmentStarted(workItemId)
   })
 
   after(async () => {

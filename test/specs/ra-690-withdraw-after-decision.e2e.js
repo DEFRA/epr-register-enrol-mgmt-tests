@@ -30,8 +30,8 @@ import { getWorkItem } from '../support/decision-api.js'
  *   `rejected-pending-contact` and answers 409. The operator backend passes
  *   that 409 on.
  *
- * The operator keeps the status they saw before the determination: Updated,
- * from assessment in progress, because step 1 pushes nothing (RA-527).
+ * The operator keeps the status they saw before the determination: Duly
+ * made, because neither starting the case nor step 1 pushes anything (RA-527).
  */
 
 const DECISION_MADE_MESSAGE =
@@ -105,8 +105,8 @@ describe('RA-690: withdrawing after a decision is recorded', () => {
           item.operatorOrganisationId,
           item.operatorApplicationId
         )
-        expect(operatorBefore.applicationStatus).toBe('Updated')
-        expect(operatorAfter.applicationStatus).toBe('Updated')
+        expect(operatorBefore.applicationStatus).toBe('DulyMade')
+        expect(operatorAfter.applicationStatus).toBe('DulyMade')
         expect(operatorAfter.withdrawalReason ?? null).toBeNull()
         expect(operatorAfter.accreditationReference ?? null).toBe(
           operatorBefore.accreditationReference ?? null

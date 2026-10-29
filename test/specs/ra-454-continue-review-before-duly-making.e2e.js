@@ -1,18 +1,52 @@
-import { $, expect } from '@wdio/globals'
+import { $, browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import dulyMaking from '../page-objects/duly-making.page.js'
 import {
   createReAccreditation,
-  driveToAssessmentInProgress
+  dulyMake,
+  startAssessment
 } from '../support/re-accreditation-journey.js'
 import {
   raiseQuery,
   resumeFromQuery,
   continueReviewViaApi
 } from '../support/query-resubmission.js'
+import {
+  createOperatorBackedWorkItem,
+  getOperatorApplication,
+  waitForOperatorApplicationStatus
+} from '../support/operator-backend-api.js'
 import { utcDateParts } from '../support/uk-time.js'
+
+/**
+ * Open the item's Application history and wait for exactly `count`
+ * `status-push-sent` entries, reloading between reads. The status push runs
+ * on a background queue (RA-519) and the history page does not update itself,
+ * so a push that lands after the page loaded is only seen on a reload.
+ */
+async function waitForStatusPushesSent(workItemId, count) {
+  await workItems.openWorkItem(workItemId)
+  await detail.gotoAudit()
+  await browser.waitUntil(
+    async () => {
+      if (
+        (await detail.auditEntriesForAction('status-push-sent')).length ===
+        count
+      ) {
+        return true
+      }
+      await browser.refresh()
+      return false
+    },
+    {
+      timeout: 15_000,
+      interval: 500,
+      timeoutMsg: `Expected ${count} status-push-sent entries for ${workItemId}`
+    }
+  )
+}
 
 /**
  * RA-454 — Case Management service: Query before Duly Made — "Continue review" wrongly duly-makes
@@ -46,7 +80,9 @@ import { utcDateParts } from '../support/uk-time.js'
  * ── Why `assertStateId`, not the visible status ──────────────────────────────
  *
  * `assessment-in-progress` and `updated` BOTH display as "Updated" (RA-324),
- * so a spec built on the label could assert against the wrong item entirely.
+ * and `assessment-started` and `duly-made` BOTH display as "Duly made"
+ * (RA-527's follow-up), so a spec built on the label could assert against the
+ * wrong item entirely.
  * Every state assertion here uses the raw `data-state-id` (`assertStateId`),
  * the contract management-fe added for exactly this.
  *
@@ -198,59 +234,159 @@ describe('RA-454 Continue review after a query raised before duly making', () =>
     })
   })
 
-  describe('queried AFTER duly making (origin assessment-in-progress)', () => {
+  describe('queried AFTER duly making (a started case, "Duly made")', () => {
     // The positive contrast: the state that Continue review is FOR. Suppressing
     // it here too would strand a genuinely-under-review application, so this
     // block guards the fix against over-reaching.
+    //
+    // RA-527 follow-up (coverage d): "Assign to yourself and start" now leaves
+    // the case in `assessment-started`, which still reads "Duly made" on both
+    // sides. Querying it takes the journey a started case always took:
+    // Queried -> the operator responds -> `updated` (Updated, turquoise) ->
+    // Continue review -> `assessment-in-progress` (Updated, blue). It never
+    // goes back to `assessment-started` / "Duly made". The item is
+    // operator-backed so the operator side can be read at every step.
+    let application
     let workItemId
+    let dulyMadePushedAt
+    let pushedAtBeforeContinue
 
     before(async () => {
       await login.login()
-      ;({ id: workItemId } = await createReAccreditation(
-        'RA454 Query After Duly Ltd'
-      ))
-      // Duly make, then self-assign and start — the item is now in
-      // `assessment-in-progress`. Querying from here and resuming leaves it in
-      // `updated` with `originStateId: 'assessment-in-progress'`.
-      await driveToAssessmentInProgress(workItemId)
-      await raiseQuery(workItemId, {
-        reason: 'RA-454: please clarify the sampling plan while we assess this.'
-      })
-      await resumeFromQuery(workItemId)
+      await workItems.resetFilters()
+      application = await createOperatorBackedWorkItem()
+      workItemId = application.id
+      await dulyMake(workItemId)
+      // Let the duly-make push land (operator side AND its audit entry)
+      // before starting, so the push count across the start is deterministic.
+      const pushed = await waitForOperatorApplicationStatus(
+        application,
+        'DulyMade'
+      )
+      dulyMadePushedAt = pushed.caseManagementStatusUpdatedAt
+      await waitForStatusPushesSent(workItemId, 1)
+      await startAssessment(workItemId)
+    })
+
+    after(async () => {
       await login.logout()
     })
 
-    describe('the detail page after the operator resumes', () => {
-      before(async () => {
-        await login.login()
-        await workItems.openWorkItem(workItemId)
-      })
+    it('pushes nothing for the start: the operator stays DulyMade', async () => {
+      // Still only the duly-make push in the history...
+      await workItems.openWorkItem(workItemId)
+      await detail.gotoAudit()
+      await detail.assertAuditEntry('Assessment started')
+      expect(
+        (await detail.auditEntriesForAction('status-push-sent')).length
+      ).toBe(1)
+      // ...and the operator's copy was not touched again: still DulyMade, and
+      // its last Case Management update is still the duly-make one.
+      const operatorApplication = await getOperatorApplication(
+        application.operatorOrganisationId,
+        application.operatorApplicationId
+      )
+      expect(operatorApplication.applicationStatus).toBe('DulyMade')
+      expect(operatorApplication.caseManagementStatusUpdatedAt).toBe(
+        dulyMadePushedAt
+      )
+    })
 
-      after(async () => {
-        await login.logout()
-      })
+    it('offers Query on the started case, which still reads "Duly made"', async () => {
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('assessment-started')
+      await detail.assertState('Duly made')
+      expect(await detail.hasAction('query')).toBe(true)
+    })
 
-      it('lands in updated', async () => {
-        await detail.assertStateId('updated')
+    it('querying it moves both sides to Queried', async () => {
+      await raiseQuery(workItemId, {
+        reason: 'RA-454: please clarify the sampling plan while we assess this.'
       })
+      await detail.assertStateId('queried')
+      await waitForOperatorApplicationStatus(application, 'Queried')
+    })
 
-      it('offers exactly one "Continue review" control', async () => {
-        // Present, and present ONCE — the count guards both the RA-454
-        // over-suppression (which would read 0) and the RA-364 duplication
-        // (which read 4).
-        await expect(
-          $('[data-testid="re-accreditation-detail"]')
-        ).toBeDisplayed()
-        expect(await detail.hasContinueReviewCta()).toBe(true)
-        expect(await detail.countActionsWithId('continue-review')).toBe(1)
-      })
+    it("the operator's response moves both sides to Updated (turquoise in the Case Management service)", async () => {
+      await resumeFromQuery(workItemId)
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('updated')
+      await detail.assertState('Updated')
+      await detail.assertStateTagClass('govuk-tag--turquoise')
+      await waitForOperatorApplicationStatus(application, 'Updated')
+    })
 
-      it('does NOT offer "Duly make" — that would send it back past assessment', async () => {
-        // The mirror of the first block: an item queried after duly making has
-        // no route back to duly making, so the Duly make CTA must be absent
-        // here exactly as Continue review is absent there.
-        expect(await detail.hasDulyMakeCta()).toBe(false)
-      })
+    it('offers exactly one "Continue review" control', async () => {
+      // Present, and present ONCE — the count guards both the RA-454
+      // over-suppression (which would read 0) and the RA-364 duplication
+      // (which read 4).
+      await expect($('[data-testid="re-accreditation-detail"]')).toBeDisplayed()
+      expect(await detail.hasContinueReviewCta()).toBe(true)
+      expect(await detail.countActionsWithId('continue-review')).toBe(1)
+    })
+
+    it('does NOT offer "Duly make" — that would send it back past assessment', async () => {
+      // The mirror of the first block: an item queried after duly making has
+      // no route back to duly making, so the Duly make CTA must be absent
+      // here exactly as Continue review is absent there.
+      expect(await detail.hasDulyMakeCta()).toBe(false)
+    })
+
+    it('Continue review moves it to assessment-in-progress (Updated, blue), never back to Duly made', async () => {
+      // Baseline for the push assertions below: duly make and the operator's
+      // response have been pushed (the start was not, and the query has its
+      // own push), and the operator's last Case Management update is the
+      // response's.
+      await waitForStatusPushesSent(workItemId, 2)
+      ;({ caseManagementStatusUpdatedAt: pushedAtBeforeContinue } =
+        await getOperatorApplication(
+          application.operatorOrganisationId,
+          application.operatorApplicationId
+        ))
+
+      await workItems.openWorkItem(workItemId)
+      await detail.triggerAction('continue-review')
+      await detail.assertStateId('assessment-in-progress')
+      await detail.assertState('Updated')
+      await detail.assertStateTagClass('govuk-tag--blue')
+      expect(await detail.stateId()).not.toBe('assessment-started')
+    })
+
+    it('pushes Continue review to the operator, who stays Updated', async () => {
+      // Exactly one push more than before Continue review, and it is the
+      // Continue review one: from `updated`, under that action.
+      await waitForStatusPushesSent(workItemId, 3)
+      await detail.expandAllAuditEntryDetails()
+      await detail.assertAuditDetailRow(
+        'status-push-sent',
+        'Action',
+        'Continue review'
+      )
+      await detail.assertAuditDetailRow(
+        'status-push-sent',
+        'Previous state',
+        'updated'
+      )
+      // The operator received it — its last Case Management update moved on —
+      // and still reads Updated.
+      const operatorApplication = await getOperatorApplication(
+        application.operatorOrganisationId,
+        application.operatorApplicationId
+      )
+      expect(operatorApplication.applicationStatus).toBe('Updated')
+      expect(operatorApplication.caseManagementStatusUpdatedAt).not.toBe(
+        pushedAtBeforeContinue
+      )
+    })
+
+    it('records the whole journey in the history', async () => {
+      await detail.gotoAudit()
+      const transitions = await detail.appliedTransitions()
+      expect(transitions).toContain('duly-made → assessment-started')
+      expect(transitions).toContain('assessment-started → queried')
+      expect(transitions).toContain('queried → updated')
+      expect(transitions).toContain('updated → assessment-in-progress')
+      expect(transitions).not.toContain('updated → assessment-started')
     })
   })
 })

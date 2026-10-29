@@ -2,7 +2,10 @@ import { $, browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import { uniqueOrganisationName } from '../support/unique-name.js'
-import { dulyMake } from '../support/re-accreditation-journey.js'
+import {
+  dulyMake,
+  startAssessment
+} from '../support/re-accreditation-journey.js'
 
 /**
  * RA-324 phase-2 — Applications filter/sort overhaul.
@@ -292,5 +295,44 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
       )
       expect(await browser.getUrl()).not.toContain('includeArchived')
     })
+  })
+})
+
+// RA-527 follow-up. Starting a case keeps it "Duly made": a started case
+// (`assessment-started`) reads "Duly made" with the purple badge, and the
+// "Duly made" Status filter finds it while "Updated" does not.
+describe('RA-527 follow-up: a started case is filtered as Duly made', () => {
+  const startedToken = uniqueOrganisationName('StartedFilter')
+  let started
+
+  before(async () => {
+    await login.login()
+    started = await createItem(`${startedToken} Glass`, 'glass')
+    await dulyMake(started.id)
+    await startAssessment(started.id)
+  })
+
+  after(async () => {
+    await login.logout()
+  })
+
+  it('appears under the "Duly made" status filter, labelled Duly made in purple', async () => {
+    await workItems.resetFilters()
+    await workItems.searchByOrg(startedToken)
+    await workItems.checkStatus('duly-made')
+    await workItems.applyFilters()
+    await expect(workItems.tileFor(started.id)).toBeDisplayed()
+    await expect(workItems.tileStatusBadge(started.id)).toHaveText('Duly made')
+    await expect(workItems.tileStatusBadge(started.id)).toHaveElementClass(
+      'govuk-tag--purple'
+    )
+  })
+
+  it('does not appear under the "Updated" status filter', async () => {
+    await workItems.resetFilters()
+    await workItems.searchByOrg(startedToken)
+    await workItems.checkStatus('updated')
+    await workItems.applyFilters()
+    await expect(workItems.tileFor(started.id)).not.toBeExisting()
   })
 })

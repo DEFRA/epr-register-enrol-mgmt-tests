@@ -25,7 +25,7 @@ import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js
  *      backend, which creates the work item (Not started). The decision is
  *      pushed to that backend, so it must own the application.
  *   2. "Duly make" + payment ref/date          -> Duly made.
- *   3. "Assign to yourself and start"          -> Assessment in progress.
+ *   3. "Assign to yourself and start"          -> started (still "Duly made").
  *   4. "Log decision" + the Refused radio      -> Refused.
  *   5. The detail page surfaces the read-only "Outcome" panel + a red
  *      "Refused" state tag, and the generic decision actions disappear.
@@ -37,7 +37,7 @@ import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js
 describe('RA-132 Reject action terminal flow', () => {
   let workItemId
 
-  it('creates a re-accreditation and drives it to assessment-in-progress', async () => {
+  it('creates a re-accreditation and drives it to assessment-started', async () => {
     await login.login()
     workItemId = (await createOperatorBackedWorkItem()).id
 
@@ -49,9 +49,9 @@ describe('RA-132 Reject action terminal flow', () => {
     // date; the shared helper owns that journey.
     await dulyMake(workItemId)
 
-    // Duly made -> Assessment in progress
+    // Duly made -> started (`assessment-started`, still "Duly made")
     await startAssessment(workItemId)
-    await detail.assertStateId('assessment-in-progress')
+    await detail.assertStateId('assessment-started')
 
     await login.logout()
   })

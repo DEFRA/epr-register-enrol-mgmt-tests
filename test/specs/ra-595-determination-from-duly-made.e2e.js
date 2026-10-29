@@ -8,7 +8,11 @@ import {
   dulyMake,
   logDecision
 } from '../support/re-accreditation-journey.js'
-import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js'
+import {
+  createOperatorBackedWorkItem,
+  getOperatorApplication,
+  waitForOperatorApplicationStatus
+} from '../support/operator-backend-api.js'
 
 /**
  * RA-595 (task 004) — make a determination straight from Duly made.
@@ -28,19 +32,44 @@ import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js
  * State is asserted by `data-state-id` (inside `logDecision`); the status
  * tag is checked only as the label a regulator reads. RA-324 gives
  * `assessment-in-progress` and `updated` the same label.
+ *
+ * RA-527 follow-up: the start step now lands on `assessment-started` (still
+ * "Duly made") and is never pushed, and the determination (step 1) pushes
+ * nothing either. So the operator's application stays DulyMade through step
+ * 1 and only moves when step 2 (confirm applicant contact) pushes the
+ * outcome.
  */
+
+/**
+ * The operator's status has not moved since duly making: still DulyMade,
+ * with no Case Management status update after the duly-make push.
+ */
+async function expectOperatorStillDulyMade(application, dulyMadePushedAt) {
+  const current = await getOperatorApplication(
+    application.operatorOrganisationId,
+    application.operatorApplicationId
+  )
+  expect(current.applicationStatus).toBe('DulyMade')
+  expect(current.caseManagementStatusUpdatedAt).toBe(dulyMadePushedAt)
+}
 
 /** The stub login identity — see `login.page.js`. */
 const CALLER = 'Stub Caseworker One'
 
 describe('RA-595 Make Determination from an unassigned Duly made case', () => {
   let workItemId
+  let application
+  let dulyMadePushedAt
 
   before(async () => {
     await login.login()
     await workItems.resetFilters()
-    workItemId = (await createOperatorBackedWorkItem()).id
+    application = await createOperatorBackedWorkItem()
+    workItemId = application.id
     await dulyMake(workItemId)
+    dulyMadePushedAt = (
+      await waitForOperatorApplicationStatus(application, 'DulyMade')
+    ).caseManagementStatusUpdatedAt
   })
 
   after(async () => {
@@ -64,14 +93,23 @@ describe('RA-595 Make Determination from an unassigned Duly made case', () => {
     await detail.assertUnassigned()
   })
 
-  it('submitting Approved assigns the caller, starts assessment and grants', async () => {
-    // `logDecision` and `confirmApplicantContact` each assert the state id
-    // they land on.
+  it('submitting Approved assigns the caller, starts assessment and records step 1', async () => {
+    // `logDecision` asserts the state id it lands on.
     await logDecision(workItemId, 'approved')
+    await detail.assertAssignedTo(CALLER)
+  })
+
+  it('leaves the operator on Duly made after step 1 (RA-527 follow-up)', async () => {
+    await expectOperatorStillDulyMade(application, dulyMadePushedAt)
+  })
+
+  it('grants at step 2, which moves the operator to Approved', async () => {
     // RA-527: the determination is step 1; Granted needs step 2.
+    // `confirmApplicantContact` asserts the state id it lands on.
     await confirmApplicantContact(workItemId)
     await detail.assertState('Granted')
     await detail.assertAssignedTo(CALLER)
+    await waitForOperatorApplicationStatus(application, 'Approved')
   })
 
   it('records "Assessment started" in the history, and no Payment received', async () => {
@@ -79,20 +117,27 @@ describe('RA-595 Make Determination from an unassigned Duly made case', () => {
     const actions = await detail.appliedActionNames()
     expect(actions).toContain('Assessment started')
     expect(actions).not.toContain('Payment received')
+    // RA-527 follow-up: the start lands on `assessment-started`.
     expect(await detail.appliedTransitions()).toContain(
-      'duly-made → assessment-in-progress'
+      'duly-made → assessment-started'
     )
   })
 })
 
 describe('RA-595 Make Determination from a Duly made case held by a colleague', () => {
   let workItemId
+  let application
+  let dulyMadePushedAt
 
   before(async () => {
     await login.login()
     await workItems.resetFilters()
-    workItemId = (await createOperatorBackedWorkItem()).id
+    application = await createOperatorBackedWorkItem()
+    workItemId = application.id
     await dulyMake(workItemId)
+    dulyMadePushedAt = (
+      await waitForOperatorApplicationStatus(application, 'DulyMade')
+    ).caseManagementStatusUpdatedAt
     await workItems.openWorkItem(workItemId)
     await detail.assignTo('stub-caseworker-2')
   })
@@ -107,15 +152,24 @@ describe('RA-595 Make Determination from a Duly made case held by a colleague', 
     expect(await detail.hasLogDecisionCta()).toBe(true)
   })
 
-  it('submitting Refused starts assessment and refuses, leaving the colleague assigned', async () => {
+  it('submitting Refused starts assessment and records step 1, leaving the colleague assigned', async () => {
     await logDecision(workItemId, 'refused')
     // RA-527: step 1 of a refusal (`logDecision` asserts the state id), also
     // tagged "Refused". The final Refused needs step 2.
     await detail.assertState('Refused')
-    await confirmApplicantContact(workItemId)
-    await detail.assertState('Refused')
     // Submitting a determination must not silently take over their case.
     await detail.assertAssignedTo('Stub Caseworker Two')
+  })
+
+  it('leaves the operator on Duly made after step 1 (RA-527 follow-up)', async () => {
+    await expectOperatorStillDulyMade(application, dulyMadePushedAt)
+  })
+
+  it('refuses at step 2, which moves the operator to Rejected', async () => {
+    await confirmApplicantContact(workItemId)
+    await detail.assertState('Refused')
+    await detail.assertAssignedTo('Stub Caseworker Two')
+    await waitForOperatorApplicationStatus(application, 'Rejected')
   })
 
   it('records "Assessment started" in the history', async () => {

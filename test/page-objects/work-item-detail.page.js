@@ -335,6 +335,9 @@ class WorkItemDetailPage extends Page {
    * two apart — and telling them apart is the entire subject of this story.
    * The badge colour does distinguish them: `updated` is turquoise,
    * `assessment-in-progress` is blue (see `state-badge.js` in management-fe).
+   * (RA-527's follow-up: a started case, `assessment-started`, reads "Duly
+   * made" with the same purple badge as `duly-made` — the colour cannot tell
+   * those two apart; `stateId()` can.)
    */
   async stateTagClass() {
     const tag = await $('[data-testid="work-item-state-tag"]')
@@ -687,7 +690,7 @@ class WorkItemDetailPage extends Page {
    *
    * Every applied action has the same heading, "Action applied", so the name
    * is read from the summary after it: `Action applied — Assessment started
-   * (duly-made → assessment-in-progress)`.
+   * (duly-made → assessment-started)`.
    */
   async appliedActionNames() {
     const entries = await $$(
@@ -2327,7 +2330,8 @@ class WorkItemDetailPage extends Page {
    *
    * This exists because the visible status CANNOT distinguish
    * `assessment-in-progress` from `updated` — RA-324 gives both the display
-   * name "Updated". Before this hook the raw id reached no part of the DOM,
+   * name "Updated" — nor `assessment-started` from `duly-made`, which share
+   * "Duly made" (RA-527's follow-up). Before this hook the raw id reached no part of the DOM,
    * so `assertState('Updated')` would happily pass against the wrong one of
    * the two. Assert on this wherever the distinction matters; it is a
    * contract with management-fe, not an incidental attribute.
@@ -2500,9 +2504,11 @@ class WorkItemDetailPage extends Page {
 
   /**
    * RA-410. The "Log decision" CTA, rendered in the actions panel while the
-   * item is in `assessment-in-progress` and ABSENT FROM THE DOM in every other
-   * state (management-fe removes it rather than hiding it, so presence — not
-   * visibility — is the assertion that means anything here).
+   * item is in a state that can reach a determination (`duly-made`,
+   * `assessment-started`, `assessment-in-progress`; RA-595 and RA-527's
+   * follow-up) and ABSENT FROM THE DOM in every other state (management-fe
+   * removes it rather than hiding it, so presence — not visibility — is the
+   * assertion that means anything here).
    *
    * Shaped like `dulyMakeCta` above and for the same reason: the decision is
    * driven by a bespoke module route, not by a generic
@@ -2533,7 +2539,9 @@ class WorkItemDetailPage extends Page {
 
   /**
    * RA-410. "Assign to yourself and start" — the `duly-made` →
-   * `assessment-in-progress` step.
+   * `assessment-started` step. RA-527 follow-up: the start lands on
+   * `assessment-started`, which still reads "Duly made" (it used to land on
+   * `assessment-in-progress`, "Updated").
    *
    * THE SAME BUTTON AS `selfAssign()`, deliberately. management-fe reuses
    * `self-assign-submit`; what RA-410 adds is server-side, and only from
@@ -2562,7 +2570,7 @@ class WorkItemDetailPage extends Page {
       async () =>
         (await this.assignmentCurrent().isExisting()) &&
         !(await this.assignmentCurrent().getText()).includes('Unassigned') &&
-        (await this.stateId()) === 'assessment-in-progress',
+        (await this.stateId()) === 'assessment-started',
       {
         timeout: 10000,
         // Spelled out because this timeout has three quite different causes
@@ -2579,7 +2587,7 @@ class WorkItemDetailPage extends Page {
         //    or not clickable, usually because the item was already assigned.
         timeoutMsg:
           'Expected the work item to become assigned AND move to ' +
-          'assessment-in-progress after "Assign to yourself and start". ' +
+          'assessment-started after "Assign to yourself and start". ' +
           'If the page shows `duly-made` with an error banner the transition ' +
           'failed (management-fe renders in place on failure, so this is not ' +
           'a race); if it redirected and is assigned but the state trails, ' +
