@@ -9,7 +9,8 @@ import { Page } from './page.js'
  * that used to gate `submit-for-decision` / `approve` are deleted, so the
  * ONLY way a caseworker records an outcome is:
  *
- *   1. Green "Log decision" CTA on the detail page (assessment-in-progress only)
+ *   1. Green "Log decision" CTA on the detail page (Duly made, started or
+ *      Updated — `duly-made`, `assessment-started`, `assessment-in-progress`)
  *   2. GET  /work-items/re-accreditation/{id}/decision
  *   3. Pick Approved or Refused
  *   4. POST /work-items/re-accreditation/{id}/decision

@@ -5,7 +5,7 @@ import detail from '../page-objects/work-item-detail.page.js'
 import decision from '../page-objects/decision.page.js'
 import {
   createReAccreditation,
-  driveToAssessmentInProgress
+  driveToAssessmentStarted
 } from '../support/re-accreditation-journey.js'
 import { raiseQuery } from '../support/query-resubmission.js'
 
@@ -28,15 +28,20 @@ import { raiseQuery } from '../support/query-resubmission.js'
  * WHAT IT ASSERTS NOW:
  *   1. `submit-for-decision` is no longer caller-invocable — absent from
  *      `availableActions`, and the generic apply-action route refuses it.
- *   2. The "Log decision" CTA appears ONLY in `assessment-in-progress`.
+ *   2. The "Log decision" CTA appears once the case is started
+ *      (`assessment-started`), and not before or while queried.
  *   3. The Log decision route itself refuses from the wrong state, not just
  *      the CTA.
  *
- * management-be now applies `assessment-in-progress -> awaiting-decision ->
- * approved/rejected` inside one call, so `submit-for-decision` has no caller
- * left to invoke it: a manual button parking an item in `awaiting-decision`
- * would strand it, since the Log decision CTA is gated on
- * `assessment-in-progress`.
+ * management-be now applies `assessment-started` (or
+ * `assessment-in-progress`) `-> awaiting-decision -> approved/rejected` inside
+ * one call, so `submit-for-decision` has no caller left to invoke it: a manual
+ * button parking an item in `awaiting-decision` would strand it.
+ *
+ * RA-527's follow-up: "Assign to yourself and start" now lands on
+ * `assessment-started` (still "Duly made"), not `assessment-in-progress`, so
+ * this spec's started case — and the refused direct POST — are exercised from
+ * `assessment-started`.
  */
 describe('RA-346/RA-410 The decision route is gated on state, not on tasks', () => {
   let workItemId
@@ -86,9 +91,9 @@ describe('RA-346/RA-410 The decision route is gated on state, not on tasks', () 
     })
   })
 
-  describe('once the item reaches assessment-in-progress', () => {
+  describe('once the item is started (assessment-started)', () => {
     before(async () => {
-      await driveToAssessmentInProgress(workItemId)
+      await driveToAssessmentStarted(workItemId)
     })
 
     it('offers the Log decision CTA', async () => {
@@ -101,9 +106,10 @@ describe('RA-346/RA-410 The decision route is gated on state, not on tasks', () 
       // strands the item there, is the failure mode this guards.
       //
       // Render anchor: RA-317 removed the withdraw action that used to prove
-      // the page rendered its affordances (assessment-in-progress now projects
-      // no panel action at all), so the Log decision CTA is the positive
-      // control instead — without it these absences could pass vacuously.
+      // the page rendered its affordances (a started case projects only the
+      // Query link, `action-query`, since RA-527's follow-up), so the Log
+      // decision CTA is the positive control instead — without it these
+      // absences could pass vacuously.
       expect(await detail.hasLogDecisionCta()).toBe(true)
       const actionIds = await detail.availableActionIds()
       expect(actionIds).not.toContain('submit-for-decision')
@@ -146,7 +152,7 @@ describe('RA-346/RA-410 The decision route is gated on state, not on tasks', () 
       // The status code above proves the request was refused; this proves the
       // refusal happened BEFORE any transition was applied.
       await workItems.openWorkItem(workItemId)
-      await detail.assertStateId('assessment-in-progress')
+      await detail.assertStateId('assessment-started')
     })
   })
 

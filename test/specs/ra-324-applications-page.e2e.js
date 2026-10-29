@@ -3,11 +3,13 @@ import login from '../page-objects/login.page.js'
 import workItems, { TILE_FIELD_ORDER } from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import query from '../page-objects/query.page.js'
+import slaExtend from '../page-objects/sla-extend.page.js'
 import { uniqueOrganisationName } from '../support/unique-name.js'
 import {
   dulyMake,
   startAssessment
 } from '../support/re-accreditation-journey.js'
+import { farFutureDeadline } from '../support/sla-extend-date.js'
 
 /**
  * RA-324 — Applications page.
@@ -19,6 +21,12 @@ import {
  * labelled "Work items" (AC01). The backend renamed the state DisplayNames
  * the badges show (submitted→"Not started", assessment-in-progress→"Updated",
  * approved→"Granted", rejected→"Refused").
+ *
+ * RA-527 follow-up: "Assign to yourself and start" no longer reaches
+ * "Updated" — the started case (`assessment-started`) still reads "Duly made".
+ * The only routes into `assessment-in-progress` are now a determination
+ * deadline change on a started case and Continue review after a query, so
+ * AC07 reaches "Updated" with a deadline change after the start.
  *
  * Tile hooks (from management-fe): each tile is an
  * <article data-testid="application-tile" data-work-item-id="{id}">. Inside
@@ -75,10 +83,19 @@ async function createFreshItem(organisationNamePrefix) {
  */
 const driveToDulyMade = (id) => dulyMake(id)
 
-/** Duly made → Updated (assessment-in-progress) via start-assessment. */
+/**
+ * Duly made → started (`assessment-started`, still "Duly made") → Updated
+ * (`assessment-in-progress`). RA-527 follow-up: the start alone keeps the case
+ * Duly made, so the deadline change is what moves it to Updated.
+ */
 async function driveToUpdated(id) {
   await workItems.openWorkItem(id)
   await startAssessment(id)
+  await slaExtend.changeDeadline(id, {
+    reason: 'Moving the case to Updated for the badge check',
+    date: farFutureDeadline()
+  })
+  await detail.assertStateId('assessment-in-progress')
   await detail.assertState('Updated')
 }
 

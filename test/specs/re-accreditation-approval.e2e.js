@@ -24,7 +24,7 @@ import { isCaseManagementPushEnabled } from '../support/backend-api.js'
  *      backend, which creates the work item (state = Submitted). The
  *      decision is pushed to that backend, so it must own the application.
  *   2. The work item is duly made, then "Assign to yourself and start"
- *      takes it to assessment-in-progress.
+ *      starts it (`assessment-started`, still "Duly made").
  *   3. A caseworker approves the work item (RA-323 — every caseworker
  *      holds the same role).
  *   4. The backend issues a fixed 17-char accreditation id and stamps a
@@ -51,7 +51,7 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
   let issuedAccreditationReference
   let approvedAccreditationId
 
-  it('creates a re-accreditation and drives it to assessment-in-progress', async () => {
+  it('creates a re-accreditation and drives it to assessment-started', async () => {
     await login.login()
     workItem = await createOperatorBackedWorkItem()
 
@@ -63,14 +63,15 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     // date; the shared helper owns that journey.
     await dulyMake(workItem.id)
 
-    // Duly made -> Assessment in progress
+    // Duly made -> started (`assessment-started`, still "Duly made")
     await startAssessment(workItem.id)
-    // `assessment-in-progress` displays as "Updated" (RA-324), so the
-    // raw id is what pins the state. RA-410 removed the
+    // `assessment-started` displays as "Duly made" (RA-527 follow-up: a
+    // start keeps the case Duly made), so the raw id is what pins the
+    // state. RA-410 removed the
     // `submit-for-decision` step that used to follow: `awaiting-decision`
     // is now an internal hop inside the Log decision call, so this is
     // where the item waits.
-    await detail.assertStateId('assessment-in-progress')
+    await detail.assertStateId('assessment-started')
 
     await login.logout()
   })
@@ -78,7 +79,7 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
   it('logs the approval and the backend issues the accreditation id derived from the registration reference', async () => {
     await login.login()
     await workItems.openWorkItem(workItem.id)
-    await detail.assertStateId('assessment-in-progress')
+    await detail.assertStateId('assessment-started')
 
     await logDecision(workItem.id, 'approved')
 

@@ -35,8 +35,8 @@ const FIXTURE_SITE_ADDRESS_LINE_1 = '1 Terminal Way'
  */
 
 /**
- * Create a work item and drive it to `assessment-in-progress` — the state
- * from which a decision can be logged.
+ * Create a work item and drive it to `assessment-started` (still "Duly made"
+ * since RA-527's follow-up) — a state from which a decision can be logged.
  *
  * The item is submitted through the Registration & Accreditation service
  * backend (`createOperatorBackedWorkItem`), because a decision is pushed to
@@ -56,7 +56,8 @@ export async function driveToDecisionReady() {
 
   // Submitted -> Duly made, via the "Duly make" CTA and a payment date.
   await dulyMake(item.id)
-  // Duly made -> Assessment in progress, via "Assign to yourself and start".
+  // Duly made -> started (`assessment-started`), via "Assign to yourself and
+  // start".
   await startAssessment(item.id)
 
   return item
@@ -168,7 +169,7 @@ export async function createWithdrawnWorkItemWithRunningSla(fixture) {
 }
 
 /**
- * Drive an `assessment-in-progress` item to `Granted`, via "Make
+ * Drive a started (`assessment-started`) item to `Granted`, via "Make
  * determination" -> Approved (RA-527 step 1) and then "Confirm applicant
  * contact" (step 2).
  */
@@ -180,7 +181,7 @@ export async function approveWorkItem(id) {
 }
 
 /**
- * Drive an `assessment-in-progress` item to `Refused`, via "Make
+ * Drive a started (`assessment-started`) item to `Refused`, via "Make
  * determination" -> Refused (RA-527 step 1) and then "Confirm applicant
  * contact" (step 2).
  *

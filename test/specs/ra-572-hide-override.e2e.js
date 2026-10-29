@@ -45,18 +45,21 @@ import { formatUkHeaderDate } from '../support/uk-time.js'
  * WHY THE FIXTURE GOES THROUGH ASSESSMENT. `canChangeDueDate` gates the
  * affordance, and a real due date only exists once `dulyMake` has started the
  * SLA clock from the payment date. Driving submitted -> duly-made ->
- * assessment-in-progress is therefore load-bearing twice over: it is the state
- * where the action is offered at all, and it is what makes AC04's "the updated
- * date is displayed" observable rather than vacuous. The preconditions are
+ * started (`assessment-started`, which still reads "Duly made" since RA-527's
+ * follow-up) is therefore load-bearing twice over: it is a state where the
+ * action is offered, and it is what makes AC04's "the updated date is
+ * displayed" observable rather than vacuous. The preconditions are
  * asserted in `before` rather than assumed, so a fixture that silently failed
  * to get a clock cannot make the absence assertions below pass for the wrong
  * reason.
  *
- * ONE SHARED ITEM. Changing a deadline is a due-date change, not a workflow
- * transition through the engine gate, so the item stays in the same state
- * throughout and every block can re-anchor on it. AC05 (cancel saves nothing)
- * runs BEFORE AC04 (save works) on purpose: cancel has to be measured against
- * a due date nothing has moved yet.
+ * ONE SHARED ITEM. The item sits in `assessment-started` ("Duly made") until
+ * AC04 saves a deadline change, which is a real transition since RA-527's
+ * follow-up: `sla-extend` moves a started case to `assessment-in-progress`
+ * ("Updated"). Every block before AC04 re-anchors on the started state, and
+ * AC04 asserts the move. AC05 (cancel saves nothing) runs BEFORE AC04 (save
+ * works) on purpose: cancel has to be measured against a due date — and a
+ * state — nothing has moved yet.
  */
 describe('RA-572 Override retired, Change is the single deadline route', () => {
   let workItemId
@@ -67,13 +70,14 @@ describe('RA-572 Override retired, Change is the single deadline route', () => {
       'RA572 Change Deadline Ltd'
     ))
 
-    // Start the SLA clock (dulyMake, from the payment date) then reach
-    // assessment, where the due date can be changed.
+    // Start the SLA clock (dulyMake, from the payment date) then start the
+    // case. RA-527's follow-up: a started case still reads "Duly made".
     await dulyMake(workItemId)
     await startAssessment(workItemId)
 
     await workItems.openWorkItem(workItemId)
-    await detail.assertState('Updated')
+    await detail.assertStateId('assessment-started')
+    await detail.assertState('Duly made')
     // Without a real due date, "the updated date is displayed" (AC04) and
     // "cancel saved nothing" (AC05) would both be comparisons between two em
     // dashes — green, and proving nothing.
@@ -92,7 +96,7 @@ describe('RA-572 Override retired, Change is the single deadline route', () => {
       await workItems.openWorkItem(workItemId)
       // Positive anchor: every assertion in this block reads off the detail
       // page, so prove the detail page rendered before trusting an absence.
-      await detail.assertState('Updated')
+      await detail.assertState('Duly made')
     })
 
     after(async () => {
@@ -185,6 +189,8 @@ describe('RA-572 Override retired, Change is the single deadline route', () => {
       expect((await detail.caseHeaderFieldText('dueOn')).trim()).toBe(
         dueOnBefore
       )
+      // ...and nothing moved the state either: still started, not Updated.
+      await detail.assertStateId('assessment-started')
     })
   })
 
@@ -224,7 +230,9 @@ describe('RA-572 Override retired, Change is the single deadline route', () => {
         expect.stringContaining(formatUkHeaderDate(farFutureDeadlineDate()))
       )
 
-      // A due-date change is not a transition — the item has not moved state.
+      // RA-527's follow-up: the first deadline change on a started case IS a
+      // transition — `assessment-started -> assessment-in-progress`, "Updated".
+      await detail.assertStateId('assessment-in-progress')
       await detail.assertState('Updated')
     })
 

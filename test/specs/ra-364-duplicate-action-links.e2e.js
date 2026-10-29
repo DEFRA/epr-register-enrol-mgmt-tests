@@ -46,6 +46,9 @@ import {
  * `assessment-in-progress` (whose ONLY panel action was withdraw) renders the
  * generic "No actions are currently available" empty state, and the state
  * discriminator is now the raw state id (`assertStateId`), not a withdraw id.
+ * (RA-527's follow-up: the start now lands on `assessment-started`, not
+ * `assessment-in-progress`, and a started case offers Query, so its panel is
+ * no longer empty.)
  * Reaching the terminal `withdrawn` state is done through the operator backend
  * (`withdrawAsOperatorOrThrow`), the way it genuinely happens now.
  *
@@ -94,7 +97,12 @@ import {
  * RA-317 the reliable discriminator was the withdraw action id
  * (`withdraw-during-assessment` vs `withdraw-during-updated`); with withdraw
  * gone the discriminator is the raw state id, so this spec uses
- * `assertStateId('assessment-in-progress')` where the state must be pinned.
+ * `assertStateId` where the state must be pinned.
+ *
+ * RA-527's follow-up adds a second clash: "Assign to yourself and start" now
+ * lands on `assessment-started`, which deliberately shares "Duly made" with
+ * `duly-made`. The started case is pinned with
+ * `assertStateId('assessment-started')` for the same reason.
  *
  * "Queried" carries no such ambiguity — it belongs to `queried` alone — so
  * `assertState('Queried')` below is safe.
@@ -329,21 +337,23 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       // (RA-595).
       await detail.selfAssignAndStart()
 
-      // `assessment-in-progress` displays as "Updated" — see the trap note at
-      // the top of this file. The state is pinned by the state id below, not
-      // by this label.
-      await detail.assertState('Updated')
+      // RA-527 follow-up: the start lands on `assessment-started`, which
+      // displays as "Duly made" — the same label as `duly-made` (see the trap
+      // note at the top of this file). The state is pinned by the state id
+      // below, not by this label.
+      await detail.assertState('Duly made')
       await detail.assertActionsPanelWellFormed()
       await detail.assertNoDuplicateActionLabels()
 
-      // The unambiguous discriminator between `assessment-in-progress` and the
-      // `updated` state that shares its label. Pre-RA-317 this was the withdraw
-      // action id; with withdraw removed from case management, the raw state id
-      // is the discriminator. There is no caller-invocable panel action left in
-      // `assessment-in-progress` (Log decision is a separate CTA), so the panel
-      // renders the "No actions available" empty state — asserted well-formed
-      // above.
-      await detail.assertStateId('assessment-in-progress')
+      // The unambiguous discriminator between `assessment-started` and the
+      // `duly-made` state that shares its label. Pre-RA-317 the discriminator
+      // for this step was the withdraw action id; with withdraw removed from
+      // case management, the raw state id is. A started case offers Query
+      // (RA-527 follow-up), so the panel renders exactly one Query link — and
+      // Log decision is a separate CTA, not a panel action. Both are asserted
+      // well-formed above; the count below pins Query to one.
+      await detail.assertStateId('assessment-started')
+      expect(await detail.countActionsWithId('query')).toBe(1)
       expect(
         await detail.countActionsWithId('withdraw-during-assessment')
       ).toBe(0)
@@ -376,7 +386,7 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
       // other half: a revert that put the old buttons back ALONGSIDE the CTA
       // would give a caseworker two routes to a determination, which is
       // exactly the duplication this file exists to catch.
-      await detail.assertStateId('assessment-in-progress')
+      await detail.assertStateId('assessment-started')
 
       await detail.assertActionsPanelWellFormed()
       await detail.assertNoDuplicateActionLabels()

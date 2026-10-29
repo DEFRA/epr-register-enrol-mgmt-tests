@@ -41,7 +41,7 @@ const DECISION_NOTE =
 describe('RA-203 Approval sends operator decision notification', () => {
   let workItemId
 
-  it('drives a re-accreditation to assessment-in-progress', async () => {
+  it('drives a re-accreditation to assessment-started', async () => {
     await login.login()
     // Submitted through the operator journey backend, which owns the
     // application and so accepts the decision push. Its operator email is
@@ -56,14 +56,15 @@ describe('RA-203 Approval sends operator decision notification', () => {
     // date; the shared helper owns that journey.
     await dulyMake(workItemId)
 
-    // Duly made -> Assessment in progress
+    // Duly made -> started (`assessment-started`, still "Duly made")
     await startAssessment(workItemId)
-    // `assessment-in-progress` displays as "Updated" (RA-324), so the
-    // raw id is what pins the state. RA-410 removed the
+    // `assessment-started` displays as "Duly made" (RA-527 follow-up: a
+    // start keeps the case Duly made), so the raw id is what pins the
+    // state. RA-410 removed the
     // `submit-for-decision` step that used to follow: `awaiting-decision`
     // is now an internal hop inside the Log decision call, so this is
     // where the item waits.
-    await detail.assertStateId('assessment-in-progress')
+    await detail.assertStateId('assessment-started')
 
     await login.logout()
   })
@@ -71,7 +72,7 @@ describe('RA-203 Approval sends operator decision notification', () => {
   it('sends no Decision email at the determination (step 1)', async () => {
     await login.login()
     await workItems.openWorkItem(workItemId)
-    await detail.assertStateId('assessment-in-progress')
+    await detail.assertStateId('assessment-started')
 
     // RA-410 moved the decision note from the approve interstitial onto the
     // Log decision page, so the determination carries its rationale.

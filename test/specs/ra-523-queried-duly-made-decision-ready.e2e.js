@@ -54,7 +54,9 @@ import {
  * RA-324 AC06 gives `assessment-in-progress` and `updated` the SAME display
  * name "Updated". A tag assertion across the retarget would pass vacuously
  * whether or not the transition fired, so the raw id (`assertStateId`) is the
- * only honest witness.
+ * only honest witness. RA-527's follow-up adds the same clash for "Duly made":
+ * the take-over below ("Assign to yourself and start") lands on
+ * `assessment-started`, which shares that name with `duly-made`.
  *
  * The middle leg of every query round trip is an API call for the reason
  * `query-resubmission.js` documents: `queried -> {updated,assessment}` is
@@ -398,8 +400,11 @@ describe('RA-523 final — a duly-made item held by a COLLEAGUE still offers sel
     // The two-operation button is still correct HERE, because both operations
     // genuinely apply: the caller does not hold the item and the item has not
     // started. This is the behaviour RA-410 built and RA-523 left alone.
+    // RA-527's follow-up: the start lands on `assessment-started`, which
+    // still reads "Duly made".
     await detail.selfAssignAndStart()
-    await detail.assertStateId('assessment-in-progress')
+    await detail.assertStateId('assessment-started')
+    await detail.assertState('Duly made')
     await detail.assertAssignedTo(CALLER)
   })
 })

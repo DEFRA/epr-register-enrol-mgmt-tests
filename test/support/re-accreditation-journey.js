@@ -19,17 +19,22 @@ import { utcDateParts } from './uk-time.js'
  * call-to-action buttons and nothing else:
  *
  *   submitted              --[ "Duly make" + payment ref/date ]--> duly-made
- *   duly-made  --[ "Assign to yourself and start" ]--> assessment-in-progress
- *   assessment-in-progress --[ "Log decision" + Approved/Refused ]--> approved
- *                                                                  / rejected
+ *   duly-made  --[ "Assign to yourself and start" ]--> assessment-started
+ *   assessment-started --[ "Log decision" + Approved/Refused ]--> approved
+ *                                                              / rejected
+ *
+ * RA-527's follow-up: the start lands on `assessment-started`, which still
+ * reads "Duly made" with the purple badge (it used to land on
+ * `assessment-in-progress`, "Updated"). A started case only becomes Updated
+ * through a determination deadline change or a query response.
  *
  * RA-527 splits each outcome into two steps:
  *
- *   assessment-in-progress --[ "Make determination" + Approved ]-->
+ *   assessment-started --[ "Make determination" + Approved ]-->
  *     approved-pending-contact ("Approved")
  *       --[ "Confirm applicant contact" ]--> approved ("Granted")
  *
- *   assessment-in-progress --[ "Make determination" + Refused ]-->
+ *   assessment-started --[ "Make determination" + Refused ]-->
  *     rejected-pending-contact ("Refused", as the final state reads)
  *       --[ "Confirm applicant contact" ]--> rejected ("Refused")
  *
@@ -44,7 +49,7 @@ import { utcDateParts } from './uk-time.js'
  * still exists in management-be's machine but is an INTERNAL HOP applied
  * server-side inside the single decision call. No affordance parks an item
  * there, so a helper offering to do so would model a journey no caseworker
- * can take. Specs that used it want `driveToAssessmentInProgress` (the
+ * can take. Specs that used it want `driveToAssessmentStarted` (the
  * pre-decision state) or `driveToApproved` / `driveToRefused` (the outcome).
  *
  * All transitions are now UNGATED in management-be — `payment-received` no
@@ -110,7 +115,8 @@ export async function dulyMake(workItemId, { dayOffset = 0 } = {}) {
   // where the application was queried during duly-making and then
   // resubmitted. Pinning a display name would make this helper unusable from
   // the second one — and "Updated" is ambiguous anyway, since
-  // `assessment-in-progress` shares it.
+  // `assessment-in-progress` shares it (as "Duly made" is, since
+  // `assessment-started` shares that).
   expect(await detail.hasDulyMakeCta()).toBe(true)
   await detail.clickDulyMake()
   await dulyMaking.assertOnPage()
@@ -147,7 +153,7 @@ export async function startAssessment(workItemId) {
 }
 
 /**
- * Step 3. Assessment in progress -> Approved (step 1) / Refused, via "Make
+ * Step 3. Started (or Updated) -> Approved (step 1) / Refused, via "Make
  * determination".
  *
  * `outcome` is `'approved'` or `'refused'` — the words on the RADIOS, which
@@ -163,7 +169,8 @@ export async function startAssessment(workItemId) {
  * Refused needs step 2.
  *
  * One click covers both internal hops. management-be applies
- * `assessment-in-progress -> awaiting-decision -> <outcome state>` inside
+ * `assessment-started` (or `assessment-in-progress`) `-> awaiting-decision
+ * -> <outcome state>` inside
  * the single call, so there is no intermediate page and nothing to assert
  * between them.
  */
@@ -196,12 +203,14 @@ export async function logDecision(workItemId, outcome, { note } = {}) {
 }
 
 /**
- * Submitted -> Duly made -> Assessment in progress.
+ * Submitted -> Duly made -> started (`assessment-started`, still "Duly
+ * made"). Renamed from `driveToAssessmentInProgress` by RA-527's follow-up,
+ * because the start no longer reaches `assessment-in-progress`.
  *
  * Leaves the browser on the detail page with the "Log decision" CTA
  * available and the case assigned to the logged-in user.
  */
-export async function driveToAssessmentInProgress(workItemId) {
+export async function driveToAssessmentStarted(workItemId) {
   await dulyMake(workItemId)
   await startAssessment(workItemId)
 }
@@ -216,7 +225,7 @@ export async function driveToAssessmentInProgress(workItemId) {
  * Leaves the browser on the detail page.
  */
 export async function driveToApprovedPendingContact(workItemId) {
-  await driveToAssessmentInProgress(workItemId)
+  await driveToAssessmentStarted(workItemId)
   await logDecision(workItemId, 'approved')
   await detail.assertState('Approved')
   expect(await detail.hasPendingContactBanner()).toBe(true)
@@ -234,7 +243,7 @@ export async function driveToApprovedPendingContact(workItemId) {
  * Leaves the browser on the detail page.
  */
 export async function driveToRefusedPendingContact(workItemId) {
-  await driveToAssessmentInProgress(workItemId)
+  await driveToAssessmentStarted(workItemId)
   await logDecision(workItemId, 'refused')
   await detail.assertState('Refused')
   expect(await detail.hasPendingContactBanner()).toBe(true)

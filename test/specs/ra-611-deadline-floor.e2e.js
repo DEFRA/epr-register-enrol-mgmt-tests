@@ -160,15 +160,18 @@ describe('RA-611 The determination deadline floor: duly made, not today', () => 
       })
     ).id
 
-    // Submitted -> Duly made -> Assessment in progress.
+    // Submitted -> Duly made -> started (`assessment-started`, still "Duly
+    // made" since RA-527's follow-up). The pin below then moves it to
+    // `assessment-in-progress` ("Updated").
     //
     // THE `dayOffset` IS THE WHOLE FIXTURE. It back-dates the payment date, and
     // therefore the SLA clock, and therefore the floor — without it the floor
     // is today and not one of the cases below can distinguish the corrected
     // rule from the withdrawn one. `DULY_MADE_DAYS_AGO` documents why 60.
     //
-    // assessment-in-progress is the only state offering the change-deadline
-    // action.
+    // Change determination deadline is offered from Duly made, a started case
+    // and Updated alike (RA-595, RA-527 follow-up); the start keeps this spec
+    // on the same journey it was written against.
     await dulyMake(workItemId, { dayOffset: -DULY_MADE_DAYS_AGO })
     await startAssessment(workItemId)
 

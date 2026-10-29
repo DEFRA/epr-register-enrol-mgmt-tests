@@ -5,7 +5,7 @@ import detail from '../page-objects/work-item-detail.page.js'
 import decision from '../page-objects/decision.page.js'
 import {
   createReAccreditation,
-  driveToAssessmentInProgress
+  driveToAssessmentStarted
 } from '../support/re-accreditation-journey.js'
 import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js'
 
@@ -37,7 +37,7 @@ describe('RA-410 The green CTA lifecycle', () => {
       // Submitted through the Registration & Accreditation service backend:
       // the last test here logs a decision, which that backend must accept.
       workItemId = (await createOperatorBackedWorkItem()).id
-      await driveToAssessmentInProgress(workItemId)
+      await driveToAssessmentStarted(workItemId)
       await detail.clickLogDecision()
       await decision.assertOnPage()
     })
@@ -95,7 +95,8 @@ describe('RA-410 The green CTA lifecycle', () => {
       // error that had nonetheless applied a transition would still be a
       // determination the caseworker never made.
       await workItems.openWorkItem(workItemId)
-      await detail.assertStateId('assessment-in-progress')
+      await detail.assertStateId('assessment-started')
+      await detail.assertState('Duly made')
       expect(await detail.hasLogDecisionCta()).toBe(true)
     })
 
@@ -139,7 +140,7 @@ describe('RA-410 The green CTA lifecycle', () => {
 
     before(async () => {
       workItemId = (await createReAccreditation('CTA Long Note')).id
-      await driveToAssessmentInProgress(workItemId)
+      await driveToAssessmentStarted(workItemId)
       await detail.clickLogDecision()
       await decision.assertOnPage()
     })
@@ -171,7 +172,8 @@ describe('RA-410 The green CTA lifecycle', () => {
 
     it('leaves the work item in assessment', async () => {
       await workItems.openWorkItem(workItemId)
-      await detail.assertStateId('assessment-in-progress')
+      await detail.assertStateId('assessment-started')
+      await detail.assertState('Duly made')
     })
 
     it('reports a missing radio AND an over-long note together, in field order', async () => {

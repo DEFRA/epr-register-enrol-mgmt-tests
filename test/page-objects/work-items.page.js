@@ -522,7 +522,8 @@ class WorkItemsPage extends Page {
   /**
    * Tick a Status filter. RA-324 phase-2 renamed the browser-facing param
    * from `stateId` to `status` (the BFF expands it to the backend state ids —
-   * e.g. status=updated covers both assessment-in-progress and updated).
+   * e.g. status=updated covers both assessment-in-progress and updated, and
+   * status=duly-made covers both duly-made and assessment-started).
    */
   async checkStatus(value) {
     await this.expandSection('status')

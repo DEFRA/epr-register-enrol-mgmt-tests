@@ -33,7 +33,7 @@ describe('RA-249 — application reference survives approval', () => {
   let createdId
   let applicationReference
 
-  it('creates a re-accreditation and drives it to assessment-in-progress', async () => {
+  it('creates a re-accreditation and drives it to assessment-started', async () => {
     await login.login()
     // Submitted through the operator journey backend, which owns the
     // application and so accepts the decision push.
@@ -53,14 +53,15 @@ describe('RA-249 — application reference survives approval', () => {
     // date; the shared helper owns that journey.
     await dulyMake(createdId)
 
-    // Duly made -> Assessment in progress
+    // Duly made -> started (`assessment-started`, still "Duly made")
     await startAssessment(createdId)
-    // `assessment-in-progress` displays as "Updated" (RA-324), so the
-    // raw id is what pins the state. RA-410 removed the
+    // `assessment-started` displays as "Duly made" (RA-527 follow-up: a
+    // start keeps the case Duly made), so the raw id is what pins the
+    // state. RA-410 removed the
     // `submit-for-decision` step that used to follow: `awaiting-decision`
     // is now an internal hop inside the Log decision call, so this is
     // where the item waits.
-    await detail.assertStateId('assessment-in-progress')
+    await detail.assertStateId('assessment-started')
 
     await login.logout()
   })
@@ -68,7 +69,7 @@ describe('RA-249 — application reference survives approval', () => {
   it('keeps the AP* application ref after the decision maker approves it', async () => {
     await login.login()
     await workItems.openWorkItem(createdId)
-    await detail.assertStateId('assessment-in-progress')
+    await detail.assertStateId('assessment-started')
 
     await logDecision(createdId, 'approved')
 

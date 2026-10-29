@@ -51,7 +51,9 @@ import { utcDateParts } from '../support/uk-time.js'
  * ── Why `assertStateId`, not the visible status ──────────────────────────────
  *
  * `assessment-in-progress` and `updated` BOTH display as "Updated" (RA-324),
- * so a spec built on the label could assert against the wrong item entirely.
+ * and `assessment-started` and `duly-made` BOTH display as "Duly made"
+ * (RA-527's follow-up), so a spec built on the label could assert against the
+ * wrong item entirely.
  * Every state assertion here uses the raw `data-state-id` (`assertStateId`),
  * the contract management-fe added for exactly this.
  *
