@@ -24,7 +24,8 @@ import { getWorkItem, postDecision } from '../support/decision-api.js'
  *   approval) mints the accreditation number, but applies nothing. The item
  *   waits in `approved-pending-contact` ("Approved") or
  *   `rejected-pending-contact` ("Refused"), and the operator still sees the
- *   status they saw before. Each step 1 tag has its final state's colour
+ *   status they saw before: DULY MADE, since starting the case pushes
+ *   nothing either (RA-527 follow-up). Each step 1 tag has its final state's colour
  *   (task 010): "Approved" green like Granted, and "Refused" red like the
  *   final Refused, which it also reads the same as.
  *
@@ -156,14 +157,14 @@ describe('RA-527: two-step determination', () => {
     it('records the determination but pushes nothing and sends no Decision email', async () => {
       await detail.gotoAudit()
       await detail.assertAuditEntry('Determination made: Approved')
-      // Duly make and start assessment pushed once each; step 1 adds none.
-      await detail.waitForAuditEntryCount('status-push-sent', 2)
+      // Only duly make pushed: the start and step 1 add none.
+      await detail.waitForAuditEntryCount('status-push-sent', 1)
       await assertNoDecisionEmail()
     })
 
     it("leaves the operator's status as it was before the determination", async () => {
-      // Assessment in progress reads as Updated on the operator side.
-      await waitForOperatorApplicationStatus(approval, 'Updated')
+      // The start pushed nothing, so the operator is still on Duly made.
+      await waitForOperatorApplicationStatus(approval, 'DulyMade')
     })
   })
 
@@ -202,11 +203,11 @@ describe('RA-527: two-step determination', () => {
     it('records the determination but pushes nothing', async () => {
       await detail.gotoAudit()
       await detail.assertAuditEntry('Determination made: Refused')
-      await detail.waitForAuditEntryCount('status-push-sent', 2)
+      await detail.waitForAuditEntryCount('status-push-sent', 1)
     })
 
     it("leaves the operator's status as it was before the determination", async () => {
-      await waitForOperatorApplicationStatus(refusal, 'Updated')
+      await waitForOperatorApplicationStatus(refusal, 'DulyMade')
     })
   })
 
@@ -297,9 +298,9 @@ describe('RA-527: two-step determination', () => {
       await detail.gotoAudit()
       expect(
         (await detail.auditEntriesForAction('status-push-sent')).length
-      ).toBe(2)
+      ).toBe(1)
       expect(await detail.auditEntryIndex('Applicant contacted')).toBe(-1)
-      await waitForOperatorApplicationStatus(approval, 'Updated')
+      await waitForOperatorApplicationStatus(approval, 'DulyMade')
     })
   })
 
@@ -354,7 +355,7 @@ describe('RA-527: two-step determination', () => {
       expect(
         (await detail.notificationSentEntriesForTemplate('Decision')).length
       ).toBe(1)
-      await detail.waitForAuditEntryCount('status-push-sent', 3)
+      await detail.waitForAuditEntryCount('status-push-sent', 2)
       // Unlike a refusal, an approval stops the SLA clock at step 2.
       expect(
         (await detail.auditEntriesForAction('sla-clock-stopped')).length

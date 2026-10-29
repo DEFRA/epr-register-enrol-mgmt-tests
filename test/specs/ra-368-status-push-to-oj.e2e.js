@@ -45,9 +45,12 @@ import {
  * spec read the backend's own copy of the application back and prove each
  * push landed: its `applicationStatus` follows the case-management state.
  *
- * The two call sites RA-368 cares about both still fire their own push:
- *   - `duly-make` (submitted -> duly-made), and
- *   - `start-assessment` (duly-made -> assessment-in-progress; RA-595).
+ * RA-368 originally covered two call sites; only one still pushes:
+ *   - `duly-make` (submitted -> duly-made) fires its own push, and
+ *   - `start-assessment` (duly-made -> assessment-started; RA-527 follow-up)
+ *     is excluded from the hook, so it pushes nothing and records no
+ *     `status-push-sent` entry. A started case stays "Duly made" on both
+ *     sides.
  *
  * The decision actions are NOT pushed by this hook: their Registration &
  * Accreditation service push is a single pre-commit gate owned by the service
@@ -174,7 +177,8 @@ describe('RA-368 CM status push to OJ', () => {
 
 // RA-527 (task 005). A refusal follows the same two steps: the determination
 // pushes nothing, and the operator only sees REFUSED once applicant contact
-// is confirmed.
+// is confirmed. Starting the case pushes nothing either, so the operator sits
+// on DulyMade from the duly-make push until step 2.
 describe('RA-368 status push to the Registration & Accreditation service: a refusal', () => {
   let workItemId
   let application
@@ -184,8 +188,10 @@ describe('RA-368 status push to the Registration & Accreditation service: a refu
     application = await createOperatorBackedWorkItem()
     workItemId = application.id
     await dulyMake(workItemId)
+    // The duly-make push runs in the background (RA-519): let it land before
+    // starting, so the push count below is deterministic.
+    await waitForOperatorApplicationStatus(application, 'DulyMade')
     await startAssessment(workItemId)
-    await waitForOperatorApplicationStatus(application, 'Updated')
   })
 
   after(async () => {
@@ -196,17 +202,17 @@ describe('RA-368 status push to the Registration & Accreditation service: a refu
     await logDecision(workItemId, 'refused')
 
     await detail.gotoAudit()
-    // Still just the duly-make and start-assessment pushes.
+    // Still just the duly-make push: the start pushed nothing.
     const sentEntries = await detail.waitForAuditEntryCount(
       'status-push-sent',
-      2
+      1
     )
-    expect(sentEntries.length).toBe(2)
+    expect(sentEntries.length).toBe(1)
     const operatorApplication = await getOperatorApplication(
       application.operatorOrganisationId,
       application.operatorApplicationId
     )
-    expect(operatorApplication.applicationStatus).toBe('Updated')
+    expect(operatorApplication.applicationStatus).toBe('DulyMade')
   })
 
   it('pushes the refusal when applicant contact is confirmed (RA-527 step 2)', async () => {
@@ -215,9 +221,9 @@ describe('RA-368 status push to the Registration & Accreditation service: a refu
     await detail.gotoAudit()
     const sentEntries = await detail.waitForAuditEntryCount(
       'status-push-sent',
-      3
+      2
     )
-    expect(sentEntries.length).toBe(3)
+    expect(sentEntries.length).toBe(2)
     // Rejected on that side, which the operator sees as REFUSED.
     await waitForOperatorApplicationStatus(application, 'Rejected')
   })
