@@ -2533,7 +2533,9 @@ class WorkItemDetailPage extends Page {
 
   /**
    * RA-410. "Assign to yourself and start" — the `duly-made` →
-   * `assessment-in-progress` step.
+   * `assessment-started` step. RA-527 follow-up: the start lands on
+   * `assessment-started`, which still reads "Duly made" (it used to land on
+   * `assessment-in-progress`, "Updated").
    *
    * THE SAME BUTTON AS `selfAssign()`, deliberately. management-fe reuses
    * `self-assign-submit`; what RA-410 adds is server-side, and only from
@@ -2562,7 +2564,7 @@ class WorkItemDetailPage extends Page {
       async () =>
         (await this.assignmentCurrent().isExisting()) &&
         !(await this.assignmentCurrent().getText()).includes('Unassigned') &&
-        (await this.stateId()) === 'assessment-in-progress',
+        (await this.stateId()) === 'assessment-started',
       {
         timeout: 10000,
         // Spelled out because this timeout has three quite different causes
@@ -2579,7 +2581,7 @@ class WorkItemDetailPage extends Page {
         //    or not clickable, usually because the item was already assigned.
         timeoutMsg:
           'Expected the work item to become assigned AND move to ' +
-          'assessment-in-progress after "Assign to yourself and start". ' +
+          'assessment-started after "Assign to yourself and start". ' +
           'If the page shows `duly-made` with an error banner the transition ' +
           'failed (management-fe renders in place on failure, so this is not ' +
           'a race); if it redirected and is assigned but the state trails, ' +

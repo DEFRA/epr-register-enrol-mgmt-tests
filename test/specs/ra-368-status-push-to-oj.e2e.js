@@ -62,6 +62,7 @@ import {
 describe('RA-368 CM status push to OJ', () => {
   let workItemId
   let application
+  let dulyMadePushedAt
 
   before(async () => {
     await login.login()
@@ -101,45 +102,60 @@ describe('RA-368 CM status push to OJ', () => {
       'DulyMade'
     )
     expect(pushed.caseManagementStatusUpdatedAt).toBeTruthy()
+    dulyMadePushedAt = pushed.caseManagementStatusUpdatedAt
   })
 
-  it('records a second status-push-sent entry for the start-assessment action', async () => {
-    // "Assign to yourself and start" drives the duly-made ->
-    // assessment-in-progress transition, whose action id is `start-assessment`
-    // (self-assignment fires no push; only the transition does), so this adds
-    // exactly one more `status-push-sent` entry.
+  // RA-527 follow-up: starting a case keeps it "Duly made" on both sides.
+  // "Assign to yourself and start" applies `start-assessment`, which now
+  // lands on `assessment-started` — labelled "Duly made", purple badge — and
+  // is never pushed, so no `status-push-sent` entry is added.
+  it('keeps a started case Duly made in the Case Management service and pushes nothing for the start', async () => {
     await startAssessment(workItemId)
 
     await workItems.openWorkItem(workItemId)
+    await detail.assertStateId('assessment-started')
+    await detail.assertState('Duly made')
+    await detail.assertStateTagClass('govuk-tag--purple')
+
     await detail.gotoAudit()
+    // The start is still recorded in the history...
+    await detail.assertAuditEntry('Assessment started')
+    // ...but only the duly-make push is there.
     const sentEntries = await detail.waitForAuditEntryCount(
       'status-push-sent',
-      2
+      1
     )
-    expect(sentEntries.length).toBe(2)
+    expect(sentEntries.length).toBe(1)
   })
 
-  it('moves the Registration & Accreditation service application on from Duly made', async () => {
-    // assessment-in-progress has no status of its own on that side; it
-    // reads as Updated.
-    await waitForOperatorApplicationStatus(application, 'Updated')
+  it('leaves the Registration & Accreditation service application on Duly made after the start', async () => {
+    const operatorApplication = await getOperatorApplication(
+      application.operatorOrganisationId,
+      application.operatorApplicationId
+    )
+    expect(operatorApplication.applicationStatus).toBe('DulyMade')
+    // Not re-pushed: the last Case Management status update is still the
+    // duly-make one.
+    expect(operatorApplication.caseManagementStatusUpdatedAt).toBe(
+      dulyMadePushedAt
+    )
   })
 
   it('pushes nothing for an approved determination (RA-527 step 1)', async () => {
     await logDecision(workItemId, 'approved')
 
     await detail.gotoAudit()
-    // Still just the duly-make and start-assessment pushes.
+    // Still just the duly-make push.
     const sentEntries = await detail.waitForAuditEntryCount(
       'status-push-sent',
-      2
+      1
     )
-    expect(sentEntries.length).toBe(2)
+    expect(sentEntries.length).toBe(1)
     const operatorApplication = await getOperatorApplication(
       application.operatorOrganisationId,
       application.operatorApplicationId
     )
-    expect(operatorApplication.applicationStatus).toBe('Updated')
+    expect(operatorApplication.applicationStatus).toBe('DulyMade')
   })
 
   it('pushes the outcome when applicant contact is confirmed (RA-527 step 2)', async () => {
@@ -148,9 +164,9 @@ describe('RA-368 CM status push to OJ', () => {
     await detail.gotoAudit()
     const sentEntries = await detail.waitForAuditEntryCount(
       'status-push-sent',
-      3
+      2
     )
-    expect(sentEntries.length).toBe(3)
+    expect(sentEntries.length).toBe(2)
     // Approved on that side, which the operator sees as GRANTED.
     await waitForOperatorApplicationStatus(application, 'Approved')
   })

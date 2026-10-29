@@ -121,8 +121,8 @@ export async function dulyMake(workItemId, { dayOffset = 0 } = {}) {
 }
 
 /**
- * Step 2. Duly made -> Assessment in progress, via "Assign to yourself and
- * start".
+ * Step 2. Duly made -> started (`assessment-started`, which still reads "Duly
+ * made"), via "Assign to yourself and start".
  *
  * REQUIRES THE ITEM TO BE HELD BY SOMEONE ELSE OR NOBODY — management-fe only
  * renders the self-assign button when the caller does not hold the case.
@@ -133,16 +133,17 @@ export async function dulyMake(workItemId, { dayOffset = 0 } = {}) {
  * `payment-received` action button, is gone: management-fe no longer
  * renders that button, and the self-assign flow is the one shared way in.
  *
- * Asserts the RAW state id rather than the display name, because RA-324
- * gives `assessment-in-progress` and `updated` the same display name
- * ("Updated"): `assertState('Updated')` cannot tell them apart and would
- * pass against the wrong one.
+ * Asserts the RAW state id rather than the display name, because RA-527's
+ * follow-up gives `assessment-started` and `duly-made` the same display name
+ * ("Duly made"): `assertState('Duly made')` cannot tell them apart and would
+ * pass against the wrong one. (Before it, the start landed on
+ * `assessment-in-progress`, "Updated".)
  */
 export async function startAssessment(workItemId) {
   await workItems.openWorkItem(workItemId)
   expect(await detail.hasAssignmentControl('selfAssign')).toBe(true)
   await detail.selfAssignAndStart()
-  await detail.assertStateId('assessment-in-progress')
+  await detail.assertStateId('assessment-started')
 }
 
 /**
