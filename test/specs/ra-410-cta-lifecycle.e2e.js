@@ -108,7 +108,7 @@ describe('RA-410 The green CTA lifecycle', () => {
       await detail.assertNoStartControl()
     })
 
-    it('step 2: Assign to yourself and start takes it to assessment', async () => {
+    it('step 2: Assign to yourself and start assigns it and keeps it Duly made', async () => {
       expect(await detail.hasAssignmentControl('selfAssign')).toBe(true)
       await detail.selfAssignAndStart()
 

@@ -90,7 +90,7 @@ describe('RA-410 The green CTA lifecycle', () => {
       expect(await decision.hasOutcomeRadio('approved')).toBe(true)
     })
 
-    it('leaves the work item in assessment', async () => {
+    it('leaves the work item started and Duly made', async () => {
       // The assertion that makes the rest of this block matter: a validation
       // error that had nonetheless applied a transition would still be a
       // determination the caseworker never made.
@@ -170,7 +170,7 @@ describe('RA-410 The green CTA lifecycle', () => {
       )
     })
 
-    it('leaves the work item in assessment', async () => {
+    it('leaves the work item started and Duly made', async () => {
       await workItems.openWorkItem(workItemId)
       await detail.assertStateId('assessment-started')
       await detail.assertState('Duly made')
