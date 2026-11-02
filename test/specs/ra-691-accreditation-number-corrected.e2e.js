@@ -18,9 +18,11 @@ import { ACCREDITATION_CORRECTED_WORK_ITEM } from '../support/seeded-fixtures.js
  * AC under test: each corrected work item's Application history shows an
  * "Accreditation number corrected" entry with the old and new reference.
  *
- * No item this suite creates can carry such an entry. management-be instead
- * seeds `ACCREDITATION_CORRECTED_WORK_ITEM` in its corrected state, with the
- * same audit entry the migration wrote, and resets it on every start.
+ * No item this suite creates can carry such an entry. management-be's
+ * `ReAccreditationTestOrganisationFixtures` instead seeds
+ * `ACCREDITATION_CORRECTED_WORK_ITEM` in its corrected state, with an entry
+ * carrying the same fields the migration wrote on prod, and resets it on
+ * every start.
  * See test/support/seeded-fixtures.js. Nothing here changes the item, so the
  * spec passes on any number of runs between management-be restarts.
  *
