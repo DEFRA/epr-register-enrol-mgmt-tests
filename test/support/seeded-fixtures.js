@@ -37,9 +37,12 @@ export const PRE_YEAR_START_WORK_ITEM = {
  * RA-691: an `approved` item whose accreditation reference has already been
  * corrected — `payload.accreditationId` holds `correctedAccreditationId`, and
  * its audit log holds one `accreditation-number-corrected` entry from
- * `incorrectAccreditationId` to it. management-be builds that entry with the
- * migration's own audit-entry factory, so its shape is what the migration
- * writes. The references are fixture values, not the two production ones.
+ * `incorrectAccreditationId` to it. The RA-691 migration that wrote these
+ * entries on prod ran once on 2026-11-02 and was removed afterwards; the
+ * entries it wrote are permanent. management-be's
+ * `ReAccreditationTestOrganisationFixtures` seeds this item's entry with the
+ * same fields the migration wrote. The references are fixture values, not the
+ * three production ones.
  */
 export const ACCREDITATION_CORRECTED_WORK_ITEM = {
   id: '00000691-0000-4000-8000-000000000691',
