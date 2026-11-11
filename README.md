@@ -178,6 +178,9 @@ Entra ID stub. With `TestOrganisations__Enabled=true`, management-be seeds the
 two `e2e-` fixtures no API can create (RA-342's legacy snapshot and RA-611's
 pre-year-start clock, ids in `test/support/seeded-fixtures.js`) and resets them
 at every start, exactly as on CDP test.
+MongoDB runs as a single-node replica set (`rs0`), as CDP's does, because
+management-be writes in-year change submissions in multi-document transactions
+(RA-739). Its healthcheck initiates the set on first start.
 Specs that follow a download link upload their own PDFs through cdp-uploader
 (`test/support/cdp-uploader.js`, `CDP_UPLOADER_URL`, `FILE_UPLOAD_S3_BUCKET`)
 on every run, so nothing is pre-loaded into S3. The settings the RA-000 cdp-app-config change touched
