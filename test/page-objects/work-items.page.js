@@ -509,7 +509,8 @@ class WorkItemsPage extends Page {
    * section distinct from the existing "Applicant type" section (checkType,
    * param typeId). Param applicationType; both sections merge into the same
    * backend typeIds filter. Values: re-accreditation (real typeId — the only
-   * one with matching data), accreditation | registration-application |
+   * one with matching data), in-year-change (RA-739: a category, sent to
+   * management-be as `category=`), accreditation | registration-application |
    * annual-fee-payment (stub typeIds, mirror the existing Exporter stub
    * pattern and always return the empty state until those work item types
    * exist).
