@@ -11,21 +11,26 @@
 
 import { randomBytes, randomInt } from 'node:crypto'
 
-import { expectStatus, managementBeRequest } from './backend-api.js'
+import {
+  CASEWORKER_USER,
+  expectStatus,
+  managementBeRequest
+} from './backend-api.js'
 import { uniqueOrganisationName } from './unique-name.js'
+
+const TYPE_ID = 'add-overseas-site'
 
 const hex = () => randomBytes(6).toString('hex')
 
 /**
- * Submit an add-ORS request with `siteCount` sites and return
+ * Build, without sending, an add-ORS request with `siteCount` sites:
  *
- *   { submissionReference, workItems: [{ siteId, id, applicationReference }],
- *     organisationName, operatorOrgNumber, sites }
+ *   { payload, organisationName, operatorOrgNumber, sites }
  *
- * `workItems` is management-be's response, in site order; `sites` is what
- * was submitted, in the same order.
+ * `payload` is what `postAddOverseasSiteRequest` sends; `sites` is its
+ * `sites[]`.
  */
-export async function submitAddOverseasSiteRequest({
+export function buildAddOverseasSiteRequest({
   organisationNamePrefix,
   siteCount
 }) {
@@ -40,7 +45,7 @@ export async function submitAddOverseasSiteRequest({
   }))
   const payload = {
     operatorRequestId: `e2e-request-${token}`,
-    changeType: 'add-overseas-site',
+    changeType: TYPE_ID,
     operatorOrganisationId: `e2e-${token}`,
     organisationName,
     operatorOrgNumber,
@@ -51,19 +56,61 @@ export async function submitAddOverseasSiteRequest({
     paymentReference: `PR/PK/EXP/${operatorOrgNumber}`,
     sites
   }
+  return { payload, organisationName, operatorOrgNumber, sites }
+}
 
+/**
+ * Post `payload` to management-be as an add-ORS submission and return the raw
+ * `{ status, headers, body }`, whatever the status.
+ */
+export function postAddOverseasSiteRequest(payload) {
+  return managementBeRequest('POST', '/work-items', {
+    body: { typeId: TYPE_ID, source: 'mgmt-tests', payload }
+  })
+}
+
+/**
+ * Submit an add-ORS request with `siteCount` sites and return
+ *
+ *   { submissionReference, workItems: [{ siteId, id, applicationReference }],
+ *     organisationName, operatorOrgNumber, sites, payload }
+ *
+ * `workItems` is management-be's response, in site order; `sites` is what
+ * was submitted, in the same order.
+ */
+export async function submitAddOverseasSiteRequest({
+  organisationNamePrefix,
+  siteCount
+}) {
+  const request = buildAddOverseasSiteRequest({
+    organisationNamePrefix,
+    siteCount
+  })
   const { body } = expectStatus(
-    await managementBeRequest('POST', '/work-items', {
-      body: { typeId: 'add-overseas-site', source: 'mgmt-tests', payload }
-    }),
+    await postAddOverseasSiteRequest(request.payload),
     201,
-    `submit add-ORS request for "${organisationName}"`
+    `submit add-ORS request for "${request.organisationName}"`
   )
   return {
+    ...request,
     submissionReference: body.submissionReference,
-    workItems: body.workItems,
-    organisationName,
-    operatorOrgNumber,
-    sites
+    workItems: body.workItems
   }
+}
+
+/** The add-ORS work items management-be holds for `organisationName`. */
+export async function listAddOverseasSiteWorkItems(organisationName) {
+  const query = new URLSearchParams({
+    typeId: TYPE_ID,
+    orgName: organisationName,
+    pageSize: '50'
+  })
+  const { body } = expectStatus(
+    await managementBeRequest('GET', `/work-items?${query}`, {
+      user: CASEWORKER_USER
+    }),
+    200,
+    `list add-ORS work items for "${organisationName}"`
+  )
+  return body.items
 }
