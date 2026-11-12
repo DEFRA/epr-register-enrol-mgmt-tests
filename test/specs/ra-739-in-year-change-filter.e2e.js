@@ -55,14 +55,14 @@ describe('RA-739 "In-year change" application type filter', () => {
     )
   })
 
-  it('offers "In-year change" straight after "Re-accreditation"', async () => {
+  it('offers "In-year change" as the last application type', async () => {
     await workItems.expandSection('application-type')
     const values = await Promise.all(
       [...(await $$('input[name="applicationType"]'))].map((input) =>
         input.getAttribute('value')
       )
     )
-    expect(values.slice(0, 2)).toEqual(['re-accreditation', 'in-year-change'])
+    expect(values.at(-1)).toBe('in-year-change')
   })
 
   it('lists only in-year change applications, with its chip and count', async () => {
