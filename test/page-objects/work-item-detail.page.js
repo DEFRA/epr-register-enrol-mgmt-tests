@@ -317,6 +317,16 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * The visible text of the whole `<main>` region of the current work item
+   * page: case header, every tab's content and any panel. For assertions that
+   * a value appears NOWHERE on the page (RA-764: the organisation's previous
+   * name), where checking one field would miss a stale copy in another.
+   */
+  async mainText() {
+    return $('main').getText()
+  }
+
+  /**
    * Navigate from the tasks sub-page back to the work item detail page.
    * Extracts the work item id from the current URL.
    */
@@ -987,6 +997,20 @@ class WorkItemDetailPage extends Page {
       texts.push(await heading.getText())
     }
     return texts
+  }
+
+  /**
+   * The Application history holds no entries at all: management-fe renders
+   * its empty-state paragraph and no entry list.
+   *
+   * Asserts the empty state POSITIVELY, so a history page that failed to
+   * render cannot pass for an empty one. For RA-764, whose organisation
+   * rename is deliberately unaudited: its fixture is seeded with no history,
+   * so any entry at all would be one the rename added.
+   */
+  async assertNoAuditEntries() {
+    await expect($('[data-testid="work-item-no-audit-log"]')).toBeDisplayed()
+    await expect($('[data-testid="work-item-audit-log"]')).not.toBeExisting()
   }
 
   /**
