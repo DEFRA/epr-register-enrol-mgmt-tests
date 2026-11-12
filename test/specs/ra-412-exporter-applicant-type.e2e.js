@@ -90,11 +90,11 @@ describe('RA-412 — Exporter applications are labelled correctly', () => {
       ).toHaveText('Reprocessor')
     })
 
-    it('renders the exact card title with the real applicant type', async () => {
-      await expect(workItems.tileTitle(exporterItemId)).toHaveText(
-        // management-fe's materials.js renders the raw `glass` token as the
-        // single label "Glass".
-        'Glass reaccreditation (Exporter)'
+    it('renders the org line with the real applicant type', async () => {
+      // RA-739: "{Org} ({Org ID}): {Material} ({Applicant type})". management-fe's
+      // materials.js renders the raw `glass` token as the single label "Glass".
+      expect(await workItems.tileOrgLine(exporterItemId).getText()).toMatch(
+        /: Glass \(Exporter\)$/
       )
     })
   })

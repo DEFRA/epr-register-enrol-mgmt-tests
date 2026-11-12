@@ -23,8 +23,9 @@ import { farFutureDeadline } from '../support/sla-extend-date.js'
  *
  * Contract confirmed with management-fe on the matching branch:
  *   - The card footer (data-testid application-card-footer) now ALWAYS renders.
- *     It holds submitted-on, assigned-to and due-on, and that internal order
- *     holds even when all three render.
+ *     It holds submitted-on, due-on and assigned-to (RA-739 moved due-on
+ *     before assigned-to), and that internal order holds even when all three
+ *     render.
  *   - showSubmittedOn is keyed off the STATE, not the SLA clock:
  *     PRE_ASSESSMENT_STATE_IDS = {'submitted', 'duly-made',
  *     'assessment-started'} (RA-527's follow-up added the started state, so a
@@ -335,12 +336,13 @@ describe('RA-370 — application card field order and Submitted on', () => {
       expect(await workItems.tileHasRegistrationNumber(firstId)).toBe(true)
     })
 
-    it('AC1: renders the reworded card title sentence', async () => {
+    it('AC1: renders the org, material and applicant type on one line', async () => {
       // The rest of this spec pins the contract through testids and their DOM
-      // order, which the copy change does NOT affect — material and
+      // order, which a copy change does NOT affect — material and
       // applicant-type keep the same order inside any surrounding wording. So
-      // assert the user-visible sentence directly, or RA-370's rename from
-      // "Reprocessor reaccreditation: {Material}" could silently revert.
+      // assert the user-visible wording directly. RA-739 merged RA-370's
+      // "{Material} reaccreditation ({Applicant type})" title into the org
+      // line: "{Org} ({Org ID}): {Material} ({Applicant type})".
       //
       // RA-412: applicant type is read from the real
       // payload.wasteProcessingType discriminator, and this fixture is
@@ -348,8 +350,8 @@ describe('RA-370 — application card field order and Submitted on', () => {
       // manually-created Case Management service work item, never sets that field. Management-fe
       // falls back to "Reprocessor" for such a work item, preserving the
       // label every card showed before that discriminator existed.
-      await expect(workItems.tileTitle(firstId)).toHaveText(
-        'Plastic reaccreditation (Reprocessor)'
+      expect(await workItems.tileOrgLine(firstId).getText()).toMatch(
+        /\): Plastic \(Reprocessor\)$/
       )
     })
 
@@ -439,7 +441,7 @@ describe('RA-370 — application card field order and Submitted on', () => {
     })
 
     it('AC1: keeps the canonical field order with all three footer fields', async () => {
-      // The footer's internal order (submitted-on -> assigned-to -> due-on) has
+      // The footer's internal order (submitted-on -> due-on -> assigned-to) has
       // to hold in the three-way case too, which is the only case that can
       // distinguish it from a two-field footer.
       await listCardsFor(org)
