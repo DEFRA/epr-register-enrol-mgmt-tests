@@ -2644,21 +2644,53 @@ class WorkItemDetailPage extends Page {
    * used — it yields an opaque response with status 0 and no readable
    * headers, so the redirect is followed and asserted via `redirected` +
    * the final `url` instead.
+   *
+   * A page with no `crumb` field throws rather than posting an empty token.
+   * The request would then fail CSRF validation, and a spec asserting "the
+   * route refused this" would pass without the route's own guard ever
+   * running.
+   *
+   * RA-000. `errorSummary` is the whitespace-collapsed text of the GOV.UK
+   * error summary in the response body, or `null` when the response rendered
+   * none. The generic apply-action route renders its refusals into that
+   * summary on a fresh detail page, so this is how a spec tells "refused with
+   * the app's own message" from "refused for some other reason". It is
+   * parsed from the response, not the live page, which the fetch does not
+   * navigate.
    */
   async postFromPage(path) {
-    return browser.execute(async (url) => {
-      const crumb = document.querySelector('input[name="crumb"]')?.value ?? ''
+    const result = await browser.execute(async (url) => {
+      const crumb = document.querySelector('input[name="crumb"]')?.value
+      if (!crumb) {
+        return { missingCrumb: true }
+      }
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `crumb=${encodeURIComponent(crumb)}`
       })
+      // An inert <template> parses the body without running its scripts or
+      // touching the live page.
+      const parsed = document.createElement('template')
+      parsed.innerHTML = await response.text()
+      const summary = parsed.content.querySelector('.govuk-error-summary')
       return {
         status: response.status,
         redirected: response.redirected,
-        url: response.url
+        url: response.url,
+        errorSummary: summary
+          ? summary.textContent.replace(/\s+/g, ' ').trim()
+          : null
       }
     }, path)
+    if (result.missingCrumb) {
+      throw new Error(
+        `postFromPage(${path}): the current page (${await browser.getUrl()}) ` +
+          'renders no crumb field, so the POST would fail CSRF validation ' +
+          'instead of reaching the route under test'
+      )
+    }
+    return result
   }
 
   // ── RA-292: new ORS / interim site / authority-to-issue contact ─────────── //

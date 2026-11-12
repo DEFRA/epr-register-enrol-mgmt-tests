@@ -31,7 +31,11 @@
 
 import { randomBytes } from 'node:crypto'
 
-import { expectStatus, managementBeRequest } from './backend-api.js'
+import {
+  CASEWORKER_USER,
+  expectStatus,
+  managementBeRequest
+} from './backend-api.js'
 import { SIMULATED_DELIVERED_EMAIL } from './operator-backend-api.js'
 import { uniqueOrganisationName } from './unique-name.js'
 import { uniquePostcode } from './unique-postcode.js'
@@ -103,4 +107,21 @@ export async function createWorkItemViaApi({
     operatorOrganisationId: payload.operatorOrganisationId,
     payload: created.payload
   }
+}
+
+/**
+ * RA-000. Call management-be's generic apply-action endpoint directly, as a
+ * caseworker, without asserting the outcome.
+ *
+ * Used by the guard specs, which assert the refusal itself. Going round
+ * management-fe matters there: management-fe refuses some ids before it
+ * calls the backend, so a browser POST alone cannot show that
+ * management-be refuses them too.
+ */
+export function applyActionViaApi(workItemId, actionId) {
+  return managementBeRequest(
+    'POST',
+    `/work-items/${workItemId}/actions/${actionId}`,
+    { user: CASEWORKER_USER }
+  )
 }
