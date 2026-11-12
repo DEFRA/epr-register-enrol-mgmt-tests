@@ -78,7 +78,7 @@ describe('RA-739 add-ORS application header and tabs', () => {
         `Due date: ${EM_DASH}`,
         'Material: Plastic',
         `Accreditation number: ${submission.payload.accreditationReference}`,
-        'Charge: £328.00',
+        'Charge: £328',
         'Payment date: Not received'
       ])
     })
@@ -102,7 +102,7 @@ describe('RA-739 add-ORS application header and tabs', () => {
       await expect(headerField('request-type')).toHaveText(
         'New ORS accreditation'
       )
-      await expect(headerField('charge')).toHaveText('£328.00')
+      await expect(headerField('charge')).toHaveText('£328')
     })
 
     it('shows the same two tabs, with Application history active', async () => {
