@@ -2650,11 +2650,14 @@ class WorkItemDetailPage extends Page {
    * route refused this" would pass without the route's own guard ever
    * running.
    *
-   * RA-000. `errorSummary` is the whitespace-collapsed text of the GOV.UK
-   * error summary in the response body, or `null` when the response rendered
-   * none. The generic apply-action route renders its refusals into that
+   * RA-000. `errorSummaryItems` is the whitespace-collapsed text of each
+   * `.govuk-error-summary__list` item in the response body, in page order,
+   * and an empty array when the response rendered none. The generic
+   * apply-action route renders its refusal as the one item of a GOV.UK error
    * summary on a fresh detail page, so this is how a spec tells "refused with
-   * the app's own message" from "refused for some other reason". It is
+   * the app's own message" from "refused for some other reason". Items rather
+   * than the whole summary's text, so a spec matches the message exactly
+   * instead of as a substring of the title and every other item. They are
    * parsed from the response, not the live page, which the fetch does not
    * navigate.
    */
@@ -2673,14 +2676,16 @@ class WorkItemDetailPage extends Page {
       // touching the live page.
       const parsed = document.createElement('template')
       parsed.innerHTML = await response.text()
-      const summary = parsed.content.querySelector('.govuk-error-summary')
+      const items = parsed.content.querySelectorAll(
+        '.govuk-error-summary__list li'
+      )
       return {
         status: response.status,
         redirected: response.redirected,
         url: response.url,
-        errorSummary: summary
-          ? summary.textContent.replace(/\s+/g, ' ').trim()
-          : null
+        errorSummaryItems: Array.from(items, (item) =>
+          item.textContent.replace(/\s+/g, ' ').trim()
+        )
       }
     }, path)
     if (result.missingCrumb) {

@@ -53,8 +53,14 @@ import { farFutureDeadline } from '../support/sla-extend-date.js'
  * The positive path, a query raised on the query page moving the case to
  * Queried, is covered end to end by `ra-291-query-application.e2e.js` (AC05)
  * and its push by `ra-606-query-push-to-operator.e2e.js`. It is repeated
- * here once, on a case that has just refused the crafted POST, to show the
- * refusal leaves the real route working on that same case.
+ * here in each source state, on the case that has just refused the crafted
+ * POST, to show the refusal leaves the real route working on that same case.
+ *
+ * The resume case keeps its own `describe` rather than a `CASES` row because
+ * its "nothing changed" check is the inverse of theirs on three counts: a
+ * queried case offers no Query link, and the real query that put it there
+ * left one `application-queried` entry and one push outcome. The refusal
+ * checks themselves are shared through `itIsRefused`.
  */
 
 const NOT_AVAILABLE = 'This action is not available.'
@@ -67,6 +73,37 @@ async function driveToAssessmentInProgress(workItemId) {
     date: farFutureDeadline()
   })
   await detail.assertStateId('assessment-in-progress')
+}
+
+/**
+ * The two refusal checks every crafted POST here must pass: management-fe's
+ * 409 with its own message as the error summary's item, and management-be's
+ * 400 to the same id posted to it directly. `getWorkItemId` is read when the
+ * `it` runs, after the caller's `before` has created the case.
+ */
+function itIsRefused(actionId, getWorkItemId) {
+  it('is refused with the not-available message', async () => {
+    const { status, errorSummaryItems } = await detail.postFromPage(
+      `/work-items/${getWorkItemId()}/actions/${actionId}`
+    )
+
+    expect(status).toBe(409)
+    // An exact item, not a substring of the summary's text. `toContain`
+    // rather than `toEqual` because the page renders a second, unrelated
+    // summary item whenever the case carries an unresolved
+    // `notification-failed` entry.
+    expect(errorSummaryItems).toContain(NOT_AVAILABLE)
+  })
+
+  it('is refused by management-be when called directly', async () => {
+    const { status, body } = await applyActionViaApi(getWorkItemId(), actionId)
+
+    expect(status).toBe(400)
+    expect(body?.title).toBe('Invalid action')
+    expect(body?.detail).toBe(
+      `Action '${actionId}' is not declared by work item type 're-accreditation'.`
+    )
+  })
 }
 
 const CASES = [
@@ -116,24 +153,7 @@ describe('RA-000 query only through the query service', () => {
         await detail.assertStateId(stateId)
       })
 
-      it('is refused with the not-available message', async () => {
-        const { status, errorSummary } = await detail.postFromPage(
-          `/work-items/${workItemId}/actions/${actionId}`
-        )
-
-        expect(status).toBe(409)
-        expect(errorSummary).toContain(NOT_AVAILABLE)
-      })
-
-      it('is refused by management-be when called directly', async () => {
-        const { status, body } = await applyActionViaApi(workItemId, actionId)
-
-        expect(status).toBe(400)
-        expect(body?.title).toBe('Invalid action')
-        expect(body?.detail).toBe(
-          `Action '${actionId}' is not declared by work item type 're-accreditation'.`
-        )
-      })
+      itIsRefused(actionId, () => workItemId)
 
       it('leaves the case where it was after both, with no query recorded', async () => {
         await workItems.openWorkItem(workItemId)
@@ -156,19 +176,17 @@ describe('RA-000 query only through the query service', () => {
         ).toBe(0)
       })
 
-      if (stateId === 'duly-made') {
-        it('still queries the case through the query page', async () => {
-          await raiseQuery(workItemId)
-          await detail.assertStateId('queried')
+      it('still queries the case through the query page', async () => {
+        await raiseQuery(workItemId)
+        await detail.assertStateId('queried')
 
-          await detail.gotoAudit()
-          const queried = await detail.waitForAuditEntryCount(
-            'application-queried',
-            1
-          )
-          expect(queried.length).toBe(1)
-        })
-      }
+        await detail.gotoAudit()
+        const queried = await detail.waitForAuditEntryCount(
+          'application-queried',
+          1
+        )
+        expect(queried.length).toBe(1)
+      })
     })
   }
 
@@ -188,24 +206,7 @@ describe('RA-000 query only through the query service', () => {
       await detail.assertStateId('queried')
     })
 
-    it('is refused with the not-available message', async () => {
-      const { status, errorSummary } = await detail.postFromPage(
-        `/work-items/${workItemId}/actions/${actionId}`
-      )
-
-      expect(status).toBe(409)
-      expect(errorSummary).toContain(NOT_AVAILABLE)
-    })
-
-    it('is refused by management-be when called directly', async () => {
-      const { status, body } = await applyActionViaApi(workItemId, actionId)
-
-      expect(status).toBe(400)
-      expect(body?.title).toBe('Invalid action')
-      expect(body?.detail).toBe(
-        `Action '${actionId}' is not declared by work item type 're-accreditation'.`
-      )
-    })
+    itIsRefused(actionId, () => workItemId)
 
     it('leaves the case queried after both, with no resume recorded', async () => {
       await workItems.openWorkItem(workItemId)
