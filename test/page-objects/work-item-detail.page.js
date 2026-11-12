@@ -739,6 +739,28 @@ class WorkItemDetailPage extends Page {
     return $(`[data-testid="${testId}"]`)
   }
 
+  /** The keys of the case tabs shown (e.g. 'application-summary'), in order. */
+  async caseTabKeys() {
+    const tabs = await $$('[data-testid="case-tabs"] [data-testid^="tab-"]')
+    const keys = []
+    for (const tab of tabs) {
+      keys.push((await tab.getAttribute('data-testid')).replace(/^tab-/, ''))
+    }
+    return keys
+  }
+
+  /** The case header's meta items as "Label: value", in page order. */
+  async caseHeaderMeta() {
+    const items = await this.caseHeader().$$(
+      '[data-testid="case-header-meta"] .app-case-header__meta-item'
+    )
+    const texts = []
+    for (const item of items) {
+      texts.push((await item.getText()).replace(/\s+/g, ' ').trim())
+    }
+    return texts
+  }
+
   async isActiveTab(name) {
     return (await this.tab(name).getAttribute('aria-current')) === 'page'
   }

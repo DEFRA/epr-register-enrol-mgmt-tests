@@ -20,6 +20,12 @@ import { uniqueOrganisationName } from './unique-name.js'
 
 const TYPE_ID = 'add-overseas-site'
 
+/**
+ * Each site's own charge: the operator backend's per-site in-year ORS fee
+ * (£328), in pence. The submission's `chargePence` is the total.
+ */
+export const ADD_ORS_SITE_CHARGE_PENCE = 32800
+
 const hex = () => randomBytes(6).toString('hex')
 
 /**
@@ -41,7 +47,8 @@ export function buildAddOverseasSiteRequest({
     siteId: `e2e-site-${token}-${index + 1}`,
     orsId: String(index + 1).padStart(3, '0'),
     siteName: `${organisationName} site ${index + 1}`,
-    country: 'France'
+    country: 'France',
+    chargePence: ADD_ORS_SITE_CHARGE_PENCE
   }))
   const payload = {
     operatorRequestId: `e2e-request-${token}`,
@@ -51,8 +58,9 @@ export function buildAddOverseasSiteRequest({
     operatorOrgNumber,
     material: 'Plastic',
     accreditationYear: new Date().getUTCFullYear(),
+    accreditationReference: `A26EX${operatorOrgNumber}PL`,
     wasteProcessingType: 'Exporter',
-    chargePence: 100000 * siteCount,
+    chargePence: ADD_ORS_SITE_CHARGE_PENCE * siteCount,
     paymentReference: `PR/PK/EXP/${operatorOrgNumber}`,
     sites
   }
