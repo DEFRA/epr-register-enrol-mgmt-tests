@@ -3,9 +3,13 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import {
+  CASEWORKER_USER,
+  expectStatus,
+  managementBeRequest
+} from '../support/backend-api.js'
+import {
   ORGANISATION_RENAMED_WORK_ITEM,
-  isOrganisationNameMigrationEnabled,
-  isOrganisationRenamedWorkItemSeeded
+  isOrganisationNameMigrationEnabled
 } from '../support/seeded-fixtures.js'
 
 /**
@@ -67,12 +71,28 @@ const {
   stateId
 } = ORGANISATION_RENAMED_WORK_ITEM
 
+/**
+ * MERGE WINDOW ONLY. Whether the running management-be seeds the fixture at
+ * all: true on 200, false on 404. Any other status throws, so a broken stack
+ * is never mistaken for an image that predates the fixture.
+ */
+async function isFixtureSeeded() {
+  const result = await managementBeRequest('GET', `/work-items/${id}`, {
+    user: CASEWORKER_USER
+  })
+  if (result.status === 404) {
+    return false
+  }
+  expectStatus(result, 200, `GET RA-764 fixture work item ${id}`)
+  return true
+}
+
 describeIfMigrated('RA-764 organisation renamed for 500069', () => {
   let loggedIn = false
 
   // A function, not an arrow: `this.skip()` needs Mocha's hook context.
   before(async function () {
-    if (!(await isOrganisationRenamedWorkItemSeeded())) {
+    if (!(await isFixtureSeeded())) {
       // eslint-disable-next-line no-console -- say WHY the suite was skipped in the run log
       console.warn(
         'RA-764 fixture not seeded by this management-be image — skipping'
