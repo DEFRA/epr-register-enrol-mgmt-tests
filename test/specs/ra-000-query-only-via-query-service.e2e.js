@@ -43,6 +43,13 @@ import { farFutureDeadline } from '../support/sla-extend-date.js'
  * reach (Make Determination applies `-> awaiting-decision -> <outcome>` in
  * one call, see `logDecision` in `re-accreditation-journey.js`).
  *
+ * management-fe's prefix rule also covers `resume` / `resume-*`. The
+ * `resume-during-*` transitions out of Queried were already
+ * `CallerInvocable: false` in management-be, so their refusal there is not
+ * new, but management-fe now refuses them before calling it. One is posted
+ * from Queried below; all four leave `queried`, so one id exercises the same
+ * guard as the others.
+ *
  * The positive path, a query raised on the query page moving the case to
  * Queried, is covered end to end by `ra-291-query-application.e2e.js` (AC05)
  * and its push by `ra-606-query-push-to-operator.e2e.js`. It is repeated
@@ -164,4 +171,53 @@ describe('RA-000 query only through the query service', () => {
       }
     })
   }
+
+  describe('a crafted POST to resume-during-duly-made from queried', () => {
+    const actionId = 'resume-during-duly-made'
+    let workItemId
+
+    before(async () => {
+      workItemId = (
+        await createWorkItemViaApi({
+          organisationNamePrefix: 'RA-000 Crafted Resume'
+        })
+      ).id
+      await dulyMake(workItemId)
+      await raiseQuery(workItemId)
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('queried')
+    })
+
+    it('is refused with the not-available message', async () => {
+      const { status, errorSummary } = await detail.postFromPage(
+        `/work-items/${workItemId}/actions/${actionId}`
+      )
+
+      expect(status).toBe(409)
+      expect(errorSummary).toContain(NOT_AVAILABLE)
+    })
+
+    it('is refused by management-be when called directly', async () => {
+      const { status, body } = await applyActionViaApi(workItemId, actionId)
+
+      expect(status).toBe(400)
+      expect(body?.title).toBe('Invalid action')
+      expect(body?.detail).toBe(
+        `Action '${actionId}' is not declared by work item type 're-accreditation'.`
+      )
+    })
+
+    it('leaves the case queried after both, with no resume recorded', async () => {
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('queried')
+
+      await detail.gotoAudit()
+      // Positive control: the history does carry the query that put the
+      // case here, so the zero below is not read off an empty log.
+      expect(
+        (await detail.auditEntriesForAction('application-queried')).length
+      ).toBe(1)
+      expect((await detail.auditEntriesForAction(actionId)).length).toBe(0)
+    })
+  })
 })
