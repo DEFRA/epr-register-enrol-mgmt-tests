@@ -95,7 +95,7 @@ rendered, and on dev it goes to real Entra ID, so the spec is skipped there.
 
 CDP test's Mongo is never reset, so no spec relies on data it did not create,
 on list positions, or on fixed organisation names. Each spec creates uniquely
-named items in one of three ways (the two seeded fixtures below aside):
+named items in one of three ways (the seeded fixtures below aside):
 
 - **The "Create work item" form** (`WorkItemsPage.createWorkItem`), for specs
   that need only the fields the form captures.
@@ -114,13 +114,21 @@ named items in one of three ways (the two seeded fixtures below aside):
   refuses, or checks the status pushed to that backend, uses this path,
   because the backend only accepts a decision for an application it owns.
 
-Two cases need a document no API can create: RA-342's work item with legacy
-template-snapshot fields, and RA-611's item whose SLA clock started before
-1 January. management-be seeds both with fixed ids
-(`test/support/seeded-fixtures.js`) when `TestOrganisations__Enabled=true`, and
-replaces them with the pristine copy every time it starts. Specs open them by
-id, and leave them usable by the next run, because between restarts they keep
-whatever the last run did.
+Four cases need a document no API can create:
+
+- RA-342: a work item with legacy template-snapshot fields;
+- RA-611: an item whose SLA clock started before 1 January;
+- RA-691: an approved item whose accreditation number has already been
+  corrected, with the `accreditation-number-corrected` history entry the
+  (since removed) one-off migration wrote;
+- RA-764: organisation 500069's 2027 case, seeded under its old name
+  "Encirc Ltd" with no history, for the one-off migration that renames it
+  (see the compose-stack section below).
+
+management-be seeds all four with fixed ids (`test/support/seeded-fixtures.js`)
+when `TestOrganisations__Enabled=true`, and replaces them with the pristine
+copy every time it starts. Specs open them by id, and leave them usable by the
+next run, because between restarts they keep whatever the last run did.
 
 Every operator email is GOV.UK Notify's simulated delivered address.
 
@@ -175,9 +183,19 @@ service-to-service call, and ReEx and CDP's outbound proxy stood in for by
 clients. With no Notify API key, management-be uses its no-op GOV.UK Notify
 client, which writes the same audit entries. It also runs cdp-uploader and the
 Entra ID stub. With `TestOrganisations__Enabled=true`, management-be seeds the
-two `e2e-` fixtures no API can create (RA-342's legacy snapshot and RA-611's
-pre-year-start clock, ids in `test/support/seeded-fixtures.js`) and resets them
-at every start, exactly as on CDP test.
+fixtures no API can create (see "Test data" above; ids in
+`test/support/seeded-fixtures.js`) and resets them at every start, exactly as
+on CDP test.
+
+One deliberate difference from CDP test: `docker/config/management-be.env`
+enables management-be's RA-764 one-off migration
+(`Migrations__Ra764OrganisationNameCorrection__*`), which renames the RA-764
+fixture from "Encirc Ltd" to "VIDRALA UK & IRELAND LIMITED" after the fixture
+reset on every start. CDP test never sets those keys, so there the fixture
+keeps its old name, and `ra-764-organisation-renamed.e2e.js`, gated on
+`RA764_ORGANISATION_NAME_MIGRATION_ENABLED` (set only by
+`wdio.github.conf.js`), is skipped. The keys, the gate and the spec go when
+the migration is removed.
 Specs that follow a download link upload their own PDFs through cdp-uploader
 (`test/support/cdp-uploader.js`, `CDP_UPLOADER_URL`, `FILE_UPLOAD_S3_BUCKET`)
 on every run, so nothing is pre-loaded into S3. The settings the RA-000 cdp-app-config change touched

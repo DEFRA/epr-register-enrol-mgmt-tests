@@ -20,6 +20,9 @@ process.env.OPERATOR_BACKEND_SHARED_SECRET ??=
 process.env.CASE_MANAGEMENT_PUSH_ENABLED ??= 'true'
 process.env.CASE_MANAGEMENT_PUSH_SECRET ??=
   'E2eComposeManagementBeToOperatorBackend'
+// RA-764: docker/config/management-be.env enables management-be's one-off
+// organisation-name migration on this stack. Never set on CDP.
+process.env.RA764_ORGANISATION_NAME_MIGRATION_ENABLED ??= 'true'
 // The compose stack runs the Entra ID stub, as CDP test does (RA-537).
 process.env.ENTRA_STUB_LOGIN ??= 'true'
 
