@@ -1,3 +1,9 @@
+import {
+  CASEWORKER_USER,
+  expectStatus,
+  managementBeRequest
+} from './backend-api.js'
+
 /**
  * Work items management-be seeds for the cases no API can create.
  *
@@ -79,3 +85,25 @@ export const ORGANISATION_RENAMED_WORK_ITEM = {
  */
 export const isOrganisationNameMigrationEnabled = () =>
   process.env.RA764_ORGANISATION_NAME_MIGRATION_ENABLED === 'true'
+
+/**
+ * RA-764, MERGE WINDOW ONLY. Whether the running management-be seeds
+ * `ORGANISATION_RENAMED_WORK_ITEM` at all. Until management-be's RA-764
+ * change is in the `latest` image, the compose stack's management-be (used
+ * by every repo whose branch has no matching management-be branch) has no
+ * such item, and the spec would fail on a fixture that cannot exist yet.
+ *
+ * True on 200, false on 404; any other status throws, so a broken stack is
+ * never mistaken for an old image. Remove with the spec.
+ */
+export async function isOrganisationRenamedWorkItemSeeded() {
+  const { id } = ORGANISATION_RENAMED_WORK_ITEM
+  const result = await managementBeRequest('GET', `/work-items/${id}`, {
+    user: CASEWORKER_USER
+  })
+  if (result.status === 404) {
+    return false
+  }
+  expectStatus(result, 200, `GET RA-764 fixture work item ${id}`)
+  return true
+}

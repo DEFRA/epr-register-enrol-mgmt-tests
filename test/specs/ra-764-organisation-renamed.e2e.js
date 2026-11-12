@@ -4,7 +4,8 @@ import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
 import {
   ORGANISATION_RENAMED_WORK_ITEM,
-  isOrganisationNameMigrationEnabled
+  isOrganisationNameMigrationEnabled,
+  isOrganisationRenamedWorkItemSeeded
 } from '../support/seeded-fixtures.js'
 
 /**
@@ -33,6 +34,13 @@ import {
  * passes on any number of runs between restarts. Skipped where the migration
  * is not enabled (CDP test), where the item still carries the old name.
  *
+ * Also skipped, MERGE WINDOW ONLY, when the running management-be does not
+ * seed the fixture at all: until management-be's RA-764 change reaches its
+ * `latest` image, every journey run without a matching management-be branch
+ * uses an image with no such item. The probe skips only on a 404 for the
+ * fixture id; once the item exists every assertion below runs unchanged. The
+ * probe goes when this spec is removed with the migration.
+ *
  * Negative paths pinned:
  *   - searching for the old name, whole or in part, no longer finds the case;
  *   - the old name appears nowhere on the case;
@@ -60,14 +68,28 @@ const {
 } = ORGANISATION_RENAMED_WORK_ITEM
 
 describeIfMigrated('RA-764 organisation renamed for 500069', () => {
-  before(async () => {
+  let loggedIn = false
+
+  // A function, not an arrow: `this.skip()` needs Mocha's hook context.
+  before(async function () {
+    if (!(await isOrganisationRenamedWorkItemSeeded())) {
+      // eslint-disable-next-line no-console -- say WHY the suite was skipped in the run log
+      console.warn(
+        'RA-764 fixture not seeded by this management-be image — skipping'
+      )
+      this.skip()
+    }
     // No nation role: a multi-nation user, so the seeded Northern Ireland
     // item is visible.
     await login.login()
+    loggedIn = true
   })
 
   after(async () => {
-    await login.logout()
+    // Mocha still runs `after` when `before` skipped the suite.
+    if (loggedIn) {
+      await login.logout()
+    }
   })
 
   describe('Applications page search', () => {
