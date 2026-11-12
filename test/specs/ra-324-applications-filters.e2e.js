@@ -204,7 +204,7 @@ describe('RA-324 phase-2 Applications filters and sort', () => {
     // checkbox also sets, so it can't detect the filter being silently
     // dropped).
 
-    it('Type: Reprocessor reaccreditation returns applications', async () => {
+    it('Applicant type: Reprocessor returns applications', async () => {
       await workItems.resetFilters()
       await workItems.searchByOrg(token)
       await workItems.checkType('re-accreditation')
