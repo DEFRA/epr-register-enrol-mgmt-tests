@@ -1,5 +1,6 @@
-import { $, expect } from '@wdio/globals'
+import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
+import workItemDetail from '../page-objects/work-item-detail.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
 
@@ -110,13 +111,13 @@ describe('RA-739 in-year change applications on the Applications list', () => {
     it('opens the application header', async () => {
       const [{ id, applicationReference }] = single.workItems
       await workItems.workItemLink(id).click()
-      await expect($('[data-testid="add-overseas-site-detail"]')).toExist()
+      await expect(workItemDetail.addOverseasSiteDetail()).toExist()
       await expect(
-        $('[data-testid="case-header-accreditation-ref"]')
+        workItemDetail.caseHeaderField('accreditationRef')
       ).toHaveText(applicationReference)
-      await expect($('[data-testid="case-header-request-type"]')).toHaveText(
-        'New ORS accreditation'
-      )
+      await expect(
+        workItemDetail.caseHeaderFieldByKey('request-type')
+      ).toHaveText('New ORS accreditation')
     })
   })
 })

@@ -1,4 +1,4 @@
-import { $, expect } from '@wdio/globals'
+import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItemDetail from '../page-objects/work-item-detail.page.js'
 import workItems from '../page-objects/work-items.page.js'
@@ -18,14 +18,7 @@ import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
 
 const EM_DASH = '—'
 
-/**
- * A field of the case header, by its `case-header-{key}` test id. The
- * add-ORS fields (caption, title, request type, charge...) are not in the page
- * object's CASE_HEADER_FIELDS, which lists the fields every header carries.
- */
-function headerField(key) {
-  return workItemDetail.caseHeader().$(`[data-testid="case-header-${key}"]`)
-}
+const headerField = (key) => workItemDetail.caseHeaderFieldByKey(key)
 
 async function expectAddOrsHeader(submission) {
   const [{ applicationReference }] = submission.workItems
@@ -66,7 +59,7 @@ describe('RA-739 add-ORS application header and tabs', () => {
 
   describe('Application summary', () => {
     it('captions the header with the reference and titles it with the site', async () => {
-      await expect($('[data-testid="add-overseas-site-detail"]')).toExist()
+      await expect(workItemDetail.addOverseasSiteDetail()).toExist()
       await expectAddOrsHeader(submission)
     })
 

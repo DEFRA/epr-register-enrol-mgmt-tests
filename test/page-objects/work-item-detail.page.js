@@ -1318,6 +1318,21 @@ class WorkItemDetailPage extends Page {
     return this.caseHeader().$(`[data-testid="${testId}"]`)
   }
 
+  /**
+   * RA-739. A case-header field by the key in its `case-header-{key}` test
+   * id, for the fields only some case types show (an add-ORS header's
+   * caption, title, request type, charge...), which CASE_HEADER_FIELDS does
+   * not list. Scoped to the header like caseHeaderField.
+   */
+  caseHeaderFieldByKey(key) {
+    return this.caseHeader().$(`[data-testid="case-header-${key}"]`)
+  }
+
+  /** RA-739. The add-ORS detail page's own container. */
+  addOverseasSiteDetail() {
+    return $('[data-testid="add-overseas-site-detail"]')
+  }
+
   async caseHeaderFieldText(name) {
     return this.caseHeaderField(name).getText()
   }

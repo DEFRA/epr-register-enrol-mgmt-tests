@@ -102,7 +102,9 @@ named items in one of three ways (the two seeded fixtures below aside):
 - **Path A: case-management-only items** (`test/support/work-item-api.js`).
   A signed `POST /work-items` to management-be with a rich payload, for
   display, list, assignment, SLA, query and Notify specs. The rich fixtures
-  live in `test/support/*-fixture.js`. Each item's `operatorOrganisationId`
+  live in `test/support/*-fixture.js`, except add-ORS in-year change
+  submissions (RA-739), which `test/support/in-year-change-api.js` builds and
+  submits, one work item per site. Each item's `operatorOrganisationId`
   starts `e2e-`, which marks it as a test organisation whose ReEx lookups
   management-be answers from its own test data. The operator's side of a
   query or withdrawal is played by `query-resubmission.js` and
