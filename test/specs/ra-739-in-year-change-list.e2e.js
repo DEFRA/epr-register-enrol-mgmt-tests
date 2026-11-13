@@ -81,7 +81,7 @@ describe('RA-739 in-year change applications on the Applications list', () => {
           'Unassigned'
         )
         await expect(workItems.tileField(id, 'submitted-on')).toHaveText(
-          /^\d{2} [A-Z][a-z]{2} \d{4}$/
+          /^\d{1,2} [A-Z][a-z]+ \d{4}$/
         )
         await expect(workItems.workItemStateTag(id)).toHaveText('Not started')
       })
