@@ -32,14 +32,22 @@ import { isCaseManagementPushEnabled } from '../support/backend-api.js'
  *      govukPanel confirmation and a summary list with all three values,
  *      which is what we assert here.
  *
- * RA-690: the accreditation id is DERIVED from the application's
- * registration reference (leading R becomes A, YY becomes the application's
- * own year, every other character unchanged), never drawn from a counter.
+ * RA-690: the accreditation id is DERIVED, never drawn from a counter: a
+ * leading A, the application's own YY, then every other character of its
+ * source. RA-763: the source is last year's accreditation number, which the
+ * seed keeps on the application, or the registration reference when the
+ * operator was registered only last year.
  */
 
-/** RA-690: `A` + the application year's YY + registration ref chars 4–17. */
-function expectedAccreditationReference({ registrationReference, year }) {
-  return `A${String(year % 100).padStart(2, '0')}${registrationReference.slice(3)}`
+/** RA-690/RA-763: `A` + the application year's YY + the source's chars 4–17. */
+function expectedAccreditationReference({
+  lastYearsAccreditation,
+  registrationReference,
+  year
+}) {
+  const source =
+    lastYearsAccreditation?.accreditationNumber ?? registrationReference
+  return `A${String(year % 100).padStart(2, '0')}${source.slice(3)}`
 }
 
 // The retry replays management-be's own call, signed as management-be, so it
@@ -87,8 +95,9 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     // step 1 stamps only the number, so only its row shows until then.
     expect(await detail.decisionMetadataRowKeys()).toEqual(['Accreditation ID'])
 
-    // RA-690: step 1 asked the operator backend for the number. It must be
-    // the registration reference with R -> A and the application's own YY.
+    // RA-690: step 1 asked the operator backend for the number. RA-763: it
+    // must be last year's accreditation number (or, for an operator registered
+    // only last year, the registration reference) with the application's YY.
     const application = await getOperatorApplication(
       workItem.operatorOrganisationId,
       workItem.operatorApplicationId
