@@ -3,10 +3,8 @@ import login from '../page-objects/login.page.js'
 import { driveToApproved } from '../support/re-accreditation-journey.js'
 import {
   createOperatorBackedWorkItem,
-  regenerateRegistrationNumberAsCaseManagement,
   waitForOperatorApplicationStatus
 } from '../support/operator-backend-api.js'
-import { isCaseManagementPushEnabled } from '../support/backend-api.js'
 
 /**
  * RA-690. A consecutive-year renewal keeps the operator's accreditation
@@ -14,19 +12,16 @@ import { isCaseManagementPushEnabled } from '../support/backend-api.js'
  *
  * Year N is approved for a registration. The same organisation then applies
  * for N+1 on the same registration and material, and that is approved too.
- * The operator backend finds the year N accreditation and derives the N+1
- * reference from it: the same reference with YY swapped.
  *
- * On stub data the two possible sources agree. The stub gives every year of
- * a registration the same sequence, so N+1's own registration reference would
- * derive the same value. Where the suite may sign as management-be
- * (CASE_MANAGEMENT_PUSH_ENABLED, see support/backend-api.js), year N's
- * registration number is first regenerated from the backend's counter. That
- * gives N a different sequence, so the N+1 reference can only match if it was
- * inherited from the previous accreditation. Without that, the spec still
- * proves the renewal flow and the reference continuity end to end, and the
- * backend's own tests pin which source is chosen. So unlike its siblings,
- * this spec isn't skipped without that signing; only those two steps are.
+ * RA-763: year N has no earlier accreditation held in the operator backend,
+ * so its reference is derived from last year's accreditation number, which
+ * the seed keeps from ReEx. Year N+1's comes from year N's accreditation,
+ * which the operator backend now holds: the same reference with YY swapped.
+ * The stub gives a registration's accreditation a different sequence from the
+ * registration itself, so neither reference can come from the registration
+ * number. On stub data, N+1's own last-year number from ReEx would derive the
+ * same value; the backend's own tests pin that the held accreditation comes
+ * first.
  *
  * A lapsed renewal (N to N+2) is not tested here: Seed cannot yet start an
  * application for a lapsed operator.
@@ -44,13 +39,6 @@ describe('RA-690 consecutive-year renewal keeps the accreditation reference', ()
 
   it('approves year N and issues its accreditation reference', async () => {
     first = await createOperatorBackedWorkItem({ year: yearN })
-    if (isCaseManagementPushEnabled()) {
-      // A registration reference carries the prior year's YY, as the stub's
-      // does. Must happen before approval, which reads it.
-      await regenerateRegistrationNumberAsCaseManagement(first, {
-        year: yearN - 1
-      })
-    }
 
     await login.login()
     await driveToApproved(first.id)
@@ -63,7 +51,13 @@ describe('RA-690 consecutive-year renewal keeps the accreditation reference', ()
     expect(application.accreditationReference).toMatch(
       /^A\d{2}[ESNW][RX]\d{6}\d{4}PL$/
     )
+    // RA-763: derived from last year's accreditation number, not the
+    // registration number.
+    expect(application.lastYearsAccreditation?.year).toBe(yearN - 1)
     expect(application.accreditationReference).toBe(
+      withYear(application.lastYearsAccreditation.accreditationNumber, yearN)
+    )
+    expect(application.accreditationReference).not.toBe(
       withYear(`A${application.registrationReference.slice(1)}`, yearN)
     )
     firstAccreditationReference = application.accreditationReference
@@ -84,16 +78,12 @@ describe('RA-690 consecutive-year renewal keeps the accreditation reference', ()
       second,
       'Approved'
     )
+    expect(application.lastYearsAccreditation?.year).toBe(yearN)
     expect(application.accreditationReference).toBe(
       withYear(firstAccreditationReference, yearN + 1)
     )
-
-    if (isCaseManagementPushEnabled()) {
-      // Year N's sequence came from the counter, so a reference derived from
-      // N+1's own registration reference would differ.
-      expect(application.accreditationReference).not.toBe(
-        withYear(`A${application.registrationReference.slice(1)}`, yearN + 1)
-      )
-    }
+    expect(application.accreditationReference).not.toBe(
+      withYear(`A${application.registrationReference.slice(1)}`, yearN + 1)
+    )
   })
 })
