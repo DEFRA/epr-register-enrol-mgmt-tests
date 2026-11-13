@@ -34,20 +34,15 @@ import { isCaseManagementPushEnabled } from '../support/backend-api.js'
  *
  * RA-690: the accreditation id is DERIVED, never drawn from a counter: a
  * leading A, the application's own YY, then every other character of its
- * source. RA-763: the source is last year's accreditation number, which the
- * seed keeps on the application, or the registration reference when the
- * operator was registered only last year.
+ * source. RA-763: for a first renewal the source is last year's accreditation
+ * number, which the seed keeps from ReEx. The stub always gives one, with a
+ * different sequence from the registration's, so a number derived from the
+ * registration reference instead would fail here.
  */
 
-/** RA-690/RA-763: `A` + the application year's YY + the source's chars 4–17. */
-function expectedAccreditationReference({
-  lastYearsAccreditation,
-  registrationReference,
-  year
-}) {
-  const source =
-    lastYearsAccreditation?.accreditationNumber ?? registrationReference
-  return `A${String(year % 100).padStart(2, '0')}${source.slice(3)}`
+/** RA-690/RA-763: `A` + the application year's YY + last year's number's chars 4–17. */
+function expectedAccreditationReference({ lastYearsAccreditation, year }) {
+  return `A${String(year % 100).padStart(2, '0')}${lastYearsAccreditation.accreditationNumber.slice(3)}`
 }
 
 // The retry replays management-be's own call, signed as management-be, so it
@@ -84,7 +79,7 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     await login.logout()
   })
 
-  it('logs the approval and the backend issues the accreditation id derived from the registration reference', async () => {
+  it("logs the approval and the backend issues the accreditation id derived from last year's accreditation number", async () => {
     await login.login()
     await workItems.openWorkItem(workItem.id)
     await detail.assertStateId('assessment-started')
@@ -96,8 +91,8 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     expect(await detail.decisionMetadataRowKeys()).toEqual(['Accreditation ID'])
 
     // RA-690: step 1 asked the operator backend for the number. RA-763: it
-    // must be last year's accreditation number (or, for an operator registered
-    // only last year, the registration reference) with the application's YY.
+    // must be last year's accreditation number, kept at seed, with the
+    // application's YY, and not the registration-derived one.
     const application = await getOperatorApplication(
       workItem.operatorOrganisationId,
       workItem.operatorApplicationId
@@ -105,8 +100,12 @@ describe('RA-133 approval generates accreditation id, start date and year', () =
     expect(application.registrationReference).toMatch(
       /^R\d{2}[ESNW][RX]\d{6}\d{4}PL$/
     )
+    expect(application.lastYearsAccreditation?.year).toBe(application.year - 1)
     expect(application.accreditationReference).toBe(
       expectedAccreditationReference(application)
+    )
+    expect(application.accreditationReference).not.toBe(
+      `A${String(application.year % 100).padStart(2, '0')}${application.registrationReference.slice(3)}`
     )
     issuedAccreditationReference = application.accreditationReference
 
