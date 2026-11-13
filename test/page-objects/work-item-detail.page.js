@@ -317,6 +317,16 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * The visible text of the whole `<main>` region of the current work item
+   * page: case header, every tab's content and any panel. For assertions that
+   * a value appears NOWHERE on the page (RA-764: the organisation's previous
+   * name), where checking one field would miss a stale copy in another.
+   */
+  async mainText() {
+    return $('main').getText()
+  }
+
+  /**
    * Navigate from the tasks sub-page back to the work item detail page.
    * Extracts the work item id from the current URL.
    */
@@ -1009,6 +1019,20 @@ class WorkItemDetailPage extends Page {
       texts.push(await heading.getText())
     }
     return texts
+  }
+
+  /**
+   * The Application history holds no entries at all: management-fe renders
+   * its empty-state paragraph and no entry list.
+   *
+   * Asserts the empty state POSITIVELY, so a history page that failed to
+   * render cannot pass for an empty one. For RA-764, whose organisation
+   * rename is deliberately unaudited: its fixture is seeded with no history,
+   * so any entry at all would be one the rename added.
+   */
+  async assertNoAuditEntries() {
+    await expect($('[data-testid="work-item-no-audit-log"]')).toBeDisplayed()
+    await expect($('[data-testid="work-item-audit-log"]')).not.toBeExisting()
   }
 
   /**
@@ -2681,21 +2705,58 @@ class WorkItemDetailPage extends Page {
    * used — it yields an opaque response with status 0 and no readable
    * headers, so the redirect is followed and asserted via `redirected` +
    * the final `url` instead.
+   *
+   * A page with no `crumb` field throws rather than posting an empty token.
+   * The request would then fail CSRF validation, and a spec asserting "the
+   * route refused this" would pass without the route's own guard ever
+   * running.
+   *
+   * RA-000. `errorSummaryItems` is the whitespace-collapsed text of each
+   * `.govuk-error-summary__list` item in the response body, in page order,
+   * and an empty array when the response rendered none. The generic
+   * apply-action route renders its refusal as the one item of a GOV.UK error
+   * summary on a fresh detail page, so this is how a spec tells "refused with
+   * the app's own message" from "refused for some other reason". Items rather
+   * than the whole summary's text, so a spec matches the message exactly
+   * instead of as a substring of the title and every other item. They are
+   * parsed from the response, not the live page, which the fetch does not
+   * navigate.
    */
   async postFromPage(path) {
-    return browser.execute(async (url) => {
-      const crumb = document.querySelector('input[name="crumb"]')?.value ?? ''
+    const result = await browser.execute(async (url) => {
+      const crumb = document.querySelector('input[name="crumb"]')?.value
+      if (!crumb) {
+        return { missingCrumb: true }
+      }
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `crumb=${encodeURIComponent(crumb)}`
       })
+      // An inert <template> parses the body without running its scripts or
+      // touching the live page.
+      const parsed = document.createElement('template')
+      parsed.innerHTML = await response.text()
+      const items = parsed.content.querySelectorAll(
+        '.govuk-error-summary__list li'
+      )
       return {
         status: response.status,
         redirected: response.redirected,
-        url: response.url
+        url: response.url,
+        errorSummaryItems: Array.from(items, (item) =>
+          item.textContent.replace(/\s+/g, ' ').trim()
+        )
       }
     }, path)
+    if (result.missingCrumb) {
+      throw new Error(
+        `postFromPage(${path}): the current page (${await browser.getUrl()}) ` +
+          'renders no crumb field, so the POST would fail CSRF validation ' +
+          'instead of reaching the route under test'
+      )
+    }
+    return result
   }
 
   // ── RA-292: new ORS / interim site / authority-to-issue contact ─────────── //

@@ -1,7 +1,7 @@
 /**
- * Work items management-be seeds for the two cases no API can create.
+ * Work items management-be seeds for the cases no API can create.
  *
- * management-be's `ReAccreditationTestOrganisationFixtures` writes both with
+ * management-be's `ReAccreditationTestOrganisationFixtures` writes each with
  * these fixed ids, and REPLACES each whole document (state, assignment, SLA
  * clock with any extension or override, audit log, version) every time
  * management-be starts, whenever `TestOrganisations__Enabled=true` outside
@@ -46,3 +46,36 @@ export const ACCREDITATION_CORRECTED_WORK_ITEM = {
   incorrectAccreditationId: 'A27ER9006910322PL',
   correctedAccreditationId: 'A27ER9006910246PL'
 }
+
+/**
+ * RA-764: an unassigned `submitted` ("Not started") 2027 renewal for
+ * organisation 500069, seeded under its old name `previousOrganisationName`
+ * with no audit log. Unlike the items above it is seeded PRE-change: on the
+ * compose stack management-be's one-off organisation-name migration is
+ * enabled (docker/config/management-be.env) and runs after the fixture reset
+ * on every start, so the item the suite sees carries `organisationName`.
+ * Where that migration is not enabled (CDP test) it still shows the old name;
+ * see `isOrganisationNameMigrationEnabled()`.
+ *
+ * The real organisation and registration numbers, because the migration is
+ * keyed to them. Nothing else this suite seeds or creates carries either
+ * name, so a search for either finds this item or nothing.
+ */
+export const ORGANISATION_RENAMED_WORK_ITEM = {
+  id: '00000764-0000-4000-8000-000000000764',
+  applicationReference: 'RA-900000764',
+  organisationId: '500069',
+  registrationNumber: 'R26NR5000690003GL',
+  previousOrganisationName: 'Encirc Ltd',
+  organisationName: 'VIDRALA UK & IRELAND LIMITED',
+  status: 'Not started',
+  stateId: 'submitted'
+}
+
+/**
+ * RA-764. Whether management-be's organisation-name migration ran on the
+ * stack under test. True on the compose stack (wdio.github.conf.js), which
+ * enables it; unset on CDP test, which never does.
+ */
+export const isOrganisationNameMigrationEnabled = () =>
+  process.env.RA764_ORGANISATION_NAME_MIGRATION_ENABLED === 'true'
