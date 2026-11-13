@@ -69,7 +69,7 @@ describe('RA-739 in-year change applications on the Applications list', () => {
           workItems.tileField(id, 'submission-reference')
         ).toHaveText(`${submission.submissionReference} (3 requests)`)
         await expect(workItems.tileField(id, 'application-org')).toHaveText(
-          `${submission.organisationName} (${submission.operatorOrgNumber}): Plastic`
+          `${submission.organisationName} (${submission.operatorOrgNumber}): Plastic (Exporter)`
         )
         await expect(workItems.tileField(id, 'application-site')).toHaveText(
           `${site.siteName} (${site.orsId})`
@@ -100,10 +100,10 @@ describe('RA-739 in-year change applications on the Applications list', () => {
       await workItems.searchByOrgName(single.organisationName)
     })
 
-    it('says "(1 request)"', async () => {
+    it('shows the submission reference without a request count', async () => {
       const [{ id }] = single.workItems
       await expect(workItems.tileField(id, 'submission-reference')).toHaveText(
-        `${single.submissionReference} (1 request)`
+        single.submissionReference
       )
     })
 
