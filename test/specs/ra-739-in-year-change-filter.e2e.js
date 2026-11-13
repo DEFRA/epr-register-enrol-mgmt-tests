@@ -3,6 +3,7 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
 import { uniqueOrganisationName } from '../support/unique-name.js'
+import { uniquePostcode } from '../support/unique-postcode.js'
 import { createWorkItemViaApi } from '../support/work-item-api.js'
 
 /**
@@ -11,12 +12,19 @@ import { createWorkItemViaApi } from '../support/work-item-api.js'
  * type in that category (add-ORS today), so the list narrows to in-year
  * change applications only.
  *
- * One re-accreditation and a two-site add-ORS request share an organisation
- * name token, so an organisation search lists exactly these three.
+ * Applicant type is a separate dimension: it narrows by the accreditation's
+ * waste processing type whatever the application type, so Exporter with
+ * "In-year change" lists only the add-ORS items (all exporters), and Exporter
+ * alone lists them alongside exporter re-accreditations.
+ *
+ * A reprocessor and an exporter re-accreditation and a two-site add-ORS
+ * request share an organisation name token, so an organisation search lists
+ * exactly these four.
  */
 describe('RA-739 "In-year change" application type filter', () => {
   const token = uniqueOrganisationName('RA739 Filter')
   let reAccreditation
+  let exporterReAccreditation
   let inYearChangeIds
 
   const listedIds = async () =>
@@ -29,6 +37,17 @@ describe('RA-739 "In-year change" application type filter', () => {
   before(async () => {
     reAccreditation = await createWorkItemViaApi({
       organisationNamePrefix: `${token} ReAcc`
+    })
+    exporterReAccreditation = await createWorkItemViaApi({
+      organisationNamePrefix: `${token} Exporter ReAcc`,
+      fields: (base) => {
+        const { siteAddress, siteAddressPostcode, ...withoutSite } = base
+        return {
+          ...withoutSite,
+          wasteProcessingType: 'exporter',
+          companyRegisterAddressPostcode: uniquePostcode('CF10')
+        }
+      }
     })
     const submission = await submitAddOverseasSiteRequest({
       organisationNamePrefix: `${token} ORS`,
@@ -51,7 +70,11 @@ describe('RA-739 "In-year change" application type filter', () => {
 
   it('lists the re-accreditation and in-year change applications unfiltered', async () => {
     expect((await listedIds()).sort()).toEqual(
-      [reAccreditation.id, ...inYearChangeIds].sort()
+      [
+        reAccreditation.id,
+        exporterReAccreditation.id,
+        ...inYearChangeIds
+      ].sort()
     )
   })
 
@@ -83,8 +106,37 @@ describe('RA-739 "In-year change" application type filter', () => {
     await workItems.applyFilters()
 
     expect((await listedIds()).sort()).toEqual(
-      [reAccreditation.id, ...inYearChangeIds].sort()
+      [
+        reAccreditation.id,
+        exporterReAccreditation.id,
+        ...inYearChangeIds
+      ].sort()
     )
+  })
+
+  it('lists only exporter in-year changes with Applicant type "Exporter"', async () => {
+    await workItems.checkType('exporter')
+    await workItems.checkApplicationType('in-year-change')
+    await workItems.applyFilters()
+
+    expect((await listedIds()).sort()).toEqual([...inYearChangeIds].sort())
+  })
+
+  it('lists exporter applications of every type with Applicant type "Exporter" alone', async () => {
+    await workItems.checkType('exporter')
+    await workItems.applyFilters()
+
+    expect((await listedIds()).sort()).toEqual(
+      [exporterReAccreditation.id, ...inYearChangeIds].sort()
+    )
+  })
+
+  it('lists no in-year changes with Applicant type "Reprocessor"', async () => {
+    await workItems.checkType('re-accreditation')
+    await workItems.checkApplicationType('in-year-change')
+    await workItems.applyFilters()
+
+    expect(await listedIds()).toEqual([])
   })
 
   it('lists everything again when its chip is removed', async () => {
@@ -96,6 +148,6 @@ describe('RA-739 "In-year change" application type filter', () => {
     await workItems.worklistSummary().waitForDisplayed()
 
     await expect(workItems.tileFor(reAccreditation.id)).toBeDisplayed()
-    expect(await workItems.getWorkItemCount()).toBe(3)
+    expect(await workItems.getWorkItemCount()).toBe(4)
   })
 })

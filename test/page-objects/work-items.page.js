@@ -511,8 +511,8 @@ class WorkItemsPage extends Page {
   /**
    * RA-299 (AC01/15). Tick an "Application type" checkbox — a NEW filter
    * section distinct from the existing "Applicant type" section (checkType,
-   * param typeId). Param applicationType; both sections merge into the same
-   * backend typeIds filter. Values: re-accreditation (real typeId — the only
+   * param typeId). Param applicationType; it alone sets the backend typeIds
+   * filter, and Applicant type narrows it (RA-739). Values: re-accreditation (real typeId — the only
    * one with matching data), in-year-change (RA-739: a category, sent to
    * management-be as `category=`), accreditation | registration-application |
    * annual-fee-payment (stub typeIds, mirror the existing Exporter stub
