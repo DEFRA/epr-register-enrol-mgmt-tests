@@ -42,6 +42,25 @@
  *                                   on a local stack, whose operator backend
  *                                   runs as Development with no secret and
  *                                   accepts the push unsigned.
+ *
+ * RA-000. One spec also plays the operator backend towards management-be,
+ * submitting a work item as `epr-register-enrol-backend`
+ * (`operatorBackendSubmitRequest`). management-be holds a submission from
+ * that caller, and only that caller, to the operator backend's contract
+ * (`operatorOrgNumber` and `paymentReference` required), so the refusal can
+ * only be shown by signing as it. The same opt-in applies:
+ *
+ *   OPERATOR_BACKEND_SUBMIT_ENABLED "true" where the spec may run: the
+ *                                   compose stack (wdio.github.conf.js) and a
+ *                                   local stack (wdio.local.conf.js). Unset
+ *                                   on CDP, where the secret is the operator
+ *                                   backend's alone, so the spec is skipped
+ *                                   there.
+ *   OPERATOR_BACKEND_SUBMIT_SECRET  management-be's
+ *                                   AUTH_SHARED_SECRET__BACKEND. Unset on a
+ *                                   local stack, whose management-be runs as
+ *                                   Development with no secret and accepts
+ *                                   the call unsigned.
  */
 
 import { createHmac, randomBytes } from 'node:crypto'
@@ -184,6 +203,45 @@ export const MANAGEMENT_BE_CLIENT_ID = 'epr-register-enrol-management-be'
 /** RA-527. Whether this run may play management-be (see the module doc). */
 export const isCaseManagementPushEnabled = () =>
   process.env.CASE_MANAGEMENT_PUSH_ENABLED === 'true'
+
+/** The client id the operator backend signs its management-be calls with. */
+export const OPERATOR_BACKEND_CLIENT_ID = 'epr-register-enrol-backend'
+
+/** RA-000. Whether this run may play the operator backend (see the module doc). */
+export const isOperatorBackendSubmitEnabled = () =>
+  process.env.OPERATOR_BACKEND_SUBMIT_ENABLED === 'true'
+
+/**
+ * RA-000. `POST /work-items` to management-be AS the operator backend,
+ * signed as its submissions are (`HttpCaseWorkingApiAdapter` in
+ * epr-register-enrol-backend), with no acting user, as that backend sends
+ * none on a submission. Only for runs where `isOperatorBackendSubmitEnabled()`;
+ * it throws otherwise, so a spec that forgot the gate fails loudly rather
+ * than with a puzzling 401.
+ */
+export function operatorBackendSubmitRequest(body) {
+  if (!isOperatorBackendSubmitEnabled()) {
+    throw new Error(
+      'OPERATOR_BACKEND_SUBMIT_ENABLED is not "true": this run may not play the operator backend.'
+    )
+  }
+  const headers = {
+    accept: 'application/json',
+    'content-type': 'application/json',
+    'x-cdp-client-id': OPERATOR_BACKEND_CLIENT_ID
+  }
+  // null, not undefined: an unset secret must send the call unsigned, never
+  // fall through to signManagementBeHeaders' default (the mgmt-tests secret),
+  // which management-be would reject for this client id.
+  const signature = signManagementBeHeaders(headers, {
+    sharedSecret: process.env.OPERATOR_BACKEND_SUBMIT_SECRET ?? null
+  })
+  return send(`${requireEnv('MANAGEMENT_BE_URL')}/work-items`, {
+    method: 'POST',
+    headers: { ...headers, ...signature },
+    body
+  })
+}
 
 /**
  * The v3 HMAC the operator backend's CaseManagement auth handler checks:
