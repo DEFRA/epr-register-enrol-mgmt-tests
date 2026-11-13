@@ -214,12 +214,12 @@ export const isOperatorBackendSubmitEnabled = () =>
 /**
  * RA-000. `POST /work-items` to management-be AS the operator backend,
  * signed as its submissions are (`HttpCaseWorkingApiAdapter` in
- * epr-register-enrol-backend), with no acting user, as that backend sends
- * none on a submission. Only for runs where `isOperatorBackendSubmitEnabled()`;
+ * epr-register-enrol-backend), acting as `user`, the submitter that backend
+ * names on every submission. Only for runs where `isOperatorBackendSubmitEnabled()`;
  * it throws otherwise, so a spec that forgot the gate fails loudly rather
  * than with a puzzling 401.
  */
-export function operatorBackendSubmitRequest(body) {
+export function operatorBackendSubmitRequest(body, user) {
   if (!isOperatorBackendSubmitEnabled()) {
     throw new Error(
       'OPERATOR_BACKEND_SUBMIT_ENABLED is not "true": this run may not play the operator backend.'
@@ -228,7 +228,9 @@ export function operatorBackendSubmitRequest(body) {
   const headers = {
     accept: 'application/json',
     'content-type': 'application/json',
-    'x-cdp-client-id': OPERATOR_BACKEND_CLIENT_ID
+    'x-cdp-client-id': OPERATOR_BACKEND_CLIENT_ID,
+    'x-cdp-user-id': user.id,
+    'x-cdp-user-name': user.name
   }
   // null, not undefined: an unset secret must send the call unsigned, never
   // fall through to signManagementBeHeaders' default (the mgmt-tests secret),

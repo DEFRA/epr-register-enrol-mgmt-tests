@@ -9,7 +9,10 @@ import {
   operatorBackendSubmitRequest
 } from '../support/backend-api.js'
 import { getWorkItem } from '../support/decision-api.js'
-import { createOperatorBackedWorkItem } from '../support/operator-backend-api.js'
+import {
+  createOperatorBackedWorkItem,
+  SIMULATED_DELIVERED_EMAIL
+} from '../support/operator-backend-api.js'
 import { buildWorkItemPayload } from '../support/work-item-api.js'
 
 /**
@@ -59,10 +62,32 @@ const englandReprocessorPaymentReference = (orgNumber) =>
   `PR/PK/REP/${orgNumber}`
 
 /**
- * management-be's application reference for an England plastic item:
- * `AP` + 2-digit accreditation year + agency + the 6-digit organisation number + the last
- * 3 characters of the site postcode + the material prefix. The organisation
- * segment is pinned to the org number, so the ObjectId tail
+ * The site postcode management-be's reference generator reads for a
+ * reprocessor (`ExtractPostcode` in `ApplicationReferenceGenerator`): the flat
+ * `siteAddressPostcode`, else a nested `siteAddress.postcode`, else none.
+ *
+ * None is a real case here, not a guess: the operator backend's ReEx stub
+ * gives an `e2e-` organisation's registration no site address, so the
+ * payload it sends carries `siteAddressPostcode: null` and the reference has
+ * no postcode segment. Mirroring the generator keeps that out of this spec,
+ * whose subject is the organisation segment.
+ */
+function sitePostcodeOf(payload) {
+  if (typeof payload.siteAddressPostcode === 'string') {
+    return payload.siteAddressPostcode
+  }
+  if (typeof payload.siteAddress?.postcode === 'string') {
+    return payload.siteAddress.postcode
+  }
+  return ''
+}
+
+/**
+ * management-be's application reference for an England plastic reprocessor:
+ * `AP` + 2-digit accreditation year + agency + the 6-digit organisation
+ * number + the last 3 characters of the site postcode + the material prefix,
+ * computed from the payload management-be stored. The organisation segment
+ * is pinned to the org number, so the ObjectId tail
  * (`operatorOrganisationId`'s last 5 characters) it replaced cannot match.
  *
  * Exact, except for the one character management-be appends when a
@@ -71,23 +96,20 @@ const englandReprocessorPaymentReference = (orgNumber) =>
  * long-lived environment two runs can share a number, year and postcode
  * suffix; that suffix is the only variation allowed.
  */
-function applicationReferencePattern({
-  accreditationYear,
-  orgNumber,
-  siteAddressPostcode
-}) {
-  if (!Number.isInteger(accreditationYear) || !siteAddressPostcode) {
+function applicationReferencePattern(payload) {
+  const { accreditationYear, operatorOrgNumber } = payload
+  if (!Number.isInteger(accreditationYear)) {
     throw new Error(
-      'The work item payload has no accreditationYear or siteAddressPostcode'
+      `The work item payload has no whole accreditationYear: ${accreditationYear}`
     )
   }
   const yearSegment = String(accreditationYear % 100).padStart(2, '0')
-  const postcodeSuffix = siteAddressPostcode
+  const postcodeSuffix = sitePostcodeOf(payload)
     .replaceAll(' ', '')
     .slice(-3)
     .toUpperCase()
   return new RegExp(
-    `^AP${yearSegment}${ENGLAND_AGENCY}${orgNumber}${postcodeSuffix}${PLASTIC_PREFIX}\\d?$`
+    `^AP${yearSegment}${ENGLAND_AGENCY}${operatorOrgNumber}${postcodeSuffix}${PLASTIC_PREFIX}\\d?$`
   )
 }
 
@@ -133,11 +155,7 @@ describe('RA-000 — a real operator submission carries the organisation number'
 
     expect(applicationReference).toBe(storedPayload.applicationReference)
     expect(applicationReference).toMatch(
-      applicationReferencePattern({
-        accreditationYear: storedPayload.accreditationYear,
-        orgNumber: item.orgNumber,
-        siteAddressPostcode: storedPayload.siteAddressPostcode
-      })
+      applicationReferencePattern(storedPayload)
     )
     expect(applicationReference.toLowerCase()).not.toContain('null')
   })
@@ -220,6 +238,16 @@ function operatorBackendPayload() {
   })
 }
 
+/**
+ * The acting user the operator backend sends with a submission: the
+ * submitter's email and name (`HttpCaseWorkingApiAdapter.CreateWorkItemAsync`).
+ * management-be refuses a submission with no acting user (401).
+ */
+const SUBMITTER = {
+  id: SIMULATED_DELIVERED_EMAIL,
+  name: 'E2E Submitter'
+}
+
 const submission = (payload) => ({
   typeId: 're-accreditation',
   // What epr-register-enrol-backend's HttpCaseWorkingApiAdapter sends.
@@ -240,7 +268,10 @@ describeIfOperatorBackendSubmit(
         const broken = structuredClone(payload)
         breakPayload(broken)
 
-        const refused = await operatorBackendSubmitRequest(submission(broken))
+        const refused = await operatorBackendSubmitRequest(
+          submission(broken),
+          SUBMITTER
+        )
         expect(refused.status).toBe(400)
         expect(refused.body).toMatchObject({
           status: 400,
@@ -252,7 +283,10 @@ describeIfOperatorBackendSubmit(
         // and answers with the stored item and `X-Idempotent-Replay: true`.
         // The same application submitted correctly is therefore new only if
         // the refused submission stored nothing.
-        const accepted = await operatorBackendSubmitRequest(submission(payload))
+        const accepted = await operatorBackendSubmitRequest(
+          submission(payload),
+          SUBMITTER
+        )
         expect(accepted.status).toBe(201)
         expect(accepted.headers.get('x-idempotent-replay')).toBeNull()
 
@@ -264,11 +298,7 @@ describeIfOperatorBackendSubmit(
           payload.paymentReference
         )
         expect(accepted.body.payload.applicationReference).toMatch(
-          applicationReferencePattern({
-            accreditationYear: payload.accreditationYear,
-            orgNumber: payload.operatorOrgNumber,
-            siteAddressPostcode: payload.siteAddressPostcode
-          })
+          applicationReferencePattern(accepted.body.payload)
         )
       })
     }
