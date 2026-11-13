@@ -44,7 +44,7 @@ import { SIMULATED_DELIVERED_EMAIL } from './operator-backend-api.js'
  * kebab-case key here silently fails to merge, exactly the bug this
  * fixture's callers exist to catch.
  */
-function resubmissionBody(sectionKeys, sections) {
+function resubmissionBody(sectionKeys, sections, chargeAmountPence) {
   return {
     sectionKeys,
     sections,
@@ -53,7 +53,12 @@ function resubmissionBody(sectionKeys, sections) {
       fullName: 'Olivia Operator',
       email: SIMULATED_DELIVERED_EMAIL,
       role: 'Compliance Manager'
-    }
+    },
+    // RA-766: the charge the operator backend recalculated for the resubmitted
+    // application, in pence. Left out of the body entirely when not given, as
+    // the operator backend does when it cannot calculate one, so an omitted
+    // charge is a real "not sent" and not a null.
+    ...(chargeAmountPence === undefined ? {} : { chargeAmountPence })
   }
 }
 
@@ -67,12 +72,16 @@ function resubmissionBody(sectionKeys, sections) {
  */
 export async function resumeFromQuery(
   workItemId,
-  { sectionKeys = ['business-plan'], sections = {} } = {}
+  {
+    sectionKeys = ['business-plan'],
+    sections = {},
+    chargeAmountPence = undefined
+  } = {}
 ) {
   const result = await managementBeRequest(
     'POST',
     `/work-items/re-accreditation/${workItemId}/resume-from-query`,
-    { body: resubmissionBody(sectionKeys, sections) }
+    { body: resubmissionBody(sectionKeys, sections, chargeAmountPence) }
   )
   if (result.status !== 200) {
     throw new Error(
