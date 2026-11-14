@@ -18,6 +18,11 @@ process.env.OPERATOR_BACKEND_SHARED_SECRET ??=
 process.env.CASE_MANAGEMENT_PUSH_ENABLED ??= 'true'
 process.env.CASE_MANAGEMENT_PUSH_SECRET ??=
   'E2eComposeManagementBeToOperatorBackend'
+// RA-000: as wdio.github.conf.js, the suite may play the operator backend
+// towards management-be here.
+process.env.OPERATOR_BACKEND_SUBMIT_ENABLED ??= 'true'
+process.env.OPERATOR_BACKEND_SUBMIT_SECRET ??=
+  'E2eComposeOperatorBackendToManagementBe'
 
 export const config = {
   //
