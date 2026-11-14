@@ -174,7 +174,7 @@ describe('RA-000 — a real operator submission carries the organisation number'
 })
 
 const ORG_NUMBER_DETAIL =
-  'A submission from the operator backend must include operatorOrgNumber as a whole number from 0 to 999999.'
+  'A submission from the operator backend must include operatorOrgNumber as a whole number from 1 to 999999.'
 const PAYMENT_REFERENCE_DETAIL =
   'A submission from the operator backend must include a non-blank paymentReference string.'
 
@@ -199,6 +199,13 @@ const REFUSALS = [
     name: 'operatorOrgNumber as a string',
     breakPayload: (payload) =>
       (payload.operatorOrgNumber = String(payload.operatorOrgNumber)),
+    detail: ORG_NUMBER_DETAIL
+  },
+  {
+    // Organisation numbers start at 1, so 0 can only be a value that was
+    // never set.
+    name: 'operatorOrgNumber 0',
+    breakPayload: (payload) => (payload.operatorOrgNumber = 0),
     detail: ORG_NUMBER_DETAIL
   },
   {
