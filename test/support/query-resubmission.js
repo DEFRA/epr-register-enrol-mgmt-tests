@@ -69,14 +69,18 @@ function resubmissionBody(sectionKeys, sections, chargeAmountPence) {
  * Throws on anything other than 200 so a spec that fails later fails for its
  * own reason rather than silently asserting against an item that never
  * moved.
+ *
+ * @param {string} workItemId
+ * @param {object} [options]
+ * @param {string[]} [options.sectionKeys]
+ * @param {object} [options.sections]
+ * @param {number} [options.chargeAmountPence] RA-766: the recalculated charge,
+ *   in pence. Left out of the request body when omitted, so "not sent" stays
+ *   distinct from null.
  */
 export async function resumeFromQuery(
   workItemId,
-  {
-    sectionKeys = ['business-plan'],
-    sections = {},
-    chargeAmountPence = undefined
-  } = {}
+  { sectionKeys = ['business-plan'], sections = {}, chargeAmountPence } = {}
 ) {
   const result = await managementBeRequest(
     'POST',

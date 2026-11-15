@@ -43,6 +43,10 @@ const DULY_MADE_RECALCULATED_PENCE = 429300 // £4,293.00
 
 const pounds = (pence) => pence / 100
 
+// The case header prints whole pounds without decimals and with a thousands
+// separator (see ra-493-header-payment-info).
+const wholePounds = (pence) => `£${pounds(pence).toLocaleString('en-GB')}`
+
 describe('RA-766 the charge follows the application through a query', () => {
   before(async () => {
     await login.login()
@@ -146,8 +150,9 @@ describe('RA-766 the charge follows the application through a query', () => {
     it('updates the payment amount on the case header', async () => {
       await workItems.openWorkItem(workItemId)
 
-      // Whole pounds print without decimals (see ra-493-header-payment-info).
-      await expect(detail.caseHeaderField('paymentAmount')).toHaveText('£4,293')
+      await expect(detail.caseHeaderField('paymentAmount')).toHaveText(
+        wholePounds(DULY_MADE_RECALCULATED_PENCE)
+      )
     })
   })
 })
