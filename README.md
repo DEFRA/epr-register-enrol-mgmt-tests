@@ -102,7 +102,9 @@ named items in one of three ways (the seeded fixtures below aside):
 - **Path A: case-management-only items** (`test/support/work-item-api.js`).
   A signed `POST /work-items` to management-be with a rich payload, for
   display, list, assignment, SLA, query and Notify specs. The rich fixtures
-  live in `test/support/*-fixture.js`. Each item's `operatorOrganisationId`
+  live in `test/support/*-fixture.js`, except add-ORS in-year change
+  submissions (RA-739), which `test/support/in-year-change-api.js` builds and
+  submits, one work item per site. Each item's `operatorOrganisationId`
   starts `e2e-`, which marks it as a test organisation whose ReEx lookups
   management-be answers from its own test data. The operator's side of a
   query or withdrawal is played by `query-resubmission.js` and
@@ -186,6 +188,9 @@ Entra ID stub. With `TestOrganisations__Enabled=true`, management-be seeds the
 fixtures no API can create (see "Test data" above; ids in
 `test/support/seeded-fixtures.js`) and resets them at every start, exactly as
 on CDP test.
+MongoDB runs as a single-node replica set (`rs0`), as CDP's does, because
+management-be writes in-year change submissions in multi-document transactions
+(RA-739). Its healthcheck initiates the set on first start.
 
 One deliberate difference from CDP test: `docker/config/management-be.env`
 enables management-be's RA-764 one-off migration

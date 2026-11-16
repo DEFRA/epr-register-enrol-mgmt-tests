@@ -749,6 +749,28 @@ class WorkItemDetailPage extends Page {
     return $(`[data-testid="${testId}"]`)
   }
 
+  /** The keys of the case tabs shown (e.g. 'application-summary'), in order. */
+  async caseTabKeys() {
+    const tabs = await $$('[data-testid="case-tabs"] [data-testid^="tab-"]')
+    const keys = []
+    for (const tab of tabs) {
+      keys.push((await tab.getAttribute('data-testid')).replace(/^tab-/, ''))
+    }
+    return keys
+  }
+
+  /** The case header's meta items as "Label: value", in page order. */
+  async caseHeaderMeta() {
+    const items = await this.caseHeader().$$(
+      '[data-testid="case-header-meta"] .app-case-header__meta-item'
+    )
+    const texts = []
+    for (const item of items) {
+      texts.push((await item.getText()).replace(/\s+/g, ' ').trim())
+    }
+    return texts
+  }
+
   async isActiveTab(name) {
     return (await this.tab(name).getAttribute('aria-current')) === 'page'
   }
@@ -1318,6 +1340,21 @@ class WorkItemDetailPage extends Page {
       throw new Error(`Unknown case header field "${name}"`)
     }
     return this.caseHeader().$(`[data-testid="${testId}"]`)
+  }
+
+  /**
+   * RA-739. A case-header field by the key in its `case-header-{key}` test
+   * id, for the fields only some case types show (an add-ORS header's
+   * caption, title, request type, charge...), which CASE_HEADER_FIELDS does
+   * not list. Scoped to the header like caseHeaderField.
+   */
+  caseHeaderFieldByKey(key) {
+    return this.caseHeader().$(`[data-testid="case-header-${key}"]`)
+  }
+
+  /** RA-739. The add-ORS detail page's own container. */
+  addOverseasSiteDetail() {
+    return $('[data-testid="add-overseas-site-detail"]')
   }
 
   async caseHeaderFieldText(name) {

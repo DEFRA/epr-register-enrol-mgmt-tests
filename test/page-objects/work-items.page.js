@@ -33,6 +33,10 @@ const ASSIGNED_TO_FIELD = 'assigned-to'
  *   - assigned-to is no longer gated on the SLA clock — it renders on every
  *     card, "Unassigned" when nobody holds it.
  *
+ * RA-739: material and applicant type moved onto the org line
+ * ("{Org} ({Org ID}): {Material} ({Applicant type})"), which keeps their
+ * order, and due-on moved before assigned-to.
+ *
  * NOT listed here: the id-keyed status tag (its position is RA-324's concern,
  * not a story field) and registration-number (RA-295 AC06 — it renders between
  * org-id and material but is outside the RA-370 field list, so keeping it out
@@ -65,8 +69,8 @@ export const TILE_FIELD_ORDER = [
   'material',
   'applicant-type',
   SUBMITTED_ON_FIELD,
-  ASSIGNED_TO_FIELD,
-  'due-on'
+  'due-on',
+  ASSIGNED_TO_FIELD
 ]
 
 class WorkItemsPage extends Page {
@@ -507,9 +511,10 @@ class WorkItemsPage extends Page {
   /**
    * RA-299 (AC01/15). Tick an "Application type" checkbox — a NEW filter
    * section distinct from the existing "Applicant type" section (checkType,
-   * param typeId). Param applicationType; both sections merge into the same
-   * backend typeIds filter. Values: re-accreditation (real typeId — the only
-   * one with matching data), accreditation | registration-application |
+   * param typeId). Param applicationType; it alone sets the backend typeIds
+   * filter, and Applicant type narrows it (RA-739). Values: re-accreditation (real typeId — the only
+   * one with matching data), in-year-change (RA-739: a category, sent to
+   * management-be as `category=`), accreditation | registration-application |
    * annual-fee-payment (stub typeIds, mirror the existing Exporter stub
    * pattern and always return the empty state until those work item types
    * exist).
@@ -876,14 +881,15 @@ class WorkItemsPage extends Page {
   }
 
   /**
-   * RA-370. The card's title sentence, e.g. "Plastic reaccreditation
-   * (Reprocessor)". The material and applicant-type testids sit INSIDE it, so
-   * the ordering assertions alone cannot catch a change to the surrounding
-   * wording — the spans keep their DOM order under any copy. Assert this text
-   * directly to pin the user-visible sentence.
+   * RA-739. The card's org line, e.g. "Acme Ltd (424242): Plastic
+   * (Reprocessor)", which took over RA-370's title sentence. The org,
+   * material and applicant-type testids sit INSIDE it, so the ordering
+   * assertions alone cannot catch a change to the surrounding wording — the
+   * spans keep their DOM order under any copy. Assert this text directly to
+   * pin the user-visible line.
    */
-  tileTitle(id) {
-    return this.tileField(id, 'application-card-title')
+  tileOrgLine(id) {
+    return this.tileField(id, 'application-org')
   }
 
   /**

@@ -1,6 +1,6 @@
-import login from 'page-objects/login.page.js'
-import workItems from 'page-objects/work-items.page.js'
-import detail from 'page-objects/work-item-detail.page.js'
+import login from '../page-objects/login.page.js'
+import workItems from '../page-objects/work-items.page.js'
+import detail from '../page-objects/work-item-detail.page.js'
 
 /**
  * RA-186 — the JSON payload moved from the work item detail page into

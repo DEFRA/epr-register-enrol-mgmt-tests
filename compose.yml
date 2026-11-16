@@ -48,15 +48,29 @@ services:
       - 4444:4444
 
   ################################################################################
+  # RA-739: single-node replica set, as in the operator backend's compose.
+  # management-be's all-or-nothing submissions use multi-document
+  # transactions, which only work on a replica set (CDP's Mongo is one). The
+  # healthcheck initiates it on first run and is a no-op afterwards.
+  # The set name comes from a config file, not --replSet: the image's
+  # entrypoint drops a config file's `replication` section (but not
+  # --replSet) for the temporary mongod that runs the init scripts, so they
+  # can still write before the set is initiated.
   mongodb:
     image: mongo:6
+    command: ['--config', '/etc/mongod-replica-set.conf', '--bind_ip_all']
+    configs:
+      - source: mongod-replica-set
+        target: /etc/mongod-replica-set.conf
     volumes:
       - ./docker/scripts/mongodb:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ['CMD', 'mongosh', '--eval', 'db.hello().ok']
+      test: >
+        mongosh --quiet --eval "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongodb:27017' }] }).ok }"
       interval: 5s
+      timeout: 10s
       start_period: 5s
-      retries: 3
+      retries: 20
 
   ################################################################################
   floci:
@@ -274,3 +288,11 @@ services:
       interval: 5s
       start_period: 10s
       retries: 5
+
+################################################################################
+# The mongodb service's replica set name (see its comment).
+configs:
+  mongod-replica-set:
+    content: |
+      replication:
+        replSetName: rs0

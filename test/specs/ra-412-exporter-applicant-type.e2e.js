@@ -26,9 +26,8 @@ import { createWorkItemViaApi } from '../support/work-item-api.js'
  * Filter wiring (confirmed against management-fe#179 / management-be#118):
  * the "Applicant type" Exporter checkbox still posts `typeId=exporter`
  * (unchanged selector — `workItems.checkType('exporter')`); management-fe
- * maps that onto BOTH `typeIds: ['re-accreditation']` (there is no real
- * `exporter` typeId) AND the new `wasteProcessingTypes: ['Exporter']` param,
- * which management-be matches against `payload.wasteProcessingType`.
+ * sends it as `wasteProcessingTypes: ['Exporter']` (since RA-739, with no
+ * typeId), which management-be matches against `payload.wasteProcessingType`.
  *
  * The negative controls are two Reprocessor applications: one whose payload
  * carries an EXPLICIT `wasteProcessingType: "reprocessor"`, which catches an
@@ -90,11 +89,11 @@ describe('RA-412 — Exporter applications are labelled correctly', () => {
       ).toHaveText('Reprocessor')
     })
 
-    it('renders the exact card title with the real applicant type', async () => {
-      await expect(workItems.tileTitle(exporterItemId)).toHaveText(
-        // management-fe's materials.js renders the raw `glass` token as the
-        // single label "Glass".
-        'Glass reaccreditation (Exporter)'
+    it('renders the org line with the real applicant type', async () => {
+      // RA-739: "{Org} ({Org ID}): {Material} ({Applicant type})". management-fe's
+      // materials.js renders the raw `glass` token as the single label "Glass".
+      expect(await workItems.tileOrgLine(exporterItemId).getText()).toMatch(
+        /: Glass \(Exporter\)$/
       )
     })
   })
