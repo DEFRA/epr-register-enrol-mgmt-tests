@@ -306,35 +306,6 @@ export function requestAccreditationNumberAsCaseManagement({
 }
 
 /**
- * RA-690. Regenerate the application's registration number AS management-be,
- * so it comes from the backend's sequence counter instead of the stub's
- * derived reference. A spec uses this to give one year's application a
- * different sequence from the next year's, so a reference inherited from the
- * previous accreditation can be told apart from one derived from the
- * registration. The stub organisations are in England. Only where
- * `isCaseManagementPushEnabled()` (see backend-api.js). Returns the updated
- * application.
- */
-export async function regenerateRegistrationNumberAsCaseManagement(
-  { operatorOrganisationId, operatorApplicationId },
-  { year }
-) {
-  return expectStatus(
-    await caseManagementPushRequest(
-      'POST',
-      applicationPath(
-        operatorOrganisationId,
-        operatorApplicationId,
-        '/registration-number'
-      ),
-      { body: { nation: 'England', year, regenerate: true } }
-    ),
-    200,
-    `regenerate the registration number of R&A application ${operatorApplicationId}`
-  ).body
-}
-
-/**
  * RA-527. Step 2's status push for each outcome, as management-be sends it
  * on "Confirm applicant contact": from the pending state to the final one.
  */
