@@ -5,6 +5,10 @@ import {
   createOperatorBackedWorkItem,
   waitForOperatorApplicationStatus
 } from '../support/operator-backend-api.js'
+import {
+  derivedFromRegistration,
+  withYear
+} from '../support/accreditation-reference.js'
 
 /**
  * RA-690. A consecutive-year renewal keeps the operator's accreditation
@@ -19,18 +23,13 @@ import {
  * which the operator backend now holds: the same reference with YY swapped.
  * The stub gives a registration's accreditation a different sequence from the
  * registration itself, so neither reference can come from the registration
- * number. On stub data, N+1's own last-year number from ReEx would derive the
- * same value; the backend's own tests pin that the held accreditation comes
- * first.
+ * number. It also gives each year's accreditation its own sequence, so N+1's
+ * last-year number from ReEx differs from the one held for N, and the spec can
+ * tell that the held accreditation came first.
  *
  * A lapsed renewal (N to N+2) is not tested here: Seed cannot yet start an
  * application for a lapsed operator.
  */
-
-/** The reference with its YY (characters 2–3) replaced by `year`'s. */
-function withYear(reference, year) {
-  return `${reference[0]}${String(year % 100).padStart(2, '0')}${reference.slice(3)}`
-}
 
 describe('RA-690 consecutive-year renewal keeps the accreditation reference', () => {
   const yearN = new Date().getUTCFullYear()
@@ -53,12 +52,15 @@ describe('RA-690 consecutive-year renewal keeps the accreditation reference', ()
     )
     // RA-763: derived from last year's accreditation number, not the
     // registration number.
-    expect(application.lastYearsAccreditation?.year).toBe(yearN - 1)
+    expect(application.lastYearsAccreditationNumber?.year).toBe(yearN - 1)
     expect(application.accreditationReference).toBe(
-      withYear(application.lastYearsAccreditation.accreditationNumber, yearN)
+      withYear(
+        application.lastYearsAccreditationNumber.accreditationNumber,
+        yearN
+      )
     )
     expect(application.accreditationReference).not.toBe(
-      withYear(`A${application.registrationReference.slice(1)}`, yearN)
+      derivedFromRegistration(application.registrationReference, yearN)
     )
     firstAccreditationReference = application.accreditationReference
   })
@@ -78,12 +80,19 @@ describe('RA-690 consecutive-year renewal keeps the accreditation reference', ()
       second,
       'Approved'
     )
-    expect(application.lastYearsAccreditation?.year).toBe(yearN)
+    // Last year's number from ReEx is not the one held for year N, so the two
+    // sources give different references and the assertions below say which.
+    const lastYears = application.lastYearsAccreditationNumber
+    expect(lastYears?.year).toBe(yearN)
+    expect(lastYears.accreditationNumber).not.toBe(firstAccreditationReference)
     expect(application.accreditationReference).toBe(
       withYear(firstAccreditationReference, yearN + 1)
     )
     expect(application.accreditationReference).not.toBe(
-      withYear(`A${application.registrationReference.slice(1)}`, yearN + 1)
+      withYear(lastYears.accreditationNumber, yearN + 1)
+    )
+    expect(application.accreditationReference).not.toBe(
+      derivedFromRegistration(application.registrationReference, yearN + 1)
     )
   })
 })
