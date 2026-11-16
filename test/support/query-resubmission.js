@@ -44,7 +44,7 @@ import { SIMULATED_DELIVERED_EMAIL } from './operator-backend-api.js'
  * kebab-case key here silently fails to merge, exactly the bug this
  * fixture's callers exist to catch.
  */
-function resubmissionBody(sectionKeys, sections) {
+function resubmissionBody(sectionKeys, sections, chargeAmountPence) {
   return {
     sectionKeys,
     sections,
@@ -53,7 +53,12 @@ function resubmissionBody(sectionKeys, sections) {
       fullName: 'Olivia Operator',
       email: SIMULATED_DELIVERED_EMAIL,
       role: 'Compliance Manager'
-    }
+    },
+    // RA-766: the charge the operator backend recalculated for the resubmitted
+    // application, in pence. Left out of the body entirely when not given, as
+    // the operator backend does when it cannot calculate one, so an omitted
+    // charge is a real "not sent" and not a null.
+    ...(chargeAmountPence === undefined ? {} : { chargeAmountPence })
   }
 }
 
@@ -64,15 +69,23 @@ function resubmissionBody(sectionKeys, sections) {
  * Throws on anything other than 200 so a spec that fails later fails for its
  * own reason rather than silently asserting against an item that never
  * moved.
+ *
+ * @param {string} workItemId
+ * @param {object} [options]
+ * @param {string[]} [options.sectionKeys]
+ * @param {object} [options.sections]
+ * @param {number} [options.chargeAmountPence] RA-766: the recalculated charge,
+ *   in pence. Left out of the request body when omitted, so "not sent" stays
+ *   distinct from null.
  */
 export async function resumeFromQuery(
   workItemId,
-  { sectionKeys = ['business-plan'], sections = {} } = {}
+  { sectionKeys = ['business-plan'], sections = {}, chargeAmountPence } = {}
 ) {
   const result = await managementBeRequest(
     'POST',
     `/work-items/re-accreditation/${workItemId}/resume-from-query`,
-    { body: resubmissionBody(sectionKeys, sections) }
+    { body: resubmissionBody(sectionKeys, sections, chargeAmountPence) }
   )
   if (result.status !== 200) {
     throw new Error(
