@@ -15,7 +15,6 @@ import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
  * Submitted straight to management-be, as the operator backend does.
  */
 describe('RA-739 in-year change applications on the Applications list', () => {
-  const year = new Date().getUTCFullYear()
   let submission
 
   before(async () => {
@@ -31,9 +30,13 @@ describe('RA-739 in-year change applications on the Applications list', () => {
   })
 
   it('creates one application per site, sharing one submission reference', () => {
-    expect(submission.submissionReference).toMatch(
-      new RegExp(String.raw`^SUB-${year}-\d{4,}$`)
-    )
+    // management-be assigns the year in these references, not this runner, so
+    // reading it from the local clock fails a run that straddles midnight on
+    // 31 December or one where runner and server clocks differ. Match any year,
+    // then hold the applications to the one the submission came back with.
+    expect(submission.submissionReference).toMatch(/^SUB-\d{4}-\d{4,}$/)
+    const [, referenceYear] =
+      submission.submissionReference.match(/^SUB-(\d{4})-/)
     expect(submission.workItems.map((item) => item.siteId)).toEqual(
       submission.sites.map((site) => site.siteId)
     )
@@ -41,7 +44,9 @@ describe('RA-739 in-year change applications on the Applications list', () => {
       (item) => item.applicationReference
     )
     references.forEach((reference) =>
-      expect(reference).toMatch(new RegExp(String.raw`^IYC-ORS-${year}-\d{5}$`))
+      expect(reference).toMatch(
+        new RegExp(String.raw`^IYC-ORS-${referenceYear}-\d{5}$`)
+      )
     )
     expect(new Set(references).size).toBe(3)
   })
