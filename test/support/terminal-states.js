@@ -5,7 +5,7 @@ import {
   dulyMake,
   logDecision,
   startAssessment
-} from './re-accreditation-journey.js'
+} from './standard-lifecycle-journey.js'
 import { withdrawAsOperatorOrThrow } from './operator-withdrawal.js'
 import { createOperatorBackedWorkItem } from './operator-backend-api.js'
 

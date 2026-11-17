@@ -1,10 +1,11 @@
 import { $, $$, browser, expect } from '@wdio/globals'
-import { Page } from './page.js'
+import {
+  RE_ACCREDITATION,
+  StandardLifecyclePage
+} from './standard-lifecycle.page.js'
 
 /** The duly-making form's submit button — asserted, clicked and read by name. */
 const DULY_MAKING_SUBMIT_SELECTOR = '[data-testid="duly-making-submit"]'
-
-const RE_ACCREDITATION = 're-accreditation'
 
 /**
  * RA-316 — duly making.
@@ -35,24 +36,9 @@ const RE_ACCREDITATION = 're-accreditation'
  * prefixes to prove NOTHING carries them. A hook named `work-item-task-...`
  * here would therefore fail the AC02 sweep as a phantom survivor.
  */
-class DulyMakingPage extends Page {
-  /**
-   * RA-495. Every type on the shared Standard lifecycle has its own Duly make
-   * page at `/work-items/{typeId}/{id}/duly-make`; re-accreditation's is the
-   * default.
-   */
-  path(workItemId, typeId = RE_ACCREDITATION) {
-    return `/work-items/${typeId}/${workItemId}/duly-make`
-  }
-
-  /**
-   * Navigate straight to the page, bypassing the CTA.
-   *
-   * Hiding a CTA is not a control — used by the guard specs to prove the
-   * route itself refuses from the wrong state.
-   */
-  async gotoFor(workItemId, typeId = RE_ACCREDITATION) {
-    await this.open(this.path(workItemId, typeId))
+class DulyMakingPage extends StandardLifecyclePage {
+  constructor() {
+    super('duly-make')
   }
 
   async assertOnPage() {

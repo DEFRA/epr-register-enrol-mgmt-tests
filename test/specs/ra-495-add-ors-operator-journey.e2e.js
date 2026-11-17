@@ -7,7 +7,7 @@ import {
   confirmApplicantContact,
   dulyMake,
   logDecision
-} from '../support/re-accreditation-journey.js'
+} from '../support/standard-lifecycle-journey.js'
 import {
   expectStatus,
   isCaseManagementPushEnabled

@@ -6,7 +6,7 @@ import decision from '../page-objects/decision.page.js'
 import confirmContact from '../page-objects/confirm-contact.page.js'
 import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
 import { getWorkItem } from '../support/decision-api.js'
-import { dulyMake, logDecision } from '../support/re-accreditation-journey.js'
+import { dulyMake, logDecision } from '../support/standard-lifecycle-journey.js'
 
 const TYPE_ID = 'add-overseas-site'
 

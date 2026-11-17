@@ -1,4 +1,4 @@
-import { browser, expect } from '@wdio/globals'
+import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
@@ -9,7 +9,11 @@ import {
   dulyMake,
   logDecision,
   startAssessment
-} from '../support/re-accreditation-journey.js'
+} from '../support/standard-lifecycle-journey.js'
+import {
+  statusPushes,
+  waitForStatusPushes
+} from '../support/status-push-audit.js'
 
 const TYPE_ID = 'add-overseas-site'
 
@@ -19,33 +23,6 @@ const changeRequestRoute = (workItemId) =>
 
 const FAILED_HISTORY_HEADING =
   'Status failed to send to the Registration & Accreditation service'
-
-/** The work item's status-push audit entries, oldest first. */
-async function statusPushes(workItemId) {
-  const { auditLog } = await getWorkItem(workItemId)
-  return auditLog
-    .filter((entry) => entry.action.startsWith('status-push'))
-    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
-}
-
-/**
- * Polls until the work item holds `count` status-push entries: the
- * post-commit push runs in the background, after the response.
- */
-async function waitForStatusPushes(workItemId, count) {
-  let pushes = []
-  await browser.waitUntil(
-    async () => {
-      pushes = await statusPushes(workItemId)
-      return pushes.length >= count
-    },
-    {
-      timeout: 15000,
-      timeoutMsg: `Expected ${count} status push entries on ${workItemId}`
-    }
-  )
-  return pushes
-}
 
 /** One push entry: sent to the change-request route, for this transition. */
 function expectChangeRequestPush(entry, workItemId, { toStateId, actionId }) {

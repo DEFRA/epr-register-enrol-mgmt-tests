@@ -1,7 +1,8 @@
 import { $, browser, expect } from '@wdio/globals'
-import { Page } from './page.js'
-
-const RE_ACCREDITATION = 're-accreditation'
+import {
+  RE_ACCREDITATION,
+  StandardLifecyclePage
+} from './standard-lifecycle.page.js'
 
 /**
  * RA-527 — the "Confirm applicant contact" page (step 2 of the two-step
@@ -22,18 +23,9 @@ const RE_ACCREDITATION = 're-accreditation'
  * Selected by `data-testid` throughout: those are management-fe's contract
  * with this suite.
  */
-class ConfirmContactPage extends Page {
-  /**
-   * RA-495. Every type on the shared Standard lifecycle has its own page at
-   * `/work-items/{typeId}/{id}/confirm-contact`; re-accreditation's is the default.
-   */
-  path(workItemId, typeId = RE_ACCREDITATION) {
-    return `/work-items/${typeId}/${workItemId}/confirm-contact`
-  }
-
-  /** Navigate straight to the page, bypassing the detail-page button. */
-  async gotoFor(workItemId, typeId = RE_ACCREDITATION) {
-    await this.open(this.path(workItemId, typeId))
+class ConfirmContactPage extends StandardLifecyclePage {
+  constructor() {
+    super('confirm-contact')
   }
 
   async assertOnPage() {

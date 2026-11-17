@@ -73,7 +73,7 @@
  * GMT (00:00) and BST (01:00). So for these fixtures the UK date and the UTC
  * date of the anchor are necessarily equal, and deriving the expectation from
  * the very same `utcDateParts` call that FILLED the payment-date field (see
- * `dulyMake` in re-accreditation-journey.js) is both correct and the only way
+ * `dulyMake` in standard-lifecycle-journey.js) is both correct and the only way
  * to stop the expectation drifting away from the input.
  *
  * THAT EQUIVALENCE DOES NOT GENERALISE. A clock with a real time-of-day — a
@@ -187,7 +187,7 @@ export const DULY_MADE_DAYS_AGO = 60
  *
  * `utcDateParts` rather than the runner's clock because the anchor is midnight
  * UTC of the payment date, and this is the same call that produced the payment
- * date in the first place — see `dulyMake` in re-accreditation-journey.js,
+ * date in the first place — see `dulyMake` in standard-lifecycle-journey.js,
  * which fills the field from `utcDateParts(new Date(), dayOffset)`. Computing
  * the expectation a different way from the input is how an expectation drifts
  * away from it.

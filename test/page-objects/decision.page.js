@@ -1,7 +1,8 @@
 import { $, $$, browser, expect } from '@wdio/globals'
-import { Page } from './page.js'
-
-const RE_ACCREDITATION = 're-accreditation'
+import {
+  RE_ACCREDITATION,
+  StandardLifecyclePage
+} from './standard-lifecycle.page.js'
 
 /**
  * RA-410 — the "Log decision" page.
@@ -37,23 +38,9 @@ const RE_ACCREDITATION = 're-accreditation'
  * (see warningText() / noteHint() below), same approach as
  * work-item-detail.page.js's ra98ReferenceBanner().
  */
-class DecisionPage extends Page {
-  /**
-   * RA-495. Every type on the shared Standard lifecycle has its own page at
-   * `/work-items/{typeId}/{id}/decision`; re-accreditation's is the default.
-   */
-  path(workItemId, typeId = RE_ACCREDITATION) {
-    return `/work-items/${typeId}/${workItemId}/decision`
-  }
-
-  /**
-   * Navigate straight to the page, bypassing the CTA.
-   *
-   * Hiding a CTA is not a control — used by the guard specs to prove the
-   * route itself refuses from the wrong state.
-   */
-  async gotoFor(workItemId, typeId = RE_ACCREDITATION) {
-    await this.open(this.path(workItemId, typeId))
+class DecisionPage extends StandardLifecyclePage {
+  constructor() {
+    super('decision')
   }
 
   async assertOnPage() {

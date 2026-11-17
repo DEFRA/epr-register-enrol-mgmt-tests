@@ -41,7 +41,7 @@ import { farFutureDeadline } from '../support/sla-extend-date.js'
  * and is posted from both. `query-during-decision` is not covered here: its
  * source state, `awaiting-decision`, is never a resting state a browser can
  * reach (Make Determination applies `-> awaiting-decision -> <outcome>` in
- * one call, see `logDecision` in `re-accreditation-journey.js`).
+ * one call, see `logDecision` in `standard-lifecycle-journey.js`).
  *
  * management-fe's prefix rule also covers `resume` / `resume-*`. The
  * `resume-during-*` transitions out of Queried were already
