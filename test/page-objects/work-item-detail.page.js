@@ -6,6 +6,12 @@ import { formatUkHeaderDate } from '../support/uk-time.js'
 const TESTID_ATTR = 'data-testid'
 const TESTID_SELECTOR = '[data-testid]'
 
+/**
+ * The type's detail root, which carries the raw `data-state-id`
+ * (re-accreditation's, and add-ORS's since RA-495).
+ */
+const STATE_ID_ROOT_SELECTOR = '[data-state-id]'
+
 /** The generic post-redirect (PRG) flash notification banner. */
 const FLASH_BANNER_SELECTOR = '[data-testid="work-item-flash-banner"]'
 
@@ -2426,15 +2432,15 @@ class WorkItemDetailPage extends Page {
    * so `assertState('Updated')` would happily pass against the wrong one of
    * the two. Assert on this wherever the distinction matters; it is a
    * contract with management-fe, not an incidental attribute.
+   *
+   * RA-495. Any type's detail root that carries the attribute (add-ORS too).
    */
   async stateId() {
-    return $('[data-testid="re-accreditation-detail"]').getAttribute(
-      'data-state-id'
-    )
+    return $(STATE_ID_ROOT_SELECTOR).getAttribute('data-state-id')
   }
 
   async assertStateId(expected) {
-    await expect($('[data-testid="re-accreditation-detail"]')).toHaveAttribute(
+    await expect($(STATE_ID_ROOT_SELECTOR)).toHaveAttribute(
       'data-state-id',
       expected
     )

@@ -1,6 +1,8 @@
 import { $, browser, expect } from '@wdio/globals'
 import { Page } from './page.js'
 
+const RE_ACCREDITATION = 're-accreditation'
+
 /**
  * RA-527 — the "Confirm applicant contact" page (step 2 of the two-step
  * determination).
@@ -21,13 +23,17 @@ import { Page } from './page.js'
  * with this suite.
  */
 class ConfirmContactPage extends Page {
-  path(workItemId) {
-    return `/work-items/re-accreditation/${workItemId}/confirm-contact`
+  /**
+   * RA-495. Every type on the shared Standard lifecycle has its own page at
+   * `/work-items/{typeId}/{id}/confirm-contact`; re-accreditation's is the default.
+   */
+  path(workItemId, typeId = RE_ACCREDITATION) {
+    return `/work-items/${typeId}/${workItemId}/confirm-contact`
   }
 
   /** Navigate straight to the page, bypassing the detail-page button. */
-  async gotoFor(workItemId) {
-    await this.open(this.path(workItemId))
+  async gotoFor(workItemId, typeId = RE_ACCREDITATION) {
+    await this.open(this.path(workItemId, typeId))
   }
 
   async assertOnPage() {
@@ -163,15 +169,15 @@ class ConfirmContactPage extends Page {
     )
   }
 
-  async waitForConfirmUrl(workItemId) {
+  async waitForConfirmUrl(workItemId, typeId = RE_ACCREDITATION) {
     await browser.waitUntil(
       async () => {
         const url = new URL(await browser.getUrl())
-        return url.pathname === this.path(workItemId)
+        return url.pathname === this.path(workItemId, typeId)
       },
       {
         timeout: 10000,
-        timeoutMsg: `Expected to stay on ${this.path(workItemId)}`
+        timeoutMsg: `Expected to stay on ${this.path(workItemId, typeId)}`
       }
     )
   }

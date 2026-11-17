@@ -115,6 +115,8 @@ named items in one of three ways (the seeded fixtures below aside):
   creates the case-management item itself. Every spec that approves or
   refuses, or checks the status pushed to that backend, uses this path,
   because the backend only accepts a decision for an application it owns.
+  The exception is add-ORS (RA-495): until case management pushes its
+  outcome to that backend, its determination specs use Path A.
 
 Four cases need a document no API can create:
 
