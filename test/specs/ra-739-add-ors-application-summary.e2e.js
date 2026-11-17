@@ -4,11 +4,12 @@ import workItems from '../page-objects/work-items.page.js'
 import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
 
 /**
- * RA-739. An add-ORS application's Application summary, from the Figma
- * "Application page - Summary" frame: the site being added, its BES evidence
- * with valid-from and expiry dates, and its interim sites. The assignment
- * panel is there; the actions panel (Duly make, Query, decisions) is not
- * until RA-495.
+ * RA-739 / RA-495. An add-ORS application's Application summary, from the
+ * Figma "Application page - Summary" frame: the site being added, its BES
+ * evidence with valid-from and expiry dates, and its interim sites. RA-495:
+ * the values the operator supplied on the request (`suppliedFields`) carry
+ * the "NEW: " prefix. The assignment panel is there; the actions panel (Duly
+ * make, Query, decisions) is not until later RA-495 tasks.
  *
  * Submitted straight to management-be with the operator backend's full site
  * shape (see `buildAddOverseasSiteRequest`).
@@ -19,7 +20,7 @@ async function textOf(testId, scope = $('body')) {
   return (await scope.$(`[data-testid="${testId}"]`).getText()).trim()
 }
 
-describe('RA-739 add-ORS Application summary', () => {
+describe('RA-739 / RA-495 add-ORS Application summary', () => {
   let submission
   let site
   let workItemId
@@ -27,7 +28,9 @@ describe('RA-739 add-ORS Application summary', () => {
   before(async () => {
     submission = await submitAddOverseasSiteRequest({
       organisationNamePrefix: 'RA739 Add ORS Summary Ltd',
-      siteCount: 2
+      siteCount: 2,
+      // The operator answered these two; the rest are the registration's.
+      suppliedFields: ['coordinates', 'operationCodes']
     })
     ;[site] = submission.sites
     workItemId = submission.workItems[0].id
@@ -50,17 +53,32 @@ describe('RA-739 add-ORS Application summary', () => {
     expect(rows.slice(0, 10)).toEqual([
       ['Site name', site.siteName],
       ['Location', '1 Rue du Port, Zone Industrielle, Lyon, France'],
-      ['Coordinates', site.coordinates],
+      ['Coordinates', `NEW: ${site.coordinates}`],
       ['Contact name', site.contactName],
       ['Contact email', site.contactEmail],
       ['Contact phone number', site.contactPhone],
-      ['Recycling operation', 'R3'],
+      ['Recycling operation', 'NEW: R3'],
       ['Basel convention codes', 'B3011, B3020'],
       ['Arrangements for rejected or returned loads', site.repatriatedLoads],
       ['Conditions of export', 'Yes']
     ])
     expect(rows[10][0]).toBe('Evidence of broadly equivalent standards')
     expect(rows).toHaveLength(11)
+  })
+
+  it('marks only the values the operator supplied', async () => {
+    const flag = (key) =>
+      $(
+        `[data-testid="app-detail-value-${key}"] [data-testid="app-detail-supplied-${key}"]`
+      )
+
+    await expect(flag('coordinates')).toHaveText('NEW:')
+    await expect(flag('recycling-operation')).toHaveText('NEW:')
+    await expect(flag('location')).not.toExist()
+    await expect(flag('conditions-of-export')).not.toExist()
+    await expect(
+      $$('[data-testid="application-details"] .app-new-flag')
+    ).toBeElementsArrayOfSize(2)
   })
 
   it('links the Clean BES file and shows its dates', async () => {

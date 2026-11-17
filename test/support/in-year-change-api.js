@@ -34,7 +34,7 @@ const hex = () => randomBytes(6).toString('hex')
  * plus the site's own `chargePence`. One active interim site and one Clean BES
  * file with its valid-from and expiry dates.
  */
-function buildSite({ token, organisationName, number }) {
+function buildSite({ token, organisationName, number, suppliedFields }) {
   return {
     siteId: `e2e-site-${token}-${number}`,
     orsId: String(number).padStart(3, '0'),
@@ -87,9 +87,16 @@ function buildSite({ token, organisationName, number }) {
         }
       ]
     },
-    suppliedFields: [],
+    suppliedFields,
     chargePence: ADD_ORS_SITE_CHARGE_PENCE
   }
+}
+
+/** The operator who submits every request (`submittedBy`). */
+export const ADD_ORS_SUBMITTED_BY = {
+  fullName: 'Sam Submitter',
+  jobTitle: 'Compliance Manager',
+  email: 'sam.submitter@example.com'
 }
 
 /**
@@ -98,17 +105,20 @@ function buildSite({ token, organisationName, number }) {
  *   { payload, organisationName, operatorOrgNumber, sites }
  *
  * `payload` is what `postAddOverseasSiteRequest` sends; `sites` is its
- * `sites[]`.
+ * `sites[]`. `suppliedFields` (RA-495) is each site's list of the fields
+ * the operator answered on the request (e.g. `['coordinates']`); none by
+ * default.
  */
 export function buildAddOverseasSiteRequest({
   organisationNamePrefix,
-  siteCount
+  siteCount,
+  suppliedFields = []
 }) {
   const token = hex()
   const organisationName = uniqueOrganisationName(organisationNamePrefix)
   const operatorOrgNumber = randomInt(100000, 1000000)
   const sites = Array.from({ length: siteCount }, (_, index) =>
-    buildSite({ token, organisationName, number: index + 1 })
+    buildSite({ token, organisationName, number: index + 1, suppliedFields })
   )
   const payload = {
     operatorRequestId: `e2e-request-${token}`,
@@ -122,6 +132,7 @@ export function buildAddOverseasSiteRequest({
     wasteProcessingType: 'Exporter',
     chargePence: ADD_ORS_SITE_CHARGE_PENCE * siteCount,
     paymentReference: `PR/PK/EXP/${operatorOrgNumber}`,
+    submittedBy: ADD_ORS_SUBMITTED_BY,
     sites
   }
   return { payload, organisationName, operatorOrgNumber, sites }
@@ -148,11 +159,13 @@ export function postAddOverseasSiteRequest(payload) {
  */
 export async function submitAddOverseasSiteRequest({
   organisationNamePrefix,
-  siteCount
+  siteCount,
+  suppliedFields
 }) {
   const request = buildAddOverseasSiteRequest({
     organisationNamePrefix,
-    siteCount
+    siteCount,
+    suppliedFields
   })
   const { body } = expectStatus(
     await postAddOverseasSiteRequest(request.payload),

@@ -657,6 +657,33 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * RA-495. Open an add-ORS tab with no content yet ('accreditationSummary'
+   * or 'relatedApplications') and wait for its page. The tab's key (its
+   * testid without `tab-`) is its path segment.
+   */
+  async gotoEmptyTab(name) {
+    const path = await this.tabKey(name)
+    await this.tab(name).click()
+    await browser.waitUntil(
+      async () => new URL(await browser.getUrl()).pathname.endsWith(`/${path}`),
+      { timeoutMsg: `Expected the ${path} URL after clicking the tab` }
+    )
+  }
+
+  /** RA-495. The empty panel of an add-ORS tab with no content yet. */
+  async emptyTabPanel(name) {
+    return $(`[data-testid="${await this.tabKey(name)}-tab"]`)
+  }
+
+  /** A case tab's key, e.g. 'accreditation-summary'. */
+  async tabKey(name) {
+    return (await this.tab(name).getAttribute('data-testid')).replace(
+      /^tab-/,
+      ''
+    )
+  }
+
+  /**
    * RA-372. The state transitions the audit log shows, in order — one entry
    * per `action-applied`, each as `"<from> → <to>"`.
    *
@@ -740,7 +767,10 @@ class WorkItemDetailPage extends Page {
     const testIds = {
       summary: 'tab-application-summary',
       history: 'tab-application-history',
-      additionalInformation: 'tab-additional-information'
+      additionalInformation: 'tab-additional-information',
+      // RA-495. Add-ORS only.
+      accreditationSummary: 'tab-accreditation-summary',
+      relatedApplications: 'tab-related-applications'
     }
     const testId = testIds[name]
     if (!testId) {
