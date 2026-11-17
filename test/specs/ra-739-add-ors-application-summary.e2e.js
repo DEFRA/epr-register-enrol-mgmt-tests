@@ -125,7 +125,7 @@ describe('RA-739 / RA-495 add-ORS Application summary', () => {
     expect(await textOf('interim-site-operation-code', interimSite)).toBe('R13')
   })
 
-  it('has the assignment panel and no actions panel', async () => {
+  it('has the assignment panel and only the Duly make action', async () => {
     const panel = $('[data-testid="case-assignment-panel"]')
     await expect(panel).toExist()
     await expect(panel.$('[data-testid="self-assign-submit"]')).toHaveText(
@@ -134,7 +134,11 @@ describe('RA-739 / RA-495 add-ORS Application summary', () => {
     await expect(panel.$('[data-testid="reassign-link"]')).toExist()
     await expect(panel.$('[data-testid="unassign-link"]')).toExist()
 
-    await expect($('[data-testid="actions-panel"]')).not.toExist()
+    // RA-495: a Not started application offers Duly make (its own CTA, not
+    // a generic action) and nothing else.
+    await expect($('[data-testid="duly-make-cta"]')).toExist()
+    await expect($('[data-testid="log-decision-cta"]')).not.toExist()
+    await expect($('[data-testid="work-item-actions"]')).not.toExist()
     await expect($('[data-testid="action-duly-make"]')).not.toExist()
     await expect($('[data-testid="action-query"]')).not.toExist()
   })
