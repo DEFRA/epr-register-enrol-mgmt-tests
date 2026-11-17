@@ -92,8 +92,8 @@ async function confirmContactExpectingFailure(workItemId) {
  * journey holds no change request for them and refuses every push. That is
  * the failure this spec drives. The journey where the operator journey
  * applies the push (Granted / Refused there too) starts from an operator's
- * submission in the operator journey: RA-495 task 009. management-be's
- * endpoint tests cover a successful retry against a fake.
+ * submission in the operator journey, which also covers a successful retry:
+ * ra-495-add-ors-operator-journey.e2e.js.
  *
  * ORDERING IS LOAD-BEARING: each step is one-way.
  */

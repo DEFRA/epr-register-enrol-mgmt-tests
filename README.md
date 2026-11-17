@@ -95,7 +95,9 @@ rendered, and on dev it goes to real Entra ID, so the spec is skipped there.
 
 CDP test's Mongo is never reset, so no spec relies on data it did not create,
 on list positions, or on fixed organisation names. Each spec creates uniquely
-named items in one of three ways (the seeded fixtures below aside):
+named items in one of four ways (the seeded fixtures below aside). The one
+exception is Path B for add-ORS, which needs the monorepo root stack's seeded
+org 50019, resets it itself and skips everywhere else:
 
 - **The "Create work item" form** (`WorkItemsPage.createWorkItem`), for specs
   that need only the fields the form captures.
@@ -121,6 +123,19 @@ named items in one of three ways (the seeded fixtures below aside):
   determination but never complete confirm applicant contact.
   ra-495-add-ors-status-push.e2e.js uses that to cover the failed push and
   the retry.
+- **Path B for add-ORS** (`test/support/operator-change-requests.js`). An
+  in-year change request submitted through that backend, which raises the
+  add-ORS work item itself. It needs an accreditation with a registered
+  overseas site not yet on it, which no API creates, so it uses org 50019,
+  which only the DEFRA/epr-register-enrol monorepo's root stack seeds.
+  Granting a site is one-way, so the spec resets the org in the stack's
+  MongoDB before and after: set `MONOREPO_MONGO_URL`
+  (`wdio.local.conf.js` defaults it to `localhost:27017`; from the root
+  stack's `mgmt-tests` container pass
+  `-e MONOREPO_MONGO_URL=mongodb://mongodb:27017/?directConnection=true`).
+  ra-495-add-ors-operator-journey.e2e.js skips without it, or on a stack with
+  no such org. Don't run it while the fe-tests @monorepo specs run: they
+  share the org.
 
 Four cases need a document no API can create:
 
@@ -149,6 +164,7 @@ directly. `test/support/backend-api.js` holds every base URL and header:
 | `OPERATOR_BACKEND_URL`           | Registration & Accreditation service backend base URL                                          |
 | `MANAGEMENT_BE_SHARED_SECRET`    | signs management-be requests (v3 HMAC) as the `epr-register-enrol-mgmt-tests` caller, when set |
 | `OPERATOR_BACKEND_SHARED_SECRET` | sent as `Authorization: Bearer` to the operator backend, when set                              |
+| `MONOREPO_MONGO_URL`             | the monorepo root stack's MongoDB, for Path B for add-ORS (`operator-change-requests.js`)      |
 
 `wdio.conf.js` derives the three URLs from `ENVIRONMENT` unless they are set, and
 reads the secrets from the environment. `wdio.github.conf.js` points at the

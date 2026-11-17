@@ -50,8 +50,8 @@ async function assertOnlyPendingContactAffordances(workItemId) {
  * journey first (RA-495 task 008). It holds no change request for an item
  * submitted straight to management-be, so contact cannot be confirmed here:
  * see ra-495-add-ors-status-push.e2e.js. Granted, Refused and the closed case
- * are covered from an operator's submission in the operator journey (task
- * 009), and by management-be's and management-fe's own tests.
+ * are covered from an operator's submission in the operator journey:
+ * ra-495-add-ors-operator-journey.e2e.js.
  */
 describe('RA-495 add-ORS determination', () => {
   let approval

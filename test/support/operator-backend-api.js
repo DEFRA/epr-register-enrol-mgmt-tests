@@ -332,6 +332,28 @@ export function pushConfirmContactStatusAsCaseManagement(
   outcome,
   { occurredAt = new Date() } = {}
 ) {
+  return pushConfirmContact(APPLICATIONS, workItemId, outcome, occurredAt)
+}
+
+/**
+ * RA-495. The same push for an add-ORS work item, which management-be sends
+ * to that backend's change-request status route instead. Only where
+ * `isCaseManagementPushEnabled()`. Returns the raw `{ status, headers, body }`.
+ */
+export function pushChangeRequestConfirmContactStatusAsCaseManagement(
+  workItemId,
+  outcome,
+  { occurredAt = new Date() } = {}
+) {
+  return pushConfirmContact(
+    '/api/v1/accreditation-changes',
+    workItemId,
+    outcome,
+    occurredAt
+  )
+}
+
+function pushConfirmContact(routePrefix, workItemId, outcome, occurredAt) {
   const push = CONFIRM_CONTACT_PUSH[outcome]
   if (!push) {
     throw new Error(
@@ -340,7 +362,7 @@ export function pushConfirmContactStatusAsCaseManagement(
   }
   return caseManagementPushRequest(
     'POST',
-    `${APPLICATIONS}/case-management/${encodeURIComponent(workItemId)}/status`,
+    `${routePrefix}/case-management/${encodeURIComponent(workItemId)}/status`,
     {
       body: {
         ...push,
