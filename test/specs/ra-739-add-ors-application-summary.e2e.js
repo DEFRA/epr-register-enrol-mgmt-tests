@@ -8,7 +8,8 @@ import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
  * Figma "Application page - Summary" frame: the site being added, its BES
  * evidence with valid-from and expiry dates, and its interim sites. RA-495:
  * the values the operator supplied on the request (`suppliedFields`) carry
- * the "NEW: " prefix. The assignment panel is there; the actions panel (Duly
+ * the "NEW: " prefix, the BES evidence row on its first file (3bb.13). The
+ * assignment panel is there; the actions panel (Duly
  * make, Query, decisions) is not until later RA-495 tasks.
  *
  * Submitted straight to management-be with the operator backend's full site
@@ -29,8 +30,9 @@ describe('RA-739 / RA-495 add-ORS Application summary', () => {
     submission = await submitAddOverseasSiteRequest({
       organisationNamePrefix: 'RA739 Add ORS Summary Ltd',
       siteCount: 2,
-      // The operator answered these two; the rest are the registration's.
-      suppliedFields: ['coordinates', 'operationCodes']
+      // The operator answered these two and uploaded the BES evidence
+      // (3bb.13); the rest are the registration's.
+      suppliedFields: ['coordinates', 'operationCodes', 'besEvidence']
     })
     ;[site] = submission.sites
     workItemId = submission.workItems[0].id
@@ -78,7 +80,21 @@ describe('RA-739 / RA-495 add-ORS Application summary', () => {
     await expect(flag('conditions-of-export')).not.toExist()
     await expect(
       $$('[data-testid="application-details"] .app-new-flag')
-    ).toBeElementsArrayOfSize(2)
+    ).toBeElementsArrayOfSize(3)
+  })
+
+  // 3bb.13: evidence uploaded on the request is marked once, before its
+  // first file, as a supplied value is on its first line.
+  it('marks the BES evidence the operator uploaded on the request', async () => {
+    const [file] = site.besEvidence.files
+    const entry = $('[data-testid="app-detail-value-bes-evidence"] li')
+
+    await expect(
+      entry.$('[data-testid="app-detail-supplied-bes-evidence"]')
+    ).toHaveText('NEW:')
+    expect(
+      (await entry.getText()).trim().startsWith(`NEW: ${file.filename}`)
+    ).toBe(true)
   })
 
   it('links the Clean BES file and shows its dates', async () => {
