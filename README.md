@@ -113,10 +113,14 @@ named items in one of three ways (the seeded fixtures below aside):
   (`test/support/operator-backend-api.js`). The application is built and
   submitted through the Registration & Accreditation service backend, which
   creates the case-management item itself. Every spec that approves or
-  refuses, or checks the status pushed to that backend, uses this path,
-  because the backend only accepts a decision for an application it owns.
-  The exception is add-ORS (RA-495): until case management pushes its
-  outcome to that backend, its determination specs use Path A.
+  refuses, or checks a status that backend applied, uses this path, because
+  the backend only accepts a decision for an application it owns. The one
+  exception is a spec that relies on that refusal: add-ORS (RA-495) items
+  are pushed to that backend's change-request status route, which answers
+  404 for an item it does not hold, so a Path A add-ORS item can take a
+  determination but never complete confirm applicant contact.
+  ra-495-add-ors-status-push.e2e.js uses that to cover the failed push and
+  the retry.
 
 Four cases need a document no API can create:
 

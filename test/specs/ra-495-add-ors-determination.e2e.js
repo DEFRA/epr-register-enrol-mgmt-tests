@@ -1,4 +1,4 @@
-import { browser, expect } from '@wdio/globals'
+import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
@@ -6,26 +6,12 @@ import decision from '../page-objects/decision.page.js'
 import confirmContact from '../page-objects/confirm-contact.page.js'
 import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
 import { getWorkItem } from '../support/decision-api.js'
-import {
-  confirmApplicantContact,
-  dulyMake,
-  logDecision
-} from '../support/re-accreditation-journey.js'
+import { dulyMake, logDecision } from '../support/re-accreditation-journey.js'
 
 const TYPE_ID = 'add-overseas-site'
 
 const PENDING_BANNER_SENTENCE = (outcome) =>
   `The application was ${outcome}. You now need to contact the applicant about the decision.`
-
-/** No status push of any kind is recorded: add-ORS has no push target yet. */
-async function assertNothingPushed(workItemId) {
-  const { auditLog } = await getWorkItem(workItemId)
-  expect(
-    auditLog
-      .map((entry) => entry.action)
-      .filter((action) => action.startsWith('status-push'))
-  ).toEqual([])
-}
 
 /**
  * While a determination awaits applicant contact, only Reassign, Unassign and
@@ -46,34 +32,28 @@ async function assertOnlyPendingContactAffordances(workItemId) {
   expect(await detail.hasAction('sla-extend')).toBe(false)
 }
 
-/** A closed case: the Outcome panel, no actions, no assignment controls. */
-async function assertClosed(label) {
-  await detail.assertReadOnlyOutcomePanel(label)
-  expect(await detail.hasConfirmApplicantContactCta()).toBe(false)
-  expect(await detail.hasLogDecisionCta()).toBe(false)
-  expect(await detail.hasDulyMakeCta()).toBe(false)
-  expect(await detail.hasPendingContactBanner()).toBe(false)
-  await detail.assertNoUsableAssignmentAffordances()
-}
-
 /**
- * RA-495 AC5 to AC8. A Duly made add-ORS work item takes a final
+ * RA-495 AC5 and AC7. A Duly made add-ORS work item takes a final
  * determination (Approved or Refused, with an optional note) on the shared
- * Make determination page, then the caseworker confirms applicant contact:
- * Approved becomes Granted, Refused stays Refused and the case closes. A
- * closed case shows its outcome, offers nothing and blocks reassignment.
- * Each step is in Application history. Mirrors the ra-527, ra-410,
- * reject-terminal-flow and ra-358 terminal-assignment-gating specs.
+ * Make determination page. It is final, the pending-contact banner prompts
+ * for applicant contact, and it is in Application history. Mirrors the
+ * ra-527 and ra-410 specs.
  *
- * No accreditation number is minted (the site joins an accreditation that
- * already exists), no email is sent and, until the change-request status
- * route exists (RA-495 task 008), nothing is pushed to the operator journey.
+ * No accreditation number is minted: the site joins an accreditation that
+ * already exists.
  *
  * Submitted straight to management-be, as the operator backend does: two
  * sites from one submission, one approved and one refused. ORDERING IS
  * LOAD-BEARING: each step is one-way.
+ *
+ * Confirming applicant contact (AC6, AC8) pushes the outcome to the operator
+ * journey first (RA-495 task 008). It holds no change request for an item
+ * submitted straight to management-be, so contact cannot be confirmed here:
+ * see ra-495-add-ors-status-push.e2e.js. Granted, Refused and the closed case
+ * are covered from an operator's submission in the operator journey (task
+ * 009), and by management-be's and management-fe's own tests.
  */
-describe('RA-495 add-ORS determination and applicant contact', () => {
+describe('RA-495 add-ORS determination', () => {
   let approval
   let refusal
 
@@ -164,27 +144,7 @@ describe('RA-495 add-ORS determination and applicant contact', () => {
       await detail.assertAuditEntry('Note added')
     })
 
-    it('grants the application once applicant contact is confirmed', async () => {
-      await confirmApplicantContact(approval.id)
-      await detail.assertState('Granted')
-      await assertClosed('Granted')
-    })
-
-    it('records the contact confirmation in Application history', async () => {
-      await workItems.openWorkItem(approval.id)
-      await detail.gotoAudit()
-      await detail.assertAuditEntry('Applicant contacted')
-    })
-
-    it('refuses an assign on the closed case', async () => {
-      await browser.url(`/work-items/${approval.id}/assign`)
-      await detail.assertAssignRefused()
-      await workItems.openWorkItem(approval.id)
-      await detail.assertState('Granted')
-    })
-
-    it('pushes nothing to the operator journey and mints nothing', async () => {
-      await assertNothingPushed(approval.id)
+    it('mints nothing', async () => {
       const { payload } = await getWorkItem(approval.id)
       expect(payload.accreditationId).toBeUndefined()
     })
@@ -229,35 +189,6 @@ describe('RA-495 add-ORS determination and applicant contact', () => {
       )
       await workItems.openWorkItem(refusal.id)
       await detail.assertStateId('rejected-pending-contact')
-    })
-
-    it('stays Refused and closes once applicant contact is confirmed', async () => {
-      await confirmApplicantContact(refusal.id)
-      await detail.assertState('Refused')
-      await assertClosed('Refused')
-    })
-
-    it('records the contact confirmation in Application history', async () => {
-      await workItems.openWorkItem(refusal.id)
-      await detail.gotoAudit()
-      await detail.assertAuditEntry('Applicant contacted')
-    })
-
-    it('refuses an assign on the closed case', async () => {
-      await browser.url(`/work-items/${refusal.id}/assign`)
-      await detail.assertAssignRefused()
-      await workItems.openWorkItem(refusal.id)
-      await detail.assertState('Refused')
-    })
-
-    it('refuses the Confirm applicant contact page once closed', async () => {
-      await confirmContact.gotoFor(refusal.id, TYPE_ID)
-      await confirmContact.waitForDetailUrl(refusal.id)
-      await detail.assertStateId('rejected')
-    })
-
-    it('pushes nothing to the operator journey', async () => {
-      await assertNothingPushed(refusal.id)
     })
   })
 })
