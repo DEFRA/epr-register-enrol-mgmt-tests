@@ -116,18 +116,19 @@ named items in one of three ways (the seeded fixtures below aside):
   refuses, or checks the status pushed to that backend, uses this path,
   because the backend only accepts a decision for an application it owns.
 
-Four cases need a document no API can create:
+Five cases, for four tickets, need a document no API can create:
 
 - RA-342: a work item with legacy template-snapshot fields;
 - RA-611: an item whose SLA clock started before 1 January;
 - RA-691: an approved item whose accreditation number has already been
   corrected, with the `accreditation-number-corrected` history entry the
   (since removed) one-off migration wrote;
-- RA-764: organisation 500069's 2027 case, seeded under its old name
-  "Encirc Ltd" with no history, for the one-off migration that renames it
-  (see the compose-stack section below).
+- RA-764: organisation 500069's two 2027 cases, one per registration
+  (Northern Ireland `R26NR5000690003GR` and England `R26ER5002260055GR`),
+  seeded under its old name "Encirc Ltd" with no history, for the one-off
+  migration that renames them (see the compose-stack section below).
 
-management-be seeds all four with fixed ids (`test/support/seeded-fixtures.js`)
+management-be seeds all of them with fixed ids (`test/support/seeded-fixtures.js`)
 when `TestOrganisations__Enabled=true`, and replaces them with the pristine
 copy every time it starts. Specs open them by id, and leave them usable by the
 next run, because between restarts they keep whatever the last run did.
@@ -194,10 +195,10 @@ management-be writes in-year change submissions in multi-document transactions
 
 One deliberate difference from CDP test: `docker/config/management-be.env`
 enables management-be's RA-764 one-off migration
-(`Migrations__Ra764OrganisationNameCorrection__*`), which renames the RA-764
-fixture from "Encirc Ltd" to "VIDRALA UK & IRELAND LIMITED" after the fixture
-reset on every start. CDP test never sets those keys, so there the fixture
-keeps its old name, and `ra-764-organisation-renamed.e2e.js`, gated on
+(`Migrations__Ra764OrganisationNameCorrection__*`), which renames both RA-764
+fixtures from "Encirc Ltd" to "VIDRALA UK & IRELAND LIMITED" after the fixture
+reset on every start. CDP test never sets those keys, so there the fixtures
+keep their old name, and `ra-764-organisation-renamed.e2e.js`, gated on
 `RA764_ORGANISATION_NAME_MIGRATION_ENABLED` (set only by
 `wdio.github.conf.js`), is skipped. The keys, the gate and the spec go when
 the migration is removed.
