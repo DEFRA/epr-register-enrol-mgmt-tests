@@ -23,6 +23,11 @@ process.env.CDP_UPLOADER_URL ??= 'http://localhost:7337'
 // management-be secret, so it accepts the suite's unsigned pushes as
 // management-be's. Set CASE_MANAGEMENT_PUSH_SECRET too if yours has one.
 process.env.CASE_MANAGEMENT_PUSH_ENABLED ??= 'true'
+// RA-000: likewise, the local stack's management-be runs as Development with
+// no operator-backend secret, so it accepts the suite's unsigned submissions
+// as the operator backend's. Set OPERATOR_BACKEND_SUBMIT_SECRET too if yours
+// has one.
+process.env.OPERATOR_BACKEND_SUBMIT_ENABLED ??= 'true'
 
 export const config = {
   //

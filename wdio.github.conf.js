@@ -20,6 +20,12 @@ process.env.OPERATOR_BACKEND_SHARED_SECRET ??=
 process.env.CASE_MANAGEMENT_PUSH_ENABLED ??= 'true'
 process.env.CASE_MANAGEMENT_PUSH_SECRET ??=
   'E2eComposeManagementBeToOperatorBackend'
+// RA-000: on this stack the suite may play the operator backend towards
+// management-be, signed with the AUTH_SHARED_SECRET__BACKEND in
+// docker/config/management-be.env. Never set on CDP.
+process.env.OPERATOR_BACKEND_SUBMIT_ENABLED ??= 'true'
+process.env.OPERATOR_BACKEND_SUBMIT_SECRET ??=
+  'E2eComposeOperatorBackendToManagementBe'
 // RA-764: docker/config/management-be.env enables management-be's one-off
 // organisation-name migration on this stack. Never set on CDP.
 process.env.RA764_ORGANISATION_NAME_MIGRATION_ENABLED ??= 'true'

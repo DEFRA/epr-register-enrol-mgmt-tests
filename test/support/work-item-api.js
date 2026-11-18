@@ -24,6 +24,14 @@
  * Every operator and submitter email is GOV.UK Notify's simulated delivered
  * address, so a notification this item triggers is never a real email.
  *
+ * They are submitted as the `epr-register-enrol-mgmt-tests` caller, so
+ * management-be treats them as hand-created case-management items (RA-000):
+ * `operatorOrgNumber` and `paymentReference` stay optional, and the
+ * application reference falls back to the organisation id's last 5
+ * characters when there is no org number. Only a submission from the
+ * operator backend's client id must carry both; see
+ * `ra-000-require-org-number-at-submit.e2e.js`.
+ *
  * Items created here are not known to the operator journey backend, so they
  * must never be approved or refused (the Registration & Accreditation service would refuse that push). Use
  * `operator-backend-api.js` for those.
@@ -68,6 +76,19 @@ function basePayload({ organisationName, token }) {
 }
 
 /**
+ * The payload `createWorkItemViaApi` submits, without submitting it, for a
+ * spec that sends it some other way (e.g. as the operator backend, RA-000).
+ * `fields` as for `createWorkItemViaApi`.
+ */
+export function buildWorkItemPayload({ organisationNamePrefix, fields = {} }) {
+  const base = basePayload({
+    organisationName: uniqueOrganisationName(organisationNamePrefix),
+    token: hex()
+  })
+  return typeof fields === 'function' ? fields(base) : { ...base, ...fields }
+}
+
+/**
  * Submit a re-accreditation work item and return
  *
  *   { id, organisationName, applicationReference, operatorOrganisationId,
@@ -85,13 +106,7 @@ export async function createWorkItemViaApi({
   organisationNamePrefix,
   fields = {}
 }) {
-  const token = hex()
-  const base = basePayload({
-    organisationName: uniqueOrganisationName(organisationNamePrefix),
-    token
-  })
-  const payload =
-    typeof fields === 'function' ? fields(base) : { ...base, ...fields }
+  const payload = buildWorkItemPayload({ organisationNamePrefix, fields })
   const result = expectStatus(
     await managementBeRequest('POST', '/work-items', {
       body: { typeId: 're-accreditation', source: 'mgmt-tests', payload }

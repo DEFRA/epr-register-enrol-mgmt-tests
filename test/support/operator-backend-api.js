@@ -73,13 +73,20 @@ export async function getOperatorApplication(organisationId, applicationId) {
  * the case-management work item it created for it:
  *
  *   { id, organisationName, operatorOrganisationId, operatorApplicationId,
- *     registrationId }
+ *     registrationId, orgNumber, paymentReference }
  *
  * `id` is the case-management work item id. `organisationName` is what the
  * work item displays and is unique to this item, because the organisation id
  * it is derived from is. Pass `organisationIdGroup` (from
  * `uniqueOrganisationIdGroup`) to create a set of items a spec can search for
  * together.
+ *
+ * `orgNumber` and `paymentReference` are what that backend stored on submit
+ * and sent case management as `operatorOrgNumber` and `paymentReference`
+ * (RA-000): the organisation number it read from ReEx (its stub's
+ * 900000-999999 number for an `e2e-` organisation) and the bank payment
+ * reference it built from that number and the nation. Specs compare them with
+ * what case management displays.
  *
  * RA-690: pass `operatorOrganisationId` and `registrationId` from an earlier
  * item, with a different `year`, to apply again for the same registration
@@ -205,7 +212,9 @@ export async function createOperatorBackedWorkItem({
     organisationName: submitted.organisationName,
     operatorOrganisationId,
     operatorApplicationId,
-    registrationId
+    registrationId,
+    orgNumber: submitted.orgId,
+    paymentReference: submitted.paymentReference
   }
 }
 

@@ -108,12 +108,12 @@ describe('RA-316 duly making', () => {
      * presence-only assertion passes cleanly against that, which is why this
      * reads the text and rejects the placeholder explicitly.
      *
-     * There is deliberately NO equivalent assertion for the payment
-     * reference. It has no fallback (RA-316, Tom's ruling): it renders only
-     * from `payload.paymentReference`, which no created item carries and no
-     * real submission carries either, so "Not provided" is the correct and
-     * near-universal result. Asserting a real value there would assert the
-     * fallback that was deliberately removed.
+     * The payment reference is not asserted here. This item is created
+     * through the "Create work item" form, and management-be gives a
+     * hand-created item the application reference as its payment reference
+     * when none is entered, which is not the reference a real operator pays
+     * with. The real one, sent by the operator backend and shown exactly on
+     * this page, is asserted in `ra-000-require-org-number-at-submit.e2e.js`.
      */
     it('AC02: pre-populates the charge amount with a real figure', async () => {
       const charge = await dulyMaking.chargeAmountText()
