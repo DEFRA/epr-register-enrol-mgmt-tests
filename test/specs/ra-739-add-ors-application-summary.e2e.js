@@ -58,7 +58,7 @@ describe('RA-739 / RA-495 add-ORS Application summary', () => {
       ['Coordinates', `NEW: ${site.coordinates}`],
       ['Contact name', site.contactName],
       ['Contact email', site.contactEmail],
-      ['Contact phone number', site.contactPhone],
+      ['Contact phone', site.contactPhone],
       ['Recycling operation', 'NEW: R3'],
       ['Basel convention codes', 'B3011, B3020'],
       ['Arrangements for rejected or returned loads', site.repatriatedLoads],
