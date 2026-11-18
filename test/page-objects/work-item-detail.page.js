@@ -498,7 +498,7 @@ class WorkItemDetailPage extends Page {
   /** RA-527 (Figma Design 3). The Outcome box's sentence, whitespace-collapsed. */
   async readOnlyOutcomeText() {
     return (
-      await $('[data-testid="re-accreditation-readonly-actions"]').getText()
+      await $('[data-testid="standard-lifecycle-readonly-actions"]').getText()
     )
       .replace(/\s+/g, ' ')
       .trim()
@@ -512,9 +512,9 @@ class WorkItemDetailPage extends Page {
    */
   async assertReadOnlyOutcomePanel(expectedStateText) {
     await expect(
-      $('[data-testid="re-accreditation-readonly-actions"]')
+      $('[data-testid="standard-lifecycle-readonly-actions"]')
     ).toBeDisplayed()
-    await expect($('[data-testid="re-accreditation-state-tag"]')).toHaveText(
+    await expect($('[data-testid="standard-lifecycle-state-tag"]')).toHaveText(
       expect.stringContaining(expectedStateText)
     )
   }
@@ -545,7 +545,7 @@ class WorkItemDetailPage extends Page {
    * `work-item-flash-banner` and survives a reload.
    */
   pendingContactBanner() {
-    return $('[data-testid="re-accreditation-pending-contact-banner"]')
+    return $('[data-testid="standard-lifecycle-pending-contact-banner"]')
   }
 
   async hasPendingContactBanner() {
@@ -574,7 +574,7 @@ class WorkItemDetailPage extends Page {
   /** False for a refusal, whose banner carries no accreditation number. */
   async hasPendingContactAccreditationId() {
     return $(
-      '[data-testid="re-accreditation-pending-contact-accreditation-id"]'
+      '[data-testid="standard-lifecycle-pending-contact-accreditation-id"]'
     ).isExisting()
   }
 
@@ -582,7 +582,7 @@ class WorkItemDetailPage extends Page {
   async pendingContactAccreditationId() {
     return (
       await $(
-        '[data-testid="re-accreditation-pending-contact-accreditation-id"]'
+        '[data-testid="standard-lifecycle-pending-contact-accreditation-id"]'
       ).getText()
     ).trim()
   }
@@ -2203,7 +2203,7 @@ class WorkItemDetailPage extends Page {
    * to do with the behaviour under test.
    */
   readOnlyActionsNotice() {
-    return $('[data-testid="re-accreditation-readonly-actions"]')
+    return $('[data-testid="standard-lifecycle-readonly-actions"]')
   }
 
   /**
@@ -2321,7 +2321,7 @@ class WorkItemDetailPage extends Page {
    *
    *   1. `work-item-actions` present AND holding at least one control;
    *   2. `work-item-no-actions` — the generic empty state;
-   *   3. `re-accreditation-readonly-actions` — the RA-132 terminal-state
+   *   3. `standard-lifecycle-readonly-actions` — the RA-132 terminal-state
    *      override, which replaces the panel body entirely.
    *
    * The regression this guards is specific: if the non-caller-invocable filter
