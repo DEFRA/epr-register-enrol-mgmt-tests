@@ -14,7 +14,7 @@ import { formatUkHeaderDate, utcDateParts } from '../support/uk-time.js'
  * RA-493 — Case Management service: Display Duly Made payment information
  * on the Application Summary Header Panel.
  *
- * The case header's meta line gains "Payment date" and "Payment amount":
+ * The case header's meta line gains "Payment date" and "Charge":
  *
  *   AC01 — once a payment date is recorded, it is shown on the header.
  *   AC02 — the payment amount is shown alongside it.
