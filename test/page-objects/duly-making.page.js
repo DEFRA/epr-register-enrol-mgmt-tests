@@ -196,8 +196,9 @@ class DulyMakingPage extends StandardLifecyclePage {
   }
 
   /**
-   * RA-495. The "Related change requests" section (add-ORS): the other work
-   * items from the same submission. Absent when there are none.
+   * RA-495. The "Related change requests" section (add-ORS): every work item
+   * from the same submission, this one included. Absent for a one-site
+   * submission.
    */
   relatedSection() {
     return $('[data-testid="duly-making-related"]')

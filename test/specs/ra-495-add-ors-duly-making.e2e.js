@@ -13,6 +13,11 @@ const TYPE_ID = 'add-overseas-site'
 /** The add-ORS SLA, as re-accreditation's: 84 days from the payment date. */
 const SLA_DAYS = 84
 
+/** management-be lists the related change requests by application reference. */
+function inReferenceOrder(rows) {
+  return rows.toSorted((a, b) => (a.reference < b.reference ? -1 : 1))
+}
+
 /**
  * RA-495 AC4. An assigned caseworker duly makes one Not started add-ORS work
  * item on its own, through the shared Duly make page, mirroring the RA-316
@@ -20,8 +25,9 @@ const SLA_DAYS = 84
  *
  *  - the Duly make CTA on the detail page while Not started, and not after;
  *  - the page shows the site's own charge, the operator's payment reference
- *    and the other change requests from the same submission with their
- *    current status;
+ *    and every change request from the same submission, this one included,
+ *    in application reference order, with their current status (user
+ *    decision 2026-11-18);
  *  - payment date validation as for re-accreditation;
  *  - afterwards: status Duly made, the payment date in the header, the due
  *    date 84 days from the payment date, and the duly make in Application
@@ -69,25 +75,29 @@ describe('RA-495 add-ORS duly making', () => {
 
     it("shows the site's own charge and the operator's payment reference", async () => {
       await dulyMaking.gotoFor(first.id, TYPE_ID)
-      expect((await dulyMaking.chargeAmountText()).trim()).toBe('£328')
+      expect((await dulyMaking.chargeAmountText()).trim()).toBe('£328.00')
       expect((await dulyMaking.paymentReferenceText()).trim()).toBe(
         submission.payload.paymentReference
       )
     })
 
-    it('lists the other change request from the same submission with its status', async () => {
+    it('lists every change request from the same submission, this one included, with its status', async () => {
       await dulyMaking.gotoFor(first.id, TYPE_ID)
       await expect(dulyMaking.relatedSection()).toBeDisplayed()
-      const site = submission.sites[1]
-      expect(await dulyMaking.relatedRows()).toEqual([
-        {
-          reference: second.applicationReference,
-          site: `${site.siteName} (${site.orsId})`,
-          type: 'New ORS accreditation',
-          charge: '£328',
-          status: 'Not started'
-        }
-      ])
+      expect(await dulyMaking.relatedRows()).toEqual(
+        inReferenceOrder(
+          [first, second].map((workItem, index) => {
+            const site = submission.sites[index]
+            return {
+              reference: workItem.applicationReference,
+              site: `${site.siteName} (${site.orsId})`,
+              type: 'New ORS accreditation',
+              charge: '£328.00',
+              status: 'Not started'
+            }
+          })
+        )
+      )
     })
 
     it('rejects a payment date in the future, as for re-accreditation', async () => {
@@ -160,9 +170,12 @@ describe('RA-495 add-ORS duly making', () => {
       const rows = await dulyMaking.relatedRows()
       expect(
         rows.map(({ reference, status }) => ({ reference, status }))
-      ).toEqual([
-        { reference: first.applicationReference, status: 'Duly made' }
-      ])
+      ).toEqual(
+        inReferenceOrder([
+          { reference: first.applicationReference, status: 'Duly made' },
+          { reference: second.applicationReference, status: 'Not started' }
+        ])
+      )
     })
 
     it('refuses the Duly make page once duly made', async () => {

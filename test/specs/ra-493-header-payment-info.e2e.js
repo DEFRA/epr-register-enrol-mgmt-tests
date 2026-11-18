@@ -24,8 +24,8 @@ import { formatUkHeaderDate, utcDateParts } from '../support/uk-time.js'
  * management-fe renders both from the work item payload: the date from
  * `payload.paymentDate` (stamped by the duly-making POST), the amount from
  * `payload.chargeAmountPence` through the same formatter as the duly-making
- * page — whole pounds without decimals ("£546"), part pounds with two
- * ("£1,234.56"). The recorded payment date is the "payment received" signal:
+ * page — always with pence ("£546.00", "£1,234.56"; user decision
+ * 2026-11-18). The recorded payment date is the "payment received" signal:
  * without it BOTH items read "Not received", even though the charge is known
  * from submission. Once duly made, an item with no charge at all shows the
  * em dash for the amount rather than claiming payment was not received.
