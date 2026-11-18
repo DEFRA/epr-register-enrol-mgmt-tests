@@ -31,7 +31,9 @@ import {
  *     unassigned, the same application reference, registration number and
  *     Org ID, and still no history entries;
  *   - AC3 (the part visible here): the migration has run on every start of
- *     the stack before the suite, so the cases are in their re-run state.
+ *     the stack before the suite. Re-running it is pinned by management-be's
+ *     migration unit tests, not here: the fixtures are reset to the old name
+ *     before it runs.
  *
  * management-be seeds `ORGANISATION_RENAMED_WORK_ITEMS` under the OLD name
  * and resets them on every start; on the compose stack the migration is
@@ -39,8 +41,7 @@ import {
  * test/support/seeded-fixtures.js. Nothing here changes the items, so the
  * spec passes on any number of runs between restarts. Skipped where the
  * migration is not enabled (CDP test), where the items still carry the old
- * name. The login has no nation role: the cases are in different nations,
- * so a single-nation regulator would see only one.
+ * name.
  *
  * Also skipped, MERGE WINDOW ONLY, when the running management-be does not
  * seed both fixtures: until management-be's RA-764 scope fix reaches its
