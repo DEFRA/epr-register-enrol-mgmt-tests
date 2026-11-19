@@ -58,10 +58,11 @@ function toXPathString(value) {
  * hand-kept copy — and so a markup rename is a one-line change here rather
  * than a sweep through the specs.
  *
- * RA-493 adds `paymentDate` and `paymentAmount`. They render on EVERY item —
- * reading "Not received" (PAYMENT_NOT_RECEIVED) until the item is duly made —
- * so they belong in this always-present contract, and the RA-295 presence and
- * responsive sweeps that iterate it now cover them too.
+ * RA-493 adds `paymentDate`, and the charge beside it. They render on EVERY
+ * item — the date reading "Not received" (PAYMENT_NOT_RECEIVED) until the
+ * item is duly made, the charge showing the amount owed from submission
+ * (RA-495) — so they belong in this always-present contract, and the RA-295
+ * presence and responsive sweeps that iterate it now cover them too.
  */
 export const CASE_HEADER_FIELDS = {
   applicationsLink: 'case-header-applications-link',
@@ -74,12 +75,12 @@ export const CASE_HEADER_FIELDS = {
   dueOn: 'case-header-due-on',
   registrationNumber: 'case-header-registration-number',
   paymentDate: 'case-header-payment-date',
-  paymentAmount: 'case-header-payment-amount'
+  charge: 'case-header-charge'
 }
 
 /**
- * RA-493 (AC04). What both payment header items read before the application
- * is duly made. Exported so the RA-295 placeholder sweep can recognise it as
+ * RA-493 (AC04). What the payment date reads before the application is duly
+ * made. Exported so the RA-295 placeholder sweep can recognise it as
  * the legitimate pre-duly-made value rather than treating it as real data.
  */
 export const PAYMENT_NOT_RECEIVED = 'Not received'

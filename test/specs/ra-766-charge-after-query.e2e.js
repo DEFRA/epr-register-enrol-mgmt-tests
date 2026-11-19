@@ -151,10 +151,10 @@ describe('RA-766 the charge follows the application through a query', () => {
       })
     })
 
-    it('updates the payment amount on the case header', async () => {
+    it('updates the charge on the case header', async () => {
       await workItems.openWorkItem(workItemId)
 
-      await expect(detail.caseHeaderField('paymentAmount')).toHaveText(
+      await expect(detail.caseHeaderField('charge')).toHaveText(
         asCharge(DULY_MADE_RECALCULATED_PENCE)
       )
     })
