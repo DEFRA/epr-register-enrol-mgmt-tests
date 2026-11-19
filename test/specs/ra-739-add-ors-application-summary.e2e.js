@@ -1,6 +1,7 @@
 import { $, $$, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
+import detail from '../page-objects/work-item-detail.page.js'
 import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
 
 /**
@@ -8,7 +9,10 @@ import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
  * Figma "Application page - Summary" frame: the site being added, its BES
  * evidence with valid-from and expiry dates, and its interim sites. RA-495:
  * the values the operator supplied on the request (`suppliedFields`) carry
- * the "NEW: " prefix, the BES evidence row on its first file (3bb.13). The
+ * the "NEW: " prefix, the BES evidence row on its first file (3bb.13), and
+ * Previous details shows the site as it was before the request. The layout
+ * follows re-accreditation's: an "Application details" heading, its labels,
+ * and collapsed interim sites. The
  * assignment panel is there; the actions panel (Duly
  * make, Query, decisions) is not until later RA-495 tasks.
  *
@@ -44,7 +48,11 @@ describe('RA-739 / RA-495 add-ORS Application summary', () => {
     await login.logout()
   })
 
-  it('shows the site summary rows with their Figma labels, in order', async () => {
+  it('shows the site summary rows under Application details, in order', async () => {
+    expect(await textOf('application-details-heading')).toBe(
+      'Application details'
+    )
+
     const rows = await $$(
       '[data-testid="application-details"] > .govuk-summary-list__row'
     ).map(async (row) => [
@@ -52,20 +60,21 @@ describe('RA-739 / RA-495 add-ORS Application summary', () => {
       (await row.$('.govuk-summary-list__value').getText()).trim()
     ])
 
-    expect(rows.slice(0, 10)).toEqual([
+    expect(rows.slice(0, 11)).toEqual([
       ['Site name', site.siteName],
       ['Location', '1 Rue du Port, Zone Industrielle, Lyon, France'],
+      ['ORS ID', site.orsId],
       ['Coordinates', `NEW: ${site.coordinates}`],
       ['Contact name', site.contactName],
       ['Contact email', site.contactEmail],
       ['Contact phone', site.contactPhone],
-      ['Recycling operation', 'NEW: R3'],
-      ['Basel convention codes', 'B3011, B3020'],
+      ['Operation code', 'NEW: R3'],
+      ['Basel/OECD codes', 'B3011, B3020'],
       ['Arrangements for rejected or returned loads', site.repatriatedLoads],
       ['Conditions of export', 'Yes']
     ])
-    expect(rows[10][0]).toBe('Evidence of broadly equivalent standards')
-    expect(rows).toHaveLength(11)
+    expect(rows[11][0]).toBe('Evidence of broadly equivalent standards')
+    expect(rows).toHaveLength(12)
   })
 
   it('marks only the values the operator supplied', async () => {
@@ -115,19 +124,24 @@ describe('RA-739 / RA-495 add-ORS Application summary', () => {
     )
   })
 
-  it('lists the interim sites', async () => {
+  it('lists the interim sites, each collapsed under its name', async () => {
     const section = $('[data-testid="interim-sites"]')
     expect(await textOf('interim-sites-heading', section)).toBe(
       'Interim sites (1)'
     )
 
     const interimSite = section.$('[data-testid="interim-site"]')
+    expect(await interimSite.getTagName()).toBe('details')
+    expect(await interimSite.getAttribute('open')).toBeNull()
     expect(await textOf('interim-site-name', interimSite)).toBe(
       'Antwerp Transfer Hub'
     )
-    expect(await textOf('interim-site-summary-address', interimSite)).toBe(
-      '1 Quay Street, Belgium'
-    )
+    // Its name is unique, so the heading has no address.
+    await expect(
+      interimSite.$('[data-testid="interim-site-summary-address"]')
+    ).not.toExist()
+
+    await detail.expandAllInterimSiteDetails()
     expect(await textOf('interim-site-site-number', interimSite)).toBe('001')
     expect(await textOf('interim-site-location', interimSite)).toBe(
       '1 Quay Street, Antwerp, Belgium'
@@ -138,7 +152,35 @@ describe('RA-739 / RA-495 add-ORS Application summary', () => {
     expect(await textOf('interim-site-contact-email', interimSite)).toBe(
       'alex.morgan@example.com'
     )
+    expect(await textOf('interim-site-contact-phone', interimSite)).toBe(
+      '0123456789'
+    )
     expect(await textOf('interim-site-operation-code', interimSite)).toBe('R13')
+  })
+
+  // RA-495. The operator supplied the coordinates, the R code and the BES
+  // evidence, which the site did not have before.
+  it('shows the site as it was before the request under Previous details', async () => {
+    const section = $('[data-testid="previous-details-section"]')
+    expect(await textOf('previous-details-heading', section)).toBe(
+      'Previous details'
+    )
+    expect(await textOf('previous-detail-value-site-name', section)).toBe(
+      site.siteName
+    )
+    expect(await textOf('previous-detail-value-coordinates', section)).toBe('—')
+    expect(
+      await textOf('previous-detail-value-recycling-operation', section)
+    ).toBe('—')
+    expect(await textOf('previous-detail-value-basel-codes', section)).toBe(
+      'B3011, B3020'
+    )
+    expect(await textOf('previous-detail-value-bes-evidence', section)).toBe(
+      'No documents uploaded.'
+    )
+    await expect(
+      $$('[data-testid="previous-details-section"] .app-new-flag')
+    ).toBeElementsArrayOfSize(0)
   })
 
   it('has the assignment panel and only the Duly make action', async () => {
