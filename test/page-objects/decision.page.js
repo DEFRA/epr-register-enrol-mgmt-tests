@@ -38,6 +38,21 @@ import {
  * (see warningText() / noteHint() below), same approach as
  * work-item-detail.page.js's ra98ReferenceBanner().
  */
+/** Today's Europe/London date as the three date-input boxes read it. */
+export function todayInUk() {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/London',
+      day: 'numeric',
+      month: 'numeric',
+      year: 'numeric'
+    })
+      .formatToParts(new Date())
+      .map((part) => [part.type, part.value])
+  )
+  return { day: parts.day, month: parts.month, year: parts.year }
+}
+
 class DecisionPage extends StandardLifecyclePage {
   constructor() {
     super('decision')
@@ -211,6 +226,34 @@ class DecisionPage extends StandardLifecyclePage {
   async warningTextText() {
     const text = await this.warningText().getText()
     return text.replace(/^Warning\s*/, '').trim()
+  }
+
+  /**
+   * RA-495 AC6: the add-ORS effective date group (re-accreditation's page
+   * has none). Shown before a choice and on Approved; hidden by CSS on
+   * Refused.
+   */
+  effectiveDateGroup() {
+    return $('[data-testid="log-decision-effective-date-group"]')
+  }
+
+  async hasEffectiveDate() {
+    return this.effectiveDateGroup().isExisting()
+  }
+
+  async isEffectiveDateDisplayed() {
+    return this.effectiveDateGroup().isDisplayed()
+  }
+
+  /** Fill the three boxes; `date` defaults to today's UK date. */
+  async setEffectiveDate(date = todayInUk()) {
+    await $('#effective-date-day').setValue(date.day)
+    await $('#effective-date-month').setValue(date.month)
+    await $('#effective-date-year').setValue(date.year)
+  }
+
+  async effectiveDateErrorText() {
+    return $('[data-testid="effective-date-error"]').getText()
   }
 
   async setNote(text) {

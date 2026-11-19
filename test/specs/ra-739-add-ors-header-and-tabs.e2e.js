@@ -76,12 +76,13 @@ describe('RA-739 / RA-495 add-ORS application header and tabs', () => {
       await expectAddOrsHeader(submission)
     })
 
-    it('shows the twelve meta items in ticket order, with the site charge', async () => {
+    it('shows the thirteen meta items in ticket order, with the site charge', async () => {
       const [site] = submission.sites
       expect(await workItemDetail.caseHeaderMeta()).toEqual([
         'Change request type: New ORS accreditation',
         'Status: Not started',
         'Assigned to: Unassigned',
+        `Effective date: ${EM_DASH}`,
         `Due date: ${EM_DASH}`,
         `Location: ${site.townOrCity}, ${site.country}`,
         `Site ID: ${site.orsId}`,

@@ -152,6 +152,11 @@ export async function logDecision(workItemId, outcome, { note } = {}) {
   await detail.clickLogDecision()
   await decision.assertOnPage()
   await decision.selectOutcome(outcome)
+  // RA-495 AC6: an add-ORS approval needs its effective date; today is never
+  // before the submission date. Re-accreditation's page has no such field.
+  if (outcome === 'approved' && (await decision.hasEffectiveDate())) {
+    await decision.setEffectiveDate()
+  }
   // The note is OPTIONAL and most callers omit it — they only want the item
   // parked in a decided state. RA-203 is the spec that cares, and it passes
   // one so the Decision email's `decision_notes` personalisation has something

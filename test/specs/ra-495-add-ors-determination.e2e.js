@@ -2,13 +2,23 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
-import decision from '../page-objects/decision.page.js'
+import decision, { todayInUk } from '../page-objects/decision.page.js'
 import confirmContact from '../page-objects/confirm-contact.page.js'
 import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
 import { getWorkItem } from '../support/decision-api.js'
 import { dulyMake, logDecision } from '../support/standard-lifecycle-journey.js'
 
 const TYPE_ID = 'add-overseas-site'
+
+/** `{ day, month, year }` as `YYYY-MM-DD`, as management-be stores it. */
+const isoDate = ({ day, month, year }) =>
+  `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+
+/** The Europe/London calendar date of an instant, as `YYYY-MM-DD`. */
+const ukIsoDateOf = (instant) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(
+    new Date(instant)
+  )
 
 const PENDING_BANNER_SENTENCE = (outcome) =>
   `The application was ${outcome}. You now need to contact the applicant about the decision.`
@@ -104,6 +114,28 @@ describe('RA-495 add-ORS determination', () => {
       await workItems.openWorkItem(approval.id)
       await detail.assertState('Duly made')
     })
+
+    // AC6: shown before a choice and on Approved, hidden on Refused.
+    it('shows the effective date until Refused is selected', async () => {
+      await decision.gotoFor(approval.id, TYPE_ID)
+      expect(await decision.isEffectiveDateDisplayed()).toBe(true)
+      await decision.selectOutcome('refused')
+      expect(await decision.isEffectiveDateDisplayed()).toBe(false)
+      await decision.selectOutcome('approved')
+      expect(await decision.isEffectiveDateDisplayed()).toBe(true)
+    })
+
+    it('asks for the effective date on an approval without one', async () => {
+      await decision.gotoFor(approval.id, TYPE_ID)
+      await decision.selectOutcome('approved')
+      await decision.submit()
+      await decision.assertErrorSummary('Enter the effective date')
+      expect(await decision.effectiveDateErrorText()).toContain(
+        'Enter the effective date'
+      )
+      await workItems.openWorkItem(approval.id)
+      await detail.assertState('Duly made')
+    })
   })
 
   describe('approval', () => {
@@ -148,6 +180,12 @@ describe('RA-495 add-ORS determination', () => {
       const { payload } = await getWorkItem(approval.id)
       expect(payload.accreditationId).toBeUndefined()
     })
+
+    // AC6: logDecision entered today's UK date.
+    it('records the effective date entered', async () => {
+      const { payload } = await getWorkItem(approval.id)
+      expect(payload.effectiveDate).toBe(isoDate(todayInUk()))
+    })
   })
 
   describe('refusal', () => {
@@ -176,6 +214,12 @@ describe('RA-495 add-ORS determination', () => {
       await workItems.openWorkItem(refusal.id)
       await detail.gotoAudit()
       await detail.assertAuditEntry('Determination made: Refused')
+    })
+
+    // AC6: a refusal is not asked for a date; the submission date is recorded.
+    it('records the submission date as the effective date', async () => {
+      const { payload, submittedAt } = await getWorkItem(refusal.id)
+      expect(payload.effectiveDate).toBe(ukIsoDateOf(submittedAt))
     })
 
     it('refuses an unticked confirmation and changes nothing', async () => {
