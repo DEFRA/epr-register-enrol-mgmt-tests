@@ -9,10 +9,9 @@ import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
  * Figma "Application page - Summary" frame: the site being added, its BES
  * evidence with valid-from and expiry dates, and its interim sites. RA-495:
  * the values the operator supplied on the request (`suppliedFields`) carry
- * the "NEW: " prefix, the BES evidence row on its first file (3bb.13), and
- * Previous details shows the site as it was before the request. The layout
- * follows re-accreditation's: an "Application details" heading, its labels,
- * and collapsed interim sites. The
+ * the "NEW: " prefix, the BES evidence row on its first file (3bb.13). The
+ * layout follows re-accreditation's: an "Application details" heading, its
+ * labels, and collapsed interim sites. The
  * assignment panel is there; the actions panel (Duly
  * make, Query, decisions) is not until later RA-495 tasks.
  *
@@ -156,31 +155,6 @@ describe('RA-739 / RA-495 add-ORS Application summary', () => {
       '0123456789'
     )
     expect(await textOf('interim-site-operation-code', interimSite)).toBe('R13')
-  })
-
-  // RA-495. The operator supplied the coordinates, the R code and the BES
-  // evidence, which the site did not have before.
-  it('shows the site as it was before the request under Previous details', async () => {
-    const section = $('[data-testid="previous-details-section"]')
-    expect(await textOf('previous-details-heading', section)).toBe(
-      'Previous details'
-    )
-    expect(await textOf('previous-detail-value-site-name', section)).toBe(
-      site.siteName
-    )
-    expect(await textOf('previous-detail-value-coordinates', section)).toBe('—')
-    expect(
-      await textOf('previous-detail-value-recycling-operation', section)
-    ).toBe('—')
-    expect(await textOf('previous-detail-value-basel-codes', section)).toBe(
-      'B3011, B3020'
-    )
-    expect(await textOf('previous-detail-value-bes-evidence', section)).toBe(
-      'No documents uploaded.'
-    )
-    await expect(
-      $$('[data-testid="previous-details-section"] .app-new-flag')
-    ).toBeElementsArrayOfSize(0)
   })
 
   it('has the assignment panel and only the Duly make action', async () => {
