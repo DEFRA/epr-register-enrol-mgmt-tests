@@ -88,11 +88,11 @@ export const PAYMENT_NOT_RECEIVED = 'Not received'
  * RA-295 (AC02). The application information rows, in the exact order the AC
  * prescribes. `bes` and `ors` are Exporter-only and are expected to be ABSENT
  * for a Reprocessor (re-accreditation) application, so ordering assertions
- * compare against the subset actually rendered rather than requiring all ten.
+ * compare against the subset actually rendered rather than requiring all
+ * nine. AC02's Type row is gone: the case header's Application type shows it.
  */
 export const APPLICATION_DETAIL_ROWS = [
   'site-address',
-  'type',
   'material',
   'prn-tonnage',
   'prn-authorisers',
