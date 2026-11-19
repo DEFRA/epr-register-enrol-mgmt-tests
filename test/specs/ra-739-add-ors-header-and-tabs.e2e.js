@@ -10,9 +10,9 @@ import { formatUkHeaderDate } from '../support/uk-time.js'
 
 /**
  * RA-739 / RA-495. An add-ORS application in Case Management has its own
- * header: the application reference as a caption, the site name and ORS id as
- * the title, no organisation, and three rows of four meta items (RA-495: the
- * ticket plus Figma "Flows 5"). The charge is the site's own. It has four
+ * header: the site name and ORS id as the title (the reference is in the
+ * breadcrumb only), no organisation, and the meta items in the order
+ * re-accreditation shares. The charge is the site's own. It has four
  * tabs (Application summary, Accreditation summary, Related applications,
  * Application history); Accreditation summary and Related applications are
  * empty until RA-769 and RA-770. Every tab keeps the same header.
@@ -35,7 +35,8 @@ async function expectAddOrsHeader(submission) {
   const [{ applicationReference }] = submission.workItems
   const [site] = submission.sites
 
-  await expect(headerField('caption')).toHaveText(applicationReference)
+  // No caption: the breadcrumb already shows the reference.
+  await expect(headerField('caption')).not.toExist()
   await expect(headerField('title')).toHaveText(
     `${site.siteName} (${site.orsId})`
   )
@@ -71,27 +72,24 @@ describe('RA-739 / RA-495 add-ORS application header and tabs', () => {
   })
 
   describe('Application summary', () => {
-    it('captions the header with the reference and titles it with the site', async () => {
+    it('titles the header with the site, the reference only in the breadcrumb', async () => {
       await expect(workItemDetail.addOverseasSiteDetail()).toExist()
       await expectAddOrsHeader(submission)
     })
 
-    it('shows the thirteen meta items in ticket order, with the site charge', async () => {
-      const [site] = submission.sites
+    it('shows the eleven meta items in the order re-accreditation shares, with the site charge', async () => {
       expect(await workItemDetail.caseHeaderMeta()).toEqual([
         'Change request type: New ORS accreditation',
         'Status: Not started',
         'Assigned to: Unassigned',
-        `Effective date: ${EM_DASH}`,
         `Due date: ${EM_DASH}`,
-        `Location: ${site.townOrCity}, ${site.country}`,
-        `Site ID: ${site.orsId}`,
-        `Date added: ${dateAdded}`,
-        `Submitted by: ${ADD_ORS_SUBMITTED_BY.fullName}`,
-        'Material: Plastic',
         `Accreditation number: ${submission.payload.accreditationReference}`,
+        'Material: Plastic',
         'Charge: £328.00',
-        'Payment date: Not received'
+        'Payment date: Not received',
+        `Submitted on: ${dateAdded}`,
+        `Submitted by: ${ADD_ORS_SUBMITTED_BY.fullName}`,
+        `Effective date: ${EM_DASH}`
       ])
     })
 
@@ -113,8 +111,8 @@ describe('RA-739 / RA-495 add-ORS application header and tabs', () => {
 
       it('keeps the add-ORS header', async () => {
         await expectAddOrsHeader(submission)
-        await expect(headerField('site-id')).toHaveText(
-          submission.sites[0].orsId
+        await expect(headerField('accreditation-number')).toHaveText(
+          submission.payload.accreditationReference
         )
       })
 
