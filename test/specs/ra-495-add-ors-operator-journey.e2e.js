@@ -27,6 +27,20 @@ import {
 
 const TYPE_ID = 'add-overseas-site'
 
+// AC6: the grant's effective date, 10 days after today (the submission date),
+// so the operator side cannot be granting from the submission date instead.
+const EFFECTIVE_DATE = new Date(
+  Date.parse(
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(
+      new Date()
+    )
+  ) +
+    10 * 86400000
+)
+  .toISOString()
+  .slice(0, 10)
+const [effectiveYear, effectiveMonth, effectiveDay] = EFFECTIVE_DATE.split('-')
+
 /** A closed case: the Outcome panel, no actions, no assignment controls. */
 async function assertClosed(label) {
   await detail.assertReadOnlyOutcomePanel(label)
@@ -179,7 +193,13 @@ describeIfMonorepoMongo(
         })
         await dulyMake(grant.id)
         await waitForChangeRequestItemStatus(grant, 'DulyMade')
-        await logDecision(grant.id, 'approved')
+        await logDecision(grant.id, 'approved', {
+          effectiveDate: {
+            day: String(Number(effectiveDay)),
+            month: String(Number(effectiveMonth)),
+            year: effectiveYear
+          }
+        })
       })
 
       it('the operator side already holds the grant while the work item awaits contact', async function () {
@@ -194,7 +214,10 @@ describeIfMonorepoMongo(
           await pushChangeRequestConfirmContactStatusAsCaseManagement(
             grant.id,
             'approved',
-            { occurredAt: new Date(watermark.getTime() + 1) }
+            {
+              occurredAt: new Date(watermark.getTime() + 1),
+              effectiveDate: EFFECTIVE_DATE
+            }
           ),
           200,
           `first confirm-contact push for ${grant.id}`
@@ -219,11 +242,11 @@ describeIfMonorepoMongo(
         await assertClosed('Granted')
       })
 
-      it('the operator item is Approved from its submission date, and the site is accredited', async () => {
+      it('the operator item is Approved from the entered effective date, and the site is accredited', async () => {
         const { item, site: ors } = await getChangeRequestItem(grant)
         expect(item.status).toBe('Approved')
         expect(new Date(item.validFrom).toISOString()).toBe(
-          new Date(grant.submittedAt).toISOString()
+          `${EFFECTIVE_DATE}T00:00:00.000Z`
         )
         expect(ors.accreditationStatus).toBe('Accredited')
         expect(ors.pendingRequestId).toBeNull()

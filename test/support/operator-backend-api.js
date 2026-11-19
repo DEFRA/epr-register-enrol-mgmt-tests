@@ -337,23 +337,32 @@ export function pushConfirmContactStatusAsCaseManagement(
 
 /**
  * RA-495. The same push for an add-ORS work item, which management-be sends
- * to that backend's change-request status route instead. Only where
- * `isCaseManagementPushEnabled()`. Returns the raw `{ status, headers, body }`.
+ * to that backend's change-request status route instead, with the AC6
+ * `effectiveDate` (yyyy-MM-dd) the determination recorded: the route refuses
+ * an approval without one. Only where `isCaseManagementPushEnabled()`.
+ * Returns the raw `{ status, headers, body }`.
  */
 export function pushChangeRequestConfirmContactStatusAsCaseManagement(
   workItemId,
   outcome,
-  { occurredAt = new Date() } = {}
+  { occurredAt = new Date(), effectiveDate } = {}
 ) {
   return pushConfirmContact(
     '/api/v1/accreditation-changes',
     workItemId,
     outcome,
-    occurredAt
+    occurredAt,
+    effectiveDate
   )
 }
 
-function pushConfirmContact(routePrefix, workItemId, outcome, occurredAt) {
+function pushConfirmContact(
+  routePrefix,
+  workItemId,
+  outcome,
+  occurredAt,
+  effectiveDate
+) {
   const push = CONFIRM_CONTACT_PUSH[outcome]
   if (!push) {
     throw new Error(
@@ -367,7 +376,8 @@ function pushConfirmContact(routePrefix, workItemId, outcome, occurredAt) {
       body: {
         ...push,
         actionDisplayName: 'Confirm applicant contact',
-        occurredAt: occurredAt.toISOString()
+        occurredAt: occurredAt.toISOString(),
+        ...(effectiveDate && { effectiveDate })
       }
     }
   )
