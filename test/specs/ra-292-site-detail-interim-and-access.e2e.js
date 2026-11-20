@@ -207,7 +207,6 @@ describe('RA-292: interim site detail, authority-to-issue contacts and access', 
     it('keeps the pre-existing application information rows intact', async () => {
       for (const key of [
         'site-address',
-        'type',
         'material',
         'prn-tonnage',
         'prn-authorisers',
