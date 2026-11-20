@@ -89,7 +89,7 @@ describe('RA-739 / RA-495 add-ORS application header and tabs', () => {
         'Payment date: Not received',
         `Submitted by: ${ADD_ORS_SUBMITTED_BY.fullName}`,
         `Submitted on: ${dateAdded}`,
-        `Effective date: ${EM_DASH}`
+        `Valid from date: ${EM_DASH}`
       ])
     })
 

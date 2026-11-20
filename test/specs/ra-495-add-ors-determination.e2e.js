@@ -129,9 +129,9 @@ describe('RA-495 add-ORS determination', () => {
       await decision.gotoFor(approval.id, TYPE_ID)
       await decision.selectOutcome('approved')
       await decision.submit()
-      await decision.assertErrorSummary('Enter the effective date')
+      await decision.assertErrorSummary('Enter the valid from date')
       expect(await decision.effectiveDateErrorText()).toContain(
-        'Enter the effective date'
+        'Enter the valid from date'
       )
       await workItems.openWorkItem(approval.id)
       await detail.assertState('Duly made')
