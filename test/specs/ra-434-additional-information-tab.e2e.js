@@ -17,15 +17,15 @@ import {
  * A third tab on the work item detail page, alongside "Application summary"
  * and "Application history" (RA-295), showing rows sourced from the
  * operator's re-ex submission: Registered name, Companies house number,
- * Registered address, Site name, Site address, Permit numbers, Contact full
+ * Registered address, Site name, Location, Permit numbers, Contact full
  * name, Contact email, Contact phone, Contact job title — in that fixed
  * order. Missing rows are OMITTED entirely (no em-dash placeholder) rather
  * than rendered with a blank value.
  *
  * Two fixtures cover the tab's real conditionals: re-ex has no site for an
- * exporter, so an exporter's Site address row falls back to the registered
+ * exporter, so an exporter's Location row falls back to the registered
  * address (matching the Registration & Accreditation service's own header); a reprocessor (or a work item with no
- * `wasteProcessingType` at all) keeps a genuine site address. Site name has
+ * `wasteProcessingType` at all) keeps a genuine location. Site name has
  * no producer field anywhere in the chain today, so it is always omitted on
  * both fixtures. The EXPORTER fixture also carries a populated
  * `submitterContactDetails` block, while REPROCESSOR has none — giving the
@@ -75,14 +75,14 @@ describe('RA-434: Additional information tab', () => {
       ).toContain(REPROCESSOR.COMPANY_REGISTERED_ADDRESS)
     })
 
-    it('shows the reprocessor site address, distinct from the registered address', async () => {
+    it('shows the reprocessor location, distinct from the registered address', async () => {
       const siteAddress =
         await detail.additionalInformationRowText('site-address')
       expect(siteAddress).toContain(REPROCESSOR.SITE_ADDRESS_LINE)
       expect(siteAddress).toContain(item.payload.siteAddressPostcode)
 
       // Compared as VALUES ONLY (not full row text): the two rows' labels
-      // ("Site address" vs "Registered address") differ regardless, which
+      // ("Location" vs "Registered address") differ regardless, which
       // would make a row-text comparison here vacuously true.
       const siteAddressValue = await detail
         .additionalInformationValue('site-address')
@@ -138,15 +138,15 @@ describe('RA-434: Additional information tab', () => {
     })
 
     // The point of this fixture: re-ex has no site for an exporter, so the
-    // Site address row falls back to the registered address rather than
+    // Location row falls back to the registered address rather than
     // being omitted — intentionally making the two rows equal, matching the
     // Registration & Accreditation service frontend's own header for an exporter.
-    it('falls back the Site address row to the registered address', async () => {
+    it('falls back the Location row to the registered address', async () => {
       expect(await detail.hasAdditionalInformationRow('site-address')).toBe(
         true
       )
       // Compared as VALUES ONLY (not full row text): the rows' labels
-      // ("Site address" vs "Registered address") always differ, so
+      // ("Location" vs "Registered address") always differ, so
       // comparing row text here would fail even though the underlying
       // values are genuinely equal.
       const siteAddress = await detail

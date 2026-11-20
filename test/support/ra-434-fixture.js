@@ -7,7 +7,7 @@
  *     RA-434-processortype's whole point is the "absent defaults to
  *     reprocessor" branch, so the fixture proving it must genuinely lack the
  *     field.
- *   - EXPORTER has `wasteProcessingType: "exporter"`, no site address (an
+ *   - EXPORTER has `wasteProcessingType: "exporter"`, no location (an
  *     exporter has no UK site), and submitter contact details, which only the
  *     exporter branch renders.
  *
