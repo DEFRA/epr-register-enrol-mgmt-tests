@@ -11,7 +11,7 @@ import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
  * the values the operator supplied on the request (`suppliedFields`) carry
  * the "NEW: " prefix, the BES evidence row on its first file (3bb.13). The
  * layout follows re-accreditation's: an "Application details" heading, its
- * labels, and collapsed interim sites. The
+ * labels, and open interim sites. The
  * assignment panel is there; the actions panel (Duly
  * make, Query, decisions) is not until later RA-495 tasks.
  *
@@ -123,15 +123,15 @@ describe('RA-739 / RA-495 add-ORS Application summary', () => {
     )
   })
 
-  it('lists the interim sites, each collapsed under its name', async () => {
+  it('lists the interim sites, each open under its name', async () => {
     const section = $('[data-testid="interim-sites"]')
     expect(await textOf('interim-sites-heading', section)).toBe(
       'Interim sites (1)'
     )
 
     const interimSite = section.$('[data-testid="interim-site"]')
-    expect(await interimSite.getTagName()).toBe('details')
-    expect(await interimSite.getAttribute('open')).toBeNull()
+    // Not collapsible: a plain block, so its rows are readable at once.
+    expect(await interimSite.getTagName()).not.toBe('details')
     expect(await textOf('interim-site-name', interimSite)).toBe(
       'Antwerp Transfer Hub'
     )
@@ -140,7 +140,6 @@ describe('RA-739 / RA-495 add-ORS Application summary', () => {
       interimSite.$('[data-testid="interim-site-summary-address"]')
     ).not.toExist()
 
-    await detail.expandAllInterimSiteDetails()
     expect(await textOf('interim-site-site-number', interimSite)).toBe('001')
     expect(await textOf('interim-site-location', interimSite)).toBe(
       '1 Quay Street, Antwerp, Belgium'
