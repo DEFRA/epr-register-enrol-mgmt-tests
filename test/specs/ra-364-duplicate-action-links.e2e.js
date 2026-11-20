@@ -234,9 +234,9 @@ describe('RA-364 duplicated action links on the work item detail page', () => {
     it('shows the terminal-state panel once withdrawn, not an empty container', async () => {
       // AC06's empty-state half, for a re-accreditation item.
       //
-      // Note this is `re-accreditation-readonly-actions`, NOT the generic
-      // `work-item-no-actions`: detail-v1.njk overrides the whole `actionsPanel`
-      // block in a terminal state. assertActionsPanelWellFormed() accepts either
+      // Note this is `standard-lifecycle-readonly-actions`, NOT the generic
+      // `work-item-no-actions`: the shared standard-lifecycle/detail.njk
+      // overrides the whole `actionsPanel` block in a terminal state. assertActionsPanelWellFormed() accepts either
       // shape but insists on exactly one of them, and rejects the regression
       // this AC is really about — a rendered-but-empty `work-item-actions`.
       await workItems.openWorkItem(workItemId)

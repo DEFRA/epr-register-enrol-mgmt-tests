@@ -1,5 +1,8 @@
 import { $, browser, expect } from '@wdio/globals'
-import { Page } from './page.js'
+import {
+  RE_ACCREDITATION,
+  StandardLifecyclePage
+} from './standard-lifecycle.page.js'
 
 /**
  * RA-527 — the "Confirm applicant contact" page (step 2 of the two-step
@@ -20,14 +23,9 @@ import { Page } from './page.js'
  * Selected by `data-testid` throughout: those are management-fe's contract
  * with this suite.
  */
-class ConfirmContactPage extends Page {
-  path(workItemId) {
-    return `/work-items/re-accreditation/${workItemId}/confirm-contact`
-  }
-
-  /** Navigate straight to the page, bypassing the detail-page button. */
-  async gotoFor(workItemId) {
-    await this.open(this.path(workItemId))
+class ConfirmContactPage extends StandardLifecyclePage {
+  constructor() {
+    super('confirm-contact')
   }
 
   async assertOnPage() {
@@ -163,15 +161,15 @@ class ConfirmContactPage extends Page {
     )
   }
 
-  async waitForConfirmUrl(workItemId) {
+  async waitForConfirmUrl(workItemId, typeId = RE_ACCREDITATION) {
     await browser.waitUntil(
       async () => {
         const url = new URL(await browser.getUrl())
-        return url.pathname === this.path(workItemId)
+        return url.pathname === this.path(workItemId, typeId)
       },
       {
         timeout: 10000,
-        timeoutMsg: `Expected to stay on ${this.path(workItemId)}`
+        timeoutMsg: `Expected to stay on ${this.path(workItemId, typeId)}`
       }
     )
   }

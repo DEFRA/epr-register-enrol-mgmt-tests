@@ -79,7 +79,7 @@ function basePayload({ organisationName, token }) {
  *
  * `fields` is either an object spread over the base payload, or a function
  * that receives the base payload and returns the whole payload, for a fixture
- * that must leave a base field out (e.g. an exporter has no site address).
+ * that must leave a base field out (e.g. an exporter has no location).
  */
 export async function createWorkItemViaApi({
   organisationNamePrefix,

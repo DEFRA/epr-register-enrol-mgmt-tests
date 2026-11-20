@@ -1,5 +1,8 @@
 import { $, $$, browser, expect } from '@wdio/globals'
-import { Page } from './page.js'
+import {
+  RE_ACCREDITATION,
+  StandardLifecyclePage
+} from './standard-lifecycle.page.js'
 
 /** The duly-making form's submit button — asserted, clicked and read by name. */
 const DULY_MAKING_SUBMIT_SELECTOR = '[data-testid="duly-making-submit"]'
@@ -33,19 +36,9 @@ const DULY_MAKING_SUBMIT_SELECTOR = '[data-testid="duly-making-submit"]'
  * prefixes to prove NOTHING carries them. A hook named `work-item-task-...`
  * here would therefore fail the AC02 sweep as a phantom survivor.
  */
-class DulyMakingPage extends Page {
-  path(workItemId) {
-    return `/work-items/re-accreditation/${workItemId}/duly-make`
-  }
-
-  /**
-   * Navigate straight to the page, bypassing the CTA.
-   *
-   * Hiding a CTA is not a control — used by the guard specs to prove the
-   * route itself refuses from the wrong state.
-   */
-  async gotoFor(workItemId) {
-    await this.open(this.path(workItemId))
+class DulyMakingPage extends StandardLifecyclePage {
+  constructor() {
+    super('duly-make')
   }
 
   async assertOnPage() {
@@ -202,6 +195,38 @@ class DulyMakingPage extends Page {
     return hrefs
   }
 
+  /**
+   * RA-495. The "Related change requests" section (add-ORS): every work item
+   * from the same submission, this one included. Absent for a one-site
+   * submission.
+   */
+  relatedSection() {
+    return $('[data-testid="duly-making-related"]')
+  }
+
+  /**
+   * RA-495. Each related change request row as rendered:
+   * `{ reference, site, type, charge, status }`.
+   */
+  async relatedRows() {
+    const rows = await $$('[data-testid="duly-making-related-row"]')
+    const result = []
+    for (const row of rows) {
+      const cell = async (key) =>
+        (
+          await row.$(`[data-testid="duly-making-related-${key}"]`).getText()
+        ).trim()
+      result.push({
+        reference: await cell('reference'),
+        site: await cell('site'),
+        type: await cell('type'),
+        charge: await cell('charge'),
+        status: await cell('status')
+      })
+    }
+    return result
+  }
+
   async waitForDetailUrl(workItemId) {
     await browser.waitUntil(
       async () => {
@@ -215,15 +240,16 @@ class DulyMakingPage extends Page {
     )
   }
 
-  async waitForDulyMakingUrl(workItemId) {
+  async waitForDulyMakingUrl(workItemId, typeId = RE_ACCREDITATION) {
+    const path = this.path(workItemId, typeId)
     await browser.waitUntil(
       async () => {
         const url = new URL(await browser.getUrl())
-        return url.pathname === this.path(workItemId)
+        return url.pathname === path
       },
       {
         timeout: 10000,
-        timeoutMsg: `Expected to stay on ${this.path(workItemId)}`
+        timeoutMsg: `Expected to stay on ${path}`
       }
     )
   }

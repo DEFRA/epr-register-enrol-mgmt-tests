@@ -198,7 +198,7 @@ describe('RA-295 application details on a single page', () => {
     })
   })
 
-  describe('RA-447 (CM2) — exporter Site address falls back to the registered address', () => {
+  describe('RA-447 (CM2) — exporter Location falls back to the registered address', () => {
     // Bug: buildApplicationSummary's site-address row called
     // buildSiteAddressLines(payload) with no exporter fallback, so an
     // exporter (which has no siteAddress in re-ex — only reprocessors do)
@@ -221,7 +221,7 @@ describe('RA-295 application details on a single page', () => {
       await workItems.waitForDetailPage()
     })
 
-    it('shows the Site address row rather than an em dash', async () => {
+    it('shows the Location row rather than an em dash', async () => {
       expect(await detail.hasApplicationDetailRow('site-address')).toBe(true)
       const value = await detail
         .applicationDetailValue('site-address')

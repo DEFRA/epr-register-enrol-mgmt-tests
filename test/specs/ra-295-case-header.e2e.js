@@ -109,11 +109,12 @@ describe('RA-295 case header on the work item detail page', () => {
       // would be asserting a bug. The populated case gets its own block at the
       // bottom of this file, against a clock pinned to known values.
       //
-      // RA-493's "paymentDate" / "paymentAmount" are exempt for the same
-      // reason: payment is recorded by duly making, so this `submitted`
-      // fixture correctly reads "Not received" for both. Their populated and
-      // fallback cases are asserted in ra-493-header-payment-info.e2e.js.
-      const notYetPopulated = new Set(['dueOn', 'paymentDate', 'paymentAmount'])
+      // RA-493's "paymentDate" is exempt for the same reason: payment is
+      // recorded by duly making, so this `submitted` fixture correctly reads
+      // "Not received". Its populated and fallback cases are asserted in
+      // ra-493-header-payment-info.e2e.js. The charge is the amount owed,
+      // known from submission, so it is not exempt.
+      const notYetPopulated = new Set(['dueOn', 'paymentDate'])
       const placeholders = []
       for (const name of Object.keys(CASE_HEADER_FIELDS)) {
         if (notYetPopulated.has(name)) {
@@ -135,16 +136,14 @@ describe('RA-295 case header on the work item detail page', () => {
       expect(await detail.hasRealDueOn()).toBe(false)
     })
 
-    it('reads "Not received" for both payment items before duly making', async () => {
+    it('reads "Not received" for the payment date before duly making, beside the charge', async () => {
       // The complement of the RA-493 exemption above, for the same reason as
       // the "Due date" one: if management-be ever starts stamping a payment date
       // on submitted items, this fails rather than the exemption hiding it.
       await expect(detail.caseHeaderField('paymentDate')).toHaveText(
         PAYMENT_NOT_RECEIVED
       )
-      await expect(detail.caseHeaderField('paymentAmount')).toHaveText(
-        PAYMENT_NOT_RECEIVED
-      )
+      await expect(detail.caseHeaderField('charge')).toHaveText('£3,276.00')
     })
 
     it('shows the organisation name and the organisation ID', async () => {
