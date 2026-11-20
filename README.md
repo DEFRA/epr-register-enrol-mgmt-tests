@@ -137,17 +137,13 @@ org 50019, resets it itself and skips everywhere else:
   no such org. Don't run it while the fe-tests @monorepo specs run: they
   share the org.
 
-Five cases, for four tickets, need a document no API can create:
+Three cases need a document no API can create:
 
 - RA-342: a work item with legacy template-snapshot fields;
 - RA-611: an item whose SLA clock started before 1 January;
 - RA-691: an approved item whose accreditation number has already been
   corrected, with the `accreditation-number-corrected` history entry the
-  (since removed) one-off migration wrote;
-- RA-764: organisation 500069's two 2027 cases, one per registration
-  (Northern Ireland `R26NR5000690003GR` and England `R26ER5002260055GR`),
-  seeded under its old name "Encirc Ltd" with no history, for the one-off
-  migration that renames them (see the compose-stack section below).
+  (since removed) one-off migration wrote.
 
 management-be seeds all of them with fixed ids (`test/support/seeded-fixtures.js`)
 when `TestOrganisations__Enabled=true`, and replaces them with the pristine
@@ -215,15 +211,6 @@ MongoDB runs as a single-node replica set (`rs0`), as CDP's does, because
 management-be writes in-year change submissions in multi-document transactions
 (RA-739). Its healthcheck initiates the set on first start.
 
-One deliberate difference from CDP test: `docker/config/management-be.env`
-enables management-be's RA-764 one-off migration
-(`Migrations__Ra764OrganisationNameCorrection__*`), which renames both RA-764
-fixtures from "Encirc Ltd" to "VIDRALA UK & IRELAND LIMITED" after the fixture
-reset on every start. CDP test never sets those keys, so there the fixtures
-keep their old name, and `ra-764-organisation-renamed.e2e.js`, gated on
-`RA764_ORGANISATION_NAME_MIGRATION_ENABLED` (set only by
-`wdio.github.conf.js`), is skipped. The keys, the gate and the spec go when
-the migration is removed.
 Specs that follow a download link upload their own PDFs through cdp-uploader
 (`test/support/cdp-uploader.js`, `CDP_UPLOADER_URL`, `FILE_UPLOAD_S3_BUCKET`)
 on every run, so nothing is pre-loaded into S3. The settings the RA-000 cdp-app-config change touched
