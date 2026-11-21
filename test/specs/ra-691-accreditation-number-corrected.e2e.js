@@ -7,23 +7,22 @@ import { ACCREDITATION_CORRECTED_WORK_ITEM } from '../support/seeded-fixtures.js
 /**
  * RA-691 — Migrate incorrectly generated references.
  *
- * Two approved 2027 renewals were issued the wrong accreditation reference.
- * management-be adds a one-off, off-by-default migration that rewrites
- * `payload.accreditationId` on those two work items and records an
- * `accreditation-number-corrected` audit entry ({ from, to, reason: "RA-691" })
- * without changing state. management-fe renders that entry on the
+ * Three approved 2027 renewals were issued the wrong accreditation reference.
+ * A one-off management-be migration rewrote `payload.accreditationId` on
+ * those three work items and recorded an `accreditation-number-corrected`
+ * audit entry ({ from, to, reason: "RA-691" }) without changing state. It ran
+ * once on prod on 2026-11-02 and was removed afterwards, but the entries it
+ * wrote are permanent, so management-fe still renders them on the
  * Application history tab.
  *
  * AC under test: each corrected work item's Application history shows an
  * "Accreditation number corrected" entry with the old and new reference.
  *
- * The migration is keyed to two production accreditation numbers, finding
- * each item by its number's anchored identity pattern (for example
- * `^A27ER500527\d{4}PL$`), and is off by default. It cannot match anything
- * this suite creates and is not enabled on the shared stack. management-be
- * instead seeds `ACCREDITATION_CORRECTED_WORK_ITEM` in its post-migration
- * state, building the audit entry with the migration's own factory, and resets
- * it on every start.
+ * No item this suite creates can carry such an entry. management-be's
+ * `ReAccreditationTestOrganisationFixtures` instead seeds
+ * `ACCREDITATION_CORRECTED_WORK_ITEM` in its corrected state, with an entry
+ * carrying the same fields the migration wrote on prod, and resets it on
+ * every start.
  * See test/support/seeded-fixtures.js. Nothing here changes the item, so the
  * spec passes on any number of runs between management-be restarts.
  *
@@ -37,9 +36,10 @@ import { ACCREDITATION_CORRECTED_WORK_ITEM } from '../support/seeded-fixtures.js
  *     nothing about a system correction and would misdescribe it.
  *
  * Not pinned: an entry missing `from` or `to`. management-fe guards each row
- * individually, but the migration's factory always writes all three fields, so
- * no stored entry can take that branch; management-fe's audit-log unit tests
- * ("omits rows for absent fields") cover it.
+ * individually, but the migration always wrote all three fields and the seeded
+ * fixture does the same, so no stored entry can take that branch;
+ * management-fe's audit-log unit tests ("omits rows for absent fields") cover
+ * it.
  */
 
 const ACTION = 'accreditation-number-corrected'
