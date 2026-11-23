@@ -1,4 +1,4 @@
-import { $, expect } from '@wdio/globals'
+import { $, browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItemDetail from '../page-objects/work-item-detail.page.js'
 import workItems from '../page-objects/work-items.page.js'
@@ -49,6 +49,14 @@ const STUB_ROWS = [
     'New infrastructure — 60% of PRN income A new sorting line Price support — 40% of PRN income Support for collection prices'
   ]
 ]
+
+const SAMPLING_PLAN_LABEL = 'Sampling and inspection plan'
+const BES_LABEL = 'Broadly Equivalent Standards (BES)'
+const ORS_LABEL = 'Overseas Reprocessing Site (ORS)'
+const SAMPLING_CLEAN = 'e2e-sampling-plan-clean'
+
+const downloadPath = (workItemId, fileId) =>
+  `/work-items/${workItemId}/accreditation-summary/files/${fileId}/download`
 
 const fullSiteRows = (orsId) => [
   ['ORS ID', orsId],
@@ -169,9 +177,117 @@ describe('RA-769 Accreditation summary tab', () => {
 
   it('lists the accreditation details in order', async () => {
     const rows = await workItemDetail.accreditationSummaryRows()
-    // The ORS row is asserted section by section below.
-    expect(rows.slice(0, -1)).toEqual(STUB_ROWS)
-    expect(rows.at(-1)[0]).toBe('Overseas Reprocessing Site (ORS)')
+    // The documents and the ORS row are asserted on their own below.
+    const labels = rows.map(([label]) => label)
+    expect(labels.slice(labels.indexOf('Authority to issue'))).toEqual([
+      'Authority to issue',
+      SAMPLING_PLAN_LABEL,
+      'Business plan',
+      BES_LABEL,
+      ORS_LABEL
+    ])
+    expect(
+      rows.filter(
+        ([label]) =>
+          ![SAMPLING_PLAN_LABEL, BES_LABEL, ORS_LABEL].includes(label)
+      )
+    ).toEqual(STUB_ROWS)
+  })
+
+  it('lists the sampling and inspection plan, linking only the file that has passed its scan', async () => {
+    expect(
+      await workItemDetail.accreditationSummaryDocuments(
+        'sampling-inspection-plan'
+      )
+    ).toEqual([
+      {
+        text: 'sampling-and-inspection-plan.pdf',
+        href: downloadPath(submission.workItems[0].id, SAMPLING_CLEAN)
+      },
+      { text: 'sampling-plan-awaiting-scan.pdf', href: null }
+    ])
+  })
+
+  it('lists each site in the BES row with its country and evidence files', async () => {
+    const sites = await workItemDetail.accreditationSummaryBesSites()
+    const id = submission.workItems[0].id
+    expect(sites).toEqual([
+      {
+        name: 'Speira GmbH',
+        country: 'Germany',
+        documents: [
+          {
+            text: 'bes-speira-bremen.pdf',
+            href: downloadPath(id, 'e2e-bes-001')
+          }
+        ]
+      },
+      {
+        name: 'Speira GmbH',
+        country: 'Germany',
+        documents: [
+          {
+            text: 'bes-speira-hamburg.pdf',
+            href: downloadPath(id, 'e2e-bes-002')
+          },
+          { text: 'bes-speira-hamburg-awaiting-scan.pdf', href: null }
+        ]
+      },
+      { name: 'Excel Recycling BV', country: 'Netherlands', documents: [] },
+      { name: 'Fox Reprocessing Inc', country: 'Canada', documents: [] }
+    ])
+  })
+
+  it('never puts an S3 key or bucket on the page', async () => {
+    const source = await browser.getPageSource()
+    expect(source).not.toContain('e2e-stub-bucket')
+    expect(source).not.toContain('e2e-stub/')
+    expect(source).not.toContain('s3Key')
+  })
+
+  // The stub's S3 locations are made up, so a clean stub file cannot be
+  // streamed: its download reaches S3, fails, and serves nothing. The success
+  // path is covered by management-fe's route tests.
+  describe('downloads', () => {
+    let id
+
+    // Fetched from the page, so the request carries the caseworker's session.
+    const statusOf = (path) =>
+      browser.execute(async (url) => (await fetch(url)).status, path)
+
+    before(() => {
+      id = submission.workItems[0].id
+    })
+
+    it('serves nothing for a clean file when S3 has no such object', async () => {
+      expect(await statusOf(downloadPath(id, SAMPLING_CLEAN))).toBe(404)
+      expect(await statusOf(downloadPath(id, 'e2e-bes-001'))).toBe(404)
+    })
+
+    it('refuses a file that has not passed its scan with 422', async () => {
+      expect(
+        await statusOf(downloadPath(id, 'e2e-sampling-plan-pending'))
+      ).toBe(422)
+      expect(await statusOf(downloadPath(id, 'e2e-bes-002-pending'))).toBe(422)
+    })
+
+    it('answers 404 for a file that is not in the live summary', async () => {
+      expect(await statusOf(downloadPath(id, 'not-in-the-summary'))).toBe(404)
+    })
+
+    it('does not serve a stub file from the payload-based download route', async () => {
+      expect(
+        await statusOf(`/work-items/${id}/files/${SAMPLING_CLEAN}/download`)
+      ).toBe(404)
+    })
+
+    it('answers 404 for an unknown case', async () => {
+      expect(
+        await statusOf(
+          downloadPath('00000000-0000-4000-8000-000000000000', SAMPLING_CLEAN)
+        )
+      ).toBe(404)
+    })
   })
 
   it('shows PRN authorisers with their emails and Authority to issue as names only', async () => {

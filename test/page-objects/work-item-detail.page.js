@@ -761,6 +761,53 @@ class WorkItemDetailPage extends Page {
     return $(`[data-testid="acc-summary-value-${key}"]`)
   }
 
+  /**
+   * RA-769. The documents listed in an Accreditation summary value element,
+   * in page order: its text, and its href when it is a download link (a file
+   * that has not passed its scan is plain text with a scan status tag).
+   */
+  async documentsIn(valueElement) {
+    const out = []
+    for (const document of await valueElement.$$(
+      '[data-testid="app-detail-document"]'
+    )) {
+      const isLink = (await document.getTagName()) === 'a'
+      out.push({
+        text: (await document.getText()).replace(/\s+/g, ' ').trim(),
+        href: isLink ? await document.getAttribute('href') : null
+      })
+    }
+    return out
+  }
+
+  /** RA-769. The documents of an Accreditation summary row, e.g. the sampling plan. */
+  async accreditationSummaryDocuments(key) {
+    return this.documentsIn(this.accreditationSummaryValue(key))
+  }
+
+  /**
+   * RA-769. The BES row: each site's name and country, and its documents.
+   *
+   * @returns {Promise<{name: string, country: string|null, documents: object[]}[]>}
+   */
+  async accreditationSummaryBesSites() {
+    const out = []
+    for (const site of await $$(
+      '[data-testid="acc-summary-value-bes"] [data-testid="bes-site"]'
+    )) {
+      const heading = (await site.$('p').getText()).replace(/\s+/g, ' ').trim()
+      const name = (await site.$('strong').getText()).trim()
+      const rest = heading.slice(name.length).trim()
+      const country = rest.startsWith('(') ? rest.slice(1, -1) : null
+      out.push({
+        name,
+        country,
+        documents: await this.documentsIn(site)
+      })
+    }
+    return out
+  }
+
   /** RA-769. The ORS sections of the Accreditation summary, in page order. */
   accreditationSummaryOrsSections() {
     return $$(
