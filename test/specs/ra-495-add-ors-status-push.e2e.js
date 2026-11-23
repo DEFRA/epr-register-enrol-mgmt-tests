@@ -5,6 +5,7 @@ import detail from '../page-objects/work-item-detail.page.js'
 import confirmContact from '../page-objects/confirm-contact.page.js'
 import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
 import { getWorkItem } from '../support/decision-api.js'
+import { operatorBackendRequest } from '../support/backend-api.js'
 import {
   dulyMake,
   logDecision,
@@ -29,8 +30,11 @@ function expectChangeRequestPush(entry, workItemId, { toStateId, actionId }) {
   expect(entry.details.toStateId).toBe(toStateId)
   expect(entry.details.actionId).toBe(actionId)
   // The operator journey holds no change request for an item submitted
-  // straight to case management, so the route answers 404 (not found, rather
-  // than an auth or validation refusal), and the failure names the route.
+  // straight to case management, so the route answers 404 and the failure
+  // names the route. The 404 has no body, so on its own it cannot tell this
+  // refusal from an unmapped route: the first test below proves the route is
+  // mapped and authenticated, which makes a 404 here the route's own, past
+  // management-be's signature check (a mismatch would be a 401).
   expect(entry.action).toBe('status-push-failed')
   expect(entry.details.errorMessage).toContain(`returned 404 from `)
   expect(entry.details.errorMessage).toContain(changeRequestRoute(workItemId))
@@ -89,6 +93,18 @@ describe('RA-495 add-ORS status push to the operator journey', () => {
 
   after(async () => {
     await login.logout()
+  })
+
+  it('maps the change-request status route, and refuses a push that is not signed as management-be', async () => {
+    // An unmapped route (InYearChangesEnabled off) answers 404 whatever is
+    // sent; a mapped one authenticates first. The suite's Bearer is not the
+    // case-management scheme this route requires, so it is refused.
+    const result = await operatorBackendRequest(
+      'POST',
+      changeRequestRoute(approval.id),
+      { body: { toStateId: 'duly-made', actionId: 'duly-make' } }
+    )
+    expect(result.status).toBe(401)
   })
 
   it('pushes duly making to the change-request status route', async () => {
