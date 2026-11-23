@@ -55,7 +55,9 @@ import {
  * reprocessor applications, which have no overseas sites. A regulator's edit
  * lands in the same `payload.overseasSites.sites[].operationCodes` field the
  * submitted codes live in, which is what this spec shows the removal leaves
- * alone; management-be's endpoint tests cover an edited code directly.
+ * alone. management-be's
+ * `RemoveOverseasSites_keeps_a_regulator_edited_remaining_site_unchanged`
+ * covers a regulator-edited site directly.
  *
  * RA-768 AC 5's last bullet (a query resubmission that removes a site updates
  * the overseas sites today) is ra-557-overseas-sites-resubmit.e2e.js's
@@ -192,6 +194,10 @@ describe('RA-768 overseas sites corrected', () => {
     describe('the Application summary', () => {
       before(async () => {
         await workItems.openWorkItem(workItemId)
+        // Each site's ORS ID and address sit inside its collapsed disclosure.
+        // Opened before the page-wide absence check too, so a removed site's
+        // details could not hide there.
+        await detail.expandAllOverseasSiteDetails()
       })
 
       it('lists only the remaining overseas site', async () => {
