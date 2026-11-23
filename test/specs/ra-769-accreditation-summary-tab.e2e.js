@@ -102,6 +102,31 @@ const STUB_SITES = [
   }
 ]
 
+// The stub's interim sites, by site: one, three, none, none. Which of them
+// the page shows depends on management-fe's MULTIPLE_INTERIM_SITES_ENABLED
+// (see the interim sites tests below).
+const interim = (id, number, name, codes) => ({
+  name,
+  address: `${id} Interim Strasse, Hamburg, 20095, Germany`,
+  rows: [
+    ['Site number', number],
+    ['Contact name', `Interim Contact ${number}`],
+    ['Contact email', `interim.${number.toLowerCase()}@example.test`],
+    ['Contact phone number', '+49 40 1234 5678'],
+    ['Operation code', codes]
+  ]
+})
+const STUB_INTERIM_SITES = [
+  [interim(101, 'I-001', 'Bremen Interim Works', 'R12')],
+  [
+    interim(201, 'I-002', 'Hamburg Interim North', 'R12'),
+    interim(202, 'I-003', 'Hamburg Interim South', 'R13'),
+    interim(203, 'I-004', 'Hamburg Interim East', 'R12 R3')
+  ],
+  [],
+  []
+]
+
 const ADD_ORS_TAB_KEYS = [
   'application-summary',
   'accreditation-summary',
@@ -190,6 +215,70 @@ describe('RA-769 Accreditation summary tab', () => {
     expect(await $('main').getText()).not.toContain(
       'Registered, now seeking accreditation'
     )
+  })
+
+  // Interim sites follow management-fe's MULTIPLE_INTERIM_SITES_ENABLED. The
+  // mgmt-tests compose stack defaults it on, the root stack and the CDP test
+  // baseline have it off, so the page says which it is: the count label only
+  // exists with it on, and the second stub site has several interim sites.
+  // When the runner states the flag, the page must agree.
+  describe('interim sites', () => {
+    let multipleInterimSitesEnabled
+
+    // The parent suite's tests have finished by now, the last of them on
+    // another tab, and the page it left has no sections open.
+    before(async () => {
+      await workItemDetail.gotoAccreditationSummary()
+    })
+
+    it('reads the flag state from the page, and agrees with the runner when it states one', async () => {
+      // Read without opening anything, so the next test finds them collapsed.
+      const sections = await workItemDetail.accreditationSummaryOrsSections()
+      multipleInterimSitesEnabled = await sections[1]
+        .$('[data-testid="interim-sites-label"]')
+        .isExisting()
+      const stated = process.env.MULTIPLE_INTERIM_SITES_ENABLED
+      if (stated !== undefined && stated !== '') {
+        expect(multipleInterimSitesEnabled).toBe(stated === 'true')
+      }
+    })
+
+    it('flag on: lists every active interim site with a count, each collapsed; flag off: only the first, open', async () => {
+      for (const index of [0, 1]) {
+        const expected = STUB_INTERIM_SITES[index]
+        const shown =
+          await workItemDetail.accreditationSummaryInterimSites(index)
+        expect(shown.none).toBeNull()
+        if (multipleInterimSitesEnabled) {
+          expect(shown.label).toBe(`Interim sites (${expected.length})`)
+          expect(shown.sites.map(({ open }) => open)).toEqual(
+            expected.map(() => false)
+          )
+          expect(shown.sites.map(({ open, ...rest }) => rest)).toEqual(expected)
+        } else {
+          expect(shown.label).toBeNull()
+          expect(shown.sites.map(({ open }) => open)).toEqual([true])
+          expect(shown.sites.map(({ open, ...rest }) => rest)).toEqual([
+            expected[0]
+          ])
+        }
+      }
+    })
+
+    it('says "No interim sites" for a site with none, in either flag state', async () => {
+      for (const index of [2, 3]) {
+        const shown =
+          await workItemDetail.accreditationSummaryInterimSites(index)
+        expect(shown.none).toBe('No interim sites')
+        expect(shown.label).toBeNull()
+        expect(shown.sites).toEqual([])
+      }
+    })
+
+    it('keeps the site details free of its interim sites', async () => {
+      const shown = await workItemDetail.accreditationSummaryOrsDetails(1)
+      expect(shown.rows).toEqual(STUB_SITES[1].rows)
+    })
   })
 
   it('shows the status as a green Granted tag', async () => {

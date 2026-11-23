@@ -797,7 +797,11 @@ class WorkItemDetailPage extends Page {
       await section.$('summary').click()
     }
     const rows = []
-    for (const dt of await section.$$('.govuk-details__text dt')) {
+    // Only the site's own list: its interim sites nest inside the section
+    // with lists of their own.
+    for (const dt of await section.$$(
+      './div[contains(@class,"govuk-details__text")]/dl//dt'
+    )) {
       const label = (await dt.getText()).replace(/\s+/g, ' ').trim()
       const value = (await dt.nextElement().getText())
         .replace(/\s+/g, ' ')
@@ -811,6 +815,64 @@ class WorkItemDetailPage extends Page {
         .replace(/\s+/g, ' ')
         .trim(),
       rows
+    }
+  }
+
+  /**
+   * RA-769. The interim sites of one ORS section, opened first. The flag
+   * decides the markup: on, a count label and one collapsed section per
+   * interim site, each opened here to be read; off, the first interim site
+   * in a plain block that is always open. A site with none shows the "No
+   * interim sites" line instead.
+   *
+   * @returns {Promise<{label: string|null, none: string|null, sites: object[]}>}
+   *   each site as { open (as found), name, address, rows }
+   */
+  async accreditationSummaryInterimSites(index) {
+    const section = (await this.accreditationSummaryOrsSections())[index]
+    if (!(await section.getProperty('open'))) {
+      await section.$('summary').click()
+    }
+    const squash = (text) => text.replace(/\s+/g, ' ').trim()
+    const textOf = async (parent, testId) => {
+      const element = parent.$(`[data-testid="${testId}"]`)
+      return (await element.isExisting())
+        ? squash(await element.getText())
+        : null
+    }
+    const read = async (element, open) => {
+      const rows = []
+      for (const dt of await element.$$('dt')) {
+        rows.push([
+          squash(await dt.getText()),
+          squash(await dt.nextElement().getText())
+        ])
+      }
+      return {
+        open,
+        name: await textOf(element, 'interim-site-name'),
+        address: await textOf(element, 'interim-site-address'),
+        rows
+      }
+    }
+
+    const sites = []
+    for (const folded of await section.$$(
+      'details[data-testid="interim-site"]'
+    )) {
+      const open = await folded.getProperty('open')
+      if (!open) {
+        await folded.$('summary').click()
+      }
+      sites.push(await read(folded, open))
+    }
+    for (const block of await section.$$('div[data-testid="interim-site"]')) {
+      sites.push(await read(block, true))
+    }
+    return {
+      label: await textOf(section, 'interim-sites-label'),
+      none: await textOf(section, 'interim-sites-none'),
+      sites
     }
   }
 
