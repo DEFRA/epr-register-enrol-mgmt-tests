@@ -1073,6 +1073,24 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * RA-768. The whole visible text of each Application history entry for a
+   * backend `action`, in DOM order: heading, summary, hint line and, once
+   * `expandAllAuditEntryDetails()` has run, its "Show details" rows.
+   *
+   * For asserting what an entry must NOT say (RA-768: no site names or
+   * addresses in the overseas-sites correction) without reading the rest of
+   * the history, where the submission's own entry carries the payload.
+   */
+  async auditEntryTexts(action) {
+    const entries = await $$(
+      `//*[@data-testid="work-item-audit-log"]//li[@data-action=${toXPathString(
+        action
+      )}]`
+    )
+    return Promise.all([...entries].map((entry) => entry.getText()))
+  }
+
+  /**
    * The visible summary line of each Application history entry for a
    * backend `action`, in DOM order, whitespace-collapsed: the bold heading
    * followed by management-fe's `summariseAuditEntry` text after an em dash

@@ -125,3 +125,26 @@ export function applyActionViaApi(workItemId, actionId) {
     { user: CASEWORKER_USER }
   )
 }
+
+/**
+ * RA-768. Call management-be's
+ * `POST /work-items/re-accreditation/{id}/overseas-sites/remove` as the
+ * operator's service, without asserting the outcome.
+ *
+ * In production only the operator journey backend's one-off overseas-sites
+ * correction migration calls it, to remove sites the operator deselected while
+ * answering a query before RA-557. There is no case-management affordance for
+ * it, so the suite plays that caller, as it does for `resume-from-query`.
+ *
+ * `sites` entries are `{ orsId, siteId }`: management-be matches on `orsId`
+ * when the entry has one and on `siteId` otherwise. The spec asserts the
+ * status and body itself, because the refusals (409 for a duly-made or
+ * decided work item) are part of what it pins.
+ */
+export function removeOverseasSitesViaApi(workItemId, { sites, reason }) {
+  return managementBeRequest(
+    'POST',
+    `/work-items/re-accreditation/${workItemId}/overseas-sites/remove`,
+    { body: { sites, reason } }
+  )
+}
