@@ -761,6 +761,59 @@ class WorkItemDetailPage extends Page {
     return $(`[data-testid="acc-summary-value-${key}"]`)
   }
 
+  /** RA-769. The ORS sections of the Accreditation summary, in page order. */
+  accreditationSummaryOrsSections() {
+    return $$(
+      '[data-testid="acc-summary-value-ors"] > [data-testid="overseas-site"]'
+    )
+  }
+
+  /**
+   * RA-769. What each ORS section shows without being opened: its number,
+   * name and address, and whether it is open. Text is read from the summary
+   * only, so a collapsed section's hidden details do not leak in.
+   */
+  async accreditationSummaryOrsSummaries() {
+    const out = []
+    for (const section of await this.accreditationSummaryOrsSections()) {
+      const text = async (testId) =>
+        (await section.$(`summary [data-testid="${testId}"]`).getText())
+          .replace(/\s+/g, ' ')
+          .trim()
+      out.push({
+        open: await section.getProperty('open'),
+        number: await text('overseas-site-number'),
+        name: await text('overseas-site-name'),
+        address: await text('overseas-site-summary-address')
+      })
+    }
+    return out
+  }
+
+  /** RA-769. Open one ORS section by its position and read what it shows. */
+  async accreditationSummaryOrsDetails(index) {
+    const section = (await this.accreditationSummaryOrsSections())[index]
+    if (!(await section.getProperty('open'))) {
+      await section.$('summary').click()
+    }
+    const rows = []
+    for (const dt of await section.$$('.govuk-details__text dt')) {
+      const label = (await dt.getText()).replace(/\s+/g, ' ').trim()
+      const value = (await dt.nextElement().getText())
+        .replace(/\s+/g, ' ')
+        .trim()
+      rows.push([label, value])
+    }
+    return {
+      address: (
+        await section.$('[data-testid="overseas-site-address"]').getText()
+      )
+        .replace(/\s+/g, ' ')
+        .trim(),
+      rows
+    }
+  }
+
   /** A case tab's key, e.g. 'accreditation-summary'. */
   async tabKey(name) {
     return (await this.tab(name).getAttribute('data-testid')).replace(

@@ -50,6 +50,58 @@ const STUB_ROWS = [
   ]
 ]
 
+const fullSiteRows = (orsId) => [
+  ['ORS ID', orsId],
+  ['Coordinates', '51.847,7.123'],
+  ['Contact name', `Test Contact ${orsId}`],
+  ['Contact email', `contact.${orsId}@example.test`],
+  ['Contact phone number', '+44 20 7946 0000'],
+  ['Operation code', 'R4'],
+  ['Basel/OECD codes', 'B1010, B1020'],
+  ['Repatriated loads', 'As per article 18'],
+  ['Conditions of export', 'Yes'],
+  ['EU country', 'Yes'],
+  ['OECD country', 'Yes']
+]
+
+// The stub's four sites, in ORS ID order. The first two share a name. The
+// last has no contact, coordinates or codes, so those rows are left out.
+const STUB_SITES = [
+  {
+    number: '001',
+    name: 'Speira GmbH',
+    summaryAddress: '1 Hafenstrasse, Germany',
+    address: '1 Hafenstrasse, Bremen, Germany',
+    rows: fullSiteRows('001')
+  },
+  {
+    number: '002',
+    name: 'Speira GmbH',
+    summaryAddress: '2 Hafenstrasse, Germany',
+    address: '2 Hafenstrasse, Hamburg, Germany',
+    rows: fullSiteRows('002')
+  },
+  {
+    number: '003',
+    name: 'Excel Recycling BV',
+    summaryAddress: '3 Havenweg, Netherlands',
+    address: '3 Havenweg, Rotterdam, Netherlands',
+    rows: fullSiteRows('003')
+  },
+  {
+    number: '004',
+    name: 'Fox Reprocessing Inc',
+    summaryAddress: '4 Harbour Road, Canada',
+    address: '4 Harbour Road, Halifax, Canada',
+    rows: [
+      ['ORS ID', '004'],
+      ['Conditions of export', 'No'],
+      ['EU country', 'No'],
+      ['OECD country', 'Yes']
+    ]
+  }
+]
+
 const ADD_ORS_TAB_KEYS = [
   'application-summary',
   'accreditation-summary',
@@ -91,7 +143,10 @@ describe('RA-769 Accreditation summary tab', () => {
   })
 
   it('lists the accreditation details in order', async () => {
-    expect(await workItemDetail.accreditationSummaryRows()).toEqual(STUB_ROWS)
+    const rows = await workItemDetail.accreditationSummaryRows()
+    // The ORS row is asserted section by section below.
+    expect(rows.slice(0, -1)).toEqual(STUB_ROWS)
+    expect(rows.at(-1)[0]).toBe('Overseas Reprocessing Site (ORS)')
   })
 
   it('shows PRN authorisers with their emails and Authority to issue as names only', async () => {
@@ -113,6 +168,28 @@ describe('RA-769 Accreditation summary tab', () => {
       'New infrastructure — 60% of PRN income A new sorting line',
       'Price support — 40% of PRN income Support for collection prices'
     ])
+  })
+
+  it('lists every site collapsed on load, each summary with its number, name and address', async () => {
+    expect(await workItemDetail.accreditationSummaryOrsSummaries()).toEqual(
+      STUB_SITES.map(({ number, name, summaryAddress }) => ({
+        open: false,
+        number,
+        name,
+        address: summaryAddress
+      }))
+    )
+  })
+
+  it('shows the full address and the details of an expanded site, without the Registered row', async () => {
+    for (const [index, site] of STUB_SITES.entries()) {
+      const shown = await workItemDetail.accreditationSummaryOrsDetails(index)
+      expect(shown.address).toBe(site.address)
+      expect(shown.rows).toEqual(site.rows)
+    }
+    expect(await $('main').getText()).not.toContain(
+      'Registered, now seeking accreditation'
+    )
   })
 
   it('shows the status as a green Granted tag', async () => {
