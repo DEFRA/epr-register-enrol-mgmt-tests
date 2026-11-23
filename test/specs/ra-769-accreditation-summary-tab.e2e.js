@@ -16,7 +16,7 @@ import { expectStatus } from '../support/backend-api.js'
  * operator data (and no accreditation application id), so management-be
  * answers from its stable test accreditation (ADR-0009, the stub in
  * `TestOrganisationAccreditationSummary`). The end-to-end journey from the
- * operator journey is RA-769 task 008.
+ * operator journey is ra-769-accreditation-summary-journey.
  *
  * Needs `TestOrganisations__Enabled` on in management-be, as the compose
  * stack has it.

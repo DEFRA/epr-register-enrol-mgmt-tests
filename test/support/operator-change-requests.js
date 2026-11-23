@@ -27,7 +27,11 @@
 import { browser } from '@wdio/globals'
 import { Binary, MongoClient } from 'mongodb'
 
-import { expectStatus, operatorBackendRequest } from './backend-api.js'
+import {
+  cdpUploaderRequest,
+  expectStatus,
+  operatorBackendRequest
+} from './backend-api.js'
 import { SIMULATED_DELIVERED_EMAIL } from './operator-backend-api.js'
 
 export const IN_YEAR_CHANGE_ORGANISATION_ID = '50019'
@@ -37,6 +41,31 @@ export const IN_YEAR_CHANGE_ORGANISATION_ID = '50019'
  * added with no further answers. The fe-tests @monorepo specs use Lyon.
  */
 export const ROTTERDAM = { siteId: 901914, orsId: '009' }
+
+/**
+ * RA-769. Seeded on 50019's accreditation, registered only and outside the EU
+ * and OECD, so a request for it must carry its coordinates, operation codes
+ * and conditions of export, and BES evidence while those are not met. Granting
+ * it writes all of those onto the site (and locks them), so a rerun needs them
+ * taken off again: `pristine` is the seeded state that
+ * resetInYearChangeOrganisation({ site }) puts back.
+ */
+export const DELHI = {
+  siteId: 901911,
+  orsId: '006',
+  siteName: 'Delhi Polymers Pvt',
+  answers: {
+    coordinates: '28.6139, 77.2090',
+    operationCodes: ['R3'],
+    conditionsOfExport: false
+  },
+  pristine: {
+    coordinates: null,
+    operationCodes: [],
+    conditionsOfExport: null,
+    besEvidence: null
+  }
+}
 
 const TYPE_ID = 'add-overseas-site'
 const OPERATOR_DATABASE = 'epr'
@@ -92,9 +121,18 @@ export async function findInYearChangeAccreditation() {
  * to registered only on the accreditation application, as the seed leaves
  * it. Only the legacy application: the root stack runs without dual-write,
  * so the domain model holds no grant.
+ *
+ * RA-769: a site that was not seeded complete (DELHI) also has the answers
+ * and BES evidence a grant wrote taken off again: pass its `pristine` values.
  */
-export async function resetInYearChangeOrganisation({ siteId }) {
+export async function resetInYearChangeOrganisation({ siteId, pristine = {} }) {
   const organisationId = IN_YEAR_CHANGE_ORGANISATION_ID
+  const pristineSet = Object.fromEntries(
+    Object.entries(pristine).map(([field, value]) => [
+      `overseasSites.sites.$[site].${field}`,
+      value
+    ])
+  )
   return withMongo(async (client) => {
     const operator = client.db(OPERATOR_DATABASE)
     const caseManagement = client.db(CASE_MANAGEMENT_DATABASE)
@@ -120,7 +158,10 @@ export async function resetInYearChangeOrganisation({ siteId }) {
       .updateMany(
         { organisationId, 'overseasSites.sites.siteId': siteId },
         {
-          $set: { 'overseasSites.sites.$[site].selected': false },
+          $set: {
+            'overseasSites.sites.$[site].selected': false,
+            ...pristineSet
+          },
           $unset: { 'overseasSites.sites.$[site].validFrom': '' }
         },
         { arrayFilters: [{ 'site.siteId': siteId }] }
@@ -216,10 +257,18 @@ export async function waitForChangeRequestItemStatus(item, status) {
  *   { id, itemId, applicationId, siteId, submittedAt }
  *
  * where `id` is the case-management work item id.
+ *
+ * RA-769: a site that needs more than adding (DELHI) takes `answers`
+ * (its coordinates, operation codes and conditions of export) and
+ * `besEvidence` ({ filename, content }, one PDF uploaded through that
+ * backend and cdp-uploader, as the operator's page does), sent before the
+ * submit. The uploaded file's record is returned as `besFile`.
  */
 export async function submitAddOverseasSiteChangeRequest({
   applicationId,
-  site
+  site,
+  answers,
+  besEvidence
 }) {
   expectStatus(
     await operatorBackendRequest(
@@ -230,6 +279,21 @@ export async function submitAddOverseasSiteChangeRequest({
     [200, 201],
     `add ORS ${site.orsId} to a change request`
   )
+  if (answers) {
+    expectStatus(
+      await operatorBackendRequest(
+        'PATCH',
+        changesPath(applicationId, `/requests/current/sites/${site.siteId}`),
+        { body: answers }
+      ),
+      200,
+      `answer ORS ${site.orsId}'s questions`
+    )
+  }
+  let besFile
+  if (besEvidence) {
+    besFile = await uploadBesEvidence({ applicationId, site, ...besEvidence })
+  }
   expectStatus(
     await operatorBackendRequest(
       'POST',
@@ -272,6 +336,96 @@ export async function submitAddOverseasSiteChangeRequest({
     itemId: item.itemId,
     applicationId,
     siteId: site.siteId,
-    submittedAt: request.submittedAt
+    submittedAt: request.submittedAt,
+    besFile
   }
+}
+
+/**
+ * RA-769. Upload one PDF as BES evidence for `site` on the open change
+ * request, the way the operator's page does: that backend starts the upload
+ * with cdp-uploader, the file is posted to cdp-uploader (whose mock scan then
+ * calls that backend back), and the scanned file is attached to the site. The
+ * object lands in the BES bucket, so a download from case management
+ * after the grant streams it for real. Returns the file as that backend now
+ * holds it: { fileId, filename, s3Key, s3Bucket, ... }.
+ */
+async function uploadBesEvidence({ applicationId, site, filename, content }) {
+  const initiated = expectStatus(
+    await operatorBackendRequest(
+      'POST',
+      changesPath(applicationId, '/requests/current/bes-evidence/initiate'),
+      {
+        body: {
+          redirectUrl: '/',
+          s3Bucket:
+            process.env.FILE_UPLOAD_S3_BUCKET ??
+            'epr-register-enrol-file-uploads',
+          s3Path: `mgmt-tests/${Date.now()}`,
+          mimeTypes: ['application/pdf'],
+          maxFileSize: 10 * 1024 * 1024
+        }
+      }
+    ),
+    200,
+    `initiate a BES evidence upload for ORS ${site.orsId}`
+  ).body
+
+  const form = new FormData()
+  form.append(
+    'file',
+    new Blob([content], { type: 'application/pdf' }),
+    filename
+  )
+  // The upload URL names the uploader as that backend reaches it; the runner
+  // reaches the same service at CDP_UPLOADER_URL.
+  expectStatus(
+    await cdpUploaderRequest('POST', new URL(initiated.uploadUrl).pathname, {
+      body: form
+    }),
+    [200, 201, 302, 303],
+    `cdp-uploader upload of ${filename}`
+  )
+
+  // That backend's own status route, which the callback completes.
+  const statusPath = new URL(initiated.statusUrl).pathname
+  let status
+  await browser.waitUntil(
+    async () => {
+      status = (await operatorBackendRequest('GET', statusPath)).body
+      return status?.processingStatus === 'validated'
+    },
+    {
+      timeout: 30_000,
+      interval: 500,
+      timeoutMsg: `The BES evidence upload ${filename} was never validated (last status ${JSON.stringify(status)})`
+    }
+  )
+
+  const year = new Date().getUTCFullYear()
+  const body = expectStatus(
+    await operatorBackendRequest(
+      'POST',
+      changesPath(
+        applicationId,
+        `/requests/current/sites/${site.siteId}/bes-evidence/files`
+      ),
+      {
+        body: {
+          fileUploadId: initiated.fileUploadId,
+          besEvidenceValidFromDate: `${year}-01-01`,
+          besEvidenceExpiryDate: `${year + 2}-12-31`
+        }
+      }
+    ),
+    [200, 201],
+    `attach ${filename} to ORS ${site.orsId}`
+  ).body
+  const attached = body.sites
+    .find((s) => s.siteId === site.siteId)
+    ?.besEvidence?.besEvidenceUploads?.find((f) => f.filename === filename)
+  if (!attached) {
+    throw new Error(`${filename} is not on ORS ${site.orsId}'s request`)
+  }
+  return attached
 }
