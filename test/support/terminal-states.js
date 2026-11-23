@@ -5,11 +5,11 @@ import {
   dulyMake,
   logDecision,
   startAssessment
-} from './re-accreditation-journey.js'
+} from './standard-lifecycle-journey.js'
 import { withdrawAsOperatorOrThrow } from './operator-withdrawal.js'
 import { createOperatorBackedWorkItem } from './operator-backend-api.js'
 
-/** Site address line 1 shared by every fixture created below. */
+/** Location line 1 shared by every fixture created below. */
 const FIXTURE_SITE_ADDRESS_LINE_1 = '1 Terminal Way'
 
 /**

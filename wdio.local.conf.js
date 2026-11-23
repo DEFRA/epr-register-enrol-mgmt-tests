@@ -23,6 +23,11 @@ process.env.CDP_UPLOADER_URL ??= 'http://localhost:7337'
 // management-be secret, so it accepts the suite's unsigned pushes as
 // management-be's. Set CASE_MANAGEMENT_PUSH_SECRET too if yours has one.
 process.env.CASE_MANAGEMENT_PUSH_ENABLED ??= 'true'
+// RA-495: the monorepo root stack's MongoDB, which RA-495's operator-journey
+// add-ORS spec resets between runs (support/operator-change-requests.js). It
+// skips on any other stack, which holds no in-year change accreditation.
+process.env.MONOREPO_MONGO_URL ??=
+  'mongodb://localhost:27017/?directConnection=true'
 
 export const config = {
   //

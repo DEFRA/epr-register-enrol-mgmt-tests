@@ -1,5 +1,8 @@
 import { $, $$, browser, expect } from '@wdio/globals'
-import { Page } from './page.js'
+import {
+  RE_ACCREDITATION,
+  StandardLifecyclePage
+} from './standard-lifecycle.page.js'
 
 /**
  * RA-410 — the "Log decision" page.
@@ -35,19 +38,24 @@ import { Page } from './page.js'
  * (see warningText() / noteHint() below), same approach as
  * work-item-detail.page.js's ra98ReferenceBanner().
  */
-class DecisionPage extends Page {
-  path(workItemId) {
-    return `/work-items/re-accreditation/${workItemId}/decision`
-  }
+/** Today's Europe/London date as the three date-input boxes read it. */
+export function todayInUk() {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/London',
+      day: 'numeric',
+      month: 'numeric',
+      year: 'numeric'
+    })
+      .formatToParts(new Date())
+      .map((part) => [part.type, part.value])
+  )
+  return { day: parts.day, month: parts.month, year: parts.year }
+}
 
-  /**
-   * Navigate straight to the page, bypassing the CTA.
-   *
-   * Hiding a CTA is not a control — used by the guard specs to prove the
-   * route itself refuses from the wrong state.
-   */
-  async gotoFor(workItemId) {
-    await this.open(this.path(workItemId))
+class DecisionPage extends StandardLifecyclePage {
+  constructor() {
+    super('decision')
   }
 
   async assertOnPage() {
@@ -220,6 +228,34 @@ class DecisionPage extends Page {
     return text.replace(/^Warning\s*/, '').trim()
   }
 
+  /**
+   * RA-495 AC6: the add-ORS effective date group (re-accreditation's page
+   * has none). Shown before a choice and on Approved; hidden by CSS on
+   * Refused.
+   */
+  effectiveDateGroup() {
+    return $('[data-testid="log-decision-effective-date-group"]')
+  }
+
+  async hasEffectiveDate() {
+    return this.effectiveDateGroup().isExisting()
+  }
+
+  async isEffectiveDateDisplayed() {
+    return this.effectiveDateGroup().isDisplayed()
+  }
+
+  /** Fill the three boxes; `date` defaults to today's UK date. */
+  async setEffectiveDate(date = todayInUk()) {
+    await $('#effective-date-day').setValue(date.day)
+    await $('#effective-date-month').setValue(date.month)
+    await $('#effective-date-year').setValue(date.year)
+  }
+
+  async effectiveDateErrorText() {
+    return $('[data-testid="effective-date-error"]').getText()
+  }
+
   async setNote(text) {
     await this.noteInput().setValue(text)
   }
@@ -327,15 +363,15 @@ class DecisionPage extends Page {
     )
   }
 
-  async waitForDecisionUrl(workItemId) {
+  async waitForDecisionUrl(workItemId, typeId = RE_ACCREDITATION) {
     await browser.waitUntil(
       async () => {
         const url = new URL(await browser.getUrl())
-        return url.pathname === this.path(workItemId)
+        return url.pathname === this.path(workItemId, typeId)
       },
       {
         timeout: 10000,
-        timeoutMsg: `Expected to stay on ${this.path(workItemId)}`
+        timeoutMsg: `Expected to stay on ${this.path(workItemId, typeId)}`
       }
     )
   }

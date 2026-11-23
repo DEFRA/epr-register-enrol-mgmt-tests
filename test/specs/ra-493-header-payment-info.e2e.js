@@ -14,21 +14,21 @@ import { formatUkHeaderDate, utcDateParts } from '../support/uk-time.js'
  * RA-493 — Case Management service: Display Duly Made payment information
  * on the Application Summary Header Panel.
  *
- * The case header's meta line gains "Payment date" and "Payment amount":
+ * The case header's meta line gains "Payment date" and "Charge":
  *
  *   AC01 — once a payment date is recorded, it is shown on the header.
- *   AC02 — the payment amount is shown alongside it.
+ *   AC02 — the charge is shown alongside it.
  *   AC03 — both reflect what is currently recorded against the application.
- *   AC04 — before the application is duly made, both read "Not received".
+ *   AC04 — before the application is duly made, the date reads "Not received".
  *
  * management-fe renders both from the work item payload: the date from
- * `payload.paymentDate` (stamped by the duly-making POST), the amount from
+ * `payload.paymentDate` (stamped by the duly-making POST), the charge from
  * `payload.chargeAmountPence` through the same formatter as the duly-making
- * page — whole pounds without decimals ("£546"), part pounds with two
- * ("£1,234.56"). The recorded payment date is the "payment received" signal:
- * without it BOTH items read "Not received", even though the charge is known
- * from submission. Once duly made, an item with no charge at all shows the
- * em dash for the amount rather than claiming payment was not received.
+ * page — always with pence ("£546.00", "£1,234.56"; user decision
+ * 2026-11-18). Duly making records no amount paid, so (RA-495, user
+ * 2026-11-19) the charge is the amount owed, shown from submission, and the
+ * payment date alone says whether it has been paid. An item with no charge
+ * at all shows the em dash.
  *
  * WHY THE PAYMENT DATE IS BACK-DATED. Duly making with today's date would
  * pass against a header that rendered "today" from the clock rather than the
@@ -99,12 +99,9 @@ describe('RA-493 Duly Made payment information on the case header', () => {
         )
       })
 
-      it('shows "Not received" for the payment amount, even though the charge is known', async () => {
-        // The charge is already on the payload from submission. Showing it
-        // here would tell the caseworker a payment had been received when it
-        // has not, so the amount must wait for duly making just like the date.
-        await expect(detail.caseHeaderField('paymentAmount')).toHaveText(
-          PAYMENT_NOT_RECEIVED
+      it('shows the charge, known from submission, beside it', async () => {
+        await expect(detail.caseHeaderField('charge')).toHaveText(
+          EXPECTED_AMOUNT
         )
       })
     })
@@ -134,8 +131,8 @@ describe('RA-493 Duly Made payment information on the case header', () => {
         )
       })
 
-      it('AC02/AC03: shows the recorded charge as the payment amount', async () => {
-        await expect(detail.caseHeaderField('paymentAmount')).toHaveText(
+      it('AC02/AC03: shows the recorded charge', async () => {
+        await expect(detail.caseHeaderField('charge')).toHaveText(
           EXPECTED_AMOUNT
         )
       })
@@ -148,7 +145,7 @@ describe('RA-493 Duly Made payment information on the case header', () => {
         await expect(detail.caseHeaderField('paymentDate')).toHaveText(
           expectedPaymentDate(PAYMENT_DAY_OFFSET)
         )
-        await expect(detail.caseHeaderField('paymentAmount')).toHaveText(
+        await expect(detail.caseHeaderField('charge')).toHaveText(
           EXPECTED_AMOUNT
         )
       })
@@ -157,7 +154,7 @@ describe('RA-493 Duly Made payment information on the case header', () => {
 
   describe('an application duly made without a recorded charge', () => {
     // Negative path: an item created with no `chargeAmountPence` has a
-    // payment date once duly made but no amount to show. management-fe
+    // payment date once duly made but no charge to show. management-fe
     // renders the em dash — it must NOT fall back to "Not received", which
     // would contradict the payment date shown beside it.
     let workItemId
@@ -174,8 +171,8 @@ describe('RA-493 Duly Made payment information on the case header', () => {
       )
     })
 
-    it('shows the em dash for the amount rather than "Not received"', async () => {
-      await expect(detail.caseHeaderField('paymentAmount')).toHaveText('—')
+    it('shows the em dash for the charge rather than "Not received"', async () => {
+      await expect(detail.caseHeaderField('charge')).toHaveText('—')
     })
   })
 })

@@ -79,7 +79,7 @@ describe('RA-292: a pre-RA-292 work item still renders cleanly', () => {
   it('keeps the pre-existing application information rows intact', async () => {
     // RA-292 edits a template that many other journeys read. The row keys the
     // AC does not touch must be untouched.
-    for (const key of ['site-address', 'type', 'material', 'prn-tonnage']) {
+    for (const key of ['site-address', 'material', 'prn-tonnage']) {
       expect(await detail.hasApplicationDetailRow(key)).toBe(true)
     }
   })

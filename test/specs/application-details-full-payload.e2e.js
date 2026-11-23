@@ -12,7 +12,7 @@ import {
  *
  * The other re-accreditation e2e specs use work items created via the case
  * management "Create work item" form, which only populates a small subset of
- * fields (organisation name, site address, material, tonnage band). That
+ * fields (organisation name, location, material, tonnage band). That
  * subset never exercises submittedBy, prns.authorisers, businessPlan,
  * samplingPlan.files or overseasSites.besEvidence — so a regression that drops
  * one of those fields between the operator payload and the UI would go
@@ -91,7 +91,7 @@ describe('Full operator payload on the work item detail page', () => {
   })
 
   describe('submitted application data', () => {
-    it('shows the site address', async () => {
+    it('shows the location', async () => {
       // RA-447 (CM2): the Application summary tab's site-address row now
       // always falls back to the registered address for an exporter
       // (wasteProcessingType: 'exporter'), matching the Additional

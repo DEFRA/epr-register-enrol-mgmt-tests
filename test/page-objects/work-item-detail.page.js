@@ -6,6 +6,12 @@ import { formatUkHeaderDate } from '../support/uk-time.js'
 const TESTID_ATTR = 'data-testid'
 const TESTID_SELECTOR = '[data-testid]'
 
+/**
+ * The type's detail root, which carries the raw `data-state-id`
+ * (re-accreditation's, and add-ORS's since RA-495).
+ */
+const STATE_ID_ROOT_SELECTOR = '[data-state-id]'
+
 /** The generic post-redirect (PRG) flash notification banner. */
 const FLASH_BANNER_SELECTOR = '[data-testid="work-item-flash-banner"]'
 
@@ -52,10 +58,11 @@ function toXPathString(value) {
  * hand-kept copy — and so a markup rename is a one-line change here rather
  * than a sweep through the specs.
  *
- * RA-493 adds `paymentDate` and `paymentAmount`. They render on EVERY item —
- * reading "Not received" (PAYMENT_NOT_RECEIVED) until the item is duly made —
- * so they belong in this always-present contract, and the RA-295 presence and
- * responsive sweeps that iterate it now cover them too.
+ * RA-493 adds `paymentDate`, and the charge beside it. They render on EVERY
+ * item — the date reading "Not received" (PAYMENT_NOT_RECEIVED) until the
+ * item is duly made, the charge showing the amount owed from submission
+ * (RA-495) — so they belong in this always-present contract, and the RA-295
+ * presence and responsive sweeps that iterate it now cover them too.
  */
 export const CASE_HEADER_FIELDS = {
   applicationsLink: 'case-header-applications-link',
@@ -68,12 +75,12 @@ export const CASE_HEADER_FIELDS = {
   dueOn: 'case-header-due-on',
   registrationNumber: 'case-header-registration-number',
   paymentDate: 'case-header-payment-date',
-  paymentAmount: 'case-header-payment-amount'
+  charge: 'case-header-charge'
 }
 
 /**
- * RA-493 (AC04). What both payment header items read before the application
- * is duly made. Exported so the RA-295 placeholder sweep can recognise it as
+ * RA-493 (AC04). What the payment date reads before the application is duly
+ * made. Exported so the RA-295 placeholder sweep can recognise it as
  * the legitimate pre-duly-made value rather than treating it as real data.
  */
 export const PAYMENT_NOT_RECEIVED = 'Not received'
@@ -82,11 +89,11 @@ export const PAYMENT_NOT_RECEIVED = 'Not received'
  * RA-295 (AC02). The application information rows, in the exact order the AC
  * prescribes. `bes` and `ors` are Exporter-only and are expected to be ABSENT
  * for a Reprocessor (re-accreditation) application, so ordering assertions
- * compare against the subset actually rendered rather than requiring all ten.
+ * compare against the subset actually rendered rather than requiring all
+ * nine. AC02's Type row is gone: the case header's Application type shows it.
  */
 export const APPLICATION_DETAIL_ROWS = [
   'site-address',
-  'type',
   'material',
   'prn-tonnage',
   'prn-authorisers',
@@ -104,7 +111,7 @@ export const EXPORTER_ONLY_ROWS = ['bes', 'ors']
  * RA-434 / RA-480. The "Additional information" tab's rows, in the fixed
  * order `buildAdditionalInformationRows` (management-fe) builds them in:
  * Registered name, Companies house number, Registered address, Site name,
- * Site address, Permit numbers, Contact full name, Contact email, Contact
+ * Location, Permit numbers, Contact full name, Contact email, Contact
  * phone, Contact job title. `site-name` has no producer field anywhere in
  * the chain today, so it is always omitted — every fixture's rendered row
  * set is this list minus `site-name` (and minus the four contact rows when
@@ -492,7 +499,7 @@ class WorkItemDetailPage extends Page {
   /** RA-527 (Figma Design 3). The Outcome box's sentence, whitespace-collapsed. */
   async readOnlyOutcomeText() {
     return (
-      await $('[data-testid="re-accreditation-readonly-actions"]').getText()
+      await $('[data-testid="standard-lifecycle-readonly-actions"]').getText()
     )
       .replace(/\s+/g, ' ')
       .trim()
@@ -506,9 +513,9 @@ class WorkItemDetailPage extends Page {
    */
   async assertReadOnlyOutcomePanel(expectedStateText) {
     await expect(
-      $('[data-testid="re-accreditation-readonly-actions"]')
+      $('[data-testid="standard-lifecycle-readonly-actions"]')
     ).toBeDisplayed()
-    await expect($('[data-testid="re-accreditation-state-tag"]')).toHaveText(
+    await expect($('[data-testid="standard-lifecycle-state-tag"]')).toHaveText(
       expect.stringContaining(expectedStateText)
     )
   }
@@ -539,7 +546,7 @@ class WorkItemDetailPage extends Page {
    * `work-item-flash-banner` and survives a reload.
    */
   pendingContactBanner() {
-    return $('[data-testid="re-accreditation-pending-contact-banner"]')
+    return $('[data-testid="standard-lifecycle-pending-contact-banner"]')
   }
 
   async hasPendingContactBanner() {
@@ -568,7 +575,7 @@ class WorkItemDetailPage extends Page {
   /** False for a refusal, whose banner carries no accreditation number. */
   async hasPendingContactAccreditationId() {
     return $(
-      '[data-testid="re-accreditation-pending-contact-accreditation-id"]'
+      '[data-testid="standard-lifecycle-pending-contact-accreditation-id"]'
     ).isExisting()
   }
 
@@ -576,7 +583,7 @@ class WorkItemDetailPage extends Page {
   async pendingContactAccreditationId() {
     return (
       await $(
-        '[data-testid="re-accreditation-pending-contact-accreditation-id"]'
+        '[data-testid="standard-lifecycle-pending-contact-accreditation-id"]'
       ).getText()
     ).trim()
   }
@@ -653,6 +660,33 @@ class WorkItemDetailPage extends Page {
       {
         timeoutMsg: 'Expected additional-information URL after clicking the tab'
       }
+    )
+  }
+
+  /**
+   * RA-495. Open an add-ORS tab with no content yet ('accreditationSummary'
+   * or 'relatedApplications') and wait for its page. The tab's key (its
+   * testid without `tab-`) is its path segment.
+   */
+  async gotoEmptyTab(name) {
+    const path = await this.tabKey(name)
+    await this.tab(name).click()
+    await browser.waitUntil(
+      async () => new URL(await browser.getUrl()).pathname.endsWith(`/${path}`),
+      { timeoutMsg: `Expected the ${path} URL after clicking the tab` }
+    )
+  }
+
+  /** RA-495. The empty panel of an add-ORS tab with no content yet. */
+  async emptyTabPanel(name) {
+    return $(`[data-testid="${await this.tabKey(name)}-tab"]`)
+  }
+
+  /** A case tab's key, e.g. 'accreditation-summary'. */
+  async tabKey(name) {
+    return (await this.tab(name).getAttribute('data-testid')).replace(
+      /^tab-/,
+      ''
     )
   }
 
@@ -740,7 +774,10 @@ class WorkItemDetailPage extends Page {
     const testIds = {
       summary: 'tab-application-summary',
       history: 'tab-application-history',
-      additionalInformation: 'tab-additional-information'
+      additionalInformation: 'tab-additional-information',
+      // RA-495. Add-ORS only.
+      accreditationSummary: 'tab-accreditation-summary',
+      relatedApplications: 'tab-related-applications'
     }
     const testId = testIds[name]
     if (!testId) {
@@ -2167,7 +2204,7 @@ class WorkItemDetailPage extends Page {
    * to do with the behaviour under test.
    */
   readOnlyActionsNotice() {
-    return $('[data-testid="re-accreditation-readonly-actions"]')
+    return $('[data-testid="standard-lifecycle-readonly-actions"]')
   }
 
   /**
@@ -2285,7 +2322,7 @@ class WorkItemDetailPage extends Page {
    *
    *   1. `work-item-actions` present AND holding at least one control;
    *   2. `work-item-no-actions` — the generic empty state;
-   *   3. `re-accreditation-readonly-actions` — the RA-132 terminal-state
+   *   3. `standard-lifecycle-readonly-actions` — the RA-132 terminal-state
    *      override, which replaces the panel body entirely.
    *
    * The regression this guards is specific: if the non-caller-invocable filter
@@ -2396,15 +2433,15 @@ class WorkItemDetailPage extends Page {
    * so `assertState('Updated')` would happily pass against the wrong one of
    * the two. Assert on this wherever the distinction matters; it is a
    * contract with management-fe, not an incidental attribute.
+   *
+   * RA-495. Any type's detail root that carries the attribute (add-ORS too).
    */
   async stateId() {
-    return $('[data-testid="re-accreditation-detail"]').getAttribute(
-      'data-state-id'
-    )
+    return $(STATE_ID_ROOT_SELECTOR).getAttribute('data-state-id')
   }
 
   async assertStateId(expected) {
-    await expect($('[data-testid="re-accreditation-detail"]')).toHaveAttribute(
+    await expect($(STATE_ID_ROOT_SELECTOR)).toHaveAttribute(
       'data-state-id',
       expected
     )

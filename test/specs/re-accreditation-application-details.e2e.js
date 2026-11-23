@@ -69,7 +69,7 @@ describe('Application information — sparse, form-created work item', () => {
     })
   })
 
-  describe('site address assembled from the nested address object', () => {
+  describe('location assembled from the nested address object', () => {
     it('formats the address rather than stringifying the object', async () => {
       // The original regression this guards: siteAddress arrives as a nested
       // object, and a template that interpolates it directly renders the

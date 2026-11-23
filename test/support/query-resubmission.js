@@ -121,7 +121,7 @@ export function continueReviewViaApi(workItemId) {
  * delegates to the one canonical implementation rather than keeping a
  * second copy of the flow in sync.
  */
-export { dulyMake as driveToDulyMade } from './re-accreditation-journey.js'
+export { dulyMake as driveToDulyMade } from './standard-lifecycle-journey.js'
 
 /**
  * Raise a query through the UI, leaving the application in `queried`.
