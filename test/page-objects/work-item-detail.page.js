@@ -682,6 +682,59 @@ class WorkItemDetailPage extends Page {
     return $(`[data-testid="${await this.tabKey(name)}-tab"]`)
   }
 
+  /**
+   * RA-769. Open the Accreditation summary tab of an add-ORS case and wait
+   * for its page.
+   */
+  async gotoAccreditationSummary() {
+    await this.gotoEmptyTab('accreditationSummary')
+  }
+
+  /** RA-769. The Accreditation summary tab's panel. */
+  accreditationSummaryPanel() {
+    return $('[data-testid="accreditation-summary-tab"]')
+  }
+
+  accreditationSummaryHeading() {
+    return $('[data-testid="accreditation-summary-heading"]')
+  }
+
+  accreditationSummaryIntro() {
+    return $('[data-testid="accreditation-summary-intro"]')
+  }
+
+  /** RA-769. The message shown in place of the intro and rows. */
+  accreditationSummaryUnavailable() {
+    return $('[data-testid="accreditation-summary-unavailable"]')
+  }
+
+  /**
+   * RA-769. The Accreditation summary rows as `[label, value]`, in page
+   * order.
+   */
+  async accreditationSummaryRows() {
+    const rows = await $$(
+      '[data-testid="accreditation-summary-details"] > .govuk-summary-list__row'
+    )
+    const out = []
+    for (const row of rows) {
+      out.push([
+        (await row.$('.govuk-summary-list__key').getText())
+          .replace(/\s+/g, ' ')
+          .trim(),
+        (await row.$('.govuk-summary-list__value').getText())
+          .replace(/\s+/g, ' ')
+          .trim()
+      ])
+    }
+    return out
+  }
+
+  /** RA-769. One Accreditation summary value, by its row key. */
+  accreditationSummaryValue(key) {
+    return $(`[data-testid="acc-summary-value-${key}"]`)
+  }
+
   /** A case tab's key, e.g. 'accreditation-summary'. */
   async tabKey(name) {
     return (await this.tab(name).getAttribute('data-testid')).replace(
