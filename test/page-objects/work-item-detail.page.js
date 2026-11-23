@@ -730,6 +730,32 @@ class WorkItemDetailPage extends Page {
     return out
   }
 
+  /** RA-769. The lines of an Accreditation summary row, by its row key. */
+  async accreditationSummaryLines(key) {
+    return this.normalisedTexts(
+      await $$(
+        `[data-testid="acc-summary-value-${key}"] [data-testid="acc-summary-line"]`
+      )
+    )
+  }
+
+  /** RA-769. The business plan pairs of an Accreditation summary row. */
+  async accreditationSummaryPairs(key) {
+    return this.normalisedTexts(
+      await $$(
+        `[data-testid="acc-summary-value-${key}"] [data-testid="acc-summary-pair"]`
+      )
+    )
+  }
+
+  async normalisedTexts(elements) {
+    const out = []
+    for (const element of elements) {
+      out.push((await element.getText()).replace(/\s+/g, ' ').trim())
+    }
+    return out
+  }
+
   /** RA-769. One Accreditation summary value, by its row key. */
   accreditationSummaryValue(key) {
     return $(`[data-testid="acc-summary-value-${key}"]`)

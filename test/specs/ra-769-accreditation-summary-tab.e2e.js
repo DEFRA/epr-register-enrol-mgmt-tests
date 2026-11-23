@@ -37,7 +37,17 @@ const STUB_ROWS = [
   // An exporter shows its registered address as the location.
   ['Location', '2 Registered Road, Testville, TE2 2ST'],
   ['Type', 'Exporter accreditation'],
-  ['Material', 'Plastic']
+  ['Material', 'Plastic'],
+  ['PRN tonnage', 'Up to 5,000 tonnes'],
+  [
+    'PRN authorisers',
+    'Ada Authoriser (ada.authoriser@example.test) Bob Signer (bob.signer@example.test)'
+  ],
+  ['Authority to issue', 'Ada Authoriser Bob Signer'],
+  [
+    'Business plan',
+    'New infrastructure — 60% of PRN income A new sorting line Price support — 40% of PRN income Support for collection prices'
+  ]
 ]
 
 const ADD_ORS_TAB_KEYS = [
@@ -82,6 +92,27 @@ describe('RA-769 Accreditation summary tab', () => {
 
   it('lists the accreditation details in order', async () => {
     expect(await workItemDetail.accreditationSummaryRows()).toEqual(STUB_ROWS)
+  })
+
+  it('shows PRN authorisers with their emails and Authority to issue as names only', async () => {
+    expect(
+      await workItemDetail.accreditationSummaryLines('prn-authorisers')
+    ).toEqual([
+      'Ada Authoriser (ada.authoriser@example.test)',
+      'Bob Signer (bob.signer@example.test)'
+    ])
+    expect(
+      await workItemDetail.accreditationSummaryLines('authority-to-issue')
+    ).toEqual(['Ada Authoriser', 'Bob Signer'])
+  })
+
+  it('shows each business plan category with its share of PRN income', async () => {
+    expect(
+      await workItemDetail.accreditationSummaryPairs('business-plan')
+    ).toEqual([
+      'New infrastructure — 60% of PRN income A new sorting line',
+      'Price support — 40% of PRN income Support for collection prices'
+    ])
   })
 
   it('shows the status as a green Granted tag', async () => {
