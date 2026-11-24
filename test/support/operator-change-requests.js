@@ -77,6 +77,10 @@ const FINAL_ITEM_STATUSES = new Set(['Approved', 'Rejected', 'Withdrawn'])
 export const isMonorepoMongoConfigured = () =>
   Boolean(process.env.MONOREPO_MONGO_URL)
 
+/** `describe` where the monorepo Mongo is configured, `describe.skip` anywhere else. */
+export const describeIfMonorepoMongo = (name, suite) =>
+  (isMonorepoMongoConfigured() ? describe : describe.skip)(name, suite)
+
 async function withMongo(work) {
   const client = new MongoClient(process.env.MONOREPO_MONGO_URL)
   try {

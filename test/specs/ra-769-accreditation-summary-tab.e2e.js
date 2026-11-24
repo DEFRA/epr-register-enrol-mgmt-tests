@@ -7,6 +7,7 @@ import {
   postAddOverseasSiteRequest,
   submitAddOverseasSiteRequest
 } from '../support/in-year-change-api.js'
+import { ACCREDITATION_SUMMARY_INTRO } from '../support/accreditation-summary-copy.js'
 import { expectStatus } from '../support/backend-api.js'
 
 /**
@@ -22,8 +23,6 @@ import { expectStatus } from '../support/backend-api.js'
  * stack has it.
  */
 
-const INTRO =
-  'A summary of the accreditation as it stands today. The changes in this request are not included until the request is granted.'
 const UNAVAILABLE = 'Accreditation summary is not available at the moment.'
 
 // The stub's fixed accreditation. The start date is 1 January of its year.
@@ -170,7 +169,9 @@ describe('RA-769 Accreditation summary tab', () => {
     await expect(workItemDetail.accreditationSummaryHeading()).toHaveText(
       'Accreditation Summary'
     )
-    await expect(workItemDetail.accreditationSummaryIntro()).toHaveText(INTRO)
+    await expect(workItemDetail.accreditationSummaryIntro()).toHaveText(
+      ACCREDITATION_SUMMARY_INTRO
+    )
     await expect(workItemDetail.accreditationSummaryUnavailable()).not.toExist()
   })
 
@@ -387,7 +388,7 @@ describe('RA-769 Accreditation summary tab', () => {
 
   it('keeps Related applications as its placeholder', async () => {
     await workItemDetail.gotoTab('relatedApplications')
-    const panel = await workItemDetail.emptyTabPanel('relatedApplications')
+    const panel = await workItemDetail.tabPanel('relatedApplications')
     expect((await panel.getText()).trim()).toBe('')
   })
 })

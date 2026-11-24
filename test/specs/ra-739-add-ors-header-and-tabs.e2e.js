@@ -111,12 +111,12 @@ describe('RA-739 / RA-495 add-ORS application header and tabs', () => {
       it('is active among the four', async () => {
         expect(await workItemDetail.caseTabKeys()).toEqual(ADD_ORS_TAB_KEYS)
         expect(await workItemDetail.isActiveTab(tabKey)).toBe(true)
-        await expect(await workItemDetail.emptyTabPanel(tabKey)).toExist()
+        await expect(await workItemDetail.tabPanel(tabKey)).toExist()
       })
 
       if (isEmpty) {
         it('is an empty tab', async () => {
-          const panel = await workItemDetail.emptyTabPanel(tabKey)
+          const panel = await workItemDetail.tabPanel(tabKey)
           expect((await panel.getText()).trim()).toBe('')
         })
       } else {

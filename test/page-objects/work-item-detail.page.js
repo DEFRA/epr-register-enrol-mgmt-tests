@@ -501,11 +501,9 @@ class WorkItemDetailPage extends Page {
 
   /** RA-527 (Figma Design 3). The Outcome box's sentence, whitespace-collapsed. */
   async readOnlyOutcomeText() {
-    return (
+    return squash(
       await $('[data-testid="standard-lifecycle-readonly-actions"]').getText()
     )
-      .replace(/\s+/g, ' ')
-      .trim()
   }
 
   /**
@@ -566,13 +564,11 @@ class WorkItemDetailPage extends Page {
 
   /** The banner body, whitespace-collapsed: the sentence plus "Accreditation ID: …". */
   async pendingContactBannerText() {
-    return (
+    return squash(
       await this.pendingContactBanner()
         .$('.govuk-notification-banner__content')
         .getText()
     )
-      .replace(/\s+/g, ' ')
-      .trim()
   }
 
   /** False for a refusal, whose banner carries no accreditation number. */
@@ -681,7 +677,7 @@ class WorkItemDetailPage extends Page {
   }
 
   /** RA-495. The empty panel of an add-ORS tab with no content yet. */
-  async emptyTabPanel(name) {
+  async tabPanel(name) {
     return $(`[data-testid="${await this.tabKey(name)}-tab"]`)
   }
 
@@ -722,12 +718,8 @@ class WorkItemDetailPage extends Page {
     const out = []
     for (const row of rows) {
       out.push([
-        (await row.$('.govuk-summary-list__key').getText())
-          .replace(/\s+/g, ' ')
-          .trim(),
-        (await row.$('.govuk-summary-list__value').getText())
-          .replace(/\s+/g, ' ')
-          .trim()
+        squash(await row.$('.govuk-summary-list__key').getText()),
+        squash(await row.$('.govuk-summary-list__value').getText())
       ])
     }
     return out
@@ -846,12 +838,17 @@ class WorkItemDetailPage extends Page {
     return out
   }
 
-  /** RA-769. Open one ORS section by its position and read what it shows. */
-  async accreditationSummaryOrsDetails(index) {
-    const section = (await this.accreditationSummaryOrsSections())[index]
+  /** RA-769. Open a collapsed `details` section, leaving an open one alone. */
+  async openIfClosed(section) {
     if (!(await section.getProperty('open'))) {
       await section.$('summary').click()
     }
+  }
+
+  /** RA-769. Open one ORS section by its position and read what it shows. */
+  async accreditationSummaryOrsDetails(index) {
+    const section = (await this.accreditationSummaryOrsSections())[index]
+    await this.openIfClosed(section)
     const rows = []
     // Only the site's own list: its interim sites nest inside the section
     // with lists of their own.
@@ -859,17 +856,13 @@ class WorkItemDetailPage extends Page {
       './div[contains(@class,"govuk-details__text")]/dl//dt'
     )) {
       const label = squash(await dt.getText())
-      const value = (await dt.nextElement().getText())
-        .replace(/\s+/g, ' ')
-        .trim()
+      const value = squash(await dt.nextElement().getText())
       rows.push([label, value])
     }
     return {
-      address: (
+      address: squash(
         await section.$('[data-testid="overseas-site-address"]').getText()
-      )
-        .replace(/\s+/g, ' ')
-        .trim(),
+      ),
       rows
     }
   }
@@ -885,9 +878,7 @@ class WorkItemDetailPage extends Page {
    */
   async accreditationSummaryInterimSites(index) {
     const section = (await this.accreditationSummaryOrsSections())[index]
-    if (!(await section.getProperty('open'))) {
-      await section.$('summary').click()
-    }
+    await this.openIfClosed(section)
     const textOf = async (parent, testId) => {
       const element = parent.$(`[data-testid="${testId}"]`)
       return (await element.isExisting())
@@ -2125,9 +2116,7 @@ class WorkItemDetailPage extends Page {
 
   /** RA-527 (Figma Design 3). The closed panel's wording, whitespace-collapsed. */
   async assignmentClosedText() {
-    return (await this.assignmentClosedNotice().getText())
-      .replace(/\s+/g, ' ')
-      .trim()
+    return squash(await this.assignmentClosedNotice().getText())
   }
 
   /**

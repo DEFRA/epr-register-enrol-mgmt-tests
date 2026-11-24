@@ -14,12 +14,14 @@ import {
 } from '../support/in-year-change-api.js'
 import { expectStatus } from '../support/backend-api.js'
 import { getWorkItem } from '../support/decision-api.js'
+import { formatUkDateGds } from '../support/uk-time.js'
+import { ACCREDITATION_SUMMARY_INTRO } from '../support/accreditation-summary-copy.js'
 import {
   DELHI,
   IN_YEAR_CHANGE_ORGANISATION_ID,
   findInYearChangeAccreditation,
+  describeIfMonorepoMongo,
   getChangeRequestItem,
-  isMonorepoMongoConfigured,
   resetInYearChangeOrganisation,
   submitAddOverseasSiteChangeRequest,
   waitForChangeRequestItemStatus
@@ -52,17 +54,8 @@ import {
  * sites, so each shows no interim block.
  */
 
-const INTRO =
-  'A summary of the accreditation as it stands today. The changes in this request are not included until the request is granted.'
 const BES_FILENAME = `ra769-bes-evidence-${Date.now()}.pdf`
 const BES_CONTENT = `%PDF-1.4\nRA-769 BES evidence ${Date.now()}\n%%EOF\n`
-
-const describeIfMonorepoMongo = isMonorepoMongoConfigured()
-  ? describe
-  : describe.skip
-
-/** The labelled rows of the summary list, by label. */
-const rowsByLabel = (rows) => new Map(rows)
 
 // What the ORS summaries should show for the sites held: the number and name
 // of each, and the condensed address only where the name repeats in the list.
@@ -156,8 +149,10 @@ describeIfMonorepoMongo(
         await expect(detail.accreditationSummaryHeading()).toHaveText(
           'Accreditation Summary'
         )
-        await expect(detail.accreditationSummaryIntro()).toHaveText(INTRO)
-        const rows = rowsByLabel(await detail.accreditationSummaryRows())
+        await expect(detail.accreditationSummaryIntro()).toHaveText(
+          ACCREDITATION_SUMMARY_INTRO
+        )
+        const rows = new Map(await detail.accreditationSummaryRows())
 
         expect(rows.get('Organisation')).toBe(
           `${accreditation.organisationName} (${accreditation.orgId})`
@@ -206,7 +201,7 @@ describeIfMonorepoMongo(
         expect(shown.address).toBe(
           `${site.addressLine1}, ${site.townOrCity}, ${site.country}`
         )
-        const rows = rowsByLabel(shown.rows)
+        const rows = new Map(shown.rows)
         expect(rows.get('ORS ID')).toBe(site.orsId)
         expect(rows.get('Coordinates')).toBe(site.coordinates)
         expect(rows.get('Contact name')).toBe(site.contactName)
@@ -263,7 +258,7 @@ describeIfMonorepoMongo(
         const held = await accreditedSites()
         const index = held.findIndex((site) => site.orsId === DELHI.orsId)
         const shown = await detail.accreditationSummaryOrsDetails(index)
-        const rows = rowsByLabel(shown.rows)
+        const rows = new Map(shown.rows)
 
         expect(rows.get('ORS ID')).toBe(DELHI.orsId)
         expect(rows.get('Coordinates')).toBe(DELHI.answers.coordinates)
@@ -286,7 +281,7 @@ describeIfMonorepoMongo(
       })
 
       it('still reads the accreditation start from the start of its year', async () => {
-        const rows = rowsByLabel(await detail.accreditationSummaryRows())
+        const rows = new Map(await detail.accreditationSummaryRows())
         expect(rows.get('Accreditation start date')).toBe(
           `1 January ${accreditation.year}`
         )
@@ -356,26 +351,9 @@ describeIfMonorepoMongo(
  * operator backend, so the accreditation reads Approved there. It creates a
  * new organisation each run, so it needs no reset.
  */
-const MONTHS = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December'
-]
-
 /** `yyyy-mm-dd` as `d MMMM yyyy`. */
-const formatDate = (isoDate) => {
-  const [year, month, day] = isoDate.split('-').map(Number)
-  return `${day} ${MONTHS[month - 1]} ${year}`
-}
+const formatDate = (isoDate) =>
+  formatUkDateGds(new Date(`${isoDate}T12:00:00Z`))
 
 describeIfMonorepoMongo(
   'RA-769: the Accreditation summary of an accreditation granted through case management',
@@ -424,7 +402,7 @@ describeIfMonorepoMongo(
       // Only a stamped date that is not the fallback proves it was read.
       expect(stamped).not.toBe(`${application.year}-01-01`)
 
-      const rows = rowsByLabel(await detail.accreditationSummaryRows())
+      const rows = new Map(await detail.accreditationSummaryRows())
       expect(rows.get('Accreditation start date')).toBe(formatDate(stamped))
       expect(rows.get('Accreditation number')).toBe(
         application.accreditationReference
@@ -436,7 +414,7 @@ describeIfMonorepoMongo(
     })
 
     it("shows the operator backend's accreditation for it", async () => {
-      const rows = rowsByLabel(await detail.accreditationSummaryRows())
+      const rows = new Map(await detail.accreditationSummaryRows())
       expect(rows.get('Organisation')).toBe(
         application.orgId == null
           ? application.organisationName

@@ -18,7 +18,7 @@ import {
   ROTTERDAM,
   findInYearChangeAccreditation,
   getChangeRequestItem,
-  isMonorepoMongoConfigured,
+  describeIfMonorepoMongo,
   itemStatusWatermark,
   resetInYearChangeOrganisation,
   submitAddOverseasSiteChangeRequest,
@@ -98,10 +98,6 @@ async function assertAssignRefused(workItemId, label) {
  * grant is confirmed the ordinary way. ORDERING IS LOAD-BEARING: each step is
  * one-way.
  */
-const describeIfMonorepoMongo = isMonorepoMongoConfigured()
-  ? describe
-  : describe.skip
-
 describeIfMonorepoMongo(
   'RA-495: an add-ORS change request from the operator journey',
   () => {
