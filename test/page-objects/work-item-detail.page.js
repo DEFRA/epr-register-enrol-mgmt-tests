@@ -18,6 +18,9 @@ const FLASH_BANNER_SELECTOR = '[data-testid="work-item-flash-banner"]'
 /** The application-details row key for the sampling and inspection plan. */
 const SAMPLING_INSPECTION_PLAN_ROW = 'sampling-inspection-plan'
 
+/** Collapse runs of whitespace (including newlines) and trim, as the page shows text. */
+const squash = (text) => text.replace(/\s+/g, ' ').trim()
+
 /**
  * Build an XPath 1.0 string literal that safely encodes a JS string,
  * including values that contain single quotes, double quotes or both.
@@ -664,11 +667,11 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * RA-495. Open an add-ORS tab with no content yet ('accreditationSummary'
+   * RA-495. Open an add-ORS tab ('accreditationSummary'
    * or 'relatedApplications') and wait for its page. The tab's key (its
    * testid without `tab-`) is its path segment.
    */
-  async gotoEmptyTab(name) {
+  async gotoTab(name) {
     const path = await this.tabKey(name)
     await this.tab(name).click()
     await browser.waitUntil(
@@ -687,7 +690,7 @@ class WorkItemDetailPage extends Page {
    * for its page.
    */
   async gotoAccreditationSummary() {
-    await this.gotoEmptyTab('accreditationSummary')
+    await this.gotoTab('accreditationSummary')
   }
 
   /** RA-769. The Accreditation summary tab's panel. */
@@ -751,7 +754,7 @@ class WorkItemDetailPage extends Page {
   async normalisedTexts(elements) {
     const out = []
     for (const element of elements) {
-      out.push((await element.getText()).replace(/\s+/g, ' ').trim())
+      out.push(squash(await element.getText()))
     }
     return out
   }
@@ -773,7 +776,7 @@ class WorkItemDetailPage extends Page {
     )) {
       const isLink = (await document.getTagName()) === 'a'
       out.push({
-        text: (await document.getText()).replace(/\s+/g, ' ').trim(),
+        text: squash(await document.getText()),
         href: isLink ? await document.getAttribute('href') : null
       })
     }
@@ -795,7 +798,7 @@ class WorkItemDetailPage extends Page {
     for (const site of await $$(
       '[data-testid="acc-summary-value-bes"] [data-testid="bes-site"]'
     )) {
-      const heading = (await site.$('p').getText()).replace(/\s+/g, ' ').trim()
+      const heading = squash(await site.$('p').getText())
       const name = (await site.$('strong').getText()).trim()
       const rest = heading.slice(name.length).trim()
       const country = rest.startsWith('(') ? rest.slice(1, -1) : null
@@ -831,7 +834,7 @@ class WorkItemDetailPage extends Page {
         if (!(await element.isExisting())) {
           return ''
         }
-        return (await element.getText()).replace(/\s+/g, ' ').trim()
+        return squash(await element.getText())
       }
       out.push({
         open: await section.getProperty('open'),
@@ -855,7 +858,7 @@ class WorkItemDetailPage extends Page {
     for (const dt of await section.$$(
       './div[contains(@class,"govuk-details__text")]/dl//dt'
     )) {
-      const label = (await dt.getText()).replace(/\s+/g, ' ').trim()
+      const label = squash(await dt.getText())
       const value = (await dt.nextElement().getText())
         .replace(/\s+/g, ' ')
         .trim()
@@ -885,7 +888,6 @@ class WorkItemDetailPage extends Page {
     if (!(await section.getProperty('open'))) {
       await section.$('summary').click()
     }
-    const squash = (text) => text.replace(/\s+/g, ' ').trim()
     const textOf = async (parent, testId) => {
       const element = parent.$(`[data-testid="${testId}"]`)
       return (await element.isExisting())
@@ -1045,7 +1047,7 @@ class WorkItemDetailPage extends Page {
     )
     const texts = []
     for (const item of items) {
-      texts.push((await item.getText()).replace(/\s+/g, ' ').trim())
+      texts.push(squash(await item.getText()))
     }
     return texts
   }
@@ -1323,7 +1325,7 @@ class WorkItemDetailPage extends Page {
     )
     const texts = []
     for (const line of lines) {
-      texts.push((await line.getText()).replace(/\s+/g, ' ').trim())
+      texts.push(squash(await line.getText()))
     }
     return texts
   }

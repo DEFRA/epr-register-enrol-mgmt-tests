@@ -386,7 +386,7 @@ describe('RA-769 Accreditation summary tab', () => {
   })
 
   it('keeps Related applications as its placeholder', async () => {
-    await workItemDetail.gotoEmptyTab('relatedApplications')
+    await workItemDetail.gotoTab('relatedApplications')
     const panel = await workItemDetail.emptyTabPanel('relatedApplications')
     expect((await panel.getText()).trim()).toBe('')
   })

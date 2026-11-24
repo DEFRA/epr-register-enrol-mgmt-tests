@@ -98,7 +98,7 @@ describe('RA-739 / RA-495 add-ORS application header and tabs', () => {
     describe(name, () => {
       before(async () => {
         await workItems.openWorkItem(submission.workItems[0].id)
-        await workItemDetail.gotoEmptyTab(tabKey)
+        await workItemDetail.gotoTab(tabKey)
       })
 
       it('keeps the add-ORS header', async () => {
