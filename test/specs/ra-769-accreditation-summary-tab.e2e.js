@@ -30,7 +30,7 @@ const UNAVAILABLE = 'Accreditation summary is not available at the moment.'
 const STUB_ROWS = [
   ['Organisation', 'E2E Test Organisation Ltd (500999)'],
   ['Accreditation number', 'A26ER9999999999PL'],
-  ['Status', 'Granted'],
+  ['Accreditation status', 'Granted'],
   ['Accreditation year', '2026'],
   ['Accreditation start date', '1 January 2026'],
   ['Registration number', 'R26ER9999999999PL'],
@@ -111,9 +111,7 @@ const STUB_SITES = [
   }
 ]
 
-// The stub's interim sites, by site: one, three, none, none. Which of them
-// the page shows depends on management-fe's MULTIPLE_INTERIM_SITES_ENABLED
-// (see the interim sites tests below).
+// The stub's interim sites, by site: one, three, none, none.
 const interim = (id, number, name, codes) => ({
   name,
   address: `${id} Interim Strasse, Hamburg, 20095, Germany`,
@@ -334,55 +332,29 @@ describe('RA-769 Accreditation summary tab', () => {
     )
   })
 
-  // Interim sites follow management-fe's MULTIPLE_INTERIM_SITES_ENABLED. The
-  // mgmt-tests compose stack defaults it on, the root stack and the CDP test
-  // baseline have it off, so the page says which it is: the count label only
-  // exists with it on, and the second stub site has several interim sites.
-  // When the runner states the flag, the page must agree.
+  // The second stub site has several interim sites.
   describe('interim sites', () => {
-    let multipleInterimSitesEnabled
-
     // The parent suite's tests have finished by now, the last of them on
     // another tab, and the page it left has no sections open.
     before(async () => {
       await workItemDetail.gotoAccreditationSummary()
     })
 
-    it('reads the flag state from the page, and agrees with the runner when it states one', async () => {
-      // Read without opening anything, so the next test finds them collapsed.
-      const sections = await workItemDetail.accreditationSummaryOrsSections()
-      multipleInterimSitesEnabled = await sections[1]
-        .$('[data-testid="interim-sites-label"]')
-        .isExisting()
-      const stated = process.env.MULTIPLE_INTERIM_SITES_ENABLED
-      if (stated !== undefined && stated !== '') {
-        expect(multipleInterimSitesEnabled).toBe(stated === 'true')
-      }
-    })
-
-    it('flag on: lists every active interim site with a count, each collapsed; flag off: only the first, open', async () => {
+    it('lists every active interim site with a count, each collapsed', async () => {
       for (const index of [0, 1]) {
         const expected = STUB_INTERIM_SITES[index]
         const shown =
           await workItemDetail.accreditationSummaryInterimSites(index)
         expect(shown.none).toBeNull()
-        if (multipleInterimSitesEnabled) {
-          expect(shown.label).toBe(`Interim sites (${expected.length})`)
-          expect(shown.sites.map(({ open }) => open)).toEqual(
-            expected.map(() => false)
-          )
-          expect(shown.sites.map(({ open, ...rest }) => rest)).toEqual(expected)
-        } else {
-          expect(shown.label).toBeNull()
-          expect(shown.sites.map(({ open }) => open)).toEqual([true])
-          expect(shown.sites.map(({ open, ...rest }) => rest)).toEqual([
-            expected[0]
-          ])
-        }
+        expect(shown.label).toBe(`Interim sites (${expected.length})`)
+        expect(shown.sites.map(({ open }) => open)).toEqual(
+          expected.map(() => false)
+        )
+        expect(shown.sites.map(({ open, ...rest }) => rest)).toEqual(expected)
       }
     })
 
-    it('says "No interim sites" for a site with none, in either flag state', async () => {
+    it('says "No interim sites" for a site with none', async () => {
       for (const index of [2, 3]) {
         const shown =
           await workItemDetail.accreditationSummaryInterimSites(index)

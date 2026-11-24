@@ -508,7 +508,7 @@ class WorkItemDetailPage extends Page {
   /**
    * Assert the read-only "Outcome" panel that replaces the generic action
    * panel once a re-accreditation reaches a terminal state (RA-132). The
-   * paragraph explains no further decision actions are available and a
+   * paragraph explains no further actions are available and a
    * govuk tag shows the terminal state. See re-accreditation/detail-v1.njk.
    */
   async assertReadOnlyOutcomePanel(expectedStateText) {
@@ -1197,17 +1197,10 @@ class WorkItemDetailPage extends Page {
    * <details> inside a collapsed parent is not interactable - then expand
    * every interim one so the assertions below can read its detail rows.
    *
-   * The fold-down only exists while management-fe's
-   * MULTIPLE_INTERIM_SITES_ENABLED flag is on. With it off an interim site
-   * renders as a plain, always-visible block, so there is nothing to expand
-   * and the block is left alone.
    */
   async expandAllInterimSiteDetails() {
-    const disclosures = await $$('[data-testid="interim-site"]')
+    const disclosures = await $('[data-testid="interim-site"]')
     for (const disclosure of disclosures) {
-      if ((await disclosure.getTagName()) !== 'details') {
-        continue
-      }
       const isOpen = await disclosure.getAttribute('open')
       if (isOpen === null) {
         await disclosure.$('.govuk-details__summary').click()

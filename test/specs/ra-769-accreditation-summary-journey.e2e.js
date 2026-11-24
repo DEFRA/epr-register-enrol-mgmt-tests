@@ -48,9 +48,8 @@ import {
  * there. Never run it while someone is testing org 50019 by hand on that
  * stack. ORDERING IS LOAD-BEARING: the grant is one-way.
  *
- * The interim sites follow management-fe's MULTIPLE_INTERIM_SITES_ENABLED,
- * but the sites on this accreditation (Hamburg, and Delhi's) have none, so
- * the same line shows with the flag on or off.
+ * The sites on this accreditation (Hamburg, and Delhi's) have no interim
+ * sites, so each shows "No interim sites".
  */
 
 const INTRO =
@@ -166,7 +165,7 @@ describeIfMonorepoMongo(
         expect(rows.get('Accreditation number')).toBe(
           accreditation.accreditationReference
         )
-        expect(rows.get('Status')).toBe('Granted')
+        expect(rows.get('Accreditation status')).toBe('Granted')
         expect(rows.get('Accreditation year')).toBe(String(accreditation.year))
         // No re-accreditation case issued this accreditation, so it counts from
         // the start of its year.
@@ -291,7 +290,7 @@ describeIfMonorepoMongo(
         expect(rows.get('Accreditation start date')).toBe(
           `1 January ${accreditation.year}`
         )
-        expect(rows.get('Status')).toBe('Granted')
+        expect(rows.get('Accreditation status')).toBe('Granted')
       })
 
       it("lists the new ORS's BES evidence file as a download link", async () => {
@@ -433,7 +432,7 @@ describeIfMonorepoMongo(
       expect(rows.get('Accreditation number')).toBe(
         issuer.payload.accreditationId
       )
-      expect(rows.get('Status')).toBe('Granted')
+      expect(rows.get('Accreditation status')).toBe('Granted')
     })
 
     it("shows the operator backend's accreditation for it", async () => {
