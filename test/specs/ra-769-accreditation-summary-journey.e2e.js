@@ -218,7 +218,7 @@ describeIfMonorepoMongo(
         expect(rows.get('OECD country')).toBe(site.isOecd ? 'Yes' : 'No')
       })
 
-      it('shows no interim block for an ORS with none, with the flag on or off', async () => {
+      it('shows no interim block for an ORS with none', async () => {
         const shown = await detail.accreditationSummaryInterimSites(0)
         expect(shown.label).toBeNull()
         expect(shown.sites).toEqual([])

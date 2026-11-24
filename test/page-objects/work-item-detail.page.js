@@ -872,11 +872,10 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * RA-769. The interim sites of one ORS section, opened first. The flag
-   * decides the markup: on, a count label and one collapsed section per
-   * interim site, each opened here to be read; off, the first interim site
-   * in a plain block that is always open. A site with none shows no interim
-   * block, so the label is null and the sites empty.
+   * RA-769. The interim sites of one ORS section, opened first: a count
+   * label and one collapsed section per interim site, each opened here to be
+   * read. A site with none shows no interim block, so the label is null and
+   * the sites empty.
    *
    * @returns {Promise<{label: string|null, sites: object[]}>}
    *   each site as { open (as found), name, address, rows }
@@ -918,9 +917,6 @@ class WorkItemDetailPage extends Page {
         await folded.$('summary').click()
       }
       sites.push(await read(folded, open))
-    }
-    for (const block of await section.$$('div[data-testid="interim-site"]')) {
-      sites.push(await read(block, true))
     }
     return {
       label: await textOf(section, 'interim-sites-label'),
@@ -1195,10 +1191,9 @@ class WorkItemDetailPage extends Page {
    * its parent ORS's disclosure. Expand the ORS disclosures FIRST - a nested
    * <details> inside a collapsed parent is not interactable - then expand
    * every interim one so the assertions below can read its detail rows.
-   *
    */
   async expandAllInterimSiteDetails() {
-    const disclosures = await $('[data-testid="interim-site"]')
+    const disclosures = await $$('[data-testid="interim-site"]')
     for (const disclosure of disclosures) {
       const isOpen = await disclosure.getAttribute('open')
       if (isOpen === null) {
