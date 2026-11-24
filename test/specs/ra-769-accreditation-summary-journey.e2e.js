@@ -49,7 +49,7 @@ import {
  * stack. ORDERING IS LOAD-BEARING: the grant is one-way.
  *
  * The sites on this accreditation (Hamburg, and Delhi's) have no interim
- * sites, so each shows "No interim sites".
+ * sites, so each shows no interim block.
  */
 
 const INTRO =
@@ -218,9 +218,8 @@ describeIfMonorepoMongo(
         expect(rows.get('OECD country')).toBe(site.isOecd ? 'Yes' : 'No')
       })
 
-      it('says "No interim sites" for an ORS with none, with the flag on or off', async () => {
+      it('shows no interim block for an ORS with none, with the flag on or off', async () => {
         const shown = await detail.accreditationSummaryInterimSites(0)
-        expect(shown.none).toBe('No interim sites')
         expect(shown.label).toBeNull()
         expect(shown.sites).toEqual([])
       })
@@ -282,7 +281,8 @@ describeIfMonorepoMongo(
         )
 
         const interim = await detail.accreditationSummaryInterimSites(index)
-        expect(interim.none).toBe('No interim sites')
+        expect(interim.label).toBeNull()
+        expect(interim.sites).toEqual([])
       })
 
       it('still reads the accreditation start from the start of its year', async () => {

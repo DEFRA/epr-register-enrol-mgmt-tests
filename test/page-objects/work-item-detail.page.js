@@ -875,10 +875,10 @@ class WorkItemDetailPage extends Page {
    * RA-769. The interim sites of one ORS section, opened first. The flag
    * decides the markup: on, a count label and one collapsed section per
    * interim site, each opened here to be read; off, the first interim site
-   * in a plain block that is always open. A site with none shows the "No
-   * interim sites" line instead.
+   * in a plain block that is always open. A site with none shows no interim
+   * block, so the label is null and the sites empty.
    *
-   * @returns {Promise<{label: string|null, none: string|null, sites: object[]}>}
+   * @returns {Promise<{label: string|null, sites: object[]}>}
    *   each site as { open (as found), name, address, rows }
    */
   async accreditationSummaryInterimSites(index) {
@@ -924,7 +924,6 @@ class WorkItemDetailPage extends Page {
     }
     return {
       label: await textOf(section, 'interim-sites-label'),
-      none: await textOf(section, 'interim-sites-none'),
       sites
     }
   }

@@ -345,7 +345,6 @@ describe('RA-769 Accreditation summary tab', () => {
         const expected = STUB_INTERIM_SITES[index]
         const shown =
           await workItemDetail.accreditationSummaryInterimSites(index)
-        expect(shown.none).toBeNull()
         expect(shown.label).toBe(`Interim sites (${expected.length})`)
         expect(shown.sites.map(({ open }) => open)).toEqual(
           expected.map(() => false)
@@ -354,11 +353,10 @@ describe('RA-769 Accreditation summary tab', () => {
       }
     })
 
-    it('says "No interim sites" for a site with none', async () => {
+    it('shows no interim block for a site with none', async () => {
       for (const index of [2, 3]) {
         const shown =
           await workItemDetail.accreditationSummaryInterimSites(index)
-        expect(shown.none).toBe('No interim sites')
         expect(shown.label).toBeNull()
         expect(shown.sites).toEqual([])
       }
