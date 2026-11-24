@@ -65,6 +65,19 @@ const describeIfMonorepoMongo = isMonorepoMongoConfigured()
 /** The labelled rows of the summary list, by label. */
 const rowsByLabel = (rows) => new Map(rows)
 
+// What the ORS summaries should show for the sites held: the number and name
+// of each, and the condensed address only where the name repeats in the list.
+const expectedOrsSummaries = (held) =>
+  held.map((site) => ({
+    open: false,
+    number: site.orsId,
+    name: site.siteName,
+    address:
+      held.filter(({ siteName }) => siteName === site.siteName).length > 1
+        ? `${site.addressLine1}, ${site.country}`
+        : ''
+  }))
+
 describeIfMonorepoMongo(
   'RA-769: the Accreditation summary of an add-ORS request from the operator journey',
   () => {
@@ -181,12 +194,7 @@ describeIfMonorepoMongo(
         expect(held.map((site) => site.orsId)).not.toContain(DELHI.orsId)
 
         expect(await detail.accreditationSummaryOrsSummaries()).toEqual(
-          held.map((site) => ({
-            open: false,
-            number: site.orsId,
-            name: site.siteName,
-            address: `${site.addressLine1}, ${site.country}`
-          }))
+          expectedOrsSummaries(held)
         )
         const text = await detail.accreditationSummaryPanel().getText()
         expect(text).not.toContain(DELHI.siteName)
@@ -249,12 +257,7 @@ describeIfMonorepoMongo(
         )
 
         expect(await detail.accreditationSummaryOrsSummaries()).toEqual(
-          held.map((site) => ({
-            open: false,
-            number: site.orsId,
-            name: site.siteName,
-            address: `${site.addressLine1}, ${site.country}`
-          }))
+          expectedOrsSummaries(held)
         )
       })
 

@@ -72,8 +72,9 @@ const fullSiteRows = (orsId) => [
   ['OECD country', 'Yes']
 ]
 
-// The stub's four sites, in ORS ID order. The first two share a name. The
-// last has no contact, coordinates or codes, so those rows are left out.
+// The stub's four sites, in ORS ID order. The first two share a name, so only
+// they show an address in the summary. The last has no contact, coordinates or
+// codes, so those rows are left out.
 const STUB_SITES = [
   {
     number: '001',
@@ -92,14 +93,14 @@ const STUB_SITES = [
   {
     number: '003',
     name: 'Excel Recycling BV',
-    summaryAddress: '3 Havenweg, Netherlands',
+    summaryAddress: '',
     address: '3 Havenweg, Rotterdam, Netherlands',
     rows: fullSiteRows('003')
   },
   {
     number: '004',
     name: 'Fox Reprocessing Inc',
-    summaryAddress: '4 Harbour Road, Canada',
+    summaryAddress: '',
     address: '4 Harbour Road, Halifax, Canada',
     rows: [
       ['ORS ID', '004'],
@@ -311,7 +312,7 @@ describe('RA-769 Accreditation summary tab', () => {
     ])
   })
 
-  it('lists every site collapsed on load, each summary with its number, name and address', async () => {
+  it('lists every site collapsed on load, each summary with its number and name, and the address only where a name repeats', async () => {
     expect(await workItemDetail.accreditationSummaryOrsSummaries()).toEqual(
       STUB_SITES.map(({ number, name, summaryAddress }) => ({
         open: false,
