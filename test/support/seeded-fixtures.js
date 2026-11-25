@@ -48,6 +48,18 @@ export const ACCREDITATION_CORRECTED_WORK_ITEM = {
 }
 
 /**
+ * RA-751: an unassigned, England plastic `withdrawn` item whose
+ * `payload.archivedAt` is three days before management-be last started, so
+ * it is archived. Nothing else this suite seeds or creates carries its
+ * organisation ID or name. It has no accreditation ID.
+ */
+export const ARCHIVED_WORK_ITEM = {
+  id: '00000751-0000-4000-8000-000000000751',
+  operatorOrganisationId: 'e2e-ra751-archived',
+  organisationName: 'E2E RA-751 Archived Ltd'
+}
+
+/**
  * RA-764: organisation 500069's two unassigned `submitted` ("Not started")
  * 2027 renewals, one per registration it holds: the Northern Ireland (NIEA)
  * one and the England (EA) one. Both are seeded under the old name

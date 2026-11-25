@@ -125,3 +125,29 @@ export function applyActionViaApi(workItemId, actionId) {
     { user: CASEWORKER_USER }
   )
 }
+
+/**
+ * Call management-be's `GET /work-items` as a caseworker with the query
+ * `params` (an object, or `URLSearchParams` for a repeated parameter),
+ * without asserting the outcome, so a spec can assert a 400 as well as a
+ * page of results.
+ */
+export function listWorkItemsViaApi(params) {
+  return managementBeRequest(
+    'GET',
+    `/work-items?${new URLSearchParams(params)}`,
+    { user: CASEWORKER_USER }
+  )
+}
+
+/** Assign the work item to `user` over management-be's assign endpoint. */
+export async function assignWorkItemViaApi(workItemId, user = CASEWORKER_USER) {
+  expectStatus(
+    await managementBeRequest('POST', `/work-items/${workItemId}/assign`, {
+      body: { assigneeId: user.id, assigneeName: user.name },
+      user
+    }),
+    200,
+    `assign work item ${workItemId} to ${user.id}`
+  )
+}

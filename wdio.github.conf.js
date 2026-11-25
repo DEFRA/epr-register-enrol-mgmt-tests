@@ -23,6 +23,11 @@ process.env.CASE_MANAGEMENT_PUSH_SECRET ??=
 // RA-764: docker/config/management-be.env enables management-be's one-off
 // organisation-name migration on this stack. Never set on CDP.
 process.env.RA764_ORGANISATION_NAME_MIGRATION_ENABLED ??= 'true'
+// RA-751: on this stack the suite may play the Admin UI towards
+// management-be, signed with the AUTH_SHARED_SECRET__ADMIN_UI in
+// docker/config/management-be.env. Never set on CDP.
+process.env.ADMIN_UI_CALLER_ENABLED ??= 'true'
+process.env.ADMIN_UI_SHARED_SECRET ??= 'E2eComposeAdminUiToManagementBe'
 // The compose stack runs the Entra ID stub, as CDP test does (RA-537).
 process.env.ENTRA_STUB_LOGIN ??= 'true'
 
