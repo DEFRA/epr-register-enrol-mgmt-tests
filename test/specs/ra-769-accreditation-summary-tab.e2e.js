@@ -77,21 +77,21 @@ const fullSiteRows = (orsId) => [
 const STUB_SITES = [
   {
     number: '001',
-    name: 'Speira GmbH',
+    name: 'Example Recycling GmbH',
     summaryAddress: '1 Hafenstrasse, Germany',
     address: '1 Hafenstrasse, Bremen, Germany',
     rows: fullSiteRows('001')
   },
   {
     number: '002',
-    name: 'Speira GmbH',
+    name: 'Example Recycling GmbH',
     summaryAddress: '2 Hafenstrasse, Germany',
     address: '2 Hafenstrasse, Hamburg, Germany',
     rows: fullSiteRows('002')
   },
   {
     number: '003',
-    name: 'Excel Recycling BV',
+    name: 'Sample Recycling BV',
     summaryAddress: '',
     address: '3 Havenweg, Rotterdam, Netherlands',
     rows: fullSiteRows('003')
@@ -213,27 +213,27 @@ describe('RA-769 Accreditation summary tab', () => {
     const id = submission.workItems[0].id
     expect(sites).toEqual([
       {
-        name: 'Speira GmbH',
+        name: 'Example Recycling GmbH',
         country: 'Germany',
         documents: [
           {
-            text: 'bes-speira-bremen.pdf',
+            text: 'bes-example-bremen.pdf',
             href: downloadPath(id, 'e2e-bes-001')
           }
         ]
       },
       {
-        name: 'Speira GmbH',
+        name: 'Example Recycling GmbH',
         country: 'Germany',
         documents: [
           {
-            text: 'bes-speira-hamburg.pdf',
+            text: 'bes-example-hamburg.pdf',
             href: downloadPath(id, 'e2e-bes-002')
           },
-          { text: 'bes-speira-hamburg-awaiting-scan.pdf', href: null }
+          { text: 'bes-example-hamburg-awaiting-scan.pdf', href: null }
         ]
       },
-      { name: 'Excel Recycling BV', country: 'Netherlands', documents: [] },
+      { name: 'Sample Recycling BV', country: 'Netherlands', documents: [] },
       { name: 'Fox Reprocessing Inc', country: 'Canada', documents: [] }
     ])
   })
@@ -360,6 +360,14 @@ describe('RA-769 Accreditation summary tab', () => {
           await workItemDetail.accreditationSummaryInterimSites(index)
         expect(shown.label).toBeNull()
         expect(shown.sites).toEqual([])
+        // Nothing at all about interim sites, in particular no "No interim
+        // sites" line (management-fe#311). The section is open by now.
+        const section = (
+          await workItemDetail.accreditationSummaryOrsSections()
+        )[index]
+        const text = await section.getText()
+        expect(text).not.toMatch(/interim/i)
+        expect(text).not.toContain('No interim sites')
       }
     })
 

@@ -1184,10 +1184,17 @@ class WorkItemDetailPage extends Page {
    * its parent ORS's disclosure. Expand the ORS disclosures FIRST - a nested
    * <details> inside a collapsed parent is not interactable - then expand
    * every interim one so the assertions below can read its detail rows.
+   *
+   * Only `<details>` blocks are expanded: the add-ORS Application summary
+   * still renders an interim site as a plain `<div data-testid="interim-site">`
+   * (detail-v1.njk), which has nothing to expand and is left alone.
    */
   async expandAllInterimSiteDetails() {
     const disclosures = await $$('[data-testid="interim-site"]')
     for (const disclosure of disclosures) {
+      if ((await disclosure.getTagName()) !== 'details') {
+        continue
+      }
       const isOpen = await disclosure.getAttribute('open')
       if (isOpen === null) {
         await disclosure.$('.govuk-details__summary').click()
