@@ -13,9 +13,9 @@ import { formatUkHeaderDate } from '../support/uk-time.js'
  * header: the site name and ORS id as the title (the reference is in the
  * breadcrumb only), no organisation, and the meta items in the order
  * re-accreditation shares. The charge is the site's own. It has four
- * tabs (Application summary, Accreditation summary, Related applications,
- * Application history); Related applications is empty until RA-770 (the
- * Accreditation summary's content is `ra-769-accreditation-summary-tab`).
+ * tabs (Application summary, Accreditation summary, Related requests,
+ * Application history); their content is `ra-769-accreditation-summary-tab`
+ * and `ra-770-related-requests-tab`.
  * Every tab keeps the same header.
  *
  * Submitted straight to management-be, as the operator backend does.
@@ -26,7 +26,7 @@ const EM_DASH = '—'
 const ADD_ORS_TAB_KEYS = [
   'application-summary',
   'accreditation-summary',
-  'related-applications',
+  'related-requests',
   'application-history'
 ]
 
@@ -99,9 +99,17 @@ describe('RA-739 / RA-495 add-ORS application header and tabs', () => {
     })
   })
 
-  for (const [name, tabKey, isEmpty] of [
-    ['Accreditation summary', 'accreditationSummary', false],
-    ['Related applications', 'relatedApplications', true]
+  for (const [name, tabKey, heading] of [
+    [
+      'Accreditation summary',
+      'accreditationSummary',
+      () => workItemDetail.accreditationSummaryHeading()
+    ],
+    [
+      'Related requests',
+      'relatedRequests',
+      () => workItemDetail.relatedRequestsHeading()
+    ]
   ]) {
     describe(name, () => {
       before(async () => {
@@ -122,18 +130,11 @@ describe('RA-739 / RA-495 add-ORS application header and tabs', () => {
         await expect(await workItemDetail.tabPanel(tabKey)).toExist()
       })
 
-      if (isEmpty) {
-        it('is an empty tab', async () => {
-          const panel = await workItemDetail.tabPanel(tabKey)
-          expect((await panel.getText()).trim()).toBe('')
-        })
-      } else {
-        it('has its own content, under the heading', async () => {
-          await expect(workItemDetail.accreditationSummaryHeading()).toHaveText(
-            'Accreditation Summary'
-          )
-        })
-      }
+      it('has its own content, under its heading', async () => {
+        // Each tab's content is its own spec (ra-769-accreditation-summary-tab,
+        // ra-770-related-requests-tab).
+        await expect(heading()).toExist()
+      })
     })
   }
 
