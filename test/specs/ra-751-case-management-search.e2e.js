@@ -34,6 +34,8 @@ import {
  *     combined with `unassigned` or `assigneeId`, is a 400;
  *   - `archived=true|false`: `payload.archivedAt` set or not; any other value
  *     is a 400;
+ *   - `sort=last-modified`: newest `lastModifiedAt` first by default or
+ *     with `dir=desc`, oldest first with `dir=asc`;
  *   - `GET /work-items/re-accreditation/states`: each state of the
  *     re-accreditation workflow, in workflow order, with what management-be
  *     pushes to the Operator journey when an item enters it.
@@ -184,6 +186,30 @@ describe('RA-751 Case management search', () => {
     })
   })
 
+  describe('last-modified sort', () => {
+    // The assign in `before` came after both items were created, so the item
+    // created FIRST is the more recently changed: only an order by
+    // lastModifiedAt, not by submission, puts it first.
+    it('sort=last-modified returns the most recently changed first', async () => {
+      expect(await searchIds({ q: runPrefix, sort: 'last-modified' })).toEqual([
+        assigned.id,
+        unassigned.id
+      ])
+    })
+
+    it('dir=desc returns the most recently changed first', async () => {
+      expect(
+        await searchIds({ q: runPrefix, sort: 'last-modified', dir: 'desc' })
+      ).toEqual([assigned.id, unassigned.id])
+    })
+
+    it('dir=asc returns the least recently changed first', async () => {
+      expect(
+        await searchIds({ q: runPrefix, sort: 'last-modified', dir: 'asc' })
+      ).toEqual([unassigned.id, assigned.id])
+    })
+  })
+
   describe('assigned filter', () => {
     it('assigned=true returns only items with an assignee', async () => {
       expect(await searchIds({ q: runPrefix, assigned: 'true' })).toEqual([
@@ -274,6 +300,21 @@ describe('RA-751 Case management search', () => {
         'Admin UI GET /work-items'
       )
       expect(body.items.map((item) => item.id)).toEqual([assigned.id])
+    })
+
+    it('may sort its search by last modified, newest first', async () => {
+      const { body } = expectStatus(
+        await adminUiRequest(
+          'GET',
+          `/work-items?${new URLSearchParams({ q: runPrefix, sort: 'last-modified', dir: 'desc' })}`
+        ),
+        200,
+        'Admin UI GET /work-items sorted by last modified'
+      )
+      expect(body.items.map((item) => item.id)).toEqual([
+        assigned.id,
+        unassigned.id
+      ])
     })
 
     it('may read the re-accreditation states', async () => {
