@@ -271,9 +271,6 @@ services:
       - ./docker/config/management-fe.env
     environment:
       - PORT=3000
-      # RA-603's multiple interim sites (and RA-292's "Interim sites" label)
-      # exist only with this on. On for CDP test with the RA-000 config change.
-      - MULTIPLE_INTERIM_SITES_ENABLED=${MULTIPLE_INTERIM_SITES_ENABLED:-true}
     depends_on:
       epr-register-enrol-management-be:
         condition: service_healthy

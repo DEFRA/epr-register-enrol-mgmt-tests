@@ -84,14 +84,20 @@ export async function getOperatorApplication(organisationId, applicationId) {
  * RA-690: pass `operatorOrganisationId` and `registrationId` from an earlier
  * item, with a different `year`, to apply again for the same registration
  * (a renewal) instead of minting a new organisation and registration.
+ *
+ * RA-769: `realOrganisation` lifts the `e2e-` rule on `organisationIdGroup`,
+ * for a spec that needs management-be to treat the organisation as a real
+ * one (it answers a test organisation's accreditation summary from its
+ * stub). Only for a stack where that does no harm: the root stack.
  */
 export async function createOperatorBackedWorkItem({
   organisationIdGroup = 'e2e-',
   year = new Date().getUTCFullYear(),
   operatorOrganisationId: existingOrganisationId,
-  registrationId: existingRegistrationId
+  registrationId: existingRegistrationId,
+  realOrganisation = false
 } = {}) {
-  if (!organisationIdGroup.startsWith('e2e-')) {
+  if (!realOrganisation && !organisationIdGroup.startsWith('e2e-')) {
     throw new Error(
       `organisationIdGroup must start "e2e-" (a test organisation), got "${organisationIdGroup}"`
     )
@@ -104,7 +110,11 @@ export async function createOperatorBackedWorkItem({
       'Pass operatorOrganisationId and registrationId together (a renewal of an existing registration), or neither'
     )
   }
-  if (existingOrganisationId && !existingOrganisationId.startsWith('e2e-')) {
+  if (
+    existingOrganisationId &&
+    !realOrganisation &&
+    !existingOrganisationId.startsWith('e2e-')
+  ) {
     throw new Error(
       `operatorOrganisationId must start "e2e-" (a test organisation), got "${existingOrganisationId}"`
     )

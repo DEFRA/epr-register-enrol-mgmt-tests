@@ -19,10 +19,6 @@ import {
  * single ORS carries three interim sites: two active and one withdrawn. That mix is deliberate — a fixture of identical, all-active
  * interim sites would pass just as well against a page that rendered only the first, badged every
  * site as new, or ignored `removedAt` entirely.
- *
- * Depends on management-fe's MULTIPLE_INTERIM_SITES_ENABLED being true (compose.yml passes it
- * through). The flag is off by default in management-fe, so without it this spec would
- * legitimately see only one interim site.
  */
 describe('RA-603: several interim sites on one overseas reprocessing site', () => {
   before(async () => {
