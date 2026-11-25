@@ -2,7 +2,11 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItemDetail from '../page-objects/work-item-detail.page.js'
 import workItems from '../page-objects/work-items.page.js'
-import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
+import {
+  ADD_ORS_SUBMITTED_BY,
+  submitAddOverseasSiteRequest
+} from '../support/in-year-change-api.js'
+import { formatUkHeaderDate } from '../support/uk-time.js'
 
 /**
  * RA-739 / RA-495. An add-ORS application in Case Management has its own
@@ -52,12 +56,14 @@ async function expectAddOrsHeader(submission) {
 
 describe('RA-739 / RA-495 add-ORS application header and tabs', () => {
   let submission
+  let dateAdded
 
   before(async () => {
     submission = await submitAddOverseasSiteRequest({
       organisationNamePrefix: 'RA495 Add ORS Header Ltd',
       siteCount: 2
     })
+    dateAdded = formatUkHeaderDate(new Date())
     await login.login()
     await workItems.openWorkItem(submission.workItems[0].id)
   })
@@ -72,7 +78,7 @@ describe('RA-739 / RA-495 add-ORS application header and tabs', () => {
       await expectAddOrsHeader(submission)
     })
 
-    it('shows the eight meta items, in the order re-accreditation shares, with the site charge', async () => {
+    it('shows the ten meta items, in the order re-accreditation shares, with the site charge', async () => {
       expect(await workItemDetail.caseHeaderMeta()).toEqual([
         'Application type: New ORS accreditation',
         'Status: Not started',
@@ -81,7 +87,9 @@ describe('RA-739 / RA-495 add-ORS application header and tabs', () => {
         `Accreditation number: ${submission.payload.accreditationReference}`,
         'Material: Plastic',
         'Charge: £328.00',
-        'Payment date: Not received'
+        'Payment date: Not received',
+        `Submitted by: ${ADD_ORS_SUBMITTED_BY.fullName}`,
+        `Submitted on: ${dateAdded}`
       ])
     })
 
