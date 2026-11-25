@@ -18,6 +18,9 @@ const FLASH_BANNER_SELECTOR = '[data-testid="work-item-flash-banner"]'
 /** The application-details row key for the sampling and inspection plan. */
 const SAMPLING_INSPECTION_PLAN_ROW = 'sampling-inspection-plan'
 
+/** Collapse runs of whitespace (including newlines) and trim, as the page shows text. */
+const squash = (text) => text.replace(/\s+/g, ' ').trim()
+
 /**
  * Build an XPath 1.0 string literal that safely encodes a JS string,
  * including values that contain single quotes, double quotes or both.
@@ -498,17 +501,15 @@ class WorkItemDetailPage extends Page {
 
   /** RA-527 (Figma Design 3). The Outcome box's sentence, whitespace-collapsed. */
   async readOnlyOutcomeText() {
-    return (
+    return squash(
       await $('[data-testid="standard-lifecycle-readonly-actions"]').getText()
     )
-      .replace(/\s+/g, ' ')
-      .trim()
   }
 
   /**
    * Assert the read-only "Outcome" panel that replaces the generic action
    * panel once a re-accreditation reaches a terminal state (RA-132). The
-   * paragraph explains no further decision actions are available and a
+   * paragraph explains no further actions are available and a
    * govuk tag shows the terminal state. See re-accreditation/detail-v1.njk.
    */
   async assertReadOnlyOutcomePanel(expectedStateText) {
@@ -563,13 +564,11 @@ class WorkItemDetailPage extends Page {
 
   /** The banner body, whitespace-collapsed: the sentence plus "Accreditation ID: …". */
   async pendingContactBannerText() {
-    return (
+    return squash(
       await this.pendingContactBanner()
         .$('.govuk-notification-banner__content')
         .getText()
     )
-      .replace(/\s+/g, ' ')
-      .trim()
   }
 
   /** False for a refusal, whose banner carries no accreditation number. */
@@ -664,11 +663,11 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
-   * RA-495. Open an add-ORS tab with no content yet ('accreditationSummary'
+   * RA-495. Open an add-ORS tab ('accreditationSummary'
    * or 'relatedApplications') and wait for its page. The tab's key (its
    * testid without `tab-`) is its path segment.
    */
-  async gotoEmptyTab(name) {
+  async gotoTab(name) {
     const path = await this.tabKey(name)
     await this.tab(name).click()
     await browser.waitUntil(
@@ -678,8 +677,244 @@ class WorkItemDetailPage extends Page {
   }
 
   /** RA-495. The empty panel of an add-ORS tab with no content yet. */
-  async emptyTabPanel(name) {
+  async tabPanel(name) {
     return $(`[data-testid="${await this.tabKey(name)}-tab"]`)
+  }
+
+  /**
+   * RA-769. Open the Accreditation summary tab of an add-ORS case and wait
+   * for its page.
+   */
+  async gotoAccreditationSummary() {
+    await this.gotoTab('accreditationSummary')
+  }
+
+  /** RA-769. The Accreditation summary tab's panel. */
+  accreditationSummaryPanel() {
+    return $('[data-testid="accreditation-summary-tab"]')
+  }
+
+  accreditationSummaryHeading() {
+    return $('[data-testid="accreditation-summary-heading"]')
+  }
+
+  accreditationSummaryIntro() {
+    return $('[data-testid="accreditation-summary-intro"]')
+  }
+
+  /** RA-769. The message shown in place of the intro and rows. */
+  accreditationSummaryUnavailable() {
+    return $('[data-testid="accreditation-summary-unavailable"]')
+  }
+
+  /**
+   * RA-769. The Accreditation summary rows as `[label, value]`, in page
+   * order.
+   */
+  async accreditationSummaryRows() {
+    const rows = await $$(
+      '[data-testid="accreditation-summary-details"] > .govuk-summary-list__row'
+    )
+    const out = []
+    for (const row of rows) {
+      out.push([
+        squash(await row.$('.govuk-summary-list__key').getText()),
+        squash(await row.$('.govuk-summary-list__value').getText())
+      ])
+    }
+    return out
+  }
+
+  /** RA-769. The lines of an Accreditation summary row, by its row key. */
+  async accreditationSummaryLines(key) {
+    return this.normalisedTexts(
+      await $$(
+        `[data-testid="acc-summary-value-${key}"] [data-testid="acc-summary-line"]`
+      )
+    )
+  }
+
+  /** RA-769. The business plan pairs of an Accreditation summary row. */
+  async accreditationSummaryPairs(key) {
+    return this.normalisedTexts(
+      await $$(
+        `[data-testid="acc-summary-value-${key}"] [data-testid="acc-summary-pair"]`
+      )
+    )
+  }
+
+  async normalisedTexts(elements) {
+    const out = []
+    for (const element of elements) {
+      out.push(squash(await element.getText()))
+    }
+    return out
+  }
+
+  /** RA-769. One Accreditation summary value, by its row key. */
+  accreditationSummaryValue(key) {
+    return $(`[data-testid="acc-summary-value-${key}"]`)
+  }
+
+  /**
+   * RA-769. The documents listed in an Accreditation summary value element,
+   * in page order: its text, and its href when it is a download link (a file
+   * that has not passed its scan is plain text with a scan status tag).
+   */
+  async documentsIn(valueElement) {
+    const out = []
+    for (const document of await valueElement.$$(
+      '[data-testid="app-detail-document"]'
+    )) {
+      const isLink = (await document.getTagName()) === 'a'
+      out.push({
+        text: squash(await document.getText()),
+        href: isLink ? await document.getAttribute('href') : null
+      })
+    }
+    return out
+  }
+
+  /** RA-769. The documents of an Accreditation summary row, e.g. the sampling plan. */
+  async accreditationSummaryDocuments(key) {
+    return this.documentsIn(this.accreditationSummaryValue(key))
+  }
+
+  /**
+   * RA-769. The BES row: each site's name and country, and its documents.
+   *
+   * @returns {Promise<{name: string, country: string|null, documents: object[]}[]>}
+   */
+  async accreditationSummaryBesSites() {
+    const out = []
+    for (const site of await $$(
+      '[data-testid="acc-summary-value-bes"] [data-testid="bes-site"]'
+    )) {
+      const heading = squash(await site.$('p').getText())
+      const name = (await site.$('strong').getText()).trim()
+      const rest = heading.slice(name.length).trim()
+      const country = rest.startsWith('(') ? rest.slice(1, -1) : null
+      out.push({
+        name,
+        country,
+        documents: await this.documentsIn(site)
+      })
+    }
+    return out
+  }
+
+  /** RA-769. The ORS sections of the Accreditation summary, in page order. */
+  accreditationSummaryOrsSections() {
+    return $$(
+      '[data-testid="acc-summary-value-ors"] > [data-testid="overseas-site"]'
+    )
+  }
+
+  /**
+   * RA-769. What each ORS section shows without being opened: its number,
+   * name and address (empty unless the name repeats), and whether it is open.
+   * Text is read from the summary only, so a collapsed section's hidden
+   * details do not leak in.
+   */
+  async accreditationSummaryOrsSummaries() {
+    const out = []
+    for (const section of await this.accreditationSummaryOrsSections()) {
+      // The address shows only for a site whose name repeats, so an absent
+      // element reads as an empty string.
+      const text = async (testId) => {
+        const element = section.$(`summary [data-testid="${testId}"]`)
+        if (!(await element.isExisting())) {
+          return ''
+        }
+        return squash(await element.getText())
+      }
+      out.push({
+        open: await section.getProperty('open'),
+        number: await text('overseas-site-number'),
+        name: await text('overseas-site-name'),
+        address: await text('overseas-site-summary-address')
+      })
+    }
+    return out
+  }
+
+  /** RA-769. Open a collapsed `details` section, leaving an open one alone. */
+  async openIfClosed(section) {
+    if (!(await section.getProperty('open'))) {
+      await section.$('summary').click()
+    }
+  }
+
+  /** RA-769. Open one ORS section by its position and read what it shows. */
+  async accreditationSummaryOrsDetails(index) {
+    const section = (await this.accreditationSummaryOrsSections())[index]
+    await this.openIfClosed(section)
+    const rows = []
+    // Only the site's own list: its interim sites nest inside the section
+    // with lists of their own.
+    for (const dt of await section.$$(
+      './div[contains(@class,"govuk-details__text")]/dl//dt'
+    )) {
+      const label = squash(await dt.getText())
+      const value = squash(await dt.nextElement().getText())
+      rows.push([label, value])
+    }
+    return {
+      address: squash(
+        await section.$('[data-testid="overseas-site-address"]').getText()
+      ),
+      rows
+    }
+  }
+
+  /**
+   * RA-769. The interim sites of one ORS section, opened first: a count
+   * label and one collapsed section per interim site, each opened here to be
+   * read. A site with none shows no interim block, so the label is null and
+   * the sites empty.
+   *
+   * @returns {Promise<{label: string|null, sites: object[]}>}
+   *   each site as { open (as found), name, address, rows }
+   */
+  async accreditationSummaryInterimSites(index) {
+    const section = (await this.accreditationSummaryOrsSections())[index]
+    await this.openIfClosed(section)
+    const textOf = async (parent, testId) => {
+      const element = parent.$(`[data-testid="${testId}"]`)
+      return (await element.isExisting())
+        ? squash(await element.getText())
+        : null
+    }
+    const read = async (element, open) => {
+      const rows = []
+      for (const dt of await element.$$('dt')) {
+        rows.push([
+          squash(await dt.getText()),
+          squash(await dt.nextElement().getText())
+        ])
+      }
+      return {
+        open,
+        name: await textOf(element, 'interim-site-name'),
+        address: await textOf(element, 'interim-site-address'),
+        rows
+      }
+    }
+
+    const sites = []
+    for (const folded of await section.$$(
+      'details[data-testid="interim-site"]'
+    )) {
+      const open = await folded.getProperty('open')
+      if (!open) {
+        await folded.$('summary').click()
+      }
+      sites.push(await read(folded, open))
+    }
+    return {
+      label: await textOf(section, 'interim-sites-label'),
+      sites
+    }
   }
 
   /** A case tab's key, e.g. 'accreditation-summary'. */
@@ -803,7 +1038,7 @@ class WorkItemDetailPage extends Page {
     )
     const texts = []
     for (const item of items) {
-      texts.push((await item.getText()).replace(/\s+/g, ' ').trim())
+      texts.push(squash(await item.getText()))
     }
     return texts
   }
@@ -950,10 +1185,9 @@ class WorkItemDetailPage extends Page {
    * <details> inside a collapsed parent is not interactable - then expand
    * every interim one so the assertions below can read its detail rows.
    *
-   * The fold-down only exists while management-fe's
-   * MULTIPLE_INTERIM_SITES_ENABLED flag is on. With it off an interim site
-   * renders as a plain, always-visible block, so there is nothing to expand
-   * and the block is left alone.
+   * Only `<details>` blocks are expanded: the add-ORS Application summary
+   * still renders an interim site as a plain `<div data-testid="interim-site">`
+   * (detail-v1.njk), which has nothing to expand and is left alone.
    */
   async expandAllInterimSiteDetails() {
     const disclosures = await $$('[data-testid="interim-site"]')
@@ -1089,7 +1323,7 @@ class WorkItemDetailPage extends Page {
     )
     const texts = []
     for (const line of lines) {
-      texts.push((await line.getText()).replace(/\s+/g, ' ').trim())
+      texts.push(squash(await line.getText()))
     }
     return texts
   }
@@ -1889,9 +2123,7 @@ class WorkItemDetailPage extends Page {
 
   /** RA-527 (Figma Design 3). The closed panel's wording, whitespace-collapsed. */
   async assignmentClosedText() {
-    return (await this.assignmentClosedNotice().getText())
-      .replace(/\s+/g, ' ')
-      .trim()
+    return squash(await this.assignmentClosedNotice().getText())
   }
 
   /**

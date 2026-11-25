@@ -180,7 +180,7 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
         'This application is closed and can no longer be assigned or reassigned.'
       )
       expect(await detail.readOnlyOutcomeText()).toBe(
-        'This work item is in a final state. No further decision actions are available.'
+        'This work item is in a final state. No further actions are available.'
       )
       await detail.assertReadOnlyOutcomePanel('Granted')
     })
@@ -212,7 +212,7 @@ describe('RA-358 — assignment is gated on terminal work items', () => {
         'This application is closed and can no longer be assigned or reassigned.'
       )
       expect(await detail.readOnlyOutcomeText()).toBe(
-        'This work item is in a final state. No further decision actions are available.'
+        'This work item is in a final state. No further actions are available.'
       )
       await detail.assertReadOnlyOutcomePanel('Refused')
     })
