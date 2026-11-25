@@ -1,10 +1,13 @@
 import { expect } from '@wdio/globals'
 import {
+  CASEWORKER_USER,
+  MGMT_TESTS_CLIENT_ID,
   adminUiRequest,
   expectStatus,
   isAdminUiCallerEnabled,
   managementBeRequest
 } from '../support/backend-api.js'
+import { getWorkItem } from '../support/decision-api.js'
 import {
   ACCREDITATION_CORRECTED_WORK_ITEM,
   ARCHIVED_WORK_ITEM
@@ -44,7 +47,9 @@ import {
  *
  * and registers the Admin UI as a READ-ONLY caller: it may GET only those
  * two routes, and every other request it sends, read or write, is refused
- * with a 403 ProblemDetails.
+ * with a 403 ProblemDetails. Its search results carry only the fields it
+ * shows (id, type, state, last changed, assignee, application reference,
+ * organisation ID and name); every other caller still gets the full item.
  *
  * management-fe does not change, so this is asserted against management-be
  * directly, as the suite's own caller (`epr-register-enrol-mgmt-tests`) and,
@@ -68,7 +73,9 @@ const RE_ACCREDITATION_STATES = [
   ['duly-made', 'Duly made', false, 'status'],
   ['assessment-started', 'Duly made', false, 'none'],
   ['assessment-in-progress', 'Updated', false, 'status'],
-  ['awaiting-decision', 'Awaiting decision', false, 'status'],
+  // Entering it to await a decision is not pushed; returning to it from a
+  // continued review is.
+  ['awaiting-decision', 'Awaiting decision', false, 'partial'],
   ['queried', 'Queried', false, 'query'],
   ['updated', 'Updated', false, 'status'],
   ['approved-pending-contact', 'Approved', false, 'none'],
@@ -99,6 +106,25 @@ function expectForbidden({ status, headers }) {
   expect(headers.get('content-type')).toContain('application/problem+json')
 }
 
+/** The parts of a work item any write would change. */
+const writableView = ({
+  stateId,
+  lastModifiedAt,
+  assignedToId,
+  payload,
+  auditLog
+}) => ({ stateId, lastModifiedAt, assignedToId, payload, auditLog })
+
+/**
+ * Assert management-be refuses the Admin UI's write (`send`) as forbidden,
+ * and that the work item reads the same afterwards as before.
+ */
+async function expectRefusedAndUnchanged(workItemId, send) {
+  const before = writableView(await getWorkItem(workItemId))
+  expectForbidden(await send())
+  expect(writableView(await getWorkItem(workItemId))).toEqual(before)
+}
+
 /** Assert `GET /work-items` refuses `params` with a 400 naming `key`. */
 async function expectInvalidQuery(params, key) {
   const { status, body } = await listWorkItemsViaApi(params)
@@ -121,6 +147,20 @@ describe('RA-751 Case management search', () => {
       organisationNamePrefix: runPrefix
     })
     await assignWorkItemViaApi(assigned.id)
+  })
+
+  it('gives this suite, a caller that is not read-only, the full item', async () => {
+    const { body } = expectStatus(
+      await listWorkItemsViaApi({ q: runPrefix, assigned: 'true' }),
+      200,
+      'GET /work-items as mgmt-tests'
+    )
+    const [item] = body.items
+    expect(item.id).toBe(assigned.id)
+    // management-be records the submitting caller's client id.
+    expect(item.submittedBy).toBe(MGMT_TESTS_CLIENT_ID)
+    expect(item.submittedAt).toEqual(expect.any(String))
+    expect(item.payload.operatorEmail).toBe(assigned.payload.operatorEmail)
   })
 
   describe('free-text search (q)', () => {
@@ -229,6 +269,27 @@ describe('RA-751 Case management search', () => {
       ).toEqual([unassigned.id, assigned.id])
     })
 
+    it('refuses a sort sent more than once', async () => {
+      await expectInvalidQuery(
+        new URLSearchParams([
+          ['sort', 'last-modified'],
+          ['sort', 'status']
+        ]),
+        'sort'
+      )
+    })
+
+    it('refuses a direction sent more than once', async () => {
+      await expectInvalidQuery(
+        new URLSearchParams([
+          ['sort', 'last-modified'],
+          ['dir', 'asc'],
+          ['dir', 'desc']
+        ]),
+        'dir'
+      )
+    })
+
     it('refuses an unknown sort', async () => {
       await expectInvalidQuery({ sort: 'last-changed' }, 'sort')
     })
@@ -318,7 +379,7 @@ describe('RA-751 Case management search', () => {
   const describeIfAdminUi = isAdminUiCallerEnabled() ? describe : describe.skip
 
   describeIfAdminUi('the Admin UI caller is read-only', () => {
-    it('may search work items', async () => {
+    it('may search work items, seeing only the fields it needs', async () => {
       const { body } = expectStatus(
         await adminUiRequest(
           'GET',
@@ -326,6 +387,36 @@ describe('RA-751 Case management search', () => {
         ),
         200,
         'Admin UI GET /work-items'
+      )
+      expect(Object.keys(body).sort()).toEqual(
+        ['items', 'page', 'pageSize', 'totalCount'].sort()
+      )
+      expect(body.items).toEqual([
+        {
+          id: assigned.id,
+          typeId: 're-accreditation',
+          stateId: 'submitted',
+          lastModifiedAt: expect.any(String),
+          assignedToId: CASEWORKER_USER.id,
+          assignedToName: CASEWORKER_USER.name,
+          payload: {
+            applicationReference: assigned.applicationReference,
+            operatorOrganisationId: assigned.operatorOrganisationId,
+            organisationName: assigned.organisationName
+          }
+        }
+      ])
+    })
+
+    it('may search with a user name outside ASCII', async () => {
+      const { body } = expectStatus(
+        await adminUiRequest(
+          'GET',
+          `/work-items?${new URLSearchParams({ q: runPrefix, assigned: 'true' })}`,
+          { userName: 'Siobhán O’Brien' }
+        ),
+        200,
+        'Admin UI GET /work-items as O’Brien'
       )
       expect(body.items.map((item) => item.id)).toEqual([assigned.id])
     })
@@ -346,11 +437,13 @@ describe('RA-751 Case management search', () => {
     })
 
     it('may read the re-accreditation states', async () => {
-      expectStatus(
+      const { body } = expectStatus(
         await adminUiRequest('GET', '/work-items/re-accreditation/states'),
         200,
         'Admin UI GET /work-items/re-accreditation/states'
       )
+      expect(body.typeId).toBe('re-accreditation')
+      expect(body.states).toEqual(RE_ACCREDITATION_STATES)
     })
 
     it('may not read a single work item', async () => {
@@ -359,45 +452,38 @@ describe('RA-751 Case management search', () => {
       )
     })
 
-    it('may not create a work item', async () => {
+    it('may not create a work item, and none is created', async () => {
+      const organisationName = uniqueOrganisationName('RA-751 refused create')
       expectForbidden(
         await adminUiRequest('POST', '/work-items', {
           body: {
             typeId: 're-accreditation',
             source: 'mgmt-tests',
-            payload: {}
+            payload: { organisationName }
           }
         })
       )
+      expect(await searchIds({ q: organisationName })).toEqual([])
     })
 
-    it('may not assign a work item, which stays unassigned', async () => {
-      expectForbidden(
-        await adminUiRequest('POST', `/work-items/${unassigned.id}/assign`, {
+    it('may not assign a work item, which is unchanged', async () => {
+      await expectRefusedAndUnchanged(unassigned.id, () =>
+        adminUiRequest('POST', `/work-items/${unassigned.id}/assign`, {
           body: { assigneeId: 'stub-admin', assigneeName: 'Stub Admin' }
         })
       )
-      expect(
-        await searchIds({
-          q: unassigned.operatorOrganisationId,
-          assigned: 'false'
-        })
-      ).toEqual([unassigned.id])
     })
 
-    it('may not apply a work item action', async () => {
-      expectForbidden(
-        await adminUiRequest(
-          'POST',
-          `/work-items/${unassigned.id}/actions/duly-make`
-        )
+    it('may not apply a work item action, and the item is unchanged', async () => {
+      await expectRefusedAndUnchanged(unassigned.id, () =>
+        adminUiRequest('POST', `/work-items/${unassigned.id}/actions/duly-make`)
       )
     })
 
     // management-be's only PATCH route; it has no PUT or DELETE routes.
-    it('may not PATCH a work item', async () => {
-      expectForbidden(
-        await adminUiRequest(
+    it('may not PATCH a work item, which is unchanged', async () => {
+      await expectRefusedAndUnchanged(unassigned.id, () =>
+        adminUiRequest(
           'PATCH',
           `/work-items/re-accreditation/${unassigned.id}/overseas-sites/site-1/recycling-operations`,
           { body: {} }

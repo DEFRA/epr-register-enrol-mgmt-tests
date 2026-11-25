@@ -190,14 +190,21 @@ export const isAdminUiCallerEnabled = () =>
 /**
  * RA-751. Call management-be AS the Admin UI, signed with
  * `ADMIN_UI_SHARED_SECRET` (or, by passing `sharedSecret`, with some other
- * secret, to prove a wrong one is refused). Only for runs where
+ * secret, to prove a wrong one is refused). `userName` replaces the acting
+ * user's name. As the Admin UI does, the name is sent (and signed) as
+ * `encodeURIComponent(name.trim())`, so a name outside ASCII is a valid
+ * header; management-be checks the header as received. Only for runs where
  * `isAdminUiCallerEnabled()`; it throws otherwise, so a spec that forgot the
  * gate fails loudly rather than with a puzzling 401.
  */
 export function adminUiRequest(
   method,
   path,
-  { body, sharedSecret = process.env.ADMIN_UI_SHARED_SECRET } = {}
+  {
+    body,
+    sharedSecret = process.env.ADMIN_UI_SHARED_SECRET,
+    userName = ADMIN_UI_USER.name
+  } = {}
 ) {
   if (!isAdminUiCallerEnabled()) {
     throw new Error(
@@ -207,7 +214,7 @@ export function adminUiRequest(
   return signedManagementBeRequest(method, path, {
     clientId: ADMIN_UI_CLIENT_ID,
     sharedSecret,
-    user: ADMIN_UI_USER,
+    user: { ...ADMIN_UI_USER, name: encodeURIComponent(userName.trim()) },
     body
   })
 }
