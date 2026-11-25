@@ -94,8 +94,9 @@ function requireEnv(name) {
 /**
  * management-be's v3 HMAC trust-header signature, in the extended form
  * (`v3`, client id, user id, user name, role, nation, timestamp, nonce, each
- * on its own line). This suite never sends role or nation headers, so both
- * are signed as empty strings. Mirrors management-fe's
+ * on its own line). A header the request does not send (the mgmt-tests
+ * caller sends no role, and no caller here sends a nation) is signed as an
+ * empty string. Mirrors management-fe's
  * `src/server/common/helpers/backend-api/sign-request.js`.
  *
  * Returns no headers when `sharedSecret` is unset.
@@ -171,12 +172,15 @@ export function managementBeRequest(
 const ADMIN_UI_CLIENT_ID = 'epr-register-enrol-admin'
 
 /**
- * RA-751. The acting identity when the suite plays the Admin UI. A support
- * user, as the Admin UI's own users are.
+ * RA-751. The acting identity when the suite plays the Admin UI: a support
+ * user with the role the Admin UI requires and sends with every call
+ * (its `auth.requiredRole`). Like the Admin UI it sends no nation, so the
+ * signed payload has the role line and an empty nation line (ADR-0010).
  */
 const ADMIN_UI_USER = {
   id: 'stub-admin-support-user',
-  name: 'Stub Admin Support User'
+  name: 'Stub Admin Support User',
+  role: 'Waste.SupportUser.ReadOnly'
 }
 
 /** RA-751. Whether this run may play the Admin UI (see the module doc). */
@@ -209,8 +213,8 @@ export function adminUiRequest(
 }
 
 /**
- * Call management-be as `clientId`, acting as `user`, signed with
- * `sharedSecret` when it is set. A fresh nonce and signature are minted for
+ * Call management-be as `clientId`, acting as `user` (with its role header
+ * when `user.role` is set), signed with `sharedSecret` when it is set. A fresh nonce and signature are minted for
  * every request, so a retry is always a new, validly signed request.
  */
 function signedManagementBeRequest(
@@ -223,6 +227,9 @@ function signedManagementBeRequest(
     'x-cdp-client-id': clientId,
     'x-cdp-user-id': user.id,
     'x-cdp-user-name': user.name
+  }
+  if (user.role) {
+    headers['x-cdp-user-role'] = user.role
   }
   if (body !== undefined) {
     headers['content-type'] = 'application/json'

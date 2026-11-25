@@ -29,7 +29,8 @@ import {
  *   - `q`: a case-insensitive substring match on the work item id,
  *     `accreditationId`, `applicationReference` (the ticket's "RA-
  *     reference"), `operatorOrganisationId` and `organisationName`; blank
- *     means no filter;
+ *     means no filter; over 100 characters (after trimming) or sent twice is
+ *     a 400;
  *   - `assigned=true|false`: has an assignee or not; any other value, or
  *     combined with `unassigned` or `assigneeId`, is a 400;
  *   - `archived=true|false`: `payload.archivedAt` set or not; any other value
@@ -171,6 +172,24 @@ describe('RA-751 Case management search', () => {
         q: '   '
       })
       expect(ids).toEqual([assigned.id])
+    })
+
+    it('accepts a search of 100 characters, not counting surrounding spaces', async () => {
+      expect(await searchIds({ q: ` ${'x'.repeat(100)} ` })).toEqual([])
+    })
+
+    it('refuses a search longer than 100 characters', async () => {
+      await expectInvalidQuery({ q: 'x'.repeat(101) }, 'q')
+    })
+
+    it('refuses a search sent more than once', async () => {
+      await expectInvalidQuery(
+        new URLSearchParams([
+          ['q', runPrefix],
+          ['q', 'other']
+        ]),
+        'q'
+      )
     })
 
     it('narrows alongside the state, type, nation and material filters', async () => {
