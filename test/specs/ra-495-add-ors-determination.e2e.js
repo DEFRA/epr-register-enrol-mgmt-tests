@@ -66,16 +66,22 @@ async function assertOnlyPendingContactAffordances(workItemId) {
 describe('RA-495 add-ORS determination', () => {
   let approval
   let refusal
+  let earliest
+  let latest
+  let accreditationYear
 
   before(async () => {
     const submission = await submitAddOverseasSiteRequest({
       organisationNamePrefix: 'RA495 Add ORS Determination Ltd',
-      siteCount: 2
+      siteCount: 4
     })
-    ;[approval, refusal] = submission.workItems
+    ;[approval, refusal, earliest, latest] = submission.workItems
+    accreditationYear = submission.payload.accreditationYear
     await login.login()
     await dulyMake(approval.id)
     await dulyMake(refusal.id)
+    await dulyMake(earliest.id)
+    await dulyMake(latest.id)
   })
 
   after(async () => {
@@ -135,6 +141,66 @@ describe('RA-495 add-ORS determination', () => {
       )
       await workItems.openWorkItem(approval.id)
       await detail.assertState('Duly made')
+    })
+  })
+
+  // RA-795: the valid from date must fall within the accreditation year
+  // (1 January to 31 December, inclusive); the old "not before the submission
+  // date" rule is gone. Rejections change nothing, so they run on `approval`
+  // before it is decided.
+  describe('valid from date bounds', () => {
+    async function assertRejected(date, message) {
+      await decision.gotoFor(approval.id, TYPE_ID)
+      await decision.selectOutcome('approved')
+      await decision.setEffectiveDate(date)
+      await decision.submit()
+      await decision.assertErrorSummary(message)
+      expect(await decision.effectiveDateErrorText()).toContain(message)
+      expect((await getWorkItem(approval.id)).stateId).toBe('duly-made')
+    }
+
+    it('rejects a date before 1 January of the accreditation year, naming the year', async () => {
+      await assertRejected(
+        { day: '31', month: '12', year: String(accreditationYear - 1) },
+        `Valid from date must be on or after 1 January ${accreditationYear}`
+      )
+    })
+
+    it('rejects a date after 31 December of the accreditation year, naming the year', async () => {
+      await assertRejected(
+        { day: '1', month: '1', year: String(accreditationYear + 1) },
+        `Valid from date must be on or before 31 December ${accreditationYear}`
+      )
+    })
+
+    it('rejects a date that is not a real date', async () => {
+      await assertRejected(
+        { day: '31', month: '2', year: String(accreditationYear) },
+        'Valid from date must be a real date'
+      )
+    })
+
+    // The item was submitted today, so 1 January is before its submission
+    // date, which the old rule rejected.
+    it('accepts 1 January of the accreditation year, even before the submission date', async () => {
+      await logDecision(earliest.id, 'approved', {
+        effectiveDate: { day: '1', month: '1', year: String(accreditationYear) }
+      })
+      const { payload, submittedAt } = await getWorkItem(earliest.id)
+      expect(payload.effectiveDate).toBe(`${accreditationYear}-01-01`)
+      expect(payload.effectiveDate <= ukIsoDateOf(submittedAt)).toBe(true)
+    })
+
+    it('accepts 31 December of the accreditation year', async () => {
+      await logDecision(latest.id, 'approved', {
+        effectiveDate: {
+          day: '31',
+          month: '12',
+          year: String(accreditationYear)
+        }
+      })
+      const { payload } = await getWorkItem(latest.id)
+      expect(payload.effectiveDate).toBe(`${accreditationYear}-12-31`)
     })
   })
 
