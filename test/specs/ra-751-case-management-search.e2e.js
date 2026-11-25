@@ -35,7 +35,8 @@ import {
  *   - `archived=true|false`: `payload.archivedAt` set or not; any other value
  *     is a 400;
  *   - `sort=last-modified`: newest `lastModifiedAt` first by default or
- *     with `dir=desc`, oldest first with `dir=asc`;
+ *     with `dir=desc`, oldest first with `dir=asc`; an unknown `sort` or
+ *     `dir` is a 400;
  *   - `GET /work-items/re-accreditation/states`: each state of the
  *     re-accreditation workflow, in workflow order, with what management-be
  *     pushes to the Operator journey when an item enters it.
@@ -207,6 +208,14 @@ describe('RA-751 Case management search', () => {
       expect(
         await searchIds({ q: runPrefix, sort: 'last-modified', dir: 'asc' })
       ).toEqual([unassigned.id, assigned.id])
+    })
+
+    it('refuses an unknown sort', async () => {
+      await expectInvalidQuery({ sort: 'last-changed' }, 'sort')
+    })
+
+    it('refuses a direction other than asc or desc', async () => {
+      await expectInvalidQuery({ sort: 'last-modified', dir: 'newest' }, 'dir')
     })
   })
 
