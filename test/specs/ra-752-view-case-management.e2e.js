@@ -5,18 +5,19 @@ import {
   adminUiRequest,
   CASEWORKER_USER,
   expectStatus,
-  isAdminUiCallerEnabled,
   managementBeRequest
 } from '../support/backend-api.js'
 import {
+  describeIfAdminUi,
   expectForbidden,
-  expectRefusedAndUnchanged
-} from '../support/admin-ui-assertions.js'
+  expectOnlyTheGateRefuses
+} from '../support/admin-ui-caller.js'
 import { getWorkItem } from '../support/decision-api.js'
 import { waitForStatusPushes } from '../support/status-push-audit.js'
 import {
   assignWorkItemViaApi,
-  createWorkItemViaApi
+  createWorkItemViaApi,
+  dulyMakeViaApi
 } from '../support/work-item-api.js'
 
 /**
@@ -54,15 +55,6 @@ import {
  * push to the Operator journey.
  */
 
-/** `yyyy-MM-dd` for a date `days` before today: a payment already made. */
-function daysAgo(days) {
-  return new Date(Date.now() - days * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10)
-}
-
-const describeIfAdminUi = isAdminUiCallerEnabled() ? describe : describe.skip
-
 describeIfAdminUi('RA-752 View Case management information', () => {
   const noteText = `RA-752 note ${randomUUID()}`
   let item
@@ -80,15 +72,7 @@ describeIfAdminUi('RA-752 View Case management information', () => {
       200,
       `add a note to work item ${item.id}`
     )
-    expectStatus(
-      await managementBeRequest(
-        'POST',
-        `/work-items/re-accreditation/${item.id}/duly-make`,
-        { body: { paymentDate: daysAgo(3) }, user: CASEWORKER_USER }
-      ),
-      200,
-      `duly make work item ${item.id}`
-    )
+    await dulyMakeViaApi(item.id)
     // The push to the Operator journey runs after the response.
     await waitForStatusPushes(item.id, 1)
   })
@@ -174,12 +158,14 @@ describeIfAdminUi('RA-752 View Case management information', () => {
       )
     })
 
-    it('may not add a note, and the item is unchanged', async () => {
-      await expectRefusedAndUnchanged(item.id, () =>
-        adminUiRequest('POST', `/work-items/${item.id}/notes`, {
-          body: { text: `RA-752 refused note ${randomUUID()}` }
-        })
-      )
+    it('may not add a note, which a caseworker may', async () => {
+      const text = `RA-752 refused note ${randomUUID()}`
+      const after = await expectOnlyTheGateRefuses(item.id, {
+        method: 'POST',
+        path: `/work-items/${item.id}/notes`,
+        body: { text }
+      })
+      expect(after.notes.map((note) => note.text)).toContain(text)
     })
   })
 })
