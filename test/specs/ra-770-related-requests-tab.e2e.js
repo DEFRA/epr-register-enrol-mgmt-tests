@@ -138,14 +138,7 @@ describe('RA-770 Related change requests tab', () => {
     })
 
     it('AC2: the pagination moves to page 2, which holds the last two', async () => {
-      await workItemDetail
-        .relatedRequestsPagination()
-        .$('.govuk-pagination__next a')
-        .click()
-      await browser.waitUntil(
-        async () => new URL(await browser.getUrl()).search === '?page=2',
-        { timeoutMsg: 'Expected page 2 of the Related change requests tab' }
-      )
+      await workItemDetail.nextRelatedRequestsPage()
       expect(await workItemDetail.relatedRequestsRows()).toEqual([
         expectedRow(submission, 10),
         expectedRow(submission, 11)
@@ -166,14 +159,7 @@ describe('RA-770 Related change requests tab', () => {
         )
       )
 
-      await workItemDetail
-        .relatedRequestsPagination()
-        .$('.govuk-pagination__next a')
-        .click()
-      await browser.waitUntil(
-        async () => new URL(await browser.getUrl()).search === '?page=2',
-        { timeoutMsg: 'Expected page 2 of the Related change requests tab' }
-      )
+      await workItemDetail.nextRelatedRequestsPage()
       expect(await workItemDetail.relatedRequestsRows()).toEqual([
         expectedRow(submission, 9),
         expectedRow(submission, 10)

@@ -739,6 +739,19 @@ class WorkItemDetailPage extends Page {
     return $('[data-testid="related-requests-tab"] .govuk-pagination')
   }
 
+  /** RA-770. Follow the pagination's Next link and wait for that page. */
+  async nextRelatedRequestsPage() {
+    const page =
+      Number(new URL(await browser.getUrl()).searchParams.get('page') ?? 1) + 1
+    await this.relatedRequestsPagination()
+      .$('.govuk-pagination__next a')
+      .click()
+    await browser.waitUntil(
+      async () => new URL(await browser.getUrl()).search === `?page=${page}`,
+      { timeoutMsg: `Expected page ${page} of the Related change requests tab` }
+    )
+  }
+
   /**
    * RA-769. Open the Accreditation summary tab of an add-ORS case and wait
    * for its page.
