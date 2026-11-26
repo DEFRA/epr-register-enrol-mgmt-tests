@@ -14,7 +14,7 @@ import {
 /**
  * RA-698 (AC10 to AC12) — raise a query on an in-year "Accreditation: new
  * ORS" work item, the query reaches the operator, the operator answers it
- * (resume-from-query) and the caseworker continues the review. Mirrors
+ * (resume-from-query) and the caseworker is offered Duly make. Mirrors
  * ra-291 (raise a query), ra-606 (push to the operator) and ra-454
  * (continue review) for add-ORS.
  *
@@ -58,7 +58,7 @@ const ROUND_TWO_BES_FILE = {
   s3Key: 'bes-evidence/ra-698-bes-file-2'
 }
 
-describe('RA-698 add-ORS query, response and continue review', () => {
+describe('RA-698 add-ORS query, response and duly make', () => {
   let submission
   let workItemId
   let siblingId
@@ -73,7 +73,7 @@ describe('RA-698 add-ORS query, response and continue review', () => {
     siblingId = submission.workItems[1].id
     originalName = submission.sites[0].siteName
     await login.login()
-    // Query while still submitted: resume-from-query then lands on Updated (an item queried after duly made resumes straight to assessment).
+    // Query while still submitted: resume-from-query lands on Updated with originStateId 'submitted' (an item queried after duly made resumes straight to assessment).
     await workItems.openWorkItem(workItemId)
     await detail.selfAssign()
   })
@@ -198,15 +198,23 @@ describe('RA-698 add-ORS query, response and continue review', () => {
     })
   })
 
-  describe('AC10 — the caseworker continues the review', () => {
-    it('offers "Continue review" on the Updated item', async () => {
+  describe('AC10 — the caseworker is offered Duly make', () => {
+    // Queried from Submitted, the item reports originStateId 'submitted'
+    // (AddOverseasSiteOriginStateResolver): it was never duly made, so Duly
+    // make is the way on and "Continue review" is withdrawn (RA-454).
+    // "Continue review" only appears for an item queried from assessment or
+    // decision, which land on Updated with that origin; a query from
+    // duly-made resumes straight to assessment-in-progress.
+    it('offers "Duly make", not "Continue review", on the Updated item queried from Submitted', async () => {
       await workItems.openWorkItem(workItemId)
-      expect(await detail.hasAddOrsContinueReviewCta()).toBe(true)
+      expect(await detail.hasDulyMakeCta()).toBe(true)
+      expect(await detail.hasAddOrsContinueReviewCta()).toBe(false)
     })
 
-    it('returns the item to Submitted and withdraws the button', async () => {
+    it('still accepts continue review over the API, returning the item to Submitted', async () => {
+      const response = await continueAddOrsReviewViaApi(workItemId)
+      expect(response.status).toBe(200)
       await workItems.openWorkItem(workItemId)
-      await detail.clickAddOrsContinueReview()
       await detail.assertStateId('submitted')
       expect(await detail.hasAddOrsContinueReviewCta()).toBe(false)
     })
@@ -243,6 +251,8 @@ describe('RA-698 add-ORS query, response and continue review', () => {
     it('updates the rejected loads arrangements on the case', async () => {
       const { payload } = await getWorkItem(workItemId)
       expect(payload.site.repatriatedLoads).toBe(ROUND_TWO_REJECTED_LOADS)
+      // The legacy wire key is not written onto the case.
+      expect(payload.site).not.toHaveProperty('rejectedLoadsArrangements')
     })
 
     it('updates the interim site and keeps the first round changes', async () => {
