@@ -262,6 +262,11 @@ export async function waitForChangeRequestItemStatus(item, status) {
  *
  * where `id` is the case-management work item id.
  *
+ * RA-770: `alsoSites` ([{ site, answers, besEvidence }]) are added to the
+ * same request before the submit, so one submission raises several work
+ * items; each is returned in `others`, as { id, itemId, applicationId, siteId,
+ * submittedAt, besFile }.
+ *
  * RA-769: a site that needs more than adding (DELHI) takes `answers`
  * (its coordinates, operation codes and conditions of export) and
  * `besEvidence` ({ filename, content }, one PDF uploaded through that
@@ -272,31 +277,20 @@ export async function submitAddOverseasSiteChangeRequest({
   applicationId,
   site,
   answers,
-  besEvidence
+  besEvidence,
+  alsoSites = []
 }) {
-  expectStatus(
-    await operatorBackendRequest(
-      'POST',
-      changesPath(applicationId, '/requests/current/sites'),
-      { body: { siteId: site.siteId } }
-    ),
-    [200, 201],
-    `add ORS ${site.orsId} to a change request`
-  )
-  if (answers) {
-    expectStatus(
-      await operatorBackendRequest(
-        'PATCH',
-        changesPath(applicationId, `/requests/current/sites/${site.siteId}`),
-        { body: answers }
-      ),
-      200,
-      `answer ORS ${site.orsId}'s questions`
+  const besFile = await addSiteToChangeRequest({
+    applicationId,
+    site,
+    answers,
+    besEvidence
+  })
+  const extraBesFiles = []
+  for (const extraSite of alsoSites) {
+    extraBesFiles.push(
+      await addSiteToChangeRequest({ applicationId, ...extraSite })
     )
-  }
-  let besFile
-  if (besEvidence) {
-    besFile = await uploadBesEvidence({ applicationId, site, ...besEvidence })
   }
   expectStatus(
     await operatorBackendRequest(
@@ -328,21 +322,66 @@ export async function submitAddOverseasSiteChangeRequest({
   if (!request) {
     throw new Error(`No submitted change request holds ORS ${site.orsId}`)
   }
-  const item = request.sites.find((s) => s.siteId === site.siteId)
-  const { workItemId } = await storedItem(item.itemId)
-  if (!workItemId) {
-    throw new Error(
-      `Change request item ${item.itemId} was submitted but has no case-management work item`
+  const submittedItem = async (siteId) => {
+    const item = request.sites.find((s) => s.siteId === siteId)
+    const { workItemId } = await storedItem(item.itemId)
+    if (!workItemId) {
+      throw new Error(
+        `Change request item ${item.itemId} was submitted but has no case-management work item`
+      )
+    }
+    return {
+      id: workItemId,
+      itemId: item.itemId,
+      applicationId,
+      siteId,
+      submittedAt: request.submittedAt
+    }
+  }
+  const others = []
+  for (const [index, extraSite] of alsoSites.entries()) {
+    others.push({
+      ...(await submittedItem(extraSite.site.siteId)),
+      besFile: extraBesFiles[index]
+    })
+  }
+  return { ...(await submittedItem(site.siteId)), besFile, others }
+}
+
+/**
+ * As the operator: adds `site` to the open change request, answers its
+ * questions and uploads its BES evidence when given. Returns the uploaded
+ * file, if any.
+ */
+async function addSiteToChangeRequest({
+  applicationId,
+  site,
+  answers,
+  besEvidence
+}) {
+  expectStatus(
+    await operatorBackendRequest(
+      'POST',
+      changesPath(applicationId, '/requests/current/sites'),
+      { body: { siteId: site.siteId } }
+    ),
+    [200, 201],
+    `add ORS ${site.orsId} to a change request`
+  )
+  if (answers) {
+    expectStatus(
+      await operatorBackendRequest(
+        'PATCH',
+        changesPath(applicationId, `/requests/current/sites/${site.siteId}`),
+        { body: answers }
+      ),
+      200,
+      `answer ORS ${site.orsId}'s questions`
     )
   }
-  return {
-    id: workItemId,
-    itemId: item.itemId,
-    applicationId,
-    siteId: site.siteId,
-    submittedAt: request.submittedAt,
-    besFile
-  }
+  return besEvidence
+    ? uploadBesEvidence({ applicationId, site, ...besEvidence })
+    : undefined
 }
 
 /**
