@@ -48,15 +48,16 @@ import {
  *     re-accreditation workflow, in workflow order, with what management-be
  *     pushes to the Operator journey when an item enters it.
  *
- * and registers the Admin UI as a READ-ONLY caller: it may GET only those
- * two routes, and every other request it sends, read or write, is refused
- * with a 403 ProblemDetails. Its search results carry only the fields it
- * shows (id, type, state, last changed, assignee, application reference,
- * organisation ID and name); every other caller still gets the full item. A
- * stored one of those payload fields that is not a string comes back as
- * null for that item, rather than failing the page. Its user name header,
- * percent-encoded, may be as long as the longest Entra ID display name
- * becomes when encoded.
+ * and registers the Admin UI as a READ-ONLY caller: it may GET those two
+ * routes, and every write it sends is refused with a 403 ProblemDetails.
+ * (RA-752 opens the single work item reads to it too; those are covered in
+ * ra-752-view-case-management.e2e.js.) Its search results carry only the
+ * fields it shows (id, type, state, last changed, assignee, application
+ * reference, organisation ID and name); every other caller still gets the
+ * full item. A stored one of those payload fields that is not a string
+ * comes back as null for that item, rather than failing the page. Its user
+ * name header, percent-encoded, may be as long as the longest Entra ID
+ * display name becomes when encoded.
  *
  * management-fe does not change, so this is asserted against management-be
  * directly, as the suite's own caller (`epr-register-enrol-mgmt-tests`) and,
@@ -559,12 +560,6 @@ describe('RA-751 Case management search', () => {
       const body = await adminUiGet('/work-items/re-accreditation/states')
       expect(body.typeId).toBe('re-accreditation')
       expect(body.states).toEqual(RE_ACCREDITATION_STATES)
-    })
-
-    it('may not read a single work item', async () => {
-      expectForbidden(
-        await adminUiRequest('GET', `/work-items/${unassigned.id}`)
-      )
     })
 
     // Each refused write below is one management-be accepts from a caller
