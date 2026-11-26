@@ -112,11 +112,12 @@ describe('RA-291 Query an application', () => {
       await login.logout()
     })
 
-    it('offers the reprocessor queryable sections and hides the exporter-only BES/ORS', async () => {
+    it('offers the reprocessor queryable sections and hides the exporter-only ORS and BES checkbox', async () => {
       // RA-367: a work item created through the UI carries no
       // wasteProcessingType, so it is treated as a reprocessor — the
-      // exporter-only BES/ORS sections are hidden and only the four common
-      // areas are offered.
+      // exporter-only "Overseas reprocessing sites and BES evidence"
+      // checkbox (RA-698: one combined checkbox, not two) is hidden and only
+      // the four common areas are offered.
       await query.gotoFor(workItemId)
       expect(await query.countSectionOptions()).toBe(
         REPROCESSOR_QUERY_SECTIONS.length

@@ -1628,6 +1628,69 @@ class WorkItemDetailPage extends Page {
     return $('[data-testid="add-overseas-site-detail"]')
   }
 
+  /**
+   * RA-698. The add-ORS detail page's "Raise a query" link (submitted, duly
+   * made and assessment states). It is rendered by the add-ORS template
+   * itself, outside the generic actions panel, so `countActionsWithId` does
+   * not see it.
+   */
+  addOrsRaiseQueryCta() {
+    return $(
+      '[data-testid="add-overseas-site-query-cta"] [data-testid="action-query"]'
+    )
+  }
+
+  async hasAddOrsRaiseQueryCta() {
+    return this.addOrsRaiseQueryCta().isExisting()
+  }
+
+  /** RA-698. The add-ORS "Continue review" button, shown while `updated`. */
+  addOrsContinueReviewCta() {
+    return $(
+      '[data-testid="add-overseas-site-continue-review-cta"] [data-testid="action-continue-review"]'
+    )
+  }
+
+  async hasAddOrsContinueReviewCta() {
+    return this.addOrsContinueReviewCta().isExisting()
+  }
+
+  async clickAddOrsContinueReview() {
+    await this.addOrsContinueReviewCta().click()
+  }
+
+  /**
+   * RA-698. The "Operator response to query" block on the add-ORS detail page.
+   * `key` is the changed ORS field (`siteName`, `contactName`, ...).
+   */
+  operatorResponse() {
+    return $('[data-testid="operator-response"]')
+  }
+
+  async hasOperatorResponse() {
+    return this.operatorResponse().isExisting()
+  }
+
+  async operatorResponseSubmittedBy() {
+    return $('[data-testid="operator-response-submitted-by"]').getText()
+  }
+
+  async operatorResponseChange(key) {
+    return {
+      oldValue: await $(
+        `[data-testid="operator-response-old-${key}"]`
+      ).getText(),
+      newValue: await $(
+        `[data-testid="operator-response-new-${key}"]`
+      ).getText()
+    }
+  }
+
+  async operatorResponseBesFileNames() {
+    const files = await $$('[data-testid="operator-response-bes-files"] li')
+    return Promise.all([...files].map(async (f) => (await f.getText()).trim()))
+  }
+
   async caseHeaderFieldText(name) {
     return this.caseHeaderField(name).getText()
   }

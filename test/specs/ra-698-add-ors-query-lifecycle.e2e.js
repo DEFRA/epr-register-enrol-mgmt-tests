@@ -1,0 +1,209 @@
+import { $, browser, expect } from '@wdio/globals'
+import login from '../page-objects/login.page.js'
+import workItems from '../page-objects/work-items.page.js'
+import detail from '../page-objects/work-item-detail.page.js'
+import query from '../page-objects/query.page.js'
+import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
+import { getWorkItem } from '../support/decision-api.js'
+import { dulyMake } from '../support/standard-lifecycle-journey.js'
+import {
+  continueAddOrsReviewViaApi,
+  raiseAddOrsQuery,
+  resumeAddOrsFromQuery
+} from '../support/query-resubmission.js'
+
+/**
+ * RA-698 (AC10 to AC12) — raise a query on an in-year "Accreditation: new
+ * ORS" work item, the query reaches the operator, the operator answers it
+ * (resume-from-query) and the caseworker continues the review. Mirrors
+ * ra-291 (raise a query), ra-606 (push to the operator) and ra-454
+ * (continue review) for add-ORS.
+ *
+ * The item is submitted straight to management-be (Path A, RA-739), so the
+ * operator journey backend holds no change request for it and refuses the
+ * query push: management-be records `query-push-failed` and the query still
+ * stands, exactly as ra-606's "refuses the push" case. The operator's own
+ * record taking the query (the push accepted, the item reading Queried
+ * there) needs an item the operator journey raised, which only the root
+ * stack's seeded organisation 50019 provides; that belongs to the fe-tests
+ * @monorepo spec, not this suite.
+ *
+ * The operator's answer is the `resume-from-query` call the operator backend
+ * makes (a caseworker cannot resubmit on the operator's behalf), made here as
+ * the operator service.
+ *
+ * ORDERING IS LOAD-BEARING: the `it`s share one work item and each step is
+ * one-way. Do not reorder or run one in isolation with `.only`.
+ */
+const REASON = 'Please confirm the ORS address and upload the BES certificate.'
+const NEW_NAME = 'RA-698 Renamed ORS'
+const NEW_CONTACT = 'Pierre Martin'
+const NEW_BES_FILE = {
+  fileId: 'ra-698-bes-file',
+  filename: 'ra-698-bes-evidence.pdf',
+  contentType: 'application/pdf',
+  s3Key: 'bes-evidence/ra-698-bes-file',
+  s3Bucket: 'bes-evidence',
+  besEvidenceValidFromDate: '2026-02-01',
+  besEvidenceExpiryDate: '2027-12-31'
+}
+
+describe('RA-698 add-ORS query, response and continue review', () => {
+  let submission
+  let workItemId
+  let siblingId
+  let originalName
+
+  before(async () => {
+    submission = await submitAddOverseasSiteRequest({
+      organisationNamePrefix: 'RA698 Add ORS Query Ltd',
+      siteCount: 2
+    })
+    workItemId = submission.workItems[0].id
+    siblingId = submission.workItems[1].id
+    originalName = submission.sites[0].siteName
+    await login.login()
+    // Query from duly made, so continue review has an assessment to go to.
+    await workItems.openWorkItem(workItemId)
+    await detail.selfAssign()
+    await dulyMake(workItemId)
+  })
+
+  after(async () => {
+    await login.logout()
+  })
+
+  describe('AC11 — the regulator raises the query', () => {
+    it('raises a reason-only query and moves the item to Queried', async () => {
+      await raiseAddOrsQuery(workItemId, { reason: REASON })
+      await detail.assertStateId('queried')
+    })
+
+    it('records the query and its reason in the application history', async () => {
+      await workItems.openWorkItem(workItemId)
+      await detail.gotoAudit()
+      await detail.assertAuditEntry('Application queried')
+      await detail.expandAllAuditEntryDetails()
+      await expect(
+        $(
+          '//*[@data-testid="work-item-audit-log"]//li[@data-action="application-queried"]' +
+            '//dt[normalize-space(.)="Reason"]/following-sibling::dd'
+        )
+      ).toHaveText(expect.stringContaining(REASON))
+    })
+
+    it('stores the note on the work item and no section keys', async () => {
+      const { payload } = await getWorkItem(workItemId)
+      expect(payload.currentQuery.reason).toBe(REASON)
+      expect(payload.currentQuery.sections ?? []).toEqual([])
+    })
+
+    it('pushes the query to the operator backend, which refuses an item it does not hold', async () => {
+      await workItems.openWorkItem(workItemId)
+      await detail.gotoAudit()
+      const failed = await detail.waitForAuditEntryCount('query-push-failed', 1)
+      expect(failed.length).toBe(1)
+      expect(
+        (await detail.auditEntriesForAction('query-push-sent')).length
+      ).toBe(0)
+      // The query stands.
+      await workItems.openWorkItem(workItemId)
+      await detail.assertState('Queried')
+    })
+
+    it('withdraws "Raise a query" so a second query cannot be raised', async () => {
+      await workItems.openWorkItem(workItemId)
+      expect(await detail.hasAddOrsRaiseQueryCta()).toBe(false)
+      await browser.url(`/work-items/${workItemId}/query`)
+      await query.waitForDetailUrl(workItemId)
+      await expect($('[data-testid="query-form"]')).not.toExist()
+    })
+
+    it('leaves the sibling ORS from the same submission untouched', async () => {
+      await workItems.openWorkItem(siblingId)
+      await detail.assertStateId('submitted')
+    })
+
+    it('refuses continue review while the item is still queried', async () => {
+      await workItems.openWorkItem(workItemId)
+      expect(await detail.hasAddOrsContinueReviewCta()).toBe(false)
+      const refused = await continueAddOrsReviewViaApi(workItemId)
+      expect(refused.status).toBe(409)
+    })
+  })
+
+  describe('AC10/AC12 — the operator responds', () => {
+    it('refuses a response that changes a locked field, leaving the item Queried', async () => {
+      await expect(
+        resumeAddOrsFromQuery(workItemId, { site: { country: 'Spain' } })
+      ).rejects.toThrow(/returned 400/)
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('queried')
+    })
+
+    it('moves the item to Updated when the operator resubmits', async () => {
+      await resumeAddOrsFromQuery(workItemId, {
+        site: { siteName: NEW_NAME, contactName: NEW_CONTACT },
+        besEvidenceFiles: [NEW_BES_FILE]
+      })
+      await workItems.openWorkItem(workItemId)
+      await detail.assertState('Updated')
+      await detail.assertStateId('updated')
+    })
+
+    it('shows the operator response: changed values old to new, who sent it and the new BES file', async () => {
+      await workItems.openWorkItem(workItemId)
+      expect(await detail.hasOperatorResponse()).toBe(true)
+      expect(await detail.operatorResponseChange('siteName')).toEqual({
+        oldValue: originalName,
+        newValue: NEW_NAME
+      })
+      expect(
+        (await detail.operatorResponseChange('contactName')).newValue
+      ).toBe(NEW_CONTACT)
+      expect(await detail.operatorResponseSubmittedBy()).toContain(
+        'Olivia Operator'
+      )
+      expect((await detail.operatorResponseBesFileNames()).join(' ')).toContain(
+        NEW_BES_FILE.filename
+      )
+    })
+
+    it('records the response in the application history', async () => {
+      await workItems.openWorkItem(workItemId)
+      await detail.gotoAudit()
+      await detail.assertAuditEntry('Query responded')
+    })
+
+    it('treats a repeated response as a no-op that keeps the first one', async () => {
+      await resumeAddOrsFromQuery(workItemId, {
+        site: { siteName: 'A second answer' }
+      })
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('updated')
+      expect((await detail.operatorResponseChange('siteName')).newValue).toBe(
+        NEW_NAME
+      )
+    })
+  })
+
+  describe('AC10 — the caseworker continues the review', () => {
+    it('offers "Continue review" on the Updated item', async () => {
+      await workItems.openWorkItem(workItemId)
+      expect(await detail.hasAddOrsContinueReviewCta()).toBe(true)
+    })
+
+    it('moves the item on to assessment and withdraws the button', async () => {
+      await workItems.openWorkItem(workItemId)
+      await detail.clickAddOrsContinueReview()
+      await detail.assertStateId('assessment-in-progress')
+      expect(await detail.hasAddOrsContinueReviewCta()).toBe(false)
+    })
+
+    it('treats a repeated continue review as an idempotent replay', async () => {
+      const replay = await continueAddOrsReviewViaApi(workItemId)
+      expect(replay.status).toBe(200)
+      expect(replay.headers.get('x-idempotent-replay')).toBe('true')
+    })
+  })
+})

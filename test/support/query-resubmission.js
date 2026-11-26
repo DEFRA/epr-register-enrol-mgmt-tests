@@ -144,3 +144,89 @@ export async function raiseQuery(
   await query.waitForDetailUrl(workItemId)
   await detail.assertState('Queried')
 }
+
+/**
+ * RA-698. Raise a query on an add-ORS (`add-overseas-site`) work item through
+ * the UI, leaving it in `queried`.
+ *
+ * The form is the reason alone: an add-ORS item is one ORS, so the query is
+ * implicitly the combined ORS + BES one and there are no section checkboxes.
+ * management-be refuses a blank reason for add-ORS (the note is the whole
+ * query, and is pushed to the operator), so a reason is always entered.
+ */
+export async function raiseAddOrsQuery(
+  workItemId,
+  {
+    reason = 'Please confirm the site address and upload the BES evidence.'
+  } = {}
+) {
+  await query.gotoFor(workItemId)
+  await query.fillReason(reason)
+  await query.submit()
+  await query.waitForDetailUrl(workItemId)
+  await detail.assertState('Queried')
+}
+
+/**
+ * RA-698. Simulate the operator answering an add-ORS query: the call the
+ * operator backend makes to `POST /work-items/add-overseas-site/{id}/
+ * resume-from-query` (the add-ORS route is typed, unlike the type-less query
+ * and continue-review routes). Moves the item from `queried` to `updated`.
+ *
+ * `site` holds the changed ORS values and each `interimSites[]` entry the
+ * changed values of one interim site (matched on `siteNumber`), by the
+ * editable fields only: name, address lines, contact details and, for the ORS,
+ * `rejectedLoadsArrangements`. Country, coordinates and recycling operations
+ * are locked and refused with a 400. `besEvidenceFiles` are the NEW files.
+ * The response must change something.
+ *
+ * Throws on anything other than 200, as `resumeFromQuery` does.
+ */
+export async function resumeAddOrsFromQuery(
+  workItemId,
+  {
+    site = { siteName: 'Renamed in response to query' },
+    interimSites = [],
+    besEvidenceFiles = []
+  } = {}
+) {
+  const result = await managementBeRequest(
+    'POST',
+    `/work-items/add-overseas-site/${workItemId}/resume-from-query`,
+    {
+      body: {
+        responderContactDetails: {
+          fullName: 'Olivia Operator',
+          email: SIMULATED_DELIVERED_EMAIL,
+          role: 'Compliance Manager'
+        },
+        submittedAt: new Date().toISOString(),
+        site,
+        interimSites,
+        besEvidenceFiles
+      }
+    }
+  )
+  if (result.status !== 200) {
+    throw new Error(
+      `add-ORS resume-from-query for ${workItemId} returned ${result.status}: ` +
+        JSON.stringify(result.body)
+    )
+  }
+  return result
+}
+
+/**
+ * RA-698. `POST /work-items/{id}/continue-review` for an add-ORS item,
+ * without asserting the outcome (for the guard cases: a state it cannot be
+ * called from). The happy path goes through the "Continue review" button.
+ */
+export function continueAddOrsReviewViaApi(workItemId) {
+  return managementBeRequest(
+    'POST',
+    `/work-items/${workItemId}/continue-review`,
+    {
+      user: CASEWORKER_USER
+    }
+  )
+}
