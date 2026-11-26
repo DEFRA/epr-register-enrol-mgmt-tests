@@ -136,7 +136,7 @@ const STUB_INTERIM_SITES = [
 const ADD_ORS_TAB_KEYS = [
   'application-summary',
   'accreditation-summary',
-  'related-applications',
+  'related-requests',
   'application-history'
 ]
 
@@ -392,12 +392,6 @@ describe('RA-769 Accreditation summary tab', () => {
       expect(panelText).not.toContain(action)
     }
     expect(await $('main').getText()).not.toContain('NEW:')
-  })
-
-  it('keeps Related applications as its placeholder', async () => {
-    await workItemDetail.gotoTab('relatedApplications')
-    const panel = await workItemDetail.tabPanel('relatedApplications')
-    expect((await panel.getText()).trim()).toBe('')
   })
 })
 

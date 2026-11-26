@@ -664,7 +664,7 @@ class WorkItemDetailPage extends Page {
 
   /**
    * RA-495. Open an add-ORS tab ('accreditationSummary'
-   * or 'relatedApplications') and wait for its page. The tab's key (its
+   * or 'relatedRequests') and wait for its page. The tab's key (its
    * testid without `tab-`) is its path segment.
    */
   async gotoTab(name) {
@@ -676,9 +676,80 @@ class WorkItemDetailPage extends Page {
     )
   }
 
-  /** RA-495. The empty panel of an add-ORS tab with no content yet. */
+  /** RA-495. The panel of an add-ORS tab (`<key>-tab`). */
   async tabPanel(name) {
     return $(`[data-testid="${await this.tabKey(name)}-tab"]`)
+  }
+
+  /**
+   * RA-770. Open the Related change requests tab of an add-ORS case and wait
+   * for its page.
+   */
+  async gotoRelatedRequests() {
+    await this.gotoTab('relatedRequests')
+  }
+
+  /** RA-770. The tab's "Accreditation" block: [label, value] per row, in order. */
+  async relatedAccreditationRows() {
+    const rows = await $$(
+      '[data-testid="related-accreditation"] .govuk-summary-list__row'
+    )
+    const result = []
+    for (const row of rows) {
+      result.push([
+        squash(await row.$('.govuk-summary-list__key').getText()),
+        squash(await row.$('.govuk-summary-list__value').getText())
+      ])
+    }
+    return result
+  }
+
+  /** RA-770. The table's heading ("Related requests (n)"). */
+  relatedRequestsHeading() {
+    return $('[data-testid="related-requests-heading"]')
+  }
+
+  /**
+   * RA-770. The Related requests table's rows, in page order, as
+   *   { reference, link, site, type, charge, status }
+   * where `link` is the reference's href.
+   */
+  async relatedRequestsRows() {
+    const rows = await $$('[data-testid="related-requests-row"]')
+    const result = []
+    for (const row of rows) {
+      const text = async (key) =>
+        squash(await row.$(`[data-testid="related-requests-${key}"]`).getText())
+      result.push({
+        reference: await text('reference'),
+        link: await row
+          .$('[data-testid="related-requests-reference"]')
+          .getAttribute('href'),
+        site: await text('site'),
+        type: await text('type'),
+        charge: await text('charge'),
+        status: await text('status')
+      })
+    }
+    return result
+  }
+
+  /** RA-770. The pagination under the Related requests table. */
+  relatedRequestsPagination() {
+    return $('[data-testid="related-requests-tab"] .govuk-pagination')
+  }
+
+  /** RA-770. Follow the pagination's Next link and wait for that page. */
+  async nextRelatedRequestsPage() {
+    const page =
+      Number(new URL(await browser.getUrl()).searchParams.get('page') ?? 1) + 1
+    await this.relatedRequestsPagination()
+      .$('.govuk-pagination__next a')
+      .click()
+    await browser.waitUntil(
+      async () => new URL(await browser.getUrl()).search === `?page=${page}`,
+      { timeoutMsg: `Expected page ${page} of the Related change requests tab` }
+    )
   }
 
   /**
@@ -1012,7 +1083,7 @@ class WorkItemDetailPage extends Page {
       additionalInformation: 'tab-additional-information',
       // RA-495. Add-ORS only.
       accreditationSummary: 'tab-accreditation-summary',
-      relatedApplications: 'tab-related-applications'
+      relatedRequests: 'tab-related-requests'
     }
     const testId = testIds[name]
     if (!testId) {
