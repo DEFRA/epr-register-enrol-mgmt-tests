@@ -134,16 +134,18 @@ org 50019, resets it itself and skips everywhere else:
   stack's `mgmt-tests` container pass
   `-e MONOREPO_MONGO_URL=mongodb://mongodb:27017/?directConnection=true`).
   ra-495-add-ors-operator-journey.e2e.js,
-  ra-769-accreditation-summary-journey.e2e.js and the closing journey in
+  ra-769-accreditation-summary-journey.e2e.js,
+  ra-770-related-requests-journey.e2e.js and the closing journey in
   ra-800-add-ors-change-valid-from.e2e.js (the rest of that spec uses Path A)
   skip without it, or on a stack with no such org. Every reset deletes all of
   the org's change requests and their add-ORS work items, including any you
-  made by hand. RA-769's journey also grants and resets Delhi. Don't run any
-  of the three while the fe-tests @monorepo specs (including the fe-tests#200
-  specs, which also use Delhi) run: they share the org. The three clash with
-  each other too: `wdio.conf.js` runs one spec at a time, so a single run is
-  safe, but `test:github` runs 3 parallel instances, and two instances against
-  the root stack can reach org 50019 at once.
+  made by hand. RA-769's journey also grants and resets Delhi, and RA-770's
+  submits Rotterdam and Delhi together and resets both. Don't run any of the
+  four while the fe-tests @monorepo specs (including the fe-tests#200 specs,
+  which also use Delhi) run: they share the org. The four clash with each
+  other too: `wdio.conf.js` runs one spec at a time, so a single run is safe,
+  but `test:github` runs 3 parallel instances, and two instances against the
+  root stack can reach org 50019 at once.
 
 Five cases, for four tickets, need a document no API can create:
 
