@@ -23,6 +23,10 @@ process.env.CDP_UPLOADER_URL ??= 'http://localhost:7337'
 // management-be secret, so it accepts the suite's unsigned pushes as
 // management-be's. Set CASE_MANAGEMENT_PUSH_SECRET too if yours has one.
 process.env.CASE_MANAGEMENT_PUSH_ENABLED ??= 'true'
+// RA-751: the local stack's management-be runs as Development with no
+// secrets, so it accepts the suite's unsigned requests as the Admin UI's. Set
+// ADMIN_UI_SHARED_SECRET too if yours has one.
+process.env.ADMIN_UI_CALLER_ENABLED ??= 'true'
 // RA-495: the monorepo root stack's MongoDB, which RA-495's operator-journey
 // add-ORS spec resets between runs (support/operator-change-requests.js). It
 // skips on any other stack, which holds no in-year change accreditation.

@@ -11,12 +11,9 @@
 
 import { randomBytes, randomInt } from 'node:crypto'
 
-import {
-  CASEWORKER_USER,
-  expectStatus,
-  managementBeRequest
-} from './backend-api.js'
+import { expectStatus, managementBeRequest } from './backend-api.js'
 import { uniqueOrganisationName } from './unique-name.js'
+import { listWorkItemsViaApi } from './work-item-api.js'
 
 const TYPE_ID = 'add-overseas-site'
 
@@ -181,14 +178,11 @@ export async function submitAddOverseasSiteRequest({
 
 /** The add-ORS work items management-be holds for `organisationName`. */
 export async function listAddOverseasSiteWorkItems(organisationName) {
-  const query = new URLSearchParams({
-    typeId: TYPE_ID,
-    orgName: organisationName,
-    pageSize: '50'
-  })
   const { body } = expectStatus(
-    await managementBeRequest('GET', `/work-items?${query}`, {
-      user: CASEWORKER_USER
+    await listWorkItemsViaApi({
+      typeId: TYPE_ID,
+      orgName: organisationName,
+      pageSize: '50'
     }),
     200,
     `list add-ORS work items for "${organisationName}"`

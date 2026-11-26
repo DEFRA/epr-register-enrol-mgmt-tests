@@ -27,6 +27,21 @@
  * With neither set, requests go unsigned, which only a stack with no
  * secrets configured accepts.
  *
+ * RA-751. One spec also plays the Admin UI (`epr-register-enrol-admin`),
+ * management-be's read-only caller, to pin its route policy. That only works
+ * where the suite may hold the Admin UI's secret, so it is opt-in too:
+ *
+ *   ADMIN_UI_CALLER_ENABLED         "true" where the spec may run: the
+ *                                   compose stack (wdio.github.conf.js) and a
+ *                                   local stack (wdio.local.conf.js). Unset
+ *                                   on CDP, where the secret is the Admin
+ *                                   UI's alone, so the spec is skipped there.
+ *   ADMIN_UI_SHARED_SECRET          management-be's
+ *                                   AUTH_SHARED_SECRET__ADMIN_UI. Unset on a
+ *                                   local stack, whose management-be runs as
+ *                                   Development with no secrets and accepts
+ *                                   the requests unsigned.
+ *
  * RA-527. One spec also plays management-be itself, sending a status push to
  * the operator backend as management-be does (`caseManagementPushRequest`).
  * That only works where the suite may hold management-be's own secret for
@@ -79,8 +94,9 @@ function requireEnv(name) {
 /**
  * management-be's v3 HMAC trust-header signature, in the extended form
  * (`v3`, client id, user id, user name, role, nation, timestamp, nonce, each
- * on its own line). This suite never sends role or nation headers, so both
- * are signed as empty strings. Mirrors management-fe's
+ * on its own line). A header the request does not send (the mgmt-tests
+ * caller and the Admin UI send no nation, and the mgmt-tests caller usually
+ * no role) is signed as an empty string. Mirrors management-fe's
  * `src/server/common/helpers/backend-api/sign-request.js`.
  *
  * Returns no headers when `sharedSecret` is unset.
@@ -88,7 +104,7 @@ function requireEnv(name) {
 export function signManagementBeHeaders(
   headers,
   {
-    sharedSecret = process.env.MANAGEMENT_BE_SHARED_SECRET,
+    sharedSecret,
     timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
     nonce = randomBytes(16).toString('base64url')
   } = {}
@@ -137,26 +153,117 @@ async function send(url, { method, headers, body }) {
 
 /**
  * Call management-be as the `epr-register-enrol-mgmt-tests` caller, acting
- * as `user`. A fresh nonce and signature are minted for every request, so a
- * retry is always a new, validly signed request.
+ * as `user`.
  */
 export function managementBeRequest(
   method,
   path,
   { body, user = OPERATOR_SERVICE_USER } = {}
 ) {
+  return signedManagementBeRequest(method, path, {
+    clientId: MGMT_TESTS_CLIENT_ID,
+    sharedSecret: process.env.MANAGEMENT_BE_SHARED_SECRET,
+    user,
+    body
+  })
+}
+
+/** RA-751. The client id the Admin UI signs its management-be calls with. */
+const ADMIN_UI_CLIENT_ID = 'epr-register-enrol-admin'
+
+/**
+ * RA-751. The acting identity when the suite plays the Admin UI: a support
+ * user with the role the Admin UI requires and sends with every call
+ * (its `auth.requiredRole`). Like the Admin UI it sends no nation, so the
+ * signed payload has the role line and an empty nation line (ADR-0010).
+ */
+const ADMIN_UI_USER = {
+  id: 'stub-admin-support-user',
+  name: 'Stub Admin Support User',
+  role: 'Waste.SupportUser.ReadOnly'
+}
+
+/** RA-751. Whether this run may play the Admin UI (see the module doc). */
+export const isAdminUiCallerEnabled = () =>
+  process.env.ADMIN_UI_CALLER_ENABLED === 'true'
+
+/**
+ * RA-751. Call management-be AS the Admin UI, signed with
+ * `ADMIN_UI_SHARED_SECRET` (or, by passing `sharedSecret`, with some other
+ * secret, to prove a wrong one is refused). `userName` replaces the acting
+ * user's name. As the Admin UI does, the name is sent (and signed) as
+ * `encodeURIComponent(name.trim())`, so a name outside ASCII is a valid
+ * header; management-be checks the header as received.
+ *
+ * `role` and `nation` replace the role the Admin UI sends and add a nation
+ * it never sends. Only to prove a refusal is the read-only gate's: a write
+ * whose handler checks the caller's role and nation is sent with the ones a
+ * caseworker would succeed with, so the handler's own 403 is ruled out.
+ *
+ * Only for runs where `isAdminUiCallerEnabled()`; it throws otherwise, so a
+ * spec that forgot the gate fails loudly rather than with a puzzling 401.
+ */
+export function adminUiRequest(
+  method,
+  path,
+  {
+    body,
+    sharedSecret = process.env.ADMIN_UI_SHARED_SECRET,
+    userName = ADMIN_UI_USER.name,
+    role = ADMIN_UI_USER.role,
+    nation
+  } = {}
+) {
+  if (!isAdminUiCallerEnabled()) {
+    throw new Error(
+      'ADMIN_UI_CALLER_ENABLED is not "true": this run may not play the Admin UI.'
+    )
+  }
+  return signedManagementBeRequest(method, path, {
+    clientId: ADMIN_UI_CLIENT_ID,
+    sharedSecret,
+    user: {
+      ...ADMIN_UI_USER,
+      name: encodeURIComponent(userName.trim()),
+      role,
+      nation
+    },
+    body
+  })
+}
+
+/**
+ * Call management-be as `clientId`, acting as `user` (with its role and
+ * nation headers when `user.role` and `user.nation` are set), signed with
+ * `sharedSecret` when it is set. A fresh nonce and signature are minted for
+ * every request, so a retry is always a new, validly signed request.
+ */
+function signedManagementBeRequest(
+  method,
+  path,
+  { clientId, sharedSecret, user, body }
+) {
   const headers = {
     accept: 'application/json',
-    'x-cdp-client-id': MGMT_TESTS_CLIENT_ID,
+    'x-cdp-client-id': clientId,
     'x-cdp-user-id': user.id,
     'x-cdp-user-name': user.name
+  }
+  if (user.role) {
+    headers['x-cdp-user-role'] = user.role
+  }
+  if (user.nation) {
+    headers['x-cdp-user-nation'] = user.nation
   }
   if (body !== undefined) {
     headers['content-type'] = 'application/json'
   }
   return send(`${requireEnv('MANAGEMENT_BE_URL')}${path}`, {
     method,
-    headers: { ...headers, ...signManagementBeHeaders(headers) },
+    headers: {
+      ...headers,
+      ...signManagementBeHeaders(headers, { sharedSecret })
+    },
     body
   })
 }
