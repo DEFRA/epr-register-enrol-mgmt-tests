@@ -68,6 +68,24 @@ function basePayload({ organisationName, token }) {
 }
 
 /**
+ * The `POST /work-items` body for a new re-accreditation submission, without
+ * sending it, so a spec can send the same valid submission as two callers.
+ * `organisationNamePrefix` and `fields` are as for `createWorkItemViaApi`.
+ */
+export function buildWorkItemSubmission({
+  organisationNamePrefix,
+  fields = {}
+}) {
+  const base = basePayload({
+    organisationName: uniqueOrganisationName(organisationNamePrefix),
+    token: hex()
+  })
+  const payload =
+    typeof fields === 'function' ? fields(base) : { ...base, ...fields }
+  return { typeId: 're-accreditation', source: 'mgmt-tests', payload }
+}
+
+/**
  * Submit a re-accreditation work item and return
  *
  *   { id, organisationName, applicationReference, operatorOrganisationId,
@@ -81,21 +99,11 @@ function basePayload({ organisationName, token }) {
  * that receives the base payload and returns the whole payload, for a fixture
  * that must leave a base field out (e.g. an exporter has no location).
  */
-export async function createWorkItemViaApi({
-  organisationNamePrefix,
-  fields = {}
-}) {
-  const token = hex()
-  const base = basePayload({
-    organisationName: uniqueOrganisationName(organisationNamePrefix),
-    token
-  })
-  const payload =
-    typeof fields === 'function' ? fields(base) : { ...base, ...fields }
+export async function createWorkItemViaApi(options) {
+  const body = buildWorkItemSubmission(options)
+  const { payload } = body
   const result = expectStatus(
-    await managementBeRequest('POST', '/work-items', {
-      body: { typeId: 're-accreditation', source: 'mgmt-tests', payload }
-    }),
+    await managementBeRequest('POST', '/work-items', { body }),
     201,
     `create work item for "${payload.organisationName}"`
   )
@@ -149,5 +157,26 @@ export async function assignWorkItemViaApi(workItemId, user = CASEWORKER_USER) {
     }),
     200,
     `assign work item ${workItemId} to ${user.id}`
+  )
+}
+
+/**
+ * RA-751. Duly make the work item over management-be's own duly-make route,
+ * as a caseworker, with today's (UTC) date as the payment date, as the
+ * duly-making page does by default. Moves a `submitted` item to `duly-made`.
+ */
+export async function dulyMakeViaApi(workItemId) {
+  expectStatus(
+    await managementBeRequest(
+      'POST',
+      `/work-items/re-accreditation/${workItemId}/duly-make`,
+      {
+        // `yyyy-MM-dd`, the date part of the ISO timestamp.
+        body: { paymentDate: new Date().toISOString().split('T')[0] },
+        user: CASEWORKER_USER
+      }
+    ),
+    200,
+    `duly make work item ${workItemId}`
   )
 }

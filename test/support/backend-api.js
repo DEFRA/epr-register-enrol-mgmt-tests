@@ -95,8 +95,8 @@ function requireEnv(name) {
  * management-be's v3 HMAC trust-header signature, in the extended form
  * (`v3`, client id, user id, user name, role, nation, timestamp, nonce, each
  * on its own line). A header the request does not send (the mgmt-tests
- * caller sends no role, and no caller here sends a nation) is signed as an
- * empty string. Mirrors management-fe's
+ * caller and the Admin UI send no nation, and the mgmt-tests caller usually
+ * no role) is signed as an empty string. Mirrors management-fe's
  * `src/server/common/helpers/backend-api/sign-request.js`.
  *
  * Returns no headers when `sharedSecret` is unset.
@@ -193,9 +193,15 @@ export const isAdminUiCallerEnabled = () =>
  * secret, to prove a wrong one is refused). `userName` replaces the acting
  * user's name. As the Admin UI does, the name is sent (and signed) as
  * `encodeURIComponent(name.trim())`, so a name outside ASCII is a valid
- * header; management-be checks the header as received. Only for runs where
- * `isAdminUiCallerEnabled()`; it throws otherwise, so a spec that forgot the
- * gate fails loudly rather than with a puzzling 401.
+ * header; management-be checks the header as received.
+ *
+ * `role` and `nation` replace the role the Admin UI sends and add a nation
+ * it never sends. Only to prove a refusal is the read-only gate's: a write
+ * whose handler checks the caller's role and nation is sent with the ones a
+ * caseworker would succeed with, so the handler's own 403 is ruled out.
+ *
+ * Only for runs where `isAdminUiCallerEnabled()`; it throws otherwise, so a
+ * spec that forgot the gate fails loudly rather than with a puzzling 401.
  */
 export function adminUiRequest(
   method,
@@ -203,7 +209,9 @@ export function adminUiRequest(
   {
     body,
     sharedSecret = process.env.ADMIN_UI_SHARED_SECRET,
-    userName = ADMIN_UI_USER.name
+    userName = ADMIN_UI_USER.name,
+    role = ADMIN_UI_USER.role,
+    nation
   } = {}
 ) {
   if (!isAdminUiCallerEnabled()) {
@@ -214,14 +222,20 @@ export function adminUiRequest(
   return signedManagementBeRequest(method, path, {
     clientId: ADMIN_UI_CLIENT_ID,
     sharedSecret,
-    user: { ...ADMIN_UI_USER, name: encodeURIComponent(userName.trim()) },
+    user: {
+      ...ADMIN_UI_USER,
+      name: encodeURIComponent(userName.trim()),
+      role,
+      nation
+    },
     body
   })
 }
 
 /**
- * Call management-be as `clientId`, acting as `user` (with its role header
- * when `user.role` is set), signed with `sharedSecret` when it is set. A fresh nonce and signature are minted for
+ * Call management-be as `clientId`, acting as `user` (with its role and
+ * nation headers when `user.role` and `user.nation` are set), signed with
+ * `sharedSecret` when it is set. A fresh nonce and signature are minted for
  * every request, so a retry is always a new, validly signed request.
  */
 function signedManagementBeRequest(
@@ -237,6 +251,9 @@ function signedManagementBeRequest(
   }
   if (user.role) {
     headers['x-cdp-user-role'] = user.role
+  }
+  if (user.nation) {
+    headers['x-cdp-user-nation'] = user.nation
   }
   if (body !== undefined) {
     headers['content-type'] = 'application/json'

@@ -7,6 +7,7 @@ import {
   isAdminUiCallerEnabled,
   managementBeRequest
 } from '../support/backend-api.js'
+import { uniqueOrganisationIdGroup } from '../support/operator-backend-api.js'
 import { getWorkItem } from '../support/decision-api.js'
 import {
   ACCREDITATION_CORRECTED_WORK_ITEM,
@@ -15,7 +16,9 @@ import {
 import { uniqueOrganisationName } from '../support/unique-name.js'
 import {
   assignWorkItemViaApi,
+  buildWorkItemSubmission,
   createWorkItemViaApi,
+  dulyMakeViaApi,
   listWorkItemsViaApi
 } from '../support/work-item-api.js'
 
@@ -49,7 +52,11 @@ import {
  * two routes, and every other request it sends, read or write, is refused
  * with a 403 ProblemDetails. Its search results carry only the fields it
  * shows (id, type, state, last changed, assignee, application reference,
- * organisation ID and name); every other caller still gets the full item.
+ * organisation ID and name); every other caller still gets the full item. A
+ * stored one of those payload fields that is not a string comes back as
+ * null for that item, rather than failing the page. Its user name header,
+ * percent-encoded, may be as long as the longest Entra ID display name
+ * becomes when encoded.
  *
  * management-fe does not change, so this is asserted against management-be
  * directly, as the suite's own caller (`epr-register-enrol-mgmt-tests`) and,
@@ -90,6 +97,12 @@ const RE_ACCREDITATION_STATES = [
   operatorJourneyPush
 }))
 
+/**
+ * `value` without its first and last characters: neither a prefix nor a
+ * suffix of it, so only a substring match finds `value` by it.
+ */
+const innerSubstring = (value) => value.slice(1, -1)
+
 /** The ids of the items a 200 `GET /work-items` returned for `params`. */
 async function searchIds(params) {
   const { body } = expectStatus(
@@ -99,6 +112,20 @@ async function searchIds(params) {
   )
   return body.items.map((item) => item.id)
 }
+
+/** The body of the Admin UI's `GET path`, which must answer 200. */
+async function adminUiGet(path, options) {
+  const { body } = expectStatus(
+    await adminUiRequest('GET', path, options),
+    200,
+    `Admin UI GET ${path}`
+  )
+  return body
+}
+
+/** The body of the Admin UI's `GET /work-items` with the query `params`. */
+const adminUiSearch = (params, options) =>
+  adminUiGet(`/work-items?${new URLSearchParams(params)}`, options)
 
 /** Assert management-be refused the Admin UI's request as forbidden. */
 function expectForbidden({ status, headers }) {
@@ -116,13 +143,40 @@ const writableView = ({
 }) => ({ stateId, lastModifiedAt, assignedToId, payload, auditLog })
 
 /**
- * Assert management-be refuses the Admin UI's write (`send`) as forbidden,
- * and that the work item reads the same afterwards as before.
+ * Assert that the read-only gate, and nothing else, refuses the Admin UI's
+ * `method` `path` with `body` on the work item `workItemId`:
+ *
+ *   1. the Admin UI's request is a 403 ProblemDetails, and the work item
+ *      reads the same afterwards as before;
+ *   2. the very same request from this suite, a caller that is not
+ *      read-only, acting as `user`, then answers `allowedStatus`.
+ *
+ * (2) is what makes (1) prove the gate: management-be accepts the request on
+ * its own terms (the item's state, the body, the user's role and nation), so
+ * the 403 is not a refusal every caller would get. The Admin UI's request
+ * carries `user`'s role and nation when it has them, so a handler's own role
+ * or nation check cannot be what refused it either. Returns the work item as
+ * it reads after (2).
  */
-async function expectRefusedAndUnchanged(workItemId, send) {
+async function expectOnlyTheGateRefuses(
+  workItemId,
+  { method, path, body, user = CASEWORKER_USER, allowedStatus = 200 }
+) {
   const before = writableView(await getWorkItem(workItemId))
-  expectForbidden(await send())
+  expectForbidden(
+    await adminUiRequest(method, path, {
+      body,
+      role: user.role,
+      nation: user.nation
+    })
+  )
   expect(writableView(await getWorkItem(workItemId))).toEqual(before)
+  expectStatus(
+    await managementBeRequest(method, path, { body, user }),
+    allowedStatus,
+    `${method} ${path} as ${user.id}, not read-only`
+  )
+  return getWorkItem(workItemId)
 }
 
 /** Assert `GET /work-items` refuses `params` with a 400 naming `key`. */
@@ -132,6 +186,34 @@ async function expectInvalidQuery(params, key) {
   expect(body.title).toBe('Invalid query')
   expect(Object.keys(body.errors)).toEqual([key])
 }
+
+// Skipped where the run may not hold the Admin UI's secret (CDP), and where
+// a stack does not enable it: the monorepo root's compose.yml runs
+// wdio.conf.js with ADMIN_UI_CALLER_ENABLED unset. Said in the run log, so a
+// run that skipped it cannot pass for one that ran it.
+const describeIfAdminUi = isAdminUiCallerEnabled() ? describe : describe.skip
+if (!isAdminUiCallerEnabled()) {
+  // eslint-disable-next-line no-console -- say WHY the block is skipped in the run log
+  console.warn(
+    'RA-751: ADMIN_UI_CALLER_ENABLED is not "true", so "the Admin UI caller is read-only" is SKIPPED. Set it to "true" (and ADMIN_UI_SHARED_SECRET to management-be\'s AUTH_SHARED_SECRET__ADMIN_UI where that is set) to run it.'
+  )
+}
+
+// Only where the stack checks signatures; a Development stack trusts the
+// headers and accepts any. Said in the run log too.
+const isAdminUiSigned = Boolean(process.env.ADMIN_UI_SHARED_SECRET)
+if (isAdminUiCallerEnabled() && !isAdminUiSigned) {
+  // eslint-disable-next-line no-console -- say WHY the test is skipped in the run log
+  console.warn(
+    'RA-751: ADMIN_UI_SHARED_SECRET is not set, so "is refused when signed with the wrong secret" is SKIPPED.'
+  )
+}
+
+// An Entra ID display name is at most 256 characters, and the Admin UI sends
+// it through `encodeURIComponent`, which turns "€" (3 bytes in UTF-8) into
+// "%E2%82%AC", 9 characters, the most any one character becomes. So this is
+// the longest user name header the Admin UI can send: 2,304 characters.
+const LONGEST_ENTRA_DISPLAY_NAME = '€'.repeat(256)
 
 describe('RA-751 Case management search', () => {
   // Unique to this run; each item's own name adds a further suffix to it.
@@ -165,13 +247,15 @@ describe('RA-751 Case management search', () => {
 
   describe('free-text search (q)', () => {
     it('matches the organisation name, in any case, as a substring', async () => {
-      const ids = await searchIds({ q: runPrefix.slice(3).toLowerCase() })
+      const ids = await searchIds({
+        q: innerSubstring(runPrefix).toLowerCase()
+      })
       expect(ids.sort()).toEqual([assigned.id, unassigned.id].sort())
     })
 
     it('matches the work item id as a substring', async () => {
       const ids = await searchIds({
-        q: assigned.id.slice(4, 28).toUpperCase()
+        q: innerSubstring(assigned.id).toUpperCase()
       })
       expect(ids).toEqual([assigned.id])
     })
@@ -196,7 +280,7 @@ describe('RA-751 Case management search', () => {
     it('matches the accreditation ID as a substring', async () => {
       const { id, correctedAccreditationId } = ACCREDITATION_CORRECTED_WORK_ITEM
       const ids = await searchIds({
-        q: correctedAccreditationId.slice(3, 13).toLowerCase()
+        q: innerSubstring(correctedAccreditationId).toLowerCase()
       })
       expect(ids).toEqual([id])
     })
@@ -375,19 +459,9 @@ describe('RA-751 Case management search', () => {
     })
   })
 
-  // Skipped where the run may not hold the Admin UI's secret (CDP).
-  const describeIfAdminUi = isAdminUiCallerEnabled() ? describe : describe.skip
-
   describeIfAdminUi('the Admin UI caller is read-only', () => {
     it('may search work items, seeing only the fields it needs', async () => {
-      const { body } = expectStatus(
-        await adminUiRequest(
-          'GET',
-          `/work-items?${new URLSearchParams({ q: runPrefix, assigned: 'true' })}`
-        ),
-        200,
-        'Admin UI GET /work-items'
-      )
+      const body = await adminUiSearch({ q: runPrefix, assigned: 'true' })
       expect(Object.keys(body).sort()).toEqual(
         ['items', 'page', 'pageSize', 'totalCount'].sort()
       )
@@ -409,39 +483,80 @@ describe('RA-751 Case management search', () => {
     })
 
     it('may search with a user name outside ASCII', async () => {
-      const { body } = expectStatus(
-        await adminUiRequest(
-          'GET',
-          `/work-items?${new URLSearchParams({ q: runPrefix, assigned: 'true' })}`,
-          { userName: 'Siobhán O’Brien' }
-        ),
-        200,
-        'Admin UI GET /work-items as O’Brien'
+      const body = await adminUiSearch(
+        { q: runPrefix, assigned: 'true' },
+        { userName: 'Siobhán O’Brien' }
       )
       expect(body.items.map((item) => item.id)).toEqual([assigned.id])
     })
 
-    it('may sort its search by last modified, newest first', async () => {
-      const { body } = expectStatus(
-        await adminUiRequest(
-          'GET',
-          `/work-items?${new URLSearchParams({ q: runPrefix, sort: 'last-modified', dir: 'desc' })}`
-        ),
-        200,
-        'Admin UI GET /work-items sorted by last modified'
+    it('may search with the longest non-ASCII user name Entra ID allows', async () => {
+      const body = await adminUiSearch(
+        { q: runPrefix, assigned: 'true' },
+        { userName: LONGEST_ENTRA_DISPLAY_NAME }
       )
+      expect(body.items.map((item) => item.id)).toEqual([assigned.id])
+    })
+
+    it('is refused a user name longer than Entra ID allows', async () => {
+      const { status } = await adminUiRequest(
+        'GET',
+        `/work-items?${new URLSearchParams({ q: runPrefix })}`,
+        { userName: `${LONGEST_ENTRA_DISPLAY_NAME}€` }
+      )
+      expect(status).toBe(401)
+    })
+
+    it('may sort its search by last modified, newest first', async () => {
+      const body = await adminUiSearch({
+        q: runPrefix,
+        sort: 'last-modified',
+        dir: 'desc'
+      })
       expect(body.items.map((item) => item.id)).toEqual([
         assigned.id,
         unassigned.id
       ])
     })
 
-    it('may read the re-accreditation states', async () => {
-      const { body } = expectStatus(
-        await adminUiRequest('GET', '/work-items/re-accreditation/states'),
-        200,
-        'Admin UI GET /work-items/re-accreditation/states'
+    // A stored field of the wrong type comes in through POST /work-items,
+    // which does not check the types of these fields. It costs the Admin UI
+    // that one field of that one item, not the page.
+    it('gets null for a stored field that is not a string, and the rest of the page', async () => {
+      const group = uniqueOrganisationIdGroup()
+      const wellFormed = await createWorkItemViaApi({
+        organisationNamePrefix: 'RA-751 well-formed',
+        fields: { operatorOrganisationId: `${group}well-formed` }
+      })
+      const malformed = await createWorkItemViaApi({
+        organisationNamePrefix: 'RA-751 malformed',
+        fields: {
+          operatorOrganisationId: `${group}malformed`,
+          organisationName: 751
+        }
+      })
+      // Stored as sent: a caller that is not read-only gets the number.
+      expect((await getWorkItem(malformed.id)).payload.organisationName).toBe(
+        751
       )
+
+      const { items } = await adminUiSearch({ q: group })
+      const payloadOf = (id) => items.find((item) => item.id === id)?.payload
+      expect(items).toHaveLength(2)
+      expect(payloadOf(malformed.id)).toEqual({
+        applicationReference: malformed.applicationReference,
+        operatorOrganisationId: malformed.operatorOrganisationId,
+        organisationName: null
+      })
+      expect(payloadOf(wellFormed.id)).toEqual({
+        applicationReference: wellFormed.applicationReference,
+        operatorOrganisationId: wellFormed.operatorOrganisationId,
+        organisationName: wellFormed.organisationName
+      })
+    })
+
+    it('may read the re-accreditation states', async () => {
+      const body = await adminUiGet('/work-items/re-accreditation/states')
       expect(body.typeId).toBe('re-accreditation')
       expect(body.states).toEqual(RE_ACCREDITATION_STATES)
     })
@@ -452,48 +567,80 @@ describe('RA-751 Case management search', () => {
       )
     })
 
-    it('may not create a work item, and none is created', async () => {
-      const organisationName = uniqueOrganisationName('RA-751 refused create')
+    // Each refused write below is one management-be accepts from a caller
+    // that is not read-only (see expectOnlyTheGateRefuses), on an item of its
+    // own, so the writes that this suite then makes change nothing the
+    // searches above rely on.
+
+    it('may not create a work item, which a caller that is not read-only may', async () => {
+      const submission = buildWorkItemSubmission({
+        organisationNamePrefix: 'RA-751 refused create'
+      })
+      const { organisationName } = submission.payload
       expectForbidden(
-        await adminUiRequest('POST', '/work-items', {
-          body: {
-            typeId: 're-accreditation',
-            source: 'mgmt-tests',
-            payload: { organisationName }
-          }
-        })
+        await adminUiRequest('POST', '/work-items', { body: submission })
       )
       expect(await searchIds({ q: organisationName })).toEqual([])
-    })
 
-    it('may not assign a work item, which is unchanged', async () => {
-      await expectRefusedAndUnchanged(unassigned.id, () =>
-        adminUiRequest('POST', `/work-items/${unassigned.id}/assign`, {
-          body: { assigneeId: 'stub-admin', assigneeName: 'Stub Admin' }
-        })
+      expectStatus(
+        await managementBeRequest('POST', '/work-items', { body: submission }),
+        201,
+        'the same submission as mgmt-tests'
       )
+      expect(await searchIds({ q: organisationName })).toHaveLength(1)
     })
 
-    it('may not apply a work item action, and the item is unchanged', async () => {
-      await expectRefusedAndUnchanged(unassigned.id, () =>
-        adminUiRequest('POST', `/work-items/${unassigned.id}/actions/duly-make`)
-      )
+    it('may not assign a work item, which a caseworker may', async () => {
+      const { id } = await createWorkItemViaApi({
+        organisationNamePrefix: 'RA-751 refused assign'
+      })
+      const after = await expectOnlyTheGateRefuses(id, {
+        method: 'POST',
+        path: `/work-items/${id}/assign`,
+        body: {
+          assigneeId: CASEWORKER_USER.id,
+          assigneeName: CASEWORKER_USER.name
+        }
+      })
+      expect(after.assignedToId).toBe(CASEWORKER_USER.id)
     })
 
-    // management-be's only PATCH route; it has no PUT or DELETE routes.
-    it('may not PATCH a work item, which is unchanged', async () => {
-      await expectRefusedAndUnchanged(unassigned.id, () =>
-        adminUiRequest(
-          'PATCH',
-          `/work-items/re-accreditation/${unassigned.id}/overseas-sites/site-1/recycling-operations`,
-          { body: {} }
-        )
-      )
+    // `start-assessment` is the action a caller may apply through this
+    // route from `duly-made` (`duly-make` itself has its own route).
+    it('may not apply a work item action, which a caseworker may', async () => {
+      const { id } = await createWorkItemViaApi({
+        organisationNamePrefix: 'RA-751 refused action'
+      })
+      await dulyMakeViaApi(id)
+      const after = await expectOnlyTheGateRefuses(id, {
+        method: 'POST',
+        path: `/work-items/${id}/actions/start-assessment`
+      })
+      expect(after.stateId).toBe('assessment-started')
     })
 
-    // Only where the stack checks signatures; a Development stack trusts
-    // the headers and accepts any.
-    const itIfSigned = process.env.ADMIN_UI_SHARED_SECRET ? it : it.skip
+    // management-be's only PATCH route; it has no PUT or DELETE routes. Its
+    // handler answers 403 itself to a user without the `standard` role or
+    // from another nation, so both requests carry that role and the item's
+    // nation. The request then gets past every check management-be makes and
+    // on to the operator journey backend, which holds no application for
+    // an item this suite created, so it answers 404. That proves the 403 is
+    // the gate's; a 200 would need an exporter application with an overseas
+    // site, which the operator backend only seeds from ReEx data.
+    it('may not PATCH a work item, which a standard caseworker of its nation may', async () => {
+      const { id } = await createWorkItemViaApi({
+        organisationNamePrefix: 'RA-751 refused PATCH'
+      })
+      await expectOnlyTheGateRefuses(id, {
+        method: 'PATCH',
+        path: `/work-items/re-accreditation/${id}/overseas-sites/1/recycling-operations`,
+        body: { operationCodes: ['R3'] },
+        user: { ...CASEWORKER_USER, role: 'standard', nation: 'England' },
+        allowedStatus: 404
+      })
+    })
+
+    const itIfSigned = isAdminUiSigned ? it : it.skip
 
     itIfSigned('is refused when signed with the wrong secret', async () => {
       const { status } = await adminUiRequest('GET', '/work-items', {

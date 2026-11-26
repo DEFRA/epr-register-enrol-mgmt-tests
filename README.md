@@ -168,15 +168,15 @@ Every operator email is GOV.UK Notify's simulated delivered address.
 The test runner (a Node process, not the browser) reaches the backends
 directly. `test/support/backend-api.js` holds every base URL and header:
 
-| Variable                         | Meaning                                                                                                |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `MANAGEMENT_BE_URL`              | management-be base URL                                                                                 |
-| `OPERATOR_BACKEND_URL`           | Registration & Accreditation service backend base URL                                                  |
-| `MANAGEMENT_BE_SHARED_SECRET`    | signs management-be requests (v3 HMAC) as the `epr-register-enrol-mgmt-tests` caller, when set         |
-| `OPERATOR_BACKEND_SHARED_SECRET` | sent as `Authorization: Bearer` to the operator backend, when set                                      |
-| `ADMIN_UI_CALLER_ENABLED`        | "true" where the suite may play the Admin UI (`epr-register-enrol-admin`); unset on CDP                |
-| `ADMIN_UI_SHARED_SECRET`         | signs management-be requests as the Admin UI: management-be's `AUTH_SHARED_SECRET__ADMIN_UI`, when set |
-| `MONOREPO_MONGO_URL`             | the monorepo root stack's MongoDB, for Path B for add-ORS (`operator-change-requests.js`)              |
+| Variable                         | Meaning                                                                                                                                                           |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MANAGEMENT_BE_URL`              | management-be base URL                                                                                                                                            |
+| `OPERATOR_BACKEND_URL`           | Registration & Accreditation service backend base URL                                                                                                             |
+| `MANAGEMENT_BE_SHARED_SECRET`    | signs management-be requests (v3 HMAC) as the `epr-register-enrol-mgmt-tests` caller, when set                                                                    |
+| `OPERATOR_BACKEND_SHARED_SECRET` | sent as `Authorization: Bearer` to the operator backend, when set                                                                                                 |
+| `ADMIN_UI_CALLER_ENABLED`        | "true" where the suite may play the Admin UI (`epr-register-enrol-admin`); unset on CDP. When unset, the RA-751 Admin UI block is skipped and the run log says so |
+| `ADMIN_UI_SHARED_SECRET`         | signs management-be requests as the Admin UI: management-be's `AUTH_SHARED_SECRET__ADMIN_UI`, when set                                                            |
+| `MONOREPO_MONGO_URL`             | the monorepo root stack's MongoDB, for Path B for add-ORS (`operator-change-requests.js`)                                                                         |
 
 `wdio.conf.js` derives the three URLs from `ENVIRONMENT` unless they are set, and
 reads the secrets from the environment. `wdio.github.conf.js` points at the
