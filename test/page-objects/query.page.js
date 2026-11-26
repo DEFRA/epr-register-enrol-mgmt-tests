@@ -12,7 +12,7 @@ import { Page } from './page.js'
  *
  * The five checkbox values mirror the frontend's QUERY_SECTION_OPTIONS. The
  * backend validates the section KEYS the form expands them to (see
- * QUERY_SECTION_KEYS), so a drift on either side shows up here as a
+ * COMBINED_ORS_BES_KEYS), so a drift on either side shows up here as a
  * validation error rather than a silent mismatch.
  *
  * RA-698 (AC12). Broadly equivalent standards (BES) and Overseas reprocessing
@@ -39,18 +39,6 @@ export const QUERY_SECTIONS = [
   'prn-tonnage',
   'sampling-and-inspection-plan',
   COMBINED_ORS_BES_SECTION
-]
-
-/**
- * The section KEYS the backend stores on a query (the contract). Not the
- * checkbox values: the combined checkbox stands for two of them.
- */
-export const QUERY_SECTION_KEYS = [
-  'authority-to-issue',
-  'business-plan',
-  'prn-tonnage',
-  'sampling-and-inspection-plan',
-  ...COMBINED_ORS_BES_KEYS
 ]
 
 /**
