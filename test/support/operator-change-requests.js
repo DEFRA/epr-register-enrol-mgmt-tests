@@ -265,7 +265,7 @@ export async function waitForChangeRequestItemStatus(item, status) {
  * RA-770: `alsoSites` ([{ site, answers, besEvidence }]) are added to the
  * same request before the submit, so one submission raises several work
  * items; each is returned in `others`, as { id, itemId, applicationId, siteId,
- * submittedAt }.
+ * submittedAt, besFile }.
  *
  * RA-769: a site that needs more than adding (DELHI) takes `answers`
  * (its coordinates, operation codes and conditions of export) and
@@ -286,8 +286,11 @@ export async function submitAddOverseasSiteChangeRequest({
     answers,
     besEvidence
   })
-  for (const also of alsoSites) {
-    await addSiteToChangeRequest({ applicationId, ...also })
+  const extraBesFiles = []
+  for (const extraSite of alsoSites) {
+    extraBesFiles.push(
+      await addSiteToChangeRequest({ applicationId, ...extraSite })
+    )
   }
   expectStatus(
     await operatorBackendRequest(
@@ -319,7 +322,7 @@ export async function submitAddOverseasSiteChangeRequest({
   if (!request) {
     throw new Error(`No submitted change request holds ORS ${site.orsId}`)
   }
-  const submitted = async (siteId) => {
+  const submittedItem = async (siteId) => {
     const item = request.sites.find((s) => s.siteId === siteId)
     const { workItemId } = await storedItem(item.itemId)
     if (!workItemId) {
@@ -336,10 +339,13 @@ export async function submitAddOverseasSiteChangeRequest({
     }
   }
   const others = []
-  for (const also of alsoSites) {
-    others.push(await submitted(also.site.siteId))
+  for (const [index, extraSite] of alsoSites.entries()) {
+    others.push({
+      ...(await submittedItem(extraSite.site.siteId)),
+      besFile: extraBesFiles[index]
+    })
   }
-  return { ...(await submitted(site.siteId)), besFile, others }
+  return { ...(await submittedItem(site.siteId)), besFile, others }
 }
 
 /**

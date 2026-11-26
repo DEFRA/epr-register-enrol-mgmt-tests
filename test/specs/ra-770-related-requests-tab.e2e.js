@@ -152,6 +152,33 @@ describe('RA-770 Related change requests tab', () => {
       ])
       expect(await workItemDetail.isActiveTab('relatedRequests')).toBe(true)
     })
+
+    it('AC2: a request whose reference falls on page 2 is still first on page 1', async () => {
+      await workItems.openWorkItem(submission.workItems[11].id)
+      await workItemDetail.gotoRelatedRequests()
+      expect(
+        (await workItemDetail.relatedRequestsRows()).map(
+          ({ reference }) => reference
+        )
+      ).toEqual(
+        [11, 0, 1, 2, 3, 4, 5, 6, 7, 8].map(
+          (i) => submission.workItems[i].applicationReference
+        )
+      )
+
+      await workItemDetail
+        .relatedRequestsPagination()
+        .$('.govuk-pagination__next a')
+        .click()
+      await browser.waitUntil(
+        async () => new URL(await browser.getUrl()).search === '?page=2',
+        { timeoutMsg: 'Expected page 2 of the Related change requests tab' }
+      )
+      expect(await workItemDetail.relatedRequestsRows()).toEqual([
+        expectedRow(submission, 9),
+        expectedRow(submission, 10)
+      ])
+    })
   })
 
   describe('a request submitted on its own', () => {

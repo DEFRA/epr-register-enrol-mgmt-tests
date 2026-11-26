@@ -13,7 +13,7 @@ import { formatUkHeaderDate } from '../support/uk-time.js'
  * header: the site name and ORS id as the title (the reference is in the
  * breadcrumb only), no organisation, and the meta items in the order
  * re-accreditation shares. The charge is the site's own. It has four
- * tabs (Application summary, Accreditation summary, Related requests,
+ * tabs (Application summary, Accreditation summary, Related change requests,
  * Application history); their content is `ra-769-accreditation-summary-tab`
  * and `ra-770-related-requests-tab`.
  * Every tab keeps the same header.
@@ -99,16 +99,18 @@ describe('RA-739 / RA-495 add-ORS application header and tabs', () => {
     })
   })
 
-  for (const [name, tabKey, heading] of [
+  for (const [name, tabKey, heading, headingText] of [
     [
       'Accreditation summary',
       'accreditationSummary',
-      () => workItemDetail.accreditationSummaryHeading()
+      () => workItemDetail.accreditationSummaryHeading(),
+      'Accreditation Summary'
     ],
     [
-      'Related requests',
+      'Related change requests',
       'relatedRequests',
-      () => workItemDetail.relatedRequestsHeading()
+      () => workItemDetail.relatedRequestsHeading(),
+      'Related requests (2)'
     ]
   ]) {
     describe(name, () => {
@@ -130,10 +132,10 @@ describe('RA-739 / RA-495 add-ORS application header and tabs', () => {
         await expect(await workItemDetail.tabPanel(tabKey)).toExist()
       })
 
-      it('has its own content, under its heading', async () => {
+      it('shows its own heading', async () => {
         // Each tab's content is its own spec (ra-769-accreditation-summary-tab,
         // ra-770-related-requests-tab).
-        await expect(heading()).toExist()
+        await expect(heading()).toHaveText(headingText)
       })
     })
   }
