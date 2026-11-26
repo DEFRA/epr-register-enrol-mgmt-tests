@@ -71,14 +71,14 @@ describe('RA-770 Related change requests tab', () => {
     })
 
     it('AC1: shows the accreditation above the table', async () => {
-      const rows = await workItemDetail.relatedAccreditationRows()
-      expect(rows.map(([label]) => label)).toEqual([
-        'Accreditation number',
-        'Status',
-        'Accreditation start date',
-        'Accreditation year'
+      // management-be's stub accreditation for an `e2e-` test organisation,
+      // as ra-769-accreditation-summary-tab asserts it.
+      expect(await workItemDetail.relatedAccreditationRows()).toEqual([
+        ['Accreditation number', 'A26ER9999999999PL'],
+        ['Status', 'Granted'],
+        ['Accreditation start date', '1 January 2026'],
+        ['Accreditation year', '2026']
       ])
-      expect(rows[1][1]).toBe('Granted')
     })
 
     it('AC1: lists this request first, then the rest in reference order, each linked', async () => {
