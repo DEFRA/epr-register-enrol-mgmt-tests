@@ -92,6 +92,9 @@ describe('RA-495 add-ORS determination', () => {
       )
       // RA-698: Query is offered on a Duly made add-ORS item.
       expect(await detail.hasAction('query')).toBe(true)
+      // No other action: Raise a query, by its own CTA, is the only one.
+      expect(await detail.workItemActionIds()).toEqual(['query'])
+      await expect(detail.workItemActions()).not.toBeExisting()
       await expect(detail.noActionsMessage()).not.toBeExisting()
     })
 

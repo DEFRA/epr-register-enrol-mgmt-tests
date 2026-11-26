@@ -1,6 +1,7 @@
 import { $, $$, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
+import detail from '../page-objects/work-item-detail.page.js'
 import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
 
 /**
@@ -171,5 +172,8 @@ describe('RA-739 / RA-495 add-ORS Application summary', () => {
     await expect($('[data-testid="log-decision-cta"]')).not.toExist()
     await expect($('[data-testid="action-duly-make"]')).not.toExist()
     await expect($('[data-testid="action-query"]')).toExist()
+    // No other action: Raise a query, by its own CTA, is the only one.
+    expect(await detail.workItemActionIds()).toEqual(['query'])
+    await expect(detail.workItemActions()).not.toBeExisting()
   })
 })

@@ -2574,6 +2574,17 @@ class WorkItemDetailPage extends Page {
   }
 
   /**
+   * RA-698. The ids of every action control on the page except the assignment
+   * panel's `sla-extend`, which is not an engine action. For add-ORS items the
+   * Raise a query and Continue review links are rendered by the add-ORS
+   * template outside the generic actions panel, so this is the page-wide list,
+   * not `actionControlIds()`. Duplicates are preserved.
+   */
+  async workItemActionIds() {
+    return (await this.availableActionIds()).filter((id) => id !== 'sla-extend')
+  }
+
+  /**
    * RA-364. Every action control rendered INSIDE the actions panel.
    *
    * ⚠ Scoping to the panel is load-bearing, not tidiness. The `action-` testid

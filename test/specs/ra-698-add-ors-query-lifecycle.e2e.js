@@ -37,6 +37,11 @@ import {
 const REASON = 'Please confirm the ORS address and upload the BES certificate.'
 const NEW_NAME = 'RA-698 Renamed ORS'
 const NEW_CONTACT = 'Pierre Martin'
+const ROUND_TWO_REASON =
+  'Please update the rejected loads arrangements and the interim site.'
+const ROUND_TWO_REJECTED_LOADS =
+  'Rejected loads are returned to the exporter within 14 days.'
+const ROUND_TWO_INTERIM_NAME = 'RA-698 Renamed Interim Hub'
 const NEW_BES_FILE = {
   fileId: 'ra-698-bes-file',
   filename: 'ra-698-bes-evidence.pdf',
@@ -45,6 +50,12 @@ const NEW_BES_FILE = {
   s3Bucket: 'bes-evidence',
   besEvidenceValidFromDate: '2026-02-01',
   besEvidenceExpiryDate: '2027-12-31'
+}
+const ROUND_TWO_BES_FILE = {
+  ...NEW_BES_FILE,
+  fileId: 'ra-698-bes-file-2',
+  filename: 'ra-698-bes-evidence-round-2.pdf',
+  s3Key: 'bes-evidence/ra-698-bes-file-2'
 }
 
 describe('RA-698 add-ORS query, response and continue review', () => {
@@ -134,7 +145,9 @@ describe('RA-698 add-ORS query, response and continue review', () => {
     it('refuses a response that changes a locked field, leaving the item Queried', async () => {
       await expect(
         resumeAddOrsFromQuery(workItemId, { site: { country: 'Spain' } })
-      ).rejects.toThrow(/returned 400/)
+      ).rejects.toThrow(
+        /returned 400.*site contains a field that cannot be changed in a query response/
+      )
       await workItems.openWorkItem(workItemId)
       await detail.assertStateId('queried')
     })
@@ -202,6 +215,64 @@ describe('RA-698 add-ORS query, response and continue review', () => {
       const replay = await continueAddOrsReviewViaApi(workItemId)
       expect(replay.status).toBe(200)
       expect(replay.headers.get('x-idempotent-replay')).toBe('true')
+    })
+  })
+
+  // The management-be#268 review found data bugs on these paths (a
+  // rejected-loads answer, an interim site edit, BES files across a second
+  // round). Written against the correct behaviour.
+  describe('AC10/AC12 — a second query round', () => {
+    it('raises a second query on the continued item', async () => {
+      await workItems.openWorkItem(workItemId)
+      await raiseAddOrsQuery(workItemId, { reason: ROUND_TWO_REASON })
+      await detail.assertStateId('queried')
+    })
+
+    it('moves the item to Updated on a rejected-loads change, an interim site edit and a second BES file', async () => {
+      await resumeAddOrsFromQuery(workItemId, {
+        site: { rejectedLoadsArrangements: ROUND_TWO_REJECTED_LOADS },
+        interimSites: [
+          { siteNumber: '001', changes: { siteName: ROUND_TWO_INTERIM_NAME } }
+        ],
+        besEvidenceFiles: [ROUND_TWO_BES_FILE]
+      })
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('updated')
+    })
+
+    it('updates the rejected loads arrangements on the case', async () => {
+      const { payload } = await getWorkItem(workItemId)
+      expect(payload.site.repatriatedLoads).toBe(ROUND_TWO_REJECTED_LOADS)
+    })
+
+    it('updates the interim site and keeps the first round changes', async () => {
+      const { payload } = await getWorkItem(workItemId)
+      expect(payload.site.interimSites[0].siteName).toBe(ROUND_TWO_INTERIM_NAME)
+      expect(payload.site.siteName).toBe(NEW_NAME)
+      expect(payload.site.contactName).toBe(NEW_CONTACT)
+    })
+
+    it('accumulates BES files across rounds instead of replacing them', async () => {
+      const { payload } = await getWorkItem(workItemId)
+      const filenames = payload.site.besEvidence.files.map((f) => f.filename)
+      expect(filenames).toEqual(
+        expect.arrayContaining([
+          submission.sites[0].besEvidence.files[0].filename,
+          NEW_BES_FILE.filename,
+          ROUND_TWO_BES_FILE.filename
+        ])
+      )
+    })
+
+    it('shows the second response and records both responses in the application history', async () => {
+      await workItems.openWorkItem(workItemId)
+      expect((await detail.operatorResponseBesFileNames()).join(' ')).toContain(
+        ROUND_TWO_BES_FILE.filename
+      )
+      await detail.gotoAudit()
+      expect(
+        (await detail.auditEntriesForAction('query-responded')).length
+      ).toBe(2)
     })
   })
 })
