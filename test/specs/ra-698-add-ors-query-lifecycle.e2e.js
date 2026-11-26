@@ -5,7 +5,6 @@ import detail from '../page-objects/work-item-detail.page.js'
 import query from '../page-objects/query.page.js'
 import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
 import { getWorkItem } from '../support/decision-api.js'
-import { dulyMake } from '../support/standard-lifecycle-journey.js'
 import {
   continueAddOrsReviewViaApi,
   raiseAddOrsQuery,
@@ -63,10 +62,9 @@ describe('RA-698 add-ORS query, response and continue review', () => {
     siblingId = submission.workItems[1].id
     originalName = submission.sites[0].siteName
     await login.login()
-    // Query from duly made, so continue review has an assessment to go to.
+    // Query while still submitted: resume-from-query then lands on Updated (an item queried after duly made resumes straight to assessment).
     await workItems.openWorkItem(workItemId)
     await detail.selfAssign()
-    await dulyMake(workItemId)
   })
 
   after(async () => {
@@ -193,10 +191,10 @@ describe('RA-698 add-ORS query, response and continue review', () => {
       expect(await detail.hasAddOrsContinueReviewCta()).toBe(true)
     })
 
-    it('moves the item on to assessment and withdraws the button', async () => {
+    it('returns the item to Submitted and withdraws the button', async () => {
       await workItems.openWorkItem(workItemId)
       await detail.clickAddOrsContinueReview()
-      await detail.assertStateId('assessment-in-progress')
+      await detail.assertStateId('submitted')
       expect(await detail.hasAddOrsContinueReviewCta()).toBe(false)
     })
 
