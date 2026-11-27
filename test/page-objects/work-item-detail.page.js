@@ -1699,6 +1699,91 @@ class WorkItemDetailPage extends Page {
     return $('[data-testid="add-overseas-site-detail"]')
   }
 
+  /**
+   * RA-782. An ORS update's detail page, and its Application summary: each
+   * detail's Current version against its Requested change. A row's key is
+   * add-ORS's summary key (site-name, location, contact-name, ...).
+   */
+  updateOverseasSiteDetail() {
+    return $('[data-testid="update-overseas-site-detail"]')
+  }
+
+  updateOrsIntro() {
+    return $('[data-testid="update-ors-intro"]')
+  }
+
+  /**
+   * RA-782. A compare row as { changed, current, requested, tagged }: its
+   * data-changed, the text of each side and whether it carries the "Changed"
+   * tag. The ORS's own rows by default; `prefix` 'update-ors-interim' reads
+   * the first interim site table's.
+   */
+  async updateOrsRow(key, { prefix = 'update-ors' } = {}) {
+    const row = $(`[data-testid="${prefix}-row-${key}"]`)
+    await row.waitForExist()
+    const cell = async (side) =>
+      squash(
+        await browser.execute(
+          (el) => el.textContent,
+          await $(`[data-testid="${prefix}-${side}-${key}"]`)
+        )
+      )
+    return {
+      changed: await row.getAttribute('data-changed'),
+      current: await cell('current'),
+      requested: await cell('requested'),
+      tagged: await $(`[data-testid="${prefix}-changed-${key}"]`).isExisting()
+    }
+  }
+
+  /**
+   * RA-782. Each interim site section, in order, as { change, title, tag,
+   * open }: what the update does to it (added, removed, changed or
+   * unchanged), its title, its tag and whether it is open. textContent, as a
+   * closed section's body is hidden.
+   */
+  async updateOrsInterimSites() {
+    return browser.execute(() =>
+      [
+        ...document.querySelectorAll('[data-testid="update-ors-interim-site"]')
+      ].map((section) => {
+        const text = (testId) =>
+          (
+            section.querySelector(`[data-testid="${testId}"]`)?.textContent ??
+            ''
+          )
+            .replace(/\s+/g, ' ')
+            .trim()
+        return {
+          change: section.dataset.change,
+          title: text('update-ors-interim-site-title'),
+          tag: text('update-ors-interim-site-tag'),
+          open: section.open
+        }
+      })
+    )
+  }
+
+  /**
+   * RA-782. The BES evidence files listed, as { text, isNew }: the ORS's
+   * own, then the ones the update adds, marked new. `isNew` is whether the
+   * file carries the `app-detail-document-new` marker, whatever its form (a
+   * "NEW:" prefix before the name, formerly a "New" tag after it).
+   */
+  async updateOrsBesFiles() {
+    return browser.execute(() =>
+      [
+        ...document.querySelectorAll(
+          '[data-testid="update-ors-bes-evidence"] li'
+        )
+      ].map((item) => ({
+        text: item.textContent.replace(/\s+/g, ' ').trim(),
+        isNew:
+          item.querySelector('[data-testid="app-detail-document-new"]') !== null
+      }))
+    )
+  }
+
   async caseHeaderFieldText(name) {
     return this.caseHeaderField(name).getText()
   }

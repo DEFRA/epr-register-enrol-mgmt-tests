@@ -99,10 +99,11 @@ export const ADD_ORS_SUBMITTED_BY = {
 /**
  * Build, without sending, an add-ORS request with `siteCount` sites:
  *
- *   { payload, organisationName, operatorOrgNumber, sites }
+ *   { payload, organisationName, operatorOrgNumber, sites, token }
  *
  * `payload` is what `postAddOverseasSiteRequest` sends; `sites` is its
- * `sites[]`. `suppliedFields` (RA-495) is each site's list of the fields
+ * `sites[]`; `token` is the run-unique value its ids are built from, for a
+ * caller that adds sites of its own (support/update-overseas-site-api.js). `suppliedFields` (RA-495) is each site's list of the fields
  * the operator answered on the request (e.g. `['coordinates']`); none by
  * default.
  */
@@ -132,7 +133,7 @@ export function buildAddOverseasSiteRequest({
     submittedBy: ADD_ORS_SUBMITTED_BY,
     sites
   }
-  return { payload, organisationName, operatorOrgNumber, sites }
+  return { payload, organisationName, operatorOrgNumber, sites, token }
 }
 
 /**

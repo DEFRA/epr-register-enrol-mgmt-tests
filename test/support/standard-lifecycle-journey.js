@@ -71,7 +71,10 @@ import { utcDateParts } from './uk-time.js'
  * expectation computed from the test clock will be wrong by however far the
  * payment date is back-dated.
  */
-export async function dulyMake(workItemId, { dayOffset = 0 } = {}) {
+export async function dulyMake(
+  workItemId,
+  { dayOffset = 0, paymentDate = true } = {}
+) {
   await workItems.openWorkItem(workItemId)
   // The precondition is asserted as "the CTA is here", not as a state name,
   // because duly making has TWO entry points: `submitted`, and `updated`
@@ -83,7 +86,11 @@ export async function dulyMake(workItemId, { dayOffset = 0 } = {}) {
   expect(await detail.hasDulyMakeCta()).toBe(true)
   await detail.clickDulyMake()
   await dulyMaking.assertOnPage()
-  await dulyMaking.setPaymentDate(utcDateParts(new Date(), dayOffset))
+  // RA-782: a type that is never charged (an ORS update) has no payment date
+  // to enter: pass `paymentDate: false`.
+  if (paymentDate) {
+    await dulyMaking.setPaymentDate(utcDateParts(new Date(), dayOffset))
+  }
   await dulyMaking.submit()
   await dulyMaking.waitForDetailUrl(workItemId)
   await detail.assertState('Duly made')
