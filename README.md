@@ -96,8 +96,9 @@ rendered, and on dev it goes to real Entra ID, so the spec is skipped there.
 CDP test's Mongo is never reset, so no spec relies on data it did not create,
 on list positions, or on fixed organisation names. Each spec creates uniquely
 named items in one of four ways (the seeded fixtures below aside). The one
-exception is Path B for add-ORS, which needs the monorepo root stack's seeded
-org 50019, resets it itself and skips everywhere else:
+exceptions are Path B for add-ORS and for ORS updates, which need the
+monorepo root stack's seeded orgs 50019 and 50025, reset them themselves and
+skip everywhere else:
 
 - **The "Create work item" form** (`WorkItemsPage.createWorkItem`), for specs
   that need only the fields the form captures.
@@ -106,7 +107,11 @@ org 50019, resets it itself and skips everywhere else:
   display, list, assignment, SLA, query and Notify specs. The rich fixtures
   live in `test/support/*-fixture.js`, except add-ORS in-year change
   submissions (RA-739), which `test/support/in-year-change-api.js` builds and
-  submits, one work item per site. Each item's `operatorOrganisationId`
+  submits, one work item per site, and ORS update submissions (RA-782),
+  which `test/support/update-overseas-site-api.js` submits as the update
+  group of a request that also adds an ORS, under the add group's SUB
+  reference (RA-767). An ORS update's push at confirm applicant contact fails
+  as an add-ORS one does (below), so ra-782-update-ors-review stops there. Each item's `operatorOrganisationId`
   starts `e2e-`, which marks it as a test organisation whose ReEx lookups
   management-be answers from its own test data. The operator's side of a
   query or withdrawal is played by `query-resubmission.js` and
@@ -146,6 +151,21 @@ org 50019, resets it itself and skips everywhere else:
   other too: `wdio.conf.js` runs one spec at a time, so a single run is safe,
   but `test:github` runs 3 parallel instances, and two instances against the
   root stack can reach org 50019 at once.
+- **Path B for ORS updates** (`test/support/operator-ors-updates.js`,
+  RA-782). A change to an accredited ORS's details submitted through that
+  backend, which raises the ORS update work item; confirming applicant
+  contact then grants it there (the ORS takes the new details) or refuses
+  it. It needs an accreditation with accredited ORSs, which only the root
+  stack's seeded org 50025 has. A grant changes the ORS for good, so
+  ra-782-update-ors-operator-journey.e2e.js resets 50025 before and after:
+  it deletes the org's change requests and their ORS work items and
+  submissions, and puts ORSs 001 and 002 back as the seed leaves them, on
+  the accreditation application and in the domain model (the root stack
+  runs dual-write, so the first write migrates the application; the reset
+  deletes the ORS versions a grant wrote). It skips without
+  `MONOREPO_MONGO_URL` or on a stack with no such org. The fe-tests
+  @monorepo specs update-accredited-ors and review-ors-update use 50025 too:
+  don't run them at the same time.
 
 Six cases, for five tickets, need a document no API can create:
 
@@ -181,7 +201,7 @@ directly. `test/support/backend-api.js` holds every base URL and header:
 | `ADMIN_UI_CALLER_ENABLED`        | "true" where the suite may play the Admin UI (`epr-register-enrol-admin`); unset on CDP. When unset, the RA-751 and RA-752 Admin UI blocks are skipped and the run log says so                                                                    |
 | `ADMIN_UI_SHARED_SECRET`         | signs management-be requests as the Admin UI: management-be's `AUTH_SHARED_SECRET__ADMIN_UI`, when set                                                                                                                                            |
 | `REEX_COMPOSE_STUB_ENABLED`      | "true" where management-be reaches ReEx through `docker/stubs/external-services-stub.mjs` (set only by `wdio.github.conf.js`). When unset, the RA-752 cases that need a ReEx "no record" 404 or a ReEx outage are skipped and the run log says so |
-| `MONOREPO_MONGO_URL`             | the monorepo root stack's MongoDB, for Path B for add-ORS (`operator-change-requests.js`)                                                                                                                                                         |
+| `MONOREPO_MONGO_URL`             | the monorepo root stack's MongoDB, for Path B for add-ORS (`operator-change-requests.js`) and for ORS updates (`operator-ors-updates.js`)                                                                                                         |
 
 `wdio.conf.js` derives the three URLs from `ENVIRONMENT` unless they are set, and
 reads the secrets from the environment. `wdio.github.conf.js` points at the

@@ -46,6 +46,16 @@ class DulyMakingPage extends StandardLifecyclePage {
     await expect($(DULY_MAKING_SUBMIT_SELECTOR)).toBeDisplayed()
   }
 
+  /** RA-782: absent for a type that is never charged (an ORS update). */
+  paymentDateGroup() {
+    return $('[data-testid="duly-making-payment-date"]')
+  }
+
+  /** RA-782: what the page says about the payment date, or its absence. */
+  lead() {
+    return $('[data-testid="duly-making-lead"]')
+  }
+
   chargeAmount() {
     return $('[data-testid="duly-making-charge-amount"]')
   }
