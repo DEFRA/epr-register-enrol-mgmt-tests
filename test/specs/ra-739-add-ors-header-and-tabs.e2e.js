@@ -80,7 +80,7 @@ describe('RA-739 / RA-495 add-ORS application header and tabs', () => {
 
     it('shows the ten meta items, in the order re-accreditation shares, with the site charge', async () => {
       expect(await workItemDetail.caseHeaderMeta()).toEqual([
-        'Application type: New ORS accreditation',
+        'Application type: Accreditation: add registered ORS',
         'Status: Not started',
         'Assigned to: Unassigned',
         `Due date: ${EM_DASH}`,
@@ -149,7 +149,7 @@ describe('RA-739 / RA-495 add-ORS application header and tabs', () => {
     it('keeps the add-ORS header', async () => {
       await expectAddOrsHeader(submission)
       await expect(headerField('request-type')).toHaveText(
-        'New ORS accreditation'
+        'Accreditation: add registered ORS'
       )
       await expect(headerField('charge')).toHaveText('£328.00')
     })

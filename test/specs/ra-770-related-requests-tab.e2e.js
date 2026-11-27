@@ -17,7 +17,7 @@ import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
  * journey).
  */
 
-const TYPE = 'New ORS accreditation'
+const TYPE = 'Accreditation: add registered ORS'
 const CHARGE = '£328.00'
 
 /** The row the tab shows for the submission's `index`th site. */

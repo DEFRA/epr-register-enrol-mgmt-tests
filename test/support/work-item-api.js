@@ -148,6 +148,23 @@ export function listWorkItemsViaApi(params) {
   )
 }
 
+/**
+ * RA-681. Page 1 of the requests submitted with `workItemId`, as the Related
+ * change requests tab reads them from management-be.
+ */
+export async function getRelatedWorkItemsViaApi(workItemId) {
+  const { body } = expectStatus(
+    await managementBeRequest(
+      'GET',
+      `/work-items/${workItemId}/related-work-items`,
+      { user: CASEWORKER_USER }
+    ),
+    200,
+    `related work items of ${workItemId}`
+  )
+  return body
+}
+
 /** Assign the work item to `user` over management-be's assign endpoint. */
 export async function assignWorkItemViaApi(workItemId, user = CASEWORKER_USER) {
   expectStatus(

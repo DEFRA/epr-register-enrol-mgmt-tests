@@ -27,13 +27,6 @@ describe('RA-739 "In-year change" application type filter', () => {
   let exporterReAccreditation
   let inYearChangeIds
 
-  const listedIds = async () =>
-    Promise.all(
-      [...(await workItems.tiles())].map((tile) =>
-        tile.getAttribute('data-work-item-id')
-      )
-    )
-
   before(async () => {
     reAccreditation = await createWorkItemViaApi({
       organisationNamePrefix: `${token} ReAcc`
@@ -69,7 +62,7 @@ describe('RA-739 "In-year change" application type filter', () => {
   })
 
   it('lists the re-accreditation and in-year change applications unfiltered', async () => {
-    expect((await listedIds()).sort()).toEqual(
+    expect((await workItems.listedIds()).sort()).toEqual(
       [
         reAccreditation.id,
         exporterReAccreditation.id,
@@ -92,7 +85,9 @@ describe('RA-739 "In-year change" application type filter', () => {
     await workItems.checkApplicationType('in-year-change')
     await workItems.applyFilters()
 
-    expect((await listedIds()).sort()).toEqual([...inYearChangeIds].sort())
+    expect((await workItems.listedIds()).sort()).toEqual(
+      [...inYearChangeIds].sort()
+    )
     expect(await workItems.getWorkItemCount()).toBe(2)
     expect(await workItems.activeFilterLabels()).toContain('In-year change')
     await expect(workItems.filterSectionToggle('application-type')).toHaveText(
@@ -105,7 +100,7 @@ describe('RA-739 "In-year change" application type filter', () => {
     await workItems.checkApplicationType('in-year-change')
     await workItems.applyFilters()
 
-    expect((await listedIds()).sort()).toEqual(
+    expect((await workItems.listedIds()).sort()).toEqual(
       [
         reAccreditation.id,
         exporterReAccreditation.id,
@@ -119,14 +114,16 @@ describe('RA-739 "In-year change" application type filter', () => {
     await workItems.checkApplicationType('in-year-change')
     await workItems.applyFilters()
 
-    expect((await listedIds()).sort()).toEqual([...inYearChangeIds].sort())
+    expect((await workItems.listedIds()).sort()).toEqual(
+      [...inYearChangeIds].sort()
+    )
   })
 
   it('lists exporter applications of every type with Applicant type "Exporter" alone', async () => {
     await workItems.checkType('exporter')
     await workItems.applyFilters()
 
-    expect((await listedIds()).sort()).toEqual(
+    expect((await workItems.listedIds()).sort()).toEqual(
       [exporterReAccreditation.id, ...inYearChangeIds].sort()
     )
   })
@@ -136,7 +133,7 @@ describe('RA-739 "In-year change" application type filter', () => {
     await workItems.checkApplicationType('in-year-change')
     await workItems.applyFilters()
 
-    expect(await listedIds()).toEqual([])
+    expect(await workItems.listedIds()).toEqual([])
   })
 
   it('lists everything again when its chip is removed', async () => {

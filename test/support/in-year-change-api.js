@@ -4,6 +4,9 @@
  * an operator submits a request to add overseas reprocessing sites.
  * management-be splits the request into one work item per site.
  *
+ * RA-681. ORS update (`update-overseas-site`, RA-682) submissions go the same
+ * way: one work item per site, with no charge and no payment reference.
+ *
  * Every submission is unique to its run: a fresh `operatorRequestId` (a
  * repeated one is a replay), a `uniqueOrganisationName` and an `e2e-`
  * organisation id, which marks a test organisation.
@@ -15,7 +18,8 @@ import { expectStatus, managementBeRequest } from './backend-api.js'
 import { uniqueOrganisationName } from './unique-name.js'
 import { listWorkItemsViaApi } from './work-item-api.js'
 
-const TYPE_ID = 'add-overseas-site'
+const ADD_ORS_TYPE_ID = 'add-overseas-site'
+const UPDATE_ORS_TYPE_ID = 'update-overseas-site'
 
 /**
  * Each site's own charge: the operator backend's per-site in-year ORS fee
@@ -30,6 +34,9 @@ const hex = () => randomBytes(6).toString('hex')
  * overseas site shape (address, contact, codes, interim sites and BES files)
  * plus the site's own `chargePence`. One active interim site and one Clean BES
  * file with its valid-from and expiry dates.
+ *
+ * RA-681. `selected` is true, as the operator backend sends every add-ORS
+ * site: a registered ORS joining the accreditation.
  */
 function buildSite({ token, organisationName, number, suppliedFields }) {
   return {
@@ -85,6 +92,7 @@ function buildSite({ token, organisationName, number, suppliedFields }) {
       ]
     },
     suppliedFields,
+    selected: true,
     chargePence: ADD_ORS_SITE_CHARGE_PENCE
   }
 }
@@ -119,7 +127,7 @@ export function buildAddOverseasSiteRequest({
   )
   const payload = {
     operatorRequestId: `e2e-request-${token}`,
-    changeType: TYPE_ID,
+    changeType: ADD_ORS_TYPE_ID,
     operatorOrganisationId: `e2e-${token}`,
     organisationName,
     operatorOrgNumber,
@@ -136,13 +144,21 @@ export function buildAddOverseasSiteRequest({
 }
 
 /**
+ * Post `payload` to management-be as a `typeId` in-year change submission
+ * and return the raw `{ status, headers, body }`, whatever the status.
+ */
+function postInYearChangeRequest(typeId, payload) {
+  return managementBeRequest('POST', '/work-items', {
+    body: { typeId, source: 'mgmt-tests', payload }
+  })
+}
+
+/**
  * Post `payload` to management-be as an add-ORS submission and return the raw
  * `{ status, headers, body }`, whatever the status.
  */
 export function postAddOverseasSiteRequest(payload) {
-  return managementBeRequest('POST', '/work-items', {
-    body: { typeId: TYPE_ID, source: 'mgmt-tests', payload }
-  })
+  return postInYearChangeRequest(ADD_ORS_TYPE_ID, payload)
 }
 
 /**
@@ -176,11 +192,69 @@ export async function submitAddOverseasSiteRequest({
   }
 }
 
+/**
+ * RA-681. Submit an ORS update request (`update-overseas-site`, RA-682) with
+ * `siteCount` sites and return the same shape as
+ * `submitAddOverseasSiteRequest`.
+ *
+ * The payload follows the operator backend's update submission
+ * (`HttpCaseWorkingApiAdapter.BuildChangeRequestPayload`): the request's
+ * shared fields, an `operatorRequestId` suffixed with the change type, no
+ * charge and no `paymentReference` (RA-682 AC05). Each site is sent as the
+ * ORS stands (its current details and BES evidence), with its `previous` and
+ * `proposed` details and its interim site changes.
+ *
+ * Each site carries the ORS's `selected` flag (task 005): true (the default)
+ * for an approved ORS, false for a registration-only one. Case Management
+ * labels the request "Accreditation: ORS update" or "Registration: ORS
+ * update" from it.
+ */
+export async function submitUpdateOverseasSiteRequest({
+  organisationNamePrefix,
+  siteCount,
+  selected = true
+}) {
+  const request = buildAddOverseasSiteRequest({
+    organisationNamePrefix,
+    siteCount
+  })
+  const { paymentReference, ...unchargedPayload } = request.payload
+  const sites = request.sites.map(({ suppliedFields, ...site }) => ({
+    ...site,
+    selected,
+    chargePence: 0,
+    previous: { contactName: site.contactName },
+    proposed: { contactName: `${site.contactName} (updated)` },
+    interimSiteChanges: [
+      { action: 'remove', interimSiteId: site.interimSites[0].siteId }
+    ]
+  }))
+  const payload = {
+    ...unchargedPayload,
+    operatorRequestId: `${unchargedPayload.operatorRequestId}:${UPDATE_ORS_TYPE_ID}`,
+    changeType: UPDATE_ORS_TYPE_ID,
+    chargePence: 0,
+    sites
+  }
+  const { body } = expectStatus(
+    await postInYearChangeRequest(UPDATE_ORS_TYPE_ID, payload),
+    201,
+    `submit ORS update request for "${request.organisationName}"`
+  )
+  return {
+    ...request,
+    payload,
+    sites,
+    submissionReference: body.submissionReference,
+    workItems: body.workItems
+  }
+}
+
 /** The add-ORS work items management-be holds for `organisationName`. */
 export async function listAddOverseasSiteWorkItems(organisationName) {
   const { body } = expectStatus(
     await listWorkItemsViaApi({
-      typeId: TYPE_ID,
+      typeId: ADD_ORS_TYPE_ID,
       orgName: organisationName,
       pageSize: '50'
     }),

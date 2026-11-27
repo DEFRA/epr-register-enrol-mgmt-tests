@@ -1699,6 +1699,11 @@ class WorkItemDetailPage extends Page {
     return $('[data-testid="add-overseas-site-detail"]')
   }
 
+  /** RA-681. The ORS update detail page's own container. */
+  updateOverseasSiteDetail() {
+    return $('[data-testid="update-overseas-site-detail"]')
+  }
+
   async caseHeaderFieldText(name) {
     return this.caseHeaderField(name).getText()
   }
