@@ -725,6 +725,15 @@ class WorkItemsPage extends Page {
     return tiles.length
   }
 
+  /** The work item ids of the tiles currently rendered (document order). */
+  async listedIds() {
+    return Promise.all(
+      [...(await this.tiles())].map((tile) =>
+        tile.getAttribute('data-work-item-id')
+      )
+    )
+  }
+
   /**
    * The tile <article> for a given work item id. Each tile carries
    * data-work-item-id="{id}" so a specific application can be located

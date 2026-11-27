@@ -18,7 +18,7 @@ import { expectStatus, managementBeRequest } from './backend-api.js'
 import { uniqueOrganisationName } from './unique-name.js'
 import { listWorkItemsViaApi } from './work-item-api.js'
 
-const TYPE_ID = 'add-overseas-site'
+const ADD_ORS_TYPE_ID = 'add-overseas-site'
 const UPDATE_ORS_TYPE_ID = 'update-overseas-site'
 
 /**
@@ -123,7 +123,7 @@ export function buildAddOverseasSiteRequest({
   )
   const payload = {
     operatorRequestId: `e2e-request-${token}`,
-    changeType: TYPE_ID,
+    changeType: ADD_ORS_TYPE_ID,
     operatorOrganisationId: `e2e-${token}`,
     organisationName,
     operatorOrgNumber,
@@ -140,13 +140,21 @@ export function buildAddOverseasSiteRequest({
 }
 
 /**
+ * Post `payload` to management-be as a `typeId` in-year change submission
+ * and return the raw `{ status, headers, body }`, whatever the status.
+ */
+function postInYearChangeRequest(typeId, payload) {
+  return managementBeRequest('POST', '/work-items', {
+    body: { typeId, source: 'mgmt-tests', payload }
+  })
+}
+
+/**
  * Post `payload` to management-be as an add-ORS submission and return the raw
  * `{ status, headers, body }`, whatever the status.
  */
 export function postAddOverseasSiteRequest(payload) {
-  return managementBeRequest('POST', '/work-items', {
-    body: { typeId: TYPE_ID, source: 'mgmt-tests', payload }
-  })
+  return postInYearChangeRequest(ADD_ORS_TYPE_ID, payload)
 }
 
 /**
@@ -218,9 +226,7 @@ export async function submitUpdateOverseasSiteRequest({
     sites
   }
   const { body } = expectStatus(
-    await managementBeRequest('POST', '/work-items', {
-      body: { typeId: UPDATE_ORS_TYPE_ID, source: 'mgmt-tests', payload }
-    }),
+    await postInYearChangeRequest(UPDATE_ORS_TYPE_ID, payload),
     201,
     `submit ORS update request for "${request.organisationName}"`
   )
@@ -237,7 +243,7 @@ export async function submitUpdateOverseasSiteRequest({
 export async function listAddOverseasSiteWorkItems(organisationName) {
   const { body } = expectStatus(
     await listWorkItemsViaApi({
-      typeId: TYPE_ID,
+      typeId: ADD_ORS_TYPE_ID,
       orgName: organisationName,
       pageSize: '50'
     }),
