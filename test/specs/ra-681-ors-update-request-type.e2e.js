@@ -4,6 +4,7 @@ import workItemDetail from '../page-objects/work-item-detail.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import { submitUpdateOverseasSiteRequest } from '../support/in-year-change-api.js'
 import { uniqueOrganisationName } from '../support/unique-name.js'
+import { getRelatedWorkItemsViaApi } from '../support/work-item-api.js'
 
 /**
  * RA-681. An ORS update request (`update-overseas-site`, RA-682) names its
@@ -60,6 +61,23 @@ describe('RA-681 ORS update request type', () => {
           `${site.siteName} (${site.orsId})`
         )
         expect(await workItems.tileHasRegistrationNumber(id)).toBe(false)
+      })
+
+      // The Related change requests rows label a request from management-be's
+      // related item, which carries the site's `selected` flag for this. An
+      // update case has no Related change requests tab yet, so this reads the
+      // related items the tab would show.
+      it("is related with its site's selected flag, for its related row's label", async () => {
+        const { id } = requests[scope]
+
+        const related = await getRelatedWorkItemsViaApi(id)
+
+        expect(
+          related.items.map((item) => ({
+            id: item.id,
+            selected: item.selected
+          }))
+        ).toEqual([{ id, selected: scope === 'Accreditation' }])
       })
 
       it(`opens a detail page whose header reads "${scope}: ORS update"`, async () => {
