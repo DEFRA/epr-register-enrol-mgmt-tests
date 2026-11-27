@@ -34,6 +34,9 @@ const hex = () => randomBytes(6).toString('hex')
  * overseas site shape (address, contact, codes, interim sites and BES files)
  * plus the site's own `chargePence`. One active interim site and one Clean BES
  * file with its valid-from and expiry dates.
+ *
+ * RA-681. `selected` is true, as the operator backend sends every add-ORS
+ * site: a registered ORS joining the accreditation.
  */
 function buildSite({ token, organisationName, number, suppliedFields }) {
   return {
@@ -89,6 +92,7 @@ function buildSite({ token, organisationName, number, suppliedFields }) {
       ]
     },
     suppliedFields,
+    selected: true,
     chargePence: ADD_ORS_SITE_CHARGE_PENCE
   }
 }
@@ -199,10 +203,16 @@ export async function submitAddOverseasSiteRequest({
  * charge and no `paymentReference` (RA-682 AC05). Each site is sent as the
  * ORS stands (its current details and BES evidence), with its `previous` and
  * `proposed` details and its interim site changes.
+ *
+ * Each site carries the ORS's `selected` flag (task 005): true (the default)
+ * for an approved ORS, false for a registration-only one. Case Management
+ * labels the request "Accreditation: ORS update" or "Registration: ORS
+ * update" from it.
  */
 export async function submitUpdateOverseasSiteRequest({
   organisationNamePrefix,
-  siteCount
+  siteCount,
+  selected = true
 }) {
   const request = buildAddOverseasSiteRequest({
     organisationNamePrefix,
@@ -211,6 +221,7 @@ export async function submitUpdateOverseasSiteRequest({
   const { paymentReference, ...unchargedPayload } = request.payload
   const sites = request.sites.map(({ suppliedFields, ...site }) => ({
     ...site,
+    selected,
     chargePence: 0,
     previous: { contactName: site.contactName },
     proposed: { contactName: `${site.contactName} (updated)` },
