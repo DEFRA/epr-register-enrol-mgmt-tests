@@ -27,15 +27,16 @@
  * With neither set, requests go unsigned, which only a stack with no
  * secrets configured accepts.
  *
- * RA-751. One spec also plays the Admin UI (`epr-register-enrol-admin`),
- * management-be's read-only caller, to pin its route policy. That only works
- * where the suite may hold the Admin UI's secret, so it is opt-in too:
+ * RA-751, RA-752. Two specs also play the Admin UI
+ * (`epr-register-enrol-admin`), management-be's read-only caller, to pin its
+ * route policy. That only works where the suite may hold the Admin UI's
+ * secret, so it is opt-in too:
  *
  *   ADMIN_UI_CALLER_ENABLED         "true" where the spec may run: the
  *                                   compose stack (wdio.github.conf.js) and a
  *                                   local stack (wdio.local.conf.js). Unset
  *                                   on CDP, where the secret is the Admin
- *                                   UI's alone, so the spec is skipped there.
+ *                                   UI's alone, so the specs are skipped there.
  *   ADMIN_UI_SHARED_SECRET          management-be's
  *                                   AUTH_SHARED_SECRET__ADMIN_UI. Unset on a
  *                                   local stack, whose management-be runs as

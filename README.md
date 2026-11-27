@@ -172,15 +172,16 @@ Every operator email is GOV.UK Notify's simulated delivered address.
 The test runner (a Node process, not the browser) reaches the backends
 directly. `test/support/backend-api.js` holds every base URL and header:
 
-| Variable                         | Meaning                                                                                                                                                           |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MANAGEMENT_BE_URL`              | management-be base URL                                                                                                                                            |
-| `OPERATOR_BACKEND_URL`           | Registration & Accreditation service backend base URL                                                                                                             |
-| `MANAGEMENT_BE_SHARED_SECRET`    | signs management-be requests (v3 HMAC) as the `epr-register-enrol-mgmt-tests` caller, when set                                                                    |
-| `OPERATOR_BACKEND_SHARED_SECRET` | sent as `Authorization: Bearer` to the operator backend, when set                                                                                                 |
-| `ADMIN_UI_CALLER_ENABLED`        | "true" where the suite may play the Admin UI (`epr-register-enrol-admin`); unset on CDP. When unset, the RA-751 Admin UI block is skipped and the run log says so |
-| `ADMIN_UI_SHARED_SECRET`         | signs management-be requests as the Admin UI: management-be's `AUTH_SHARED_SECRET__ADMIN_UI`, when set                                                            |
-| `MONOREPO_MONGO_URL`             | the monorepo root stack's MongoDB, for Path B for add-ORS (`operator-change-requests.js`)                                                                         |
+| Variable                         | Meaning                                                                                                                                                                                                                                           |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MANAGEMENT_BE_URL`              | management-be base URL                                                                                                                                                                                                                            |
+| `OPERATOR_BACKEND_URL`           | Registration & Accreditation service backend base URL                                                                                                                                                                                             |
+| `MANAGEMENT_BE_SHARED_SECRET`    | signs management-be requests (v3 HMAC) as the `epr-register-enrol-mgmt-tests` caller, when set                                                                                                                                                    |
+| `OPERATOR_BACKEND_SHARED_SECRET` | sent as `Authorization: Bearer` to the operator backend, when set                                                                                                                                                                                 |
+| `ADMIN_UI_CALLER_ENABLED`        | "true" where the suite may play the Admin UI (`epr-register-enrol-admin`); unset on CDP. When unset, the RA-751 and RA-752 Admin UI blocks are skipped and the run log says so                                                                    |
+| `ADMIN_UI_SHARED_SECRET`         | signs management-be requests as the Admin UI: management-be's `AUTH_SHARED_SECRET__ADMIN_UI`, when set                                                                                                                                            |
+| `REEX_COMPOSE_STUB_ENABLED`      | "true" where management-be reaches ReEx through `docker/stubs/external-services-stub.mjs` (set only by `wdio.github.conf.js`). When unset, the RA-752 cases that need a ReEx "no record" 404 or a ReEx outage are skipped and the run log says so |
+| `MONOREPO_MONGO_URL`             | the monorepo root stack's MongoDB, for Path B for add-ORS (`operator-change-requests.js`)                                                                                                                                                         |
 
 `wdio.conf.js` derives the three URLs from `ENVIRONMENT` unless they are set, and
 reads the secrets from the environment. `wdio.github.conf.js` points at the
@@ -220,7 +221,10 @@ Accreditation service backend with their deployed settings rather than
 Development ones: no demo seed data, a shared secret on every
 service-to-service call, and ReEx and CDP's outbound proxy stood in for by
 `docker/stubs/external-services-stub.mjs`, so the backends use their real HTTP
-clients. With no Notify API key, management-be uses its no-op GOV.UK Notify
+clients. The ReEx stand-in has no record of any organisation, answering as
+ReEx does (404 "Organisation not found"), except that it answers 503 for an
+organisation id starting `reex-unavailable-`, so a spec can make ReEx
+unavailable for one item (RA-752). With no Notify API key, management-be uses its no-op GOV.UK Notify
 client, which writes the same audit entries. It also runs cdp-uploader and the
 Entra ID stub. With `TestOrganisations__Enabled=true`, management-be seeds the
 fixtures no API can create (see "Test data" above; ids in

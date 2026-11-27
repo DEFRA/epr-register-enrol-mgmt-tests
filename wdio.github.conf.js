@@ -28,6 +28,11 @@ process.env.RA764_ORGANISATION_NAME_MIGRATION_ENABLED ??= 'true'
 // docker/config/management-be.env. Never set on CDP.
 process.env.ADMIN_UI_CALLER_ENABLED ??= 'true'
 process.env.ADMIN_UI_SHARED_SECRET ??= 'E2eComposeAdminUiToManagementBe'
+// RA-752: docker/config/management-be.env points management-be's real ReEx
+// client at docker/stubs/external-services-stub.mjs, which has no record of
+// any organisation and is unavailable for `reex-unavailable-` ones. Never set
+// on CDP, where ReEx is real.
+process.env.REEX_COMPOSE_STUB_ENABLED ??= 'true'
 // The compose stack runs the Entra ID stub, as CDP test does (RA-537).
 process.env.ENTRA_STUB_LOGIN ??= 'true'
 

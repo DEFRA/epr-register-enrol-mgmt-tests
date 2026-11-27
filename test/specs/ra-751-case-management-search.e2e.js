@@ -7,6 +7,11 @@ import {
   isAdminUiCallerEnabled,
   managementBeRequest
 } from '../support/backend-api.js'
+import {
+  describeIfAdminUi,
+  expectForbidden,
+  expectOnlyTheGateRefuses
+} from '../support/admin-ui-caller.js'
 import { uniqueOrganisationIdGroup } from '../support/operator-backend-api.js'
 import { getWorkItem } from '../support/decision-api.js'
 import {
@@ -48,15 +53,16 @@ import {
  *     re-accreditation workflow, in workflow order, with what management-be
  *     pushes to the Operator journey when an item enters it.
  *
- * and registers the Admin UI as a READ-ONLY caller: it may GET only those
- * two routes, and every other request it sends, read or write, is refused
- * with a 403 ProblemDetails. Its search results carry only the fields it
- * shows (id, type, state, last changed, assignee, application reference,
- * organisation ID and name); every other caller still gets the full item. A
- * stored one of those payload fields that is not a string comes back as
- * null for that item, rather than failing the page. Its user name header,
- * percent-encoded, may be as long as the longest Entra ID display name
- * becomes when encoded.
+ * and registers the Admin UI as a READ-ONLY caller: it may GET those two
+ * routes, and every write it sends is refused with a 403 ProblemDetails.
+ * (RA-752 opens the single work item reads to it too; those are covered in
+ * ra-752-view-case-management.e2e.js.) Its search results carry only the
+ * fields it shows (id, type, state, last changed, assignee, application
+ * reference, organisation ID and name); every other caller still gets the
+ * full item. A stored one of those payload fields that is not a string
+ * comes back as null for that item, rather than failing the page. Its user
+ * name header, percent-encoded, may be as long as the longest Entra ID
+ * display name becomes when encoded.
  *
  * management-fe does not change, so this is asserted against management-be
  * directly, as the suite's own caller (`epr-register-enrol-mgmt-tests`) and,
@@ -127,76 +133,12 @@ async function adminUiGet(path, options) {
 const adminUiSearch = (params, options) =>
   adminUiGet(`/work-items?${new URLSearchParams(params)}`, options)
 
-/** Assert management-be refused the Admin UI's request as forbidden. */
-function expectForbidden({ status, headers }) {
-  expect(status).toBe(403)
-  expect(headers.get('content-type')).toContain('application/problem+json')
-}
-
-/** The parts of a work item any write would change. */
-const writableView = ({
-  stateId,
-  lastModifiedAt,
-  assignedToId,
-  payload,
-  auditLog
-}) => ({ stateId, lastModifiedAt, assignedToId, payload, auditLog })
-
-/**
- * Assert that the read-only gate, and nothing else, refuses the Admin UI's
- * `method` `path` with `body` on the work item `workItemId`:
- *
- *   1. the Admin UI's request is a 403 ProblemDetails, and the work item
- *      reads the same afterwards as before;
- *   2. the very same request from this suite, a caller that is not
- *      read-only, acting as `user`, then answers `allowedStatus`.
- *
- * (2) is what makes (1) prove the gate: management-be accepts the request on
- * its own terms (the item's state, the body, the user's role and nation), so
- * the 403 is not a refusal every caller would get. The Admin UI's request
- * carries `user`'s role and nation when it has them, so a handler's own role
- * or nation check cannot be what refused it either. Returns the work item as
- * it reads after (2).
- */
-async function expectOnlyTheGateRefuses(
-  workItemId,
-  { method, path, body, user = CASEWORKER_USER, allowedStatus = 200 }
-) {
-  const before = writableView(await getWorkItem(workItemId))
-  expectForbidden(
-    await adminUiRequest(method, path, {
-      body,
-      role: user.role,
-      nation: user.nation
-    })
-  )
-  expect(writableView(await getWorkItem(workItemId))).toEqual(before)
-  expectStatus(
-    await managementBeRequest(method, path, { body, user }),
-    allowedStatus,
-    `${method} ${path} as ${user.id}, not read-only`
-  )
-  return getWorkItem(workItemId)
-}
-
 /** Assert `GET /work-items` refuses `params` with a 400 naming `key`. */
 async function expectInvalidQuery(params, key) {
   const { status, body } = await listWorkItemsViaApi(params)
   expect(status).toBe(400)
   expect(body.title).toBe('Invalid query')
   expect(Object.keys(body.errors)).toEqual([key])
-}
-
-// Skipped where the run may not hold the Admin UI's secret (CDP), and where
-// a stack does not enable it: the monorepo root's compose.yml runs
-// wdio.conf.js with ADMIN_UI_CALLER_ENABLED unset. Said in the run log, so a
-// run that skipped it cannot pass for one that ran it.
-const describeIfAdminUi = isAdminUiCallerEnabled() ? describe : describe.skip
-if (!isAdminUiCallerEnabled()) {
-  // eslint-disable-next-line no-console -- say WHY the block is skipped in the run log
-  console.warn(
-    'RA-751: ADMIN_UI_CALLER_ENABLED is not "true", so "the Admin UI caller is read-only" is SKIPPED. Set it to "true" (and ADMIN_UI_SHARED_SECRET to management-be\'s AUTH_SHARED_SECRET__ADMIN_UI where that is set) to run it.'
-  )
 }
 
 // Only where the stack checks signatures; a Development stack trusts the
@@ -561,16 +503,10 @@ describe('RA-751 Case management search', () => {
       expect(body.states).toEqual(RE_ACCREDITATION_STATES)
     })
 
-    it('may not read a single work item', async () => {
-      expectForbidden(
-        await adminUiRequest('GET', `/work-items/${unassigned.id}`)
-      )
-    })
-
     // Each refused write below is one management-be accepts from a caller
-    // that is not read-only (see expectOnlyTheGateRefuses), on an item of its
-    // own, so the writes that this suite then makes change nothing the
-    // searches above rely on.
+    // that is not read-only (see expectOnlyTheGateRefuses in
+    // admin-ui-caller.js), on an item of its own, so the writes that this
+    // suite then makes change nothing the searches above rely on.
 
     it('may not create a work item, which a caller that is not read-only may', async () => {
       const submission = buildWorkItemSubmission({
