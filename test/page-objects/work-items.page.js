@@ -474,14 +474,15 @@ class WorkItemsPage extends Page {
 
   /**
    * Remove a single active filter by clicking the tag whose label contains
-   * `labelSubstring` (e.g. "England" or "Sorted by"). Throws if none matches
+   * `labelSubstring` (e.g. "England" or "Sorted by"), or, with `exact`, is
+   * exactly it (RA-681: "ORS" is also part of "ORS applications"). Throws if none matches
    * so a wrong assumption fails loudly rather than silently no-op'ing.
    */
-  async removeActiveFilter(labelSubstring) {
+  async removeActiveFilter(labelSubstring, { exact = false } = {}) {
     const tags = await this.activeFilterTags()
     for (const tag of tags) {
       const label = await tag.$('[data-testid="active-filter-label"]').getText()
-      if (label.includes(labelSubstring)) {
+      if (exact ? label === labelSubstring : label.includes(labelSubstring)) {
         await tag.click()
         return
       }
@@ -522,6 +523,28 @@ class WorkItemsPage extends Page {
   async checkApplicationType(value) {
     await this.expandSection('application-type')
     await $(`input[name="applicationType"][value="${value}"]`).click()
+  }
+
+  /**
+   * RA-681. Tick an "In-year change" checkbox (param inYearChange). Values:
+   * tonnage | ors. It narrows only the in-year change part of Application
+   * type; Tonnage matches nothing until tonnage band upgrades reach case
+   * management.
+   */
+  async checkInYearChange(value) {
+    await this.expandSection('in-year-change')
+    await $(`input[name="inYearChange"][value="${value}"]`).click()
+  }
+
+  /**
+   * RA-681. Tick an "ORS management" checkbox (param orsManagement). Values:
+   * applications (add-ORS) | withdrawals (matches nothing until ORS
+   * withdrawals reach case management) | updates (ORS updates, RA-682). It
+   * narrows only the ORS part of the in-year change results.
+   */
+  async checkOrsManagement(value) {
+    await this.expandSection('ors-management')
+    await $(`input[name="orsManagement"][value="${value}"]`).click()
   }
 
   /**

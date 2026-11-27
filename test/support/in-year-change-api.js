@@ -4,6 +4,9 @@
  * an operator submits a request to add overseas reprocessing sites.
  * management-be splits the request into one work item per site.
  *
+ * RA-681. ORS update (`update-overseas-site`, RA-682) submissions go the same
+ * way: one work item per site, with no charge and no payment reference.
+ *
  * Every submission is unique to its run: a fresh `operatorRequestId` (a
  * repeated one is a replay), a `uniqueOrganisationName` and an `e2e-`
  * organisation id, which marks a test organisation.
@@ -16,6 +19,7 @@ import { uniqueOrganisationName } from './unique-name.js'
 import { listWorkItemsViaApi } from './work-item-api.js'
 
 const TYPE_ID = 'add-overseas-site'
+const UPDATE_ORS_TYPE_ID = 'update-overseas-site'
 
 /**
  * Each site's own charge: the operator backend's per-site in-year ORS fee
@@ -171,6 +175,59 @@ export async function submitAddOverseasSiteRequest({
   )
   return {
     ...request,
+    submissionReference: body.submissionReference,
+    workItems: body.workItems
+  }
+}
+
+/**
+ * RA-681. Submit an ORS update request (`update-overseas-site`, RA-682) with
+ * `siteCount` sites and return the same shape as
+ * `submitAddOverseasSiteRequest`.
+ *
+ * The payload follows the operator backend's update submission
+ * (`HttpCaseWorkingApiAdapter.BuildChangeRequestPayload`): the request's
+ * shared fields, an `operatorRequestId` suffixed with the change type, no
+ * charge and no `paymentReference` (RA-682 AC05). Each site is sent as the
+ * ORS stands (its current details and BES evidence), with its `previous` and
+ * `proposed` details and its interim site changes.
+ */
+export async function submitUpdateOverseasSiteRequest({
+  organisationNamePrefix,
+  siteCount
+}) {
+  const request = buildAddOverseasSiteRequest({
+    organisationNamePrefix,
+    siteCount
+  })
+  const { paymentReference, ...unchargedPayload } = request.payload
+  const sites = request.sites.map(({ suppliedFields, ...site }) => ({
+    ...site,
+    chargePence: 0,
+    previous: { contactName: site.contactName },
+    proposed: { contactName: `${site.contactName} (updated)` },
+    interimSiteChanges: [
+      { action: 'remove', interimSiteId: site.interimSites[0].siteId }
+    ]
+  }))
+  const payload = {
+    ...unchargedPayload,
+    operatorRequestId: `${unchargedPayload.operatorRequestId}:${UPDATE_ORS_TYPE_ID}`,
+    changeType: UPDATE_ORS_TYPE_ID,
+    chargePence: 0,
+    sites
+  }
+  const { body } = expectStatus(
+    await managementBeRequest('POST', '/work-items', {
+      body: { typeId: UPDATE_ORS_TYPE_ID, source: 'mgmt-tests', payload }
+    }),
+    201,
+    `submit ORS update request for "${request.organisationName}"`
+  )
+  return {
+    ...request,
+    payload,
+    sites,
     submissionReference: body.submissionReference,
     workItems: body.workItems
   }
