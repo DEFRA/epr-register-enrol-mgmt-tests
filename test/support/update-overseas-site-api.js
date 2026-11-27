@@ -1,23 +1,25 @@
 /**
  * RA-782 / RA-767. ORS update (`update-overseas-site`) submissions posted
  * straight to management-be's `POST /work-items`, as the operator backend
- * sends them when an operator changes accredited ORSs, alongside an add-ORS
- * group from the same operator request.
+ * sends them when an operator changes accredited ORSs, optionally alongside
+ * adding a registered ORS in the same operator request.
  *
- * The operator backend sends a request holding adds and updates as one
- * submission per type: the add-ORS group under the request id, then the
- * update group under `{requestId}:update-overseas-site`, carrying the first
- * group's `submissionReference`; every group carries the request's total
- * `submissionSize`. So the two groups share one SUB reference, and each
- * work item's Related change requests finds the other.
+ * The operator backend sends one operator request as one POST: the
+ * submission's `typeId` is `add-overseas-site` when the request adds any ORS
+ * and `update-overseas-site` otherwise, and each entry in `payload.sites[]`
+ * carries its own `typeId`. management-be accepts the whole request in one
+ * transaction, under one SUB reference whose `submissionSize` is every site
+ * in it, or rejects it and creates nothing; a repeated `operatorRequestId` is
+ * a replay. So the add and the updates share one SUB reference, and each
+ * work item's Related change requests finds the others.
  *
- * An update is never charged: the group's `chargePence` and each site's are
- * 0, and its `paymentReference` is null, which the operator backend leaves
- * out of the JSON it sends, so it is left out here too. Each site is the ORS
- * as it stands (add-ORS's site shape) with `previous`
- * and `proposed` (the details the operator may change, as they were and as
- * requested), `interimSiteChanges` (`change`, `remove`, `add`) and
- * `addedBesEvidence` (BES files the update adds).
+ * An update is never charged: each update site's `chargePence` is 0. A
+ * request with no add has no charge and no `paymentReference`, which the
+ * operator backend leaves out of the JSON it sends, so it is left out here
+ * too. Each update site is the ORS as it stands (add-ORS's site shape) with
+ * `previous` and `proposed` (the details the operator may change, as they
+ * were and as requested), `interimSiteChanges` (`change`, `remove`, `add`)
+ * and `addedBesEvidence` (BES files the update adds).
  *
  * Every submission is unique to its run (`e2e-` organisation, fresh request
  * id, unique organisation name), so the operator backend holds no change
@@ -28,12 +30,10 @@
  */
 
 import { expectStatus, managementBeRequest } from './backend-api.js'
-import {
-  ADD_ORS_SUBMITTED_BY,
-  buildAddOverseasSiteRequest,
-  postAddOverseasSiteRequest
-} from './in-year-change-api.js'
+import { buildAddOverseasSiteRequest } from './in-year-change-api.js'
+import { listWorkItemsViaApi } from './work-item-api.js'
 
+export const ADD_ORS_TYPE_ID = 'add-overseas-site'
 export const UPDATE_ORS_TYPE_ID = 'update-overseas-site'
 
 const interimSite = (siteId, siteNumber, siteName) => ({
@@ -58,7 +58,7 @@ const interimDetails = ({ siteId, siteNumber, isNewSite, ...details }) =>
  * One update site: an accredited ORS whose name changes, with two interim
  * sites (the first changed, the second removed) and one added, and one BES
  * file added to the one it holds. `number` keeps the ids unique across the
- * group.
+ * request: the add sites take the numbers before the update sites'.
  */
 function buildUpdateSite({ token, organisationName, number }) {
   const siteName = `${organisationName} ORS ${number}`
@@ -91,6 +91,7 @@ function buildUpdateSite({ token, organisationName, number }) {
   })
 
   return {
+    typeId: UPDATE_ORS_TYPE_ID,
     siteId: `e2e-site-${token}-u${number}`,
     orsId: String(number).padStart(3, '0'),
     ...details,
@@ -136,68 +137,126 @@ function buildUpdateSite({ token, organisationName, number }) {
 }
 
 /**
- * Submit one operator request holding one add-ORS site and `updateCount`
- * ORS updates, as the operator backend sends it: the add-ORS group first,
- * then the update group under the first group's SUB reference. Returns
+ * Build, without sending, one operator request holding `addCount` add-ORS
+ * sites and `updateCount` ORS updates, as the operator backend sends it:
  *
- *   { submissionReference, organisationName, operatorOrgNumber,
- *     add: { site, workItem }, updates: [{ site, workItem }], payload }
+ *   { typeId, payload, organisationName, operatorOrgNumber,
+ *     addSites, updateSites }
  *
- * where each `workItem` is management-be's `{ siteId, id,
- * applicationReference }` and `payload` the update group's payload.
+ * `typeId` is the submission's (add-ORS when it adds any ORS), and
+ * `payload.sites` the add sites then the update sites, each with its own
+ * `typeId`. No `submissionReference` or `submissionSize`: management-be
+ * gives the request its SUB reference and counts its sites.
+ */
+export function buildOrsUpdateRequest({
+  organisationNamePrefix,
+  addCount = 1,
+  updateCount = 1
+}) {
+  const request = buildAddOverseasSiteRequest({
+    organisationNamePrefix,
+    siteCount: addCount
+  })
+  const { token, organisationName, operatorOrgNumber } = request
+  const addSites = request.sites.map((site) => ({
+    typeId: ADD_ORS_TYPE_ID,
+    ...site
+  }))
+  const updateSites = Array.from({ length: updateCount }, (_, index) =>
+    buildUpdateSite({ token, organisationName, number: addCount + index + 1 })
+  )
+  const typeId = addCount > 0 ? ADD_ORS_TYPE_ID : UPDATE_ORS_TYPE_ID
+  const payload = {
+    ...request.payload,
+    changeType: typeId,
+    sites: [...addSites, ...updateSites]
+  }
+  if (addCount === 0) {
+    // Nothing to pay: no charge and no payment reference.
+    payload.chargePence = 0
+    delete payload.paymentReference
+  }
+  return {
+    typeId,
+    payload,
+    organisationName,
+    operatorOrgNumber,
+    addSites,
+    updateSites
+  }
+}
+
+/**
+ * Post a `buildOrsUpdateRequest` request to management-be and return the raw
+ * `{ status, headers, body }`, whatever the status.
+ */
+export function postOrsUpdateRequest({ typeId, payload }) {
+  return managementBeRequest('POST', '/work-items', {
+    body: { typeId, source: 'mgmt-tests', payload }
+  })
+}
+
+/**
+ * Submit one operator request (see `buildOrsUpdateRequest`) and return
+ *
+ *   { submissionReference, workItems, organisationName, operatorOrgNumber,
+ *     add: { site, workItem } | undefined, adds: [{ site, workItem }],
+ *     updates: [{ site, workItem }], typeId, payload }
+ *
+ * where `workItems` is management-be's response (`{ siteId, id,
+ * applicationReference }` each), `add` the first add-ORS site, and each
+ * `workItem` the one management-be raised for its `site`.
  */
 export async function submitOrsUpdateRequest({
   organisationNamePrefix,
+  addCount = 1,
   updateCount = 1
 }) {
-  const submissionSize = 1 + updateCount
-  const addRequest = buildAddOverseasSiteRequest({
+  const request = buildOrsUpdateRequest({
     organisationNamePrefix,
-    siteCount: 1
+    addCount,
+    updateCount
   })
-  addRequest.payload.submissionSize = submissionSize
-  const { body: addBody } = expectStatus(
-    await postAddOverseasSiteRequest(addRequest.payload),
-    201,
-    `submit the add-ORS group for "${addRequest.organisationName}"`
-  )
-
-  const { organisationName, operatorOrgNumber } = addRequest
-  const token = addRequest.payload.operatorRequestId.replace('e2e-request-', '')
-  const sites = Array.from({ length: updateCount }, (_, index) =>
-    buildUpdateSite({ token, organisationName, number: index + 1 })
-  )
-  // The add group's request, uncharged: no payment reference, nothing to pay.
-  const shared = { ...addRequest.payload }
-  delete shared.paymentReference
-  const payload = {
-    ...shared,
-    chargePence: 0,
-    operatorRequestId: `${addRequest.payload.operatorRequestId}:${UPDATE_ORS_TYPE_ID}`,
-    changeType: UPDATE_ORS_TYPE_ID,
-    submissionReference: addBody.submissionReference,
-    submissionSize,
-    submittedBy: ADD_ORS_SUBMITTED_BY,
-    sites
-  }
   const { body } = expectStatus(
-    await managementBeRequest('POST', '/work-items', {
-      body: { typeId: UPDATE_ORS_TYPE_ID, source: 'mgmt-tests', payload }
-    }),
+    await postOrsUpdateRequest(request),
     201,
-    `submit the ORS update group for "${organisationName}"`
+    `submit the ORS change request for "${request.organisationName}"`
   )
-
-  return {
-    submissionReference: addBody.submissionReference,
-    updateSubmissionReference: body.submissionReference,
-    organisationName,
-    operatorOrgNumber,
-    add: { site: addRequest.sites[0], workItem: addBody.workItems[0] },
-    updates: sites.map((site, index) => ({
-      site,
-      workItem: body.workItems[index]
-    })),
-    payload
+  const withWorkItem = (site) => {
+    const workItem = body.workItems.find((w) => w.siteId === site.siteId)
+    if (!workItem) {
+      throw new Error(`management-be raised no work item for ${site.siteId}`)
+    }
+    return { site, workItem }
   }
+  const adds = request.addSites.map(withWorkItem)
+  return {
+    ...request,
+    submissionReference: body.submissionReference,
+    workItems: body.workItems,
+    add: adds[0],
+    adds,
+    updates: request.updateSites.map(withWorkItem)
+  }
+}
+
+/**
+ * The add-ORS and ORS update work items management-be holds for
+ * `organisationName`.
+ */
+export async function listOrsWorkItems(organisationName) {
+  const items = []
+  for (const typeId of [ADD_ORS_TYPE_ID, UPDATE_ORS_TYPE_ID]) {
+    const { body } = expectStatus(
+      await listWorkItemsViaApi({
+        typeId,
+        orgName: organisationName,
+        pageSize: '50'
+      }),
+      200,
+      `list ${typeId} work items for "${organisationName}"`
+    )
+    items.push(...body.items)
+  }
+  return items
 }

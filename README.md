@@ -108,10 +108,10 @@ skip everywhere else:
   live in `test/support/*-fixture.js`, except add-ORS in-year change
   submissions (RA-739), which `test/support/in-year-change-api.js` builds and
   submits, one work item per site, and ORS update submissions (RA-782),
-  which `test/support/update-overseas-site-api.js` submits as the update
-  group of a request that also adds an ORS, under the add group's SUB
-  reference (RA-767). An ORS update's push at confirm applicant contact fails
-  as an add-ORS one does (below), so ra-782-update-ors-review stops there. Each item's `operatorOrganisationId`
+  which `test/support/update-overseas-site-api.js` submits as one POST per
+  operator request, updates and any add together under one SUB reference
+  (RA-767). An ORS update's push at confirm applicant contact fails as an
+  add-ORS one does (below), so ra-782-update-ors-review stops there. Each item's `operatorOrganisationId`
   starts `e2e-`, which marks it as a test organisation whose ReEx lookups
   management-be answers from its own test data. The operator's side of a
   query or withdrawal is played by `query-resubmission.js` and

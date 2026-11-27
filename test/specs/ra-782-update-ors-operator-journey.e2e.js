@@ -31,6 +31,10 @@ const NEW_TOWN = 'Vila Nova de Gaia'
 // How long a step that should push nothing is watched for a push.
 const NO_PUSH_WATCH_MS = 5000
 
+/** The UK calendar date of `date`, as yyyy-MM-dd. */
+const ukIsoDate = (date) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(date)
+
 /**
  * RA-782. An ORS update submitted in the operator journey, decided in Case
  * Management, and applied in the operator journey (org 50025, see
@@ -40,7 +44,8 @@ const NO_PUSH_WATCH_MS = 5000
  *            the operator's item reads Duly made), approved with no valid
  *            from date (not pushed: the ORS keeps its name), then applicant
  *            contact confirmed: the case closes as Granted, the item is
- *            Approved and the ORS has its new name
+ *            Approved, valid from the approval date, and the ORS has its
+ *            new name
  *   refusal  ORS 002's town changed: duly made, refused and applicant
  *            contact confirmed: the case closes as Refused, the item is
  *            Rejected and the ORS is unchanged and free to change again
@@ -82,6 +87,7 @@ describeIfMonorepoMongo(
 
     describe('grant', () => {
       let update
+      let approvedOn
 
       before(async () => {
         update = await submitOrsUpdateChangeRequest({
@@ -119,6 +125,7 @@ describeIfMonorepoMongo(
         expect(dulyMade.action).toBe('status-push-sent')
         await startAssessment(update.id)
         await logDecision(update.id, 'approved')
+        approvedOn = ukIsoDate(new Date())
 
         // A push runs in the background after the response, so check that
         // none follows the decision for a while rather than read once.
@@ -143,9 +150,15 @@ describeIfMonorepoMongo(
         await confirmApplicantContact(update.id)
         await workItems.openWorkItem(update.id)
         await detail.assertReadOnlyOutcomePanel('Granted')
+        // RA-782 AC8: confirming contact is in the Application history.
+        await detail.gotoAudit()
+        await detail.assertAuditEntry('Applicant contacted')
 
         const { item, site } = await getOrsUpdateItem(update)
         expect(item.status).toBe('Approved')
+        // RA-782 AC6: valid from the day it was approved (UK), which
+        // management-be sends on the confirm contact push.
+        expect(String(item.validFrom).slice(0, 10)).toBe(approvedOn)
         expect(site.accreditationStatus).toBe('Accredited')
         expect(site.pendingRequestId).toBeNull()
         expect(site.site.siteName).toBe(NEW_NAME)
@@ -174,6 +187,8 @@ describeIfMonorepoMongo(
         await confirmApplicantContact(update.id)
         await workItems.openWorkItem(update.id)
         await detail.assertReadOnlyOutcomePanel('Refused')
+        await detail.gotoAudit()
+        await detail.assertAuditEntry('Applicant contacted')
 
         const { item, site } = await getOrsUpdateItem(update)
         expect(item.status).toBe('Rejected')
