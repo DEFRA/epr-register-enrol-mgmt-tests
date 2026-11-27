@@ -91,7 +91,7 @@ describe('RA-495 add-ORS duly making', () => {
             return {
               reference: workItem.applicationReference,
               site: `${site.siteName} (${site.orsId})`,
-              type: 'New ORS accreditation',
+              type: 'Accreditation: add registered ORS',
               charge: '£328.00',
               status: 'Not started'
             }

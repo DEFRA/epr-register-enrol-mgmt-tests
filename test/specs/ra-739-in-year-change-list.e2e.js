@@ -81,7 +81,7 @@ describe('RA-739 in-year change applications on the Applications list', () => {
           `${site.siteName} (${site.orsId})`
         )
         await expect(workItems.tileField(id, 'request-type')).toHaveText(
-          'Request type: New ORS accreditation'
+          'Request type: Accreditation: add registered ORS'
         )
         await expect(workItems.tileField(id, 'assigned-to')).toHaveText(
           'Unassigned'
@@ -122,7 +122,7 @@ describe('RA-739 in-year change applications on the Applications list', () => {
       ).toHaveText(applicationReference)
       await expect(
         workItemDetail.caseHeaderFieldByKey('request-type')
-      ).toHaveText('New ORS accreditation')
+      ).toHaveText('Accreditation: add registered ORS')
     })
   })
 })
