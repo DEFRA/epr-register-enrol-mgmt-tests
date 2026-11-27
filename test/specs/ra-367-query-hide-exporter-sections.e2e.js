@@ -3,6 +3,9 @@ import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import query, {
   QUERY_SECTIONS,
+  COMBINED_ORS_BES_SECTION,
+  COMBINED_ORS_BES_KEYS,
+  COMBINED_ORS_BES_LABEL,
   EXPORTER_ONLY_QUERY_SECTIONS,
   REPROCESSOR_QUERY_SECTIONS
 } from '../page-objects/query.page.js'
@@ -12,9 +15,11 @@ import { createExporterWorkItem } from '../support/ra-434-fixture.js'
  * RA-367 — hide the exporter-only query areas for reprocessor applications.
  *
  * The "Query an application" form asks "Which areas do you want to query?" and
- * offers six areas. Two of them — Broadly equivalent standards (BES) and
- * Overseas reprocessing sites (ORS) — are EXPORTER-ONLY. For a reprocessor
- * application they must NOT appear; for an exporter application they must.
+ * offers five checkboxes. One of them — "Overseas reprocessing sites and BES
+ * evidence", the single combined checkbox RA-698 (AC12) replaced the separate
+ * Broadly equivalent standards (BES) and Overseas reprocessing sites (ORS)
+ * checkboxes with — is EXPORTER-ONLY. For a reprocessor application it must
+ * NOT appear; for an exporter application it must.
  *
  * WHAT DRIVES IT. The frontend gates the two areas on
  * `isExporterApplication(workItem)`, which RA-314 rewrote to read the work item
@@ -23,9 +28,11 @@ import { createExporterWorkItem } from '../support/ra-434-fixture.js'
  * (Confirmed final by management-fe against main. Overseas-sites presence was an
  * earlier proxy and is NOT the signal any more.)
  *
- *   AC01 — a reprocessor query form does NOT show BES or ORS; the other four
- *          areas are present.
- *   AC02 — an exporter query form DOES show all six areas, including BES/ORS.
+ *   AC01 — a reprocessor query form does NOT show the combined ORS + BES
+ *          checkbox; the other four areas are present.
+ *   AC02 — an exporter query form DOES show all five checkboxes, including the
+ *          combined ORS + BES one, and neither of the old separate BES / ORS
+ *          checkboxes (RA-698).
  *
  * Fixtures & the AC02 gap:
  *   - AC01 uses a work item created through the case management "Create work
@@ -51,7 +58,7 @@ const createReprocessorWorkItem = async (organisationNamePrefix) => {
 }
 
 describe('RA-367 Exporter-only query areas', () => {
-  describe('AC01 — a reprocessor application hides BES and ORS', () => {
+  describe('AC01 — a reprocessor application hides the combined ORS and BES checkbox', () => {
     let workItemId
 
     before(async () => {
@@ -65,10 +72,13 @@ describe('RA-367 Exporter-only query areas', () => {
       await login.logout()
     })
 
-    it('does not render the Broadly equivalent standards or Overseas reprocessing sites checkboxes', async () => {
+    it('does not render the Overseas reprocessing sites and BES evidence checkbox, nor the retired separate ones', async () => {
       await query.gotoFor(workItemId)
       const rendered = []
-      for (const section of EXPORTER_ONLY_QUERY_SECTIONS) {
+      for (const section of [
+        ...EXPORTER_ONLY_QUERY_SECTIONS,
+        ...COMBINED_ORS_BES_KEYS
+      ]) {
         if (await query.hasSection(section)) {
           rendered.push(section)
         }
@@ -101,12 +111,12 @@ describe('RA-367 Exporter-only query areas', () => {
     })
   })
 
-  // AC02 — an exporter application shows all six areas. The positive half
-  // AC01's hiding needs to be meaningful: without it, "reprocessor hides two"
-  // could pass against a build that never emits BES/ORS to anyone. The
+  // AC02 — an exporter application shows all five checkboxes. The positive
+  // half AC01's hiding needs to be meaningful: without it, "reprocessor hides
+  // it" could pass against a build that never emits the checkbox to anyone. The
   // exporter is RA-434's fixture, submitted through the API, and this block
   // only GETs its query form.
-  describe('AC02 — an exporter application shows all six areas', () => {
+  describe('AC02 — an exporter application shows all five areas', () => {
     let workItemId
 
     before(async () => {
@@ -118,7 +128,7 @@ describe('RA-367 Exporter-only query areas', () => {
       await login.logout()
     })
 
-    it('renders the Broadly equivalent standards and Overseas reprocessing sites checkboxes', async () => {
+    it('renders the one combined Overseas reprocessing sites and BES evidence checkbox, and not the retired separate ones', async () => {
       await query.gotoFor(workItemId)
       const missing = []
       for (const section of EXPORTER_ONLY_QUERY_SECTIONS) {
@@ -127,9 +137,17 @@ describe('RA-367 Exporter-only query areas', () => {
         }
       }
       expect(missing).toEqual([])
+      // RA-698: the checkbox is one, labelled for both areas. The old BES and
+      // ORS values are section KEYS now, not checkboxes.
+      for (const key of COMBINED_ORS_BES_KEYS) {
+        expect(await query.hasSection(key)).toBe(false)
+      }
+      expect(await query.sectionLabelText(COMBINED_ORS_BES_SECTION)).toBe(
+        COMBINED_ORS_BES_LABEL
+      )
     })
 
-    it('offers all six queryable areas', async () => {
+    it('offers all five queryable areas', async () => {
       await query.gotoFor(workItemId)
       const missing = []
       for (const section of QUERY_SECTIONS) {

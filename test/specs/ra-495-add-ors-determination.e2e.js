@@ -89,14 +89,17 @@ describe('RA-495 add-ORS determination', () => {
   })
 
   describe('a Duly made application', () => {
-    it('offers Make Determination, and no Query or other action', async () => {
+    it('offers Make Determination and Raise a query, and no other action', async () => {
       await workItems.openWorkItem(approval.id)
       await detail.assertState('Duly made')
       expect(await detail.hasLogDecisionCta()).toBe(true)
       expect((await detail.logDecisionCtaText()).trim()).toBe(
         'Make Determination'
       )
-      expect(await detail.hasAction('query')).toBe(false)
+      // RA-698: Query is offered on a Duly made add-ORS item.
+      expect(await detail.hasAction('query')).toBe(true)
+      // No other action: Raise a query, by its own CTA, is the only one.
+      expect(await detail.workItemActionIds()).toEqual(['query'])
       await expect(detail.workItemActions()).not.toBeExisting()
       await expect(detail.noActionsMessage()).not.toBeExisting()
     })

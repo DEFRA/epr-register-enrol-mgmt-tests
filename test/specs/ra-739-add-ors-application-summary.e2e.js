@@ -1,6 +1,7 @@
 import { $, $$, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
+import detail from '../page-objects/work-item-detail.page.js'
 import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
 
 /**
@@ -12,7 +13,7 @@ import { submitAddOverseasSiteRequest } from '../support/in-year-change-api.js'
  * layout follows re-accreditation's: an "Application details" heading, its
  * labels, and open interim sites. The
  * assignment panel is there; the actions panel (Duly
- * make, Query, decisions) is not until later RA-495 tasks.
+ * make, decisions) is not until later RA-495 tasks.
  *
  * Submitted straight to management-be with the operator backend's full site
  * shape (see `buildAddOverseasSiteRequest`).
@@ -155,7 +156,7 @@ describe('RA-739 / RA-495 add-ORS Application summary', () => {
     expect(await textOf('interim-site-operation-code', interimSite)).toBe('R13')
   })
 
-  it('has the assignment panel and only the Duly make action', async () => {
+  it('has the assignment panel, the Duly make action and Raise a query', async () => {
     const panel = $('[data-testid="case-assignment-panel"]')
     await expect(panel).toExist()
     await expect(panel.$('[data-testid="self-assign-submit"]')).toHaveText(
@@ -165,11 +166,14 @@ describe('RA-739 / RA-495 add-ORS Application summary', () => {
     await expect(panel.$('[data-testid="unassign-link"]')).toExist()
 
     // RA-495: a Not started application offers Duly make (its own CTA, not
-    // a generic action) and nothing else.
+    // a generic action). RA-698: Raise a query is also offered while
+    // submitted; no decision or other action is.
     await expect($('[data-testid="duly-make-cta"]')).toExist()
     await expect($('[data-testid="log-decision-cta"]')).not.toExist()
-    await expect($('[data-testid="work-item-actions"]')).not.toExist()
     await expect($('[data-testid="action-duly-make"]')).not.toExist()
-    await expect($('[data-testid="action-query"]')).not.toExist()
+    await expect($('[data-testid="action-query"]')).toExist()
+    // No other action: Raise a query, by its own CTA, is the only one.
+    expect(await detail.workItemActionIds()).toEqual(['query'])
+    await expect(detail.workItemActions()).not.toBeExisting()
   })
 })

@@ -2,6 +2,10 @@ import { expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
+import {
+  COMBINED_ORS_BES_KEYS,
+  COMBINED_ORS_BES_SECTION
+} from '../page-objects/query.page.js'
 import { raiseQuery, resumeFromQuery } from '../support/query-resubmission.js'
 import { dulyMake } from '../support/re-accreditation-journey.js'
 import { uniquePostcode } from '../support/unique-postcode.js'
@@ -30,7 +34,7 @@ import { createWorkItemViaApi } from '../support/work-item-api.js'
  * The work item is an EXPORTER application with no overseas sites yet,
  * submitted through the API (`createWorkItemViaApi`), not created via
  * "Create work item": that form has no `wasteProcessingType` field, and both
- * the `overseas-reprocessing-sites` query section (RA-367) and the ORS row on
+ * the combined "Overseas reprocessing sites and BES evidence" query checkbox (RA-367, RA-698) and the ORS row on
  * the Application summary page only exist for an exporter application — so a
  * UI-created item could neither be queried on its overseas sites nor show
  * the result. Because the item is an exporter, the query is raised through
@@ -84,13 +88,15 @@ describe('RA-557 Overseas reprocessing sites reflect a query resubmit', () => {
   })
 
   it('reflects an added overseas site after a resubmission', async () => {
+    // RA-698: the form ticks the one combined checkbox; the operator's
+    // resubmission is still keyed by the two section keys it stands for.
     await raiseQuery(workItemId, {
-      sections: ['overseas-reprocessing-sites'],
+      sections: [COMBINED_ORS_BES_SECTION],
       reason: 'Please provide the overseas reprocessing site details.'
     })
 
     await resumeFromQuery(workItemId, {
-      sectionKeys: ['overseas-reprocessing-sites'],
+      sectionKeys: COMBINED_ORS_BES_KEYS,
       sections: {
         OverseasSites: { sites: [siteA, siteB] }
       }
@@ -110,7 +116,7 @@ describe('RA-557 Overseas reprocessing sites reflect a query resubmit', () => {
     await dulyMake(workItemId)
 
     await raiseQuery(workItemId, {
-      sections: ['overseas-reprocessing-sites'],
+      sections: [COMBINED_ORS_BES_SECTION],
       reason:
         'Please confirm one of the overseas reprocessing sites has closed.'
     })
@@ -119,7 +125,7 @@ describe('RA-557 Overseas reprocessing sites reflect a query resubmit', () => {
     // landed only in payload.latestSections and payload.overseasSites.sites
     // stayed stale at [siteA, siteB].
     await resumeFromQuery(workItemId, {
-      sectionKeys: ['overseas-reprocessing-sites'],
+      sectionKeys: COMBINED_ORS_BES_KEYS,
       sections: {
         OverseasSites: { sites: [siteA] }
       }

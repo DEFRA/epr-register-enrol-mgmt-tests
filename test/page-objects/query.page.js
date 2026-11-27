@@ -10,34 +10,49 @@ import { Page } from './page.js'
  *   2. POST /work-items/{id}/query — records the query against the
  *      application and PRG-redirects back to the work item
  *
- * The six section values mirror the frontend's QUERY_SECTION_OPTIONS; the
- * backend validates against the same list, so a drift on either side shows
- * up here as a validation error rather than a silent mismatch.
+ * The five checkbox values mirror the frontend's QUERY_SECTION_OPTIONS. The
+ * backend validates the section KEYS the form expands them to (see
+ * COMBINED_ORS_BES_KEYS), so a drift on either side shows up here as a
+ * validation error rather than a silent mismatch.
+ *
+ * RA-698 (AC12). Broadly equivalent standards (BES) and Overseas reprocessing
+ * sites (ORS) used to be two checkboxes. They are now ONE checkbox,
+ * "Overseas reprocessing sites and BES evidence", whose value is
+ * `overseas-sites-and-bes-evidence`. It posts that single value and
+ * management-fe expands it to the two existing backend keys, so the
+ * management-be / operator backend contract is unchanged.
  */
+export const COMBINED_ORS_BES_SECTION = 'overseas-sites-and-bes-evidence'
+export const COMBINED_ORS_BES_LABEL =
+  'Overseas reprocessing sites and BES evidence'
+
+/** The two backend section keys the combined checkbox expands to. */
+export const COMBINED_ORS_BES_KEYS = [
+  'broadly-equivalent-standards',
+  'overseas-reprocessing-sites'
+]
+
+/** The checkbox values the re-accreditation query form offers. */
 export const QUERY_SECTIONS = [
   'authority-to-issue',
   'business-plan',
   'prn-tonnage',
   'sampling-and-inspection-plan',
-  'broadly-equivalent-standards',
-  'overseas-reprocessing-sites'
+  COMBINED_ORS_BES_SECTION
 ]
 
 /**
- * RA-367. Broadly equivalent standards (BES) and Overseas reprocessing sites
- * (ORS) are EXPORTER-ONLY query areas. They must render on the query form for
- * an exporter application and be absent for a reprocessor one.
+ * RA-367. The combined BES + ORS checkbox is EXPORTER-ONLY. It must render on
+ * the query form for an exporter application and be absent for a reprocessor
+ * one.
  *
- * The frontend gates them on `isExporterApplication(workItem)`, which RA-314
+ * The frontend gates it on `isExporterApplication(workItem)`, which RA-314
  * rewrote to read the work item payload's `wasteProcessingType`: exporter iff
  * that field is the string 'exporter' (case-insensitive). Absent or any other
  * value → reprocessor. (Overseas-sites presence is NOT the signal — that was an
  * earlier proxy, since replaced; confirmed against management-fe main.)
  */
-export const EXPORTER_ONLY_QUERY_SECTIONS = [
-  'broadly-equivalent-standards',
-  'overseas-reprocessing-sites'
-]
+export const EXPORTER_ONLY_QUERY_SECTIONS = [COMBINED_ORS_BES_SECTION]
 
 /** The four query areas every application shows, exporter or reprocessor. */
 export const REPROCESSOR_QUERY_SECTIONS = QUERY_SECTIONS.filter(
@@ -72,6 +87,12 @@ class QueryPage extends Page {
    */
   async hasSection(value) {
     return this.sectionCheckbox(value).isExisting()
+  }
+
+  /** The visible label of a section's checkbox. */
+  async sectionLabelText(value) {
+    const id = await this.sectionCheckbox(value).getAttribute('id')
+    return (await $(`label[for="${id}"]`).getText()).trim()
   }
 
   async selectSection(value) {
@@ -175,6 +196,36 @@ class QueryPage extends Page {
    */
   async characterCountMessage() {
     return $('.govuk-character-count__status').getText()
+  }
+
+  /**
+   * RA-698. The add-ORS form: the ORS being queried and its one fixed scope.
+   * An add-ORS item is one ORS, so there are no section checkboxes at all.
+   */
+  addOrsSummary() {
+    return $('[data-testid="query-ors"]')
+  }
+
+  addOrsName() {
+    return $('[data-testid="query-ors-name"]')
+  }
+
+  addOrsId() {
+    return $('[data-testid="query-ors-id"]')
+  }
+
+  addOrsLocation() {
+    return $('[data-testid="query-ors-location"]')
+  }
+
+  /** The fixed "Overseas reprocessing site and BES evidence" scope row. */
+  addOrsScope() {
+    return $('[data-testid="query-scope"]')
+  }
+
+  /** Whether the "Which areas do you want to query?" group is rendered. */
+  async hasSectionGroup() {
+    return $('[data-testid="query-sections"]').isExisting()
   }
 
   async waitForDetailUrl(workItemId) {
