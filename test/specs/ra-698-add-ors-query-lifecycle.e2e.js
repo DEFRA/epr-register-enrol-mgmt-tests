@@ -37,6 +37,7 @@ import {
 const REASON = 'Please confirm the ORS address and upload the BES certificate.'
 const NEW_NAME = 'RA-698 Renamed ORS'
 const NEW_CONTACT = 'Pierre Martin'
+const REPLAY_CONTACT_PHONE = '+34 600 698 698'
 const ROUND_TWO_REASON =
   'Please update the rejected loads arrangements and the interim site.'
 const ROUND_TWO_REJECTED_LOADS =
@@ -50,6 +51,10 @@ const NEW_BES_FILE = {
   s3Bucket: 'bes-evidence',
   besEvidenceValidFromDate: '2026-02-01',
   besEvidenceExpiryDate: '2027-12-31'
+}
+const FIRST_RESPONSE = {
+  site: { siteName: NEW_NAME, contactName: NEW_CONTACT },
+  besEvidenceFiles: [NEW_BES_FILE]
 }
 const ROUND_TWO_BES_FILE = {
   ...NEW_BES_FILE,
@@ -153,10 +158,7 @@ describe('RA-698 add-ORS query, response and duly make', () => {
     })
 
     it('moves the item to Updated when the operator resubmits', async () => {
-      await resumeAddOrsFromQuery(workItemId, {
-        site: { siteName: NEW_NAME, contactName: NEW_CONTACT },
-        besEvidenceFiles: [NEW_BES_FILE]
-      })
+      await resumeAddOrsFromQuery(workItemId, FIRST_RESPONSE)
       await workItems.openWorkItem(workItemId)
       await detail.assertState('Updated')
       await detail.assertStateId('updated')
@@ -186,15 +188,36 @@ describe('RA-698 add-ORS query, response and duly make', () => {
       await detail.assertAuditEntry('Query responded')
     })
 
-    it('treats a repeated response as a no-op that keeps the first one', async () => {
-      await resumeAddOrsFromQuery(workItemId, {
-        site: { siteName: 'A second answer' }
-      })
+    it('treats an identical repeated response (a retry) as a no-op', async () => {
+      await resumeAddOrsFromQuery(workItemId, FIRST_RESPONSE)
       await workItems.openWorkItem(workItemId)
       await detail.assertStateId('updated')
       expect((await detail.operatorResponseChange('siteName')).newValue).toBe(
         NEW_NAME
       )
+      await detail.gotoAudit()
+      expect(
+        (await detail.auditEntriesForAction('query-responded')).length
+      ).toBe(1)
+    })
+
+    it('applies and audits a differing repeated response without changing state', async () => {
+      // A field the first response did not touch, so the later rounds' site
+      // assertions (siteName, contactName) are unaffected.
+      await resumeAddOrsFromQuery(workItemId, {
+        site: { contactPhone: REPLAY_CONTACT_PHONE }
+      })
+      const { payload } = await getWorkItem(workItemId)
+      expect(payload.site.contactPhone).toBe(REPLAY_CONTACT_PHONE)
+      expect(payload.site.siteName).toBe(NEW_NAME)
+      expect(payload.site.contactName).toBe(NEW_CONTACT)
+      await workItems.openWorkItem(workItemId)
+      await detail.assertStateId('updated')
+      await detail.gotoAudit()
+      await detail.assertAuditEntry('Query response updated')
+      expect(
+        (await detail.auditEntriesForAction('query-responded')).length
+      ).toBe(2)
     })
   })
 
@@ -274,15 +297,17 @@ describe('RA-698 add-ORS query, response and duly make', () => {
       )
     })
 
-    it('shows the second response and records both responses in the application history', async () => {
+    it('shows the second response and records every response in the application history', async () => {
       await workItems.openWorkItem(workItemId)
       expect((await detail.operatorResponseBesFileNames()).join(' ')).toContain(
         ROUND_TWO_BES_FILE.filename
       )
       await detail.gotoAudit()
+      // Round one's response, the differing replay's "Query response
+      // updated" entry and round two's response.
       expect(
         (await detail.auditEntriesForAction('query-responded')).length
-      ).toBe(2)
+      ).toBe(3)
     })
   })
 })
