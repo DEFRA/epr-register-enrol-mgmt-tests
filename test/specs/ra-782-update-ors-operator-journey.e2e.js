@@ -1,4 +1,4 @@
-import { expect } from '@wdio/globals'
+import { browser, expect } from '@wdio/globals'
 import login from '../page-objects/login.page.js'
 import workItems from '../page-objects/work-items.page.js'
 import detail from '../page-objects/work-item-detail.page.js'
@@ -9,7 +9,12 @@ import {
   startAssessment
 } from '../support/standard-lifecycle-journey.js'
 import { getWorkItem } from '../support/decision-api.js'
-import { describeIfMonorepoMongo } from '../support/operator-change-requests.js'
+import { describeIfMonorepoMongo } from '../support/operator-journey-store.js'
+import {
+  statusPushes,
+  waitForStatusPushes
+} from '../support/status-push-audit.js'
+import { UPDATE_ORS_TYPE_ID } from '../support/update-overseas-site-api.js'
 import {
   GDANSK,
   PORTO,
@@ -22,6 +27,9 @@ import {
 
 const NEW_NAME = 'Gdansk Recycling Centre'
 const NEW_TOWN = 'Vila Nova de Gaia'
+
+// How long a step that should push nothing is watched for a push.
+const NO_PUSH_WATCH_MS = 5000
 
 /**
  * RA-782. An ORS update submitted in the operator journey, decided in Case
@@ -85,7 +93,7 @@ describeIfMonorepoMongo(
 
       it('raises an ORS update work item showing the change', async () => {
         const workItem = await getWorkItem(update.id)
-        expect(workItem.typeId).toBe('update-overseas-site')
+        expect(workItem.typeId).toBe(UPDATE_ORS_TYPE_ID)
         expect(workItem.payload.applicationReference).toBe(update.reference)
 
         await workItems.openWorkItem(update.id)
@@ -101,13 +109,31 @@ describeIfMonorepoMongo(
       it('duly making, with no payment date, reaches the operator journey', async () => {
         await dulyMake(update.id, { paymentDate: false })
         const { site } = await waitForOrsUpdateItemStatus(update, 'DulyMade')
-        expect(site.pendingRequestId).not.toBeNull()
+        expect(site.pendingRequestId).toEqual(expect.any(String))
         expect(site.site.siteName).toBe(GDANSK.siteName)
       })
 
       it('approving, with no valid from date, is not pushed: the ORS keeps its name', async () => {
+        // Only the duly made push, which the operator journey applied.
+        const [dulyMade] = await waitForStatusPushes(update.id, 1)
+        expect(dulyMade.action).toBe('status-push-sent')
         await startAssessment(update.id)
         await logDecision(update.id, 'approved')
+
+        // A push runs in the background after the response, so check that
+        // none follows the decision for a while rather than read once.
+        let pushes
+        const watchUntil = Date.now() + NO_PUSH_WATCH_MS
+        await browser.waitUntil(
+          async () => {
+            pushes = await statusPushes(update.id)
+            return pushes.length > 1 || Date.now() >= watchUntil
+          },
+          { timeout: NO_PUSH_WATCH_MS * 4, interval: 500 }
+        )
+        expect(pushes.map((entry) => entry.details.actionId)).toEqual([
+          'duly-make'
+        ])
         const { item, site } = await getOrsUpdateItem(update)
         expect(item.status).toBe('DulyMade')
         expect(site.site.siteName).toBe(GDANSK.siteName)

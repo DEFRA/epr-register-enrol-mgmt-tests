@@ -1766,7 +1766,9 @@ class WorkItemDetailPage extends Page {
 
   /**
    * RA-782. The BES evidence files listed, as { text, isNew }: the ORS's
-   * own, then the ones the update adds, tagged New.
+   * own, then the ones the update adds, marked new. `isNew` is whether the
+   * file carries the `app-detail-document-new` marker, whatever its form (a
+   * "NEW:" prefix before the name, formerly a "New" tag after it).
    */
   async updateOrsBesFiles() {
     return browser.execute(() =>

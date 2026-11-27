@@ -18,14 +18,13 @@
  *
  * Granting a site is one-way, and a request in progress locks its site, so
  * reruns need the organisation reset. That needs the stack's MongoDB, which
- * both backends share there: set MONOREPO_MONGO_URL (wdio.local.conf.js
- * defaults it to the root stack's published port). The fe-tests @monorepo
+ * both backends share there: set MONOREPO_MONGO_URL (see
+ * operator-journey-store.js). The fe-tests @monorepo
  * specs use the same organisation and reset it the same way; never run the
  * two suites at once.
  */
 
 import { browser } from '@wdio/globals'
-import { Binary, MongoClient } from 'mongodb'
 
 import {
   cdpUploaderRequest,
@@ -33,6 +32,21 @@ import {
   operatorBackendRequest
 } from './backend-api.js'
 import { SIMULATED_DELIVERED_EMAIL } from './operator-backend-api.js'
+import {
+  FINAL_ITEM_STATUSES,
+  OPERATOR_DATABASE,
+  changesPath as organisationChangesPath,
+  deleteChangeRequests,
+  findSeededAccreditation,
+  getChangeRequests as getOrganisationChangeRequests,
+  storedItem as storedOrganisationItem,
+  withMongo
+} from './operator-journey-store.js'
+
+export {
+  describeIfMonorepoMongo,
+  isMonorepoMongoConfigured
+} from './operator-journey-store.js'
 
 export const IN_YEAR_CHANGE_ORGANISATION_ID = '50019'
 
@@ -68,56 +82,16 @@ export const DELHI = {
 }
 
 const TYPE_ID = 'add-overseas-site'
-const OPERATOR_DATABASE = 'epr'
-const CASE_MANAGEMENT_DATABASE = 'epr-register-case-management'
-
-/** Items no longer being decided: granted, refused or withdrawn. */
-const FINAL_ITEM_STATUSES = new Set(['Approved', 'Rejected', 'Withdrawn'])
-
-export const isMonorepoMongoConfigured = () =>
-  Boolean(process.env.MONOREPO_MONGO_URL)
-
-/** `describe` where the monorepo Mongo is configured, `describe.skip` anywhere else. */
-export const describeIfMonorepoMongo = (name, suite) =>
-  (isMonorepoMongoConfigured() ? describe : describe.skip)(name, suite)
-
-async function withMongo(work) {
-  const client = new MongoClient(process.env.MONOREPO_MONGO_URL)
-  try {
-    await client.connect()
-    return await work(client)
-  } finally {
-    await client.close()
-  }
-}
-
-/** A .NET Guid as that backend stores it (a UUID binary), as a string. */
-function guidString(value) {
-  return value instanceof Binary ? value.toUUID().toHexString() : String(value)
-}
 
 const changesPath = (applicationId, suffix = '') =>
-  `/api/v1/accreditation-changes/${IN_YEAR_CHANGE_ORGANISATION_ID}/${applicationId}${suffix}`
+  organisationChangesPath(IN_YEAR_CHANGE_ORGANISATION_ID, applicationId, suffix)
 
 /**
- * The seeded accreditation application's id ("a", the year, then the org id
- * padded to 19 digits), for the year the seed ran in, or null where that
- * backend has no such accreditation (or in-year changes are off).
+ * The seeded accreditation application's id, or null where that backend has
+ * no such accreditation (or in-year changes are off).
  */
-export async function findInYearChangeAccreditation() {
-  const year = new Date().getUTCFullYear()
-  for (const candidate of [year, year - 1]) {
-    const applicationId = `a${candidate}${IN_YEAR_CHANGE_ORGANISATION_ID.padStart(19, '0')}`
-    const result = await operatorBackendRequest(
-      'GET',
-      changesPath(applicationId)
-    )
-    if (result.status === 200) {
-      return applicationId
-    }
-  }
-  return null
-}
+export const findInYearChangeAccreditation = () =>
+  findSeededAccreditation(IN_YEAR_CHANGE_ORGANISATION_ID)
 
 /**
  * Deletes 50019's change requests, the add-ORS work items case management
@@ -138,26 +112,11 @@ export async function resetInYearChangeOrganisation({ siteId, pristine = {} }) {
     ])
   )
   return withMongo(async (client) => {
-    const operator = client.db(OPERATOR_DATABASE)
-    const caseManagement = client.db(CASE_MANAGEMENT_DATABASE)
-    const workItemFilter = {
-      typeId: TYPE_ID,
-      'payload.operatorOrganisationId': organisationId
-    }
-
-    const requestIds = await caseManagement
-      .collection('workItems')
-      .distinct('payload.operatorRequestId', workItemFilter)
-    const submissions = await caseManagement
-      .collection('submissions')
-      .deleteMany({ _id: { $in: requestIds } })
-    const workItems = await caseManagement
-      .collection('workItems')
-      .deleteMany(workItemFilter)
-    const changeRequests = await operator
-      .collection('accreditationChangeRequests')
-      .deleteMany({ organisationId })
-    const applications = await operator
+    const deleted = await deleteChangeRequests(client, organisationId, [
+      TYPE_ID
+    ])
+    const applications = await client
+      .db(OPERATOR_DATABASE)
       .collection('accreditationApplications')
       .updateMany(
         { organisationId, 'overseasSites.sites.siteId': siteId },
@@ -171,12 +130,7 @@ export async function resetInYearChangeOrganisation({ siteId, pristine = {} }) {
         { arrayFilters: [{ 'site.siteId': siteId }] }
       )
 
-    return {
-      changeRequests: changeRequests.deletedCount,
-      workItems: workItems.deletedCount,
-      submissions: submissions.deletedCount,
-      applications: applications.modifiedCount
-    }
+    return { ...deleted, applications: applications.modifiedCount }
   })
 }
 
@@ -185,25 +139,14 @@ export async function resetInYearChangeOrganisation({ siteId, pristine = {} }) {
  * and its status-push ordering watermark, which its API does not show.
  */
 async function storedItem(itemId) {
-  return withMongo(async (client) => {
-    const requests = await client
-      .db(OPERATOR_DATABASE)
-      .collection('accreditationChangeRequests')
-      .find({ organisationId: IN_YEAR_CHANGE_ORGANISATION_ID })
-      .toArray()
-    const item = requests
-      .flatMap((request) => request.sites)
-      .find((site) => guidString(site.itemId) === itemId)
-    if (!item) {
-      throw new Error(`No change request item ${itemId} is stored`)
-    }
-    return {
-      workItemId: item.caseManagementWorkItemId
-        ? guidString(item.caseManagementWorkItemId)
-        : null,
-      statusUpdatedAt: item.caseManagementStatusUpdatedAt ?? null
-    }
-  })
+  const item = await storedOrganisationItem(
+    IN_YEAR_CHANGE_ORGANISATION_ID,
+    itemId
+  )
+  if (!item) {
+    throw new Error(`No change request item ${itemId} is stored`)
+  }
+  return item
 }
 
 /** The item's status-push ordering watermark, as a Date (null before any push). */
@@ -212,13 +155,8 @@ export async function itemStatusWatermark(itemId) {
 }
 
 /** The accreditation's sites and its change requests, newest first. */
-async function getChangeRequests(applicationId) {
-  return expectStatus(
-    await operatorBackendRequest('GET', changesPath(applicationId)),
-    200,
-    `GET change requests for ${applicationId}`
-  ).body
-}
+const getChangeRequests = (applicationId) =>
+  getOrganisationChangeRequests(IN_YEAR_CHANGE_ORGANISATION_ID, applicationId)
 
 /**
  * The accreditation's site and the change request item, as that backend's

@@ -17,27 +17,39 @@
  * A grant changes the ORS for good, and a submitted request locks its ORS, so
  * `resetInYearUpdateOrganisation` deletes 50025's change requests (and the
  * work items and submissions they raised) and puts ORSs 001 and 002 back as
- * the seed leaves them: on the accreditation application, and in the domain
- * model (the root stack runs dual-write, so the first write migrates the
- * application there), where the versions a grant wrote are deleted. That
- * needs the stack's MongoDB: MONOREPO_MONGO_URL (see
- * operator-change-requests.js). The fe-tests @monorepo specs
+ * the seed leaves them, on the accreditation application. When dual-write is
+ * on (it is off on the committed root stack; only a local compose override
+ * turns it on, and then the first write migrates the application), it also
+ * rolls the domain model's versions of those ORSs and of the Accreditation
+ * back to before the first grant. The seed's copy is kept here, rather than a
+ * snapshot taken before the spec, so a run killed before its `after` hook is
+ * still put right by the next; keep it in step with the seed. That needs the
+ * stack's MongoDB: MONOREPO_MONGO_URL (see operator-journey-store.js). The
+ * fe-tests @monorepo specs
  * update-accredited-ors and review-ors-update use the same organisation and
  * reset it the same way; never run them at the same time as this.
  */
 
 import { browser } from '@wdio/globals'
-import { Binary, MongoClient, ObjectId } from 'mongodb'
+import { ObjectId } from 'mongodb'
 
 import { expectStatus, operatorBackendRequest } from './backend-api.js'
 import { SIMULATED_DELIVERED_EMAIL } from './operator-backend-api.js'
+import {
+  FINAL_ITEM_STATUSES,
+  OPERATOR_DATABASE,
+  changesPath as organisationChangesPath,
+  deleteChangeRequests,
+  findSeededAccreditation,
+  getChangeRequests as getOrganisationChangeRequests,
+  storedItem,
+  withMongo
+} from './operator-journey-store.js'
+import { UPDATE_ORS_TYPE_ID } from './update-overseas-site-api.js'
 
 export const IN_YEAR_UPDATE_ORGANISATION_ID = '50025'
 
-const UPDATE_TYPE_ID = 'update-overseas-site'
-const ORS_CHANGE_TYPE_IDS = ['add-overseas-site', UPDATE_TYPE_ID]
-const OPERATOR_DATABASE = 'epr'
-const CASE_MANAGEMENT_DATABASE = 'epr-register-case-management'
+const ORS_CHANGE_TYPE_IDS = ['add-overseas-site', UPDATE_ORS_TYPE_ID]
 
 /** As the dev seed leaves an accredited 50025 ORS on the accreditation. */
 const interimSite = (siteId, siteNumber, siteName) => ({
@@ -126,45 +138,15 @@ export const PORTO = {
     })
 }
 
-/** Items no longer being decided: granted, refused or withdrawn. */
-const FINAL_ITEM_STATUSES = new Set(['Approved', 'Rejected', 'Withdrawn'])
-
-async function withMongo(work) {
-  const client = new MongoClient(process.env.MONOREPO_MONGO_URL)
-  try {
-    await client.connect()
-    return await work(client)
-  } finally {
-    await client.close()
-  }
-}
-
-/** A .NET Guid as that backend stores it (a UUID binary), as a string. */
-function guidString(value) {
-  return value instanceof Binary ? value.toUUID().toHexString() : String(value)
-}
-
 const changesPath = (applicationId, suffix = '') =>
-  `/api/v1/accreditation-changes/${IN_YEAR_UPDATE_ORGANISATION_ID}/${applicationId}${suffix}`
+  organisationChangesPath(IN_YEAR_UPDATE_ORGANISATION_ID, applicationId, suffix)
 
 /**
- * The seeded accreditation application's id ("a", the year, then the org id
- * padded to 19 digits), or null where that backend has no such accreditation.
+ * The seeded accreditation application's id, or null where that backend has
+ * no such accreditation.
  */
-export async function findInYearUpdateAccreditation() {
-  const year = new Date().getUTCFullYear()
-  for (const candidate of [year, year - 1]) {
-    const applicationId = `a${candidate}${IN_YEAR_UPDATE_ORGANISATION_ID.padStart(19, '0')}`
-    const result = await operatorBackendRequest(
-      'GET',
-      changesPath(applicationId)
-    )
-    if (result.status === 200) {
-      return applicationId
-    }
-  }
-  return null
-}
+export const findInYearUpdateAccreditation = () =>
+  findSeededAccreditation(IN_YEAR_UPDATE_ORGANISATION_ID)
 
 /** The year in an accreditation application id ("a" then the year). */
 const yearOf = (applicationId) => Number(applicationId.slice(1, 5))
@@ -173,33 +155,21 @@ const yearOf = (applicationId) => Number(applicationId.slice(1, 5))
  * Deletes 50025's change requests, the ORS work items case management raised
  * for them and the submissions those came in, and puts `sites` (GDANSK,
  * PORTO) back as the dev seed leaves them: on the accreditation application,
- * keeping the domain model id the migration gave each, and in the domain
- * model, by deleting the ORS versions a grant wrote and making the one
- * before current again.
+ * keeping the domain model id the migration gave each, and, when dual-write
+ * is on, in the domain model, by rolling those ORSs' versions and the
+ * Accreditation's back to before the first grant. Anything unexpected there
+ * is returned as `mismatches` and said in the run log.
  */
 export async function resetInYearUpdateOrganisation({ applicationId, sites }) {
   const organisationId = IN_YEAR_UPDATE_ORGANISATION_ID
   const seeded = sites.map((site) => site.seeded(yearOf(applicationId)))
   return withMongo(async (client) => {
     const operator = client.db(OPERATOR_DATABASE)
-    const caseManagement = client.db(CASE_MANAGEMENT_DATABASE)
-    const workItemFilter = {
-      typeId: { $in: ORS_CHANGE_TYPE_IDS },
-      'payload.operatorOrganisationId': organisationId
-    }
-
-    const requestIds = await caseManagement
-      .collection('workItems')
-      .distinct('payload.operatorRequestId', workItemFilter)
-    const submissions = await caseManagement
-      .collection('submissions')
-      .deleteMany({ _id: { $in: requestIds } })
-    const workItems = await caseManagement
-      .collection('workItems')
-      .deleteMany(workItemFilter)
-    const changeRequests = await operator
-      .collection('accreditationChangeRequests')
-      .deleteMany({ organisationId })
+    const deleted = await deleteChangeRequests(
+      client,
+      organisationId,
+      ORS_CHANGE_TYPE_IDS
+    )
 
     const applications = operator.collection('accreditationApplications')
     // The accreditation application's id is its document's _id.
@@ -218,20 +188,39 @@ export async function resetInYearUpdateOrganisation({ applicationId, sites }) {
         { $set: { 'overseasSites.sites': seededSites(application, seeded) } }
       )
     ).modifiedCount
-    const orsVersions = application.registrationEntityId
-      ? await rollBackGrantedOrsVersions(
+    const mismatches = []
+    let orsVersions = 0
+    if (application.registrationEntityId) {
+      for (const { orsId } of sites) {
+        orsVersions += await rollBackGrants(
           operator.collection('overseasSiteVersions'),
-          application.registrationEntityId,
-          sites
+          { registrationId: application.registrationEntityId, orsId },
+          `ORS ${orsId}`,
+          mismatches
+        )
+      }
+    }
+    const accreditationVersions = application.accreditationEntityId
+      ? await rollBackGrants(
+          operator.collection('accreditationVersions'),
+          { entityId: application.accreditationEntityId },
+          'Accreditation',
+          mismatches
         )
       : 0
+    if (mismatches.length > 0) {
+      // eslint-disable-next-line no-console -- say in the run log what the reset could not put right
+      console.warn(
+        `resetInYearUpdateOrganisation: ${mismatches.length} domain model mismatch(es):\n  ${mismatches.join('\n  ')}`
+      )
+    }
 
     return {
-      changeRequests: changeRequests.deletedCount,
-      workItems: workItems.deletedCount,
-      submissions: submissions.deletedCount,
+      ...deleted,
       applications: applicationsChanged,
-      orsVersions
+      orsVersions,
+      accreditationVersions,
+      mismatches
     }
   })
 }
@@ -252,68 +241,84 @@ function seededSites(application, seeded) {
   })
 }
 
+const GRANTED = 'ChangeRequestGranted'
+const CURRENT_VALID_TO = new Date('9999-12-31T23:59:59.999Z')
+
 /**
- * Deletes the domain model versions a grant wrote for each of `sites`' ORSs
- * under the registration and makes the version before current again.
- * Returns how many were deleted.
+ * Rolls a domain model entity (`filter` picks its versions) back to the
+ * version before its first ChangeRequestGranted one: deletes that grant and
+ * every version after it (a version written on top of a grant carries the
+ * grant's changes) and makes the version before current again. Returns how
+ * many it deleted. Anything unexpected (a non-grant version on top of a
+ * grant, no version before the grant, not exactly one current version, a
+ * current version that is itself a grant) is pushed onto `mismatches`. An
+ * entity with no versions (not migrated) is left alone.
  */
-async function rollBackGrantedOrsVersions(versions, registrationId, sites) {
+async function rollBackGrants(versions, filter, label, mismatches) {
+  if ((await versions.countDocuments(filter)) === 0) {
+    return 0
+  }
   let deleted = 0
-  for (const { orsId } of sites) {
-    const filter = { registrationId, orsId }
-    deleted += (
+  const [firstGrant] = await versions
+    .find({ ...filter, 'lastChange.reason': GRANTED })
+    .sort({ version: 1 })
+    .limit(1)
+    .toArray()
+  if (firstGrant) {
+    const onTop = await versions
+      .find({
+        ...filter,
+        version: { $gt: firstGrant.version },
+        'lastChange.reason': { $ne: GRANTED }
+      })
+      .toArray()
+    for (const version of onTop) {
+      mismatches.push(
+        `${label} version ${version.version} (${version.lastChange?.reason}) was written on top of a grant and is deleted with it`
+      )
+    }
+    deleted = (
       await versions.deleteMany({
         ...filter,
-        'lastChange.reason': 'ChangeRequestGranted'
+        version: { $gte: firstGrant.version }
       })
     ).deletedCount
-    if ((await versions.countDocuments({ ...filter, isCurrent: true })) > 0) {
-      continue
-    }
-    const [latest] = await versions
+    const [before] = await versions
       .find(filter)
       .sort({ version: -1 })
       .limit(1)
       .toArray()
-    if (latest) {
+    if (before) {
       await versions.updateOne(
-        { _id: latest._id },
-        {
-          $set: {
-            isCurrent: true,
-            validTo: new Date('9999-12-31T23:59:59.999Z')
-          }
-        }
+        { _id: before._id },
+        { $set: { isCurrent: true, validTo: CURRENT_VALID_TO } }
       )
+    } else {
+      mismatches.push(`${label} has no version before its first grant`)
     }
+  }
+  const current = await versions.find({ ...filter, isCurrent: true }).toArray()
+  if (current.length !== 1) {
+    mismatches.push(`${label} has ${current.length} current versions`)
+  } else if (current[0].lastChange?.reason === GRANTED) {
+    mismatches.push(
+      `${label} version ${current[0].version}, now current, is a grant`
+    )
   }
   return deleted
 }
 
 /** That backend's own record of the item's case management work item id. */
 async function storedWorkItemId(itemId) {
-  return withMongo(async (client) => {
-    const requests = await client
-      .db(OPERATOR_DATABASE)
-      .collection('accreditationChangeRequests')
-      .find({ organisationId: IN_YEAR_UPDATE_ORGANISATION_ID })
-      .toArray()
-    const item = requests
-      .flatMap((request) => request.sites)
-      .find((site) => guidString(site.itemId) === itemId)
-    return item?.caseManagementWorkItemId
-      ? guidString(item.caseManagementWorkItemId)
-      : null
-  })
+  return (
+    (await storedItem(IN_YEAR_UPDATE_ORGANISATION_ID, itemId))?.workItemId ??
+    null
+  )
 }
 
-async function getChangeRequests(applicationId) {
-  return expectStatus(
-    await operatorBackendRequest('GET', changesPath(applicationId)),
-    200,
-    `GET change requests for ${applicationId}`
-  ).body
-}
+/** The accreditation's sites and its change requests, newest first. */
+const getChangeRequests = (applicationId) =>
+  getOrganisationChangeRequests(IN_YEAR_UPDATE_ORGANISATION_ID, applicationId)
 
 /**
  * The accredited ORS and the change request item, as that backend's API shows
@@ -366,7 +371,7 @@ export async function submitOrsUpdateChangeRequest({
     await operatorBackendRequest(
       'POST',
       changesPath(applicationId, '/requests/current/sites'),
-      { body: { siteId: site.siteId, changeType: UPDATE_TYPE_ID } }
+      { body: { siteId: site.siteId, changeType: UPDATE_ORS_TYPE_ID } }
     ),
     [200, 201],
     `change ORS ${site.orsId} in a change request`

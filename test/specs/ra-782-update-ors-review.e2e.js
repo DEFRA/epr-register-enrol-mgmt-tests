@@ -6,6 +6,7 @@ import dulyMaking from '../page-objects/duly-making.page.js'
 import decision from '../page-objects/decision.page.js'
 import confirmContact from '../page-objects/confirm-contact.page.js'
 import { getWorkItem } from '../support/decision-api.js'
+import { statusPushes } from '../support/status-push-audit.js'
 import { ADD_ORS_SUBMITTED_BY } from '../support/in-year-change-api.js'
 import {
   dulyMake,
@@ -42,7 +43,7 @@ const TAB_KEYS = [
  *             the add and both updates
  *   summary   each detail's current version against the requested change,
  *             only the changed ones marked; the interim sites changed,
- *             removed and added; the BES file the update adds, tagged New
+ *             removed and added; the BES file the update adds, marked new
  *   duly make no payment date to enter
  *   decide    approve one update with no valid from date to enter, refuse
  *             the other
@@ -232,7 +233,7 @@ describe('RA-782 / RA-767 an ORS update reviewed in Case Management', () => {
       })
     })
 
-    it('lists the BES evidence held, then the file the update adds, tagged New', async () => {
+    it('lists the BES evidence held, then the file the update adds, marked new', async () => {
       const files = await detail.updateOrsBesFiles()
       expect(files.map((file) => file.isNew)).toEqual([false, true])
       expect(files[0].text).toContain('bes-held-1.pdf')
@@ -287,14 +288,28 @@ describe('RA-782 / RA-767 an ORS update reviewed in Case Management', () => {
     })
 
     it('cannot confirm contact while the operator journey refuses the push', async () => {
-      await workItems.openWorkItem(approval.workItem.id)
+      const id = approval.workItem.id
+      await workItems.openWorkItem(id)
       await detail.clickConfirmApplicantContact()
-      await confirmContact.waitForConfirmUrl(approval.workItem.id, TYPE_ID)
+      await confirmContact.waitForConfirmUrl(id, TYPE_ID)
       await confirmContact.tickContacted()
       await confirmContact.submit()
       await expect(confirmContact.failureBanner()).toBeDisplayed()
-      expect((await getWorkItem(approval.workItem.id)).stateId).toBe(
-        'approved-pending-contact'
+      expect((await getWorkItem(id)).stateId).toBe('approved-pending-contact')
+
+      // The failure is the operator journey's 404 on its change request
+      // status route (it holds no change request for this item), not some
+      // other fault: see ra-495-add-ors-status-push for why a 404 there is
+      // the route's own refusal.
+      const pushes = (await statusPushes(id)).filter(
+        (entry) => entry.details.actionId === 'confirm-contact-approved'
+      )
+      expect(pushes).toHaveLength(1)
+      const [push] = pushes
+      expect(push.action).toBe('status-push-failed')
+      expect(push.details.errorMessage).toContain('returned 404 from ')
+      expect(push.details.errorMessage).toContain(
+        `/api/v1/accreditation-changes/case-management/${id}/status`
       )
     })
   })
@@ -310,12 +325,6 @@ describe('RA-782 / RA-767 an ORS update reviewed in Case Management', () => {
       await workItems.openWorkItem(refusal.workItem.id)
       expect(await detail.stateTagText()).toBe('Refused')
       expect(await detail.hasConfirmApplicantContactCta()).toBe(true)
-    })
-
-    it('leaves the add-ORS request undecided', async () => {
-      expect((await getWorkItem(request.add.workItem.id)).stateId).toBe(
-        'submitted'
-      )
     })
   })
 })

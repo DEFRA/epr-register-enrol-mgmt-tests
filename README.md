@@ -158,14 +158,19 @@ skip everywhere else:
   it. It needs an accreditation with accredited ORSs, which only the root
   stack's seeded org 50025 has. A grant changes the ORS for good, so
   ra-782-update-ors-operator-journey.e2e.js resets 50025 before and after:
-  it deletes the org's change requests and their ORS work items and
-  submissions, and puts ORSs 001 and 002 back as the seed leaves them, on
-  the accreditation application and in the domain model (the root stack
-  runs dual-write, so the first write migrates the application; the reset
-  deletes the ORS versions a grant wrote). It skips without
-  `MONOREPO_MONGO_URL` or on a stack with no such org. The fe-tests
-  @monorepo specs update-accredited-ors and review-ors-update use 50025 too:
-  don't run them at the same time.
+  it deletes all of the org's change requests, including any made by hand
+  on the stack, and their ORS work items and submissions, and puts ORSs 001
+  and 002 back as the seed leaves them on the accreditation application.
+  When dual-write is on (it is off on the committed root stack; only a
+  local compose override turns it on), it also rolls the domain model's
+  versions of those ORSs and of the Accreditation back to before the first
+  grant, and says in the run log anything there it did not expect. It
+  skips without `MONOREPO_MONGO_URL` or on a stack with no such org. The
+  fe-tests @monorepo specs update-accredited-ors and review-ors-update use
+  50025 too: don't run them at the same time. The RA-782 specs need the
+  RA-782 service changes (management-be, management-fe and the operator
+  journey backend): merge this repo's RA-782 PR after theirs, as CI's
+  journey tests run the services' `:latest` images.
 
 Six cases, for five tickets, need a document no API can create:
 

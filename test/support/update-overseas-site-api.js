@@ -11,8 +11,10 @@
  * `submissionSize`. So the two groups share one SUB reference, and each
  * work item's Related change requests finds the other.
  *
- * An update is never charged: no `chargePence` and no `paymentReference`.
- * Each site is the ORS as it stands (add-ORS's site shape) with `previous`
+ * An update is never charged: the group's `chargePence` and each site's are
+ * 0, and its `paymentReference` is null, which the operator backend leaves
+ * out of the JSON it sends, so it is left out here too. Each site is the ORS
+ * as it stands (add-ORS's site shape) with `previous`
  * and `proposed` (the details the operator may change, as they were and as
  * requested), `interimSiteChanges` (`change`, `remove`, `add`) and
  * `addedBesEvidence` (BES files the update adds).
@@ -66,7 +68,7 @@ function buildUpdateSite({ token, organisationName, number }) {
     townOrCity: 'Gdansk',
     contactName: 'Site Manager',
     contactEmail: `ors${number}@example.com`,
-    contactPhone: '+48 58 123 4567',
+    contactPhone: '01632 960000',
     repatriatedLoads: 'Rejected loads are returned to the UK exporter.'
   }
   const changed = interimSite(number * 100 + 1, '001', 'Gdynia Transfer Hub')
@@ -165,12 +167,12 @@ export async function submitOrsUpdateRequest({
   const sites = Array.from({ length: updateCount }, (_, index) =>
     buildUpdateSite({ token, organisationName, number: index + 1 })
   )
-  // The add group's request, less what only a charged type carries.
+  // The add group's request, uncharged: no payment reference, nothing to pay.
   const shared = { ...addRequest.payload }
-  delete shared.chargePence
   delete shared.paymentReference
   const payload = {
     ...shared,
+    chargePence: 0,
     operatorRequestId: `${addRequest.payload.operatorRequestId}:${UPDATE_ORS_TYPE_ID}`,
     changeType: UPDATE_ORS_TYPE_ID,
     submissionReference: addBody.submissionReference,
